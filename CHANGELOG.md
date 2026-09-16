@@ -115,6 +115,15 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
 
 <!-- changelog -->
 
+## [v1.0.3](https://github.com/refpath/sigil_guard/compare/v1.0.2...v1.0.3) (2026-09-16)
+
+
+
+
+### Bug Fixes:
+
+* release: derive assertion from project version by Tobias Bohwalli
+
 ## [v1.0.2](https://github.com/refpath/sigil_guard/compare/v1.0.1...v1.0.2) (2026-09-16)
 
 
