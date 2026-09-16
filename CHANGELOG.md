@@ -115,6 +115,33 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
 
 <!-- changelog -->
 
+## [v1.0.2](https://github.com/refpath/sigil_guard/compare/v1.0.1...v1.0.2) (2026-09-16)
+
+
+
+
+### Bug Fixes:
+
+* json: validate every normalized object key by Tobias Bohwalli
+
+* guides: preserve structured values and validate framework callbacks by Tobias Bohwalli
+
+* stream: validate configuration before constructing sanitizers by Tobias Bohwalli
+
+* vault: reject malformed encryption without losing entries by Tobias Bohwalli
+
+* storage: bound trust reads and validate complete anchor writes by Tobias Bohwalli
+
+* audit: bind proofs and statements to complete checkpoint state by Tobias Bohwalli
+
+* attestation: enforce envelope construction limits by Tobias Bohwalli
+
+* json: reject ambiguous evidence objects and canonical keys by Tobias Bohwalli
+
+### Performance Improvements:
+
+* audit: reuse indexed Merkle trees for batch inclusion proofs by Tobias Bohwalli
+
 ## [v1.0.1](https://github.com/refpath/sigil_guard/compare/v1.0.0...v1.0.1) (2026-09-07)
 
 
