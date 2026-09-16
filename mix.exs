@@ -1,7 +1,7 @@
 defmodule SigilGuard.MixProject do
   use Mix.Project
 
-  @version "1.0.3"
+  @version "1.0.4"
   @source_url "https://github.com/refpath/sigil_guard"
 
   def project do
