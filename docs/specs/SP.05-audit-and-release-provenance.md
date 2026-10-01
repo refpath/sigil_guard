@@ -649,7 +649,7 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
 ## SigilGuard.HTTPClient Behaviour (D9)
 
 This behaviour exists for security and host-owned transport, not to avoid a
-dependency (D9, R.07). CLAUDE.md rule 8 forbids network in core decision
+dependency (D9, R.07). AGENTS.md rule 8 forbids network in core decision
 paths, and the project charter puts transport ownership with the host; a
 host-provided client satisfies both. Finch separately leaves the dependency
 list in M6 (SP.12) because the legacy remote bundle path that consumed it is
@@ -673,7 +673,7 @@ defmodule SigilGuard.HTTPClient do
 end
 ```
 
-Contract per CLAUDE.md rule 8:
+Contract per AGENTS.md rule 8:
 
 | Aspect | Rule |
 |--------|------|

@@ -165,7 +165,7 @@ through the host's release process, not through a mirror an attacker can
 occupy. The bundle is one document loaded atomically; there are no
 independently fetched metadata files to mix, so mix-and-match is
 structurally impossible. An online timestamp role would also insert a
-network dependency into the core verification path, which CLAUDE.md rule 8
+network dependency into the core verification path, which AGENTS.md rule 8
 and R.01's local-first decision forbid. Freshness in the embedded model is
 bounded instead by per-role expiry plus the rollback floor: a stale bundle
 either expires or falls below the floor of any host that has accepted a

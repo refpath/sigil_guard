@@ -23,7 +23,7 @@ rewrite. All milestones described below are complete.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
-is already gone and stays gone (`CLAUDE.md` rule 1) - ignore any NIF, rustler,
+is already gone and stays gone (`AGENTS.md` rule 1) - ignore any NIF, rustler,
 precompiled-binary, or `SIGIL_GUARD_BUILD` references in history. Do not carry
 the v0.2 `Registry`, `Envelope`, `Profile`, `protocol_profile`, or
 `registry_*` surfaces into v3; they are deleted in M6 with 1:1 migration
@@ -44,7 +44,7 @@ encodes these as executable assertions and MUST stay green at every milestone
 exit - it is the tier-1 regression gate.
 
 **Naming and privacy.** Never write the private consumer project's name, or
-its internal module names, into any repository file (`CLAUDE.md` rule 11).
+its internal module names, into any repository file (`AGENTS.md` rule 11).
 Refer to it only as "the reference consumer"; neutralize example identifiers
 (e.g. `host:operator:42`). Maintain this in every new file.
 
@@ -55,11 +55,9 @@ manual major-version alignment is committed and verified with
 publish, push, tag, and production consumer movement manually; consumers move
 to `~> 1.0` only after the package is published and validated.
 
-**Gate and conventions.** Canonical gate `./bin/check` (full list in
-`CLAUDE.md`); coverage >= 95%; run `mix credo --strict` before each commit.
-Security modules need negative/tamper/replay/expiration/malformed tests
-(`CLAUDE.md` rule 9). Conventional commits, no AI attribution or co-author
-trailers (rule 10); the maintainer pushes manually.
+**Gate and conventions.** Follow [AGENTS.md](../../AGENTS.md) and the
+[quality guidance](../../.agents/standards/quality-gates.md) for the affected
+surface. The complete application gate is `./bin/check`, defined in `.check.exs`.
 
 ## Progress Summary
 
@@ -113,53 +111,18 @@ once. The
 Mandatory Gates section is a recurring pre-commit checklist and the Deferred
 section is post-1.0.0 parking; neither is counted here.
 
-## Operating Rules
+## Task Execution
 
-- Treat v3 as a breaking refactor.
-- Keep the package and project name `SigilGuard`.
-- Build around the Agent Trust Profile, not the abandoned upstream protocol.
-- Keep old SIGIL-shaped logic only as private implementation ancestry or
-  historical fixtures where useful.
-- Do not keep a public registry runtime path in v3.
-- Do not keep compatibility shims just to preserve v2 APIs.
-- Put v2-to-v3 migration in `MIGRATING-1.0.md` and `CHANGELOG.md`.
-- Keep SigilGuard embedded/local-first; host applications own transport,
-  auth, sandbox execution, storage, and deployment.
-- Add tests with every behavior change.
-- Keep coverage at or above 95%.
-- Execute milestones strictly in order; never start a task whose
-  milestone's dependencies are not complete, and never mark a milestone
-  complete before its exit criteria hold.
-- Any commit that changes, renames, or deletes a consumer-facing contract
-  MUST update `test/sigil_guard/conformance/consumer_contracts_test.exs`
-  and `MIGRATING-1.0.md` in the same commit.
-- From M6 exit onward the runtime dependency set is exactly the intended
-  minimal set — `:telemetry`, `:nimble_options`, `:jason` — plus OTP/stdlib
-  applications; new runtime dependencies require a decision record (D9).
+Repository policy is owned by [AGENTS.md](../../AGENTS.md). Honor task and
+milestone dependencies and mark work complete only when its acceptance and exit
+criteria hold. The completed milestones below describe the historical execution
+order; maintenance work should follow its current affected spec and contracts.
 
 ## Mandatory Gates For Every Commit
 
-- [ ] `git diff --check`.
-- [ ] Scan for forbidden inspiration-project terms without documenting the
-      literal terms in repo text.
-- [ ] Scan for dead public protocol/registry URLs without documenting those
-      literal URLs in repo text.
-- [ ] Scan v3 public docs/examples for old wire/config vocabulary except
-      migration docs and historical fixtures.
-- [ ] `mix format --check-formatted`.
-- [ ] `mix compile --warnings-as-errors`.
-- [ ] `mix credo --strict`.
-- [ ] `mix sobelow --config --compact`.
-- [ ] `./bin/check-secrets`.
-- [ ] `mix deps.audit`.
-- [ ] `mix hex.audit`.
-- [ ] `mix test --cover` with coverage >= 95%.
-- [ ] focused verdict mutation gate at 100%.
-- [ ] `mix sigil.livebook_check`.
-- [ ] `mix doctor`.
-- [ ] `mix dialyzer`.
-- [ ] `mix docs`.
-- [ ] `./bin/check`.
+- [ ] Run the checks selected by the
+      [quality guidance](../../.agents/standards/quality-gates.md).
+- [ ] Report actual results and any skipped, failed, or blocked checks.
 
 ## Milestone F - Completed Foundation And Research
 
@@ -272,7 +235,7 @@ section is post-1.0.0 parking; neither is counted here.
       to R.NN pointers) plus `docs/research/README.md` index update.
 - [x] M0.18 `docs/README.md` and `docs/specs/README.md` updated with
       SP.13-SP.15 and R.02-R.07 rows, diagrams, ownership rules.
-- [x] M0.19 CLAUDE.md reconciliation: rules 3/4 restated for the
+- [x] M0.19 Agent contract reconciliation: rules 3/4 restated for the
       spec-governed v3 break; architecture section updated.
 - [x] M0.20 Root README status/roadmap block (0.2.x current, v1.0 planned
       breaking release) plus legacy trust-bundle bullet disambiguation.
@@ -2121,14 +2084,14 @@ section is post-1.0.0 parking; neither is counted here.
     the rule that host-owned sigil-prefixed boot keys stay untouched unless
     they configure SigilGuard itself. The successful M6.29 rerun found no
     additional SigilGuard migration-guide gaps.
-- [x] M6.31 CLAUDE.md final flip and docs/README v3 diagrams.
+- [x] M6.31 Agent contract finalization and docs/README v3 diagrams.
   - Spec: this file - Closed Decisions; `SP.01` - Public API Surface.
-  - AC: CLAUDE.md rule 3 names the `_agent_trust`/`_agent_confirmation`
+  - AC: AGENTS.md rule 3 names the `_agent_trust`/`_agent_confirmation`
     contracts as the compatibility surface; the architecture section drops
     Registry-era wording; `docs/README.md` diagrams show the v3 module
     topology.
   - Validation: docs lint (M0.22) green; vocabulary scan clean.
-  - Done: flipped CLAUDE.md to name the v3 Agent Trust compatibility surface
+  - Done: updated the repository contract to name the v3 Agent Trust compatibility surface
     (`_agent_trust`, `_agent_confirmation`, statements, trust bundles,
     manifests, and boundary decisions), removed Registry-era architecture
     wording, and expanded the architecture topology in `docs/README.md` with
@@ -2444,7 +2407,7 @@ section is post-1.0.0 parking; neither is counted here.
     run; and wired `mix bench --smoke` into CI. Verified `mix bench`,
     `mix bench --smoke`, and `mix run bench/compare.exs`.
 - [x] M7A.03 Remove the tool-gateway coverage exclusion.
-  - Spec: CLAUDE.md rule 9; `SP.03`.
+  - Spec: AGENTS.md rule 9; `SP.03`.
   - AC: `lib/sigil_guard/tool_gateway/base.ex` (1160 lines of shared
     enforcement code) is removed from `coveralls.json` `skip_files` and the
     suite still meets the >= 95% floor; any genuine coverage-attribution
@@ -2600,7 +2563,7 @@ section is post-1.0.0 parking; neither is counted here.
     fixture layouts intact, and added a cwd-changing regression proving the
     helper resolves fixtures from a subdirectory context.
 - [x] M7A.13 Remove real-clock sleeps from tests.
-  - Spec: CLAUDE.md rule 9 (deterministic security tests).
+  - Spec: AGENTS.md rule 9 (deterministic security tests).
   - AC: the `Process.sleep(500)` waits in `adaptive_detector_test.exs` and
     `hooks_test.exs` are replaced with injected clocks, telemetry
     assertions, or message-based synchronization; no real-time waits
@@ -2631,7 +2594,7 @@ section is post-1.0.0 parking; neither is counted here.
     coverage; verified `mix docs` and focused gateway/attestation/
     confirmation/trust-bundle/logger tests.
 - [x] M7A.15 Make Hex advisory triage executable and current.
-  - Spec: `R.07`; CLAUDE.md dependency and quality-gate rules.
+  - Spec: `R.07`; AGENTS.md dependency and quality-gate rules.
   - AC: the canonical clean-clone gate runs both `mix deps.audit` and
     `mix hex.audit`; every ignored Hex advisory has a current, documented
     reachability decision and re-review deadline; a newly published advisory
@@ -2901,7 +2864,7 @@ section is post-1.0.0 parking; neither is counted here.
     tamper, malformed, replay, expiry, quarantine, modern/legacy, and Apps tests
     are green.
 - [x] M9.12 Full release quality gate.
-  - AC: every `CLAUDE.md` and `done` skill gate passes; coverage remains at
+  - AC: the complete application quality gate passes; coverage remains at
     least 95%; no publish, push, or tag is performed.
 
 ## M10 - External Assessment Projection

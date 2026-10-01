@@ -85,7 +85,7 @@ security library: every dependency is an auditable claim that must justify
 itself on merit, the migration path is part of the trust model, and the
 interoperability surface determines where the gate can be inserted at all. A
 dependency count is not a marketing metric; the right posture is minimal and
-well-justified, not zero. CLAUDE.md rule 8
+well-justified, not zero. AGENTS.md rule 8
 forbids remote network calls in core decision paths without an explicit
 trust, timeout, retry, and failure model, which directly constrains how the
 one legitimate HTTP feature (audit anchoring) survives dependency removal.
@@ -157,7 +157,7 @@ finch therefore leaves the core because its consumer is gone, not on any
 dependency-purity ground. The anchor store is the one legitimate remaining
 HTTP need, and it is optional, host-triggered, and outside the core decision
 path. Converting it to a host-provided `SigilGuard.HTTPClient` behaviour is a
-security and ownership decision, not a way to shed a dependency: CLAUDE.md
+security and ownership decision, not a way to shed a dependency: AGENTS.md
 rule 8 forbids network in core decision paths, and the project charter puts
 transport ownership with the host. The behaviour makes the timeout, retry,
 and failure model an explicit documented contract in SP.05. An optional
@@ -365,7 +365,7 @@ NimbleOptions-rejection mandates.
   grounds. The audit HTTP anchor store MUST consume a host-provided
   `SigilGuard.HTTPClient` behaviour whose timeout, retry, and failure model
   SP.05 documents. That behaviour exists for security (no network in core
-  decision paths, CLAUDE.md rule 8) and host-owns-transport, NOT to avoid a
+  decision paths, AGENTS.md rule 8) and host-owns-transport, NOT to avoid a
   dependency. Configuring the HTTP anchor store without a client
   implementation MUST be a typed startup error, never a silent no-op. An
   optional `req`-based default anchor client MAY ship as an optional

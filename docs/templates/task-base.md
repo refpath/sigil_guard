@@ -15,19 +15,9 @@ sigil_guard:
 
 ## Quality Gates
 
-- [ ] `git diff --check`.
-- [ ] No forbidden project-inspiration terms.
-- [ ] No dead public SIGIL URLs.
-- [ ] `mix format --check-formatted`.
-- [ ] `mix compile --warnings-as-errors`.
-- [ ] `mix credo --strict`.
-- [ ] `mix sobelow --config --compact`.
-- [ ] `mix deps.audit`.
-- [ ] `mix test --cover` with coverage >= 95%.
-- [ ] `mix doctor`.
-- [ ] `mix dialyzer`.
-- [ ] `mix docs`.
-- [ ] `./bin/check`.
+- [ ] Apply [repository quality guidance](../../.agents/standards/quality-gates.md)
+      to the affected surface and delivery stage.
+- [ ] Record actual check results and material validation gaps.
 
 ## [SPEC-ID] - [Task Title]
 

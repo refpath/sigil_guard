@@ -117,7 +117,7 @@ into attestations, trust bundles, audit evidence, and policy decisions.
   opaque to the core. Chain validation rules (maximum depth, trust
   derivation across hops) are owned by SP.13.
 - Normalization returns strings and MUST NOT create atoms from external
-  identity input (CLAUDE.md rule 7).
+  identity input (AGENTS.md rule 7).
 
 ## Config-Driven Trust Mapping
 

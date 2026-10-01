@@ -3,7 +3,7 @@ defmodule SigilGuard.HTTPClient do
   Host-provided HTTP client behaviour for audit-anchor integrations.
 
   SigilGuard performs no HTTP in any scan, gate, policy, or attestation decision
-  path (CLAUDE.md rule 8). The single exception is the optional, host-triggered
+  path (AGENTS.md rule 8). The single exception is the optional, host-triggered
   audit anchor HTTP store (`SigilGuard.Audit.Anchor.Store.HTTP`), which routes
   every request through a host-provided module implementing this behaviour.
 

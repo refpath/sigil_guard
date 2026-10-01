@@ -162,7 +162,7 @@ Arbitrary non-SPIFFE strings remain accepted permanently: host principals
 (`host:operator:42`), service accounts, email-shaped subjects, and
 opaque session ids are all valid actor values. Normalization (SP.10)
 validates shape only when a string claims a recognized scheme, returns
-strings, and never creates atoms from external input (CLAUDE.md rule 7).
+strings, and never creates atoms from external input (AGENTS.md rule 7).
 
 ### DID And VC: Accept did:key Optionally, Reject Resolution-Bound Methods
 
@@ -178,7 +178,7 @@ about: whether resolving the identifier requires a network.
   signature verification when a bundle or host designates that issuer.
 - **`did:web` and ledger-backed methods are rejected for core.** Both
   require resolution (HTTPS fetch or ledger access) to obtain key material,
-  which violates the offline default (CLAUDE.md rules 4 and 8). Hosts may
+  which violates the offline default (AGENTS.md rules 4 and 8). Hosts may
   resolve them externally and hand SigilGuard the resulting keys.
 - **VC 2.0 credentials stay opaque references.** The W3C VC Data Model 2.0
   is a Recommendation, but verifying credentials means proof suites, status

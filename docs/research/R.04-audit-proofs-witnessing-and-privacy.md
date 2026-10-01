@@ -284,7 +284,7 @@ than self-signed checkpoints plus witnesses for cross-organization disputes.
 A SCITT dependency is rejected for core on two grounds. First, registration
 is a networked round-trip to a transparency service; SigilGuard core is
 offline by default and adds no remote calls to decision or audit paths
-(CLAUDE.md rules 4 and 8, R.01 constraint 1). Second, SCITT is COSE-based,
+(AGENTS.md rules 4 and 8, R.01 constraint 1). Second, SCITT is COSE-based,
 and core standardizes on DSSE over JCS (D1); carrying a second envelope stack
 for an optional capability is unjustified.
 

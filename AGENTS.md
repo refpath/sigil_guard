@@ -88,9 +88,10 @@ new runtime dependencies require an individually justified design decision.
   select matching skills themselves, and read their `SKILL.md` files. Load linked
   supporting material only when relevant.
 - Claude Code discovers skills through ignored individual directory symlinks at
-  `.claude/skills/<name>` pointing to `../../.agents/skills/<name>`. Preserve local
-  entries; repair repository-owned dangling links without adding aliases. Keep
-  `.claude/` entirely ignored and shared guidance in `.agents/`.
+  `.claude/skills/<name>` pointing to `../../.agents/skills/<name>`. Create missing
+  links only where no local entry exists. Preserve local entries and repair
+  repository-owned dangling links without adding aliases. Keep `.claude/`
+  entirely ignored and shared guidance in `.agents/`.
 
 ## Design and Documentation
 

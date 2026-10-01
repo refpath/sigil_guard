@@ -118,7 +118,7 @@ merit. D9 fixes the end state:
   not on dependency-purity grounds. The one legitimate remaining HTTP
   feature, the audit HTTP anchor store, MUST consume a host-provided client
   through SP.05's `SigilGuard.HTTPClient` Behaviour section. That behaviour
-  exists for security (no network in core decision paths, CLAUDE.md rule 8)
+  exists for security (no network in core decision paths, AGENTS.md rule 8)
   and host-owns-transport, not to shed a dependency; its explicit timeout,
   retry, and failure model are documented in SP.05. Configuring the HTTP
   anchor store without a client implementation MUST be a typed startup error,
