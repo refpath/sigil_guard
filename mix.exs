@@ -70,7 +70,7 @@ defmodule SigilGuard.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
-      {:ex_check, "~> 0.16", only: [:dev, :test], runtime: false},
+      {:ex_check, "~> 0.17", only: [:dev, :test], runtime: false},
 
       # Documentation
       {:ex_doc, "~> 0.35", only: [:dev, :test], runtime: false},
@@ -80,7 +80,7 @@ defmodule SigilGuard.MixProject do
       # Testing
       {:excoveralls, "~> 0.18", only: :test},
       {:bypass, "~> 2.1", only: :test},
-      {:muex, "~> 0.9.1", only: [:dev, :test], runtime: false},
+      {:muex, "~> 0.11.3", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.4", only: :test},
 
       # Benchmarks
