@@ -3008,3 +3008,8 @@ These were local macOS checks. Existing Cowlib advisory exceptions remain;
 minimum dependency compilation and optional Jido dependencies emitted upstream
 warnings. Hosted CI, release publication, hostile filesystem races and a
 reference-consumer deployment were not exercised by this milestone.
+
+## Package verification maintenance
+
+- [x] Verify production archive and consumer isolation from all four inherited
+      Mix path variables with the sentinel regression and canonical gate.

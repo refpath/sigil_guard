@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+unset MIX_BUILD_PATH MIX_BUILD_ROOT MIX_DEPS_PATH MIX_LOCKFILE
+
 package_dir="$(mktemp -d "${TMPDIR:-/tmp}/sigil_guard-package.XXXXXX")"
 trap 'rm -rf "${package_dir}"' EXIT HUP INT TERM
 package_dir="$(cd "${package_dir}" && pwd -P)"
@@ -24,4 +26,5 @@ ELIXIR
   {:hit, [_]} = SigilGuard.Scanner.scan("AKIAIOSFODNN7EXAMPLE")
   {:ok, "{\"a\":1}"} = SigilGuard.Canonical.JCS.encode(%{"a" => 1})
   true = is_pid(Process.whereis(SigilGuard.Runtime))
+  IO.puts("Production archive consumer verified.")
 ')

@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: critical
   created: "2026-09-06"
-  updated: "2026-09-06"
+  updated: "2026-10-09"
   tags: [security, audit, remediation]
   depends_on: ["SP.01", "SP.02", "SP.07"]
 ---
@@ -105,6 +105,13 @@ signed vectors; cover tamper, malformed data, expiry/skew, cold module loading,
 concurrent state transitions, Unicode byte partitions and overlapping matches.
 Run independent finite-float vectors, bounded mutation campaigns, unpacked Hex
 consumer checks and the supported Elixir/OTP matrix. Maintain >=95% coverage.
+
+Production archive verification clears inherited `MIX_BUILD_PATH`,
+`MIX_BUILD_ROOT`, `MIX_DEPS_PATH` and `MIX_LOCKFILE` before building the archive
+or running its fresh consumer. The consumer uses its own build, dependencies
+and lockfile. A regression must execute the real helper with each inherited
+path pointing to a regular sentinel file, reach the consumer assertions, and
+leave every sentinel unchanged.
 
 ## Implementation Roadmap
 
