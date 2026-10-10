@@ -29,8 +29,8 @@ jobs:
       - name: Setup Elixir
         uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
-          elixir-version: "1.18"
-          otp-version: "28"
+          elixir-version: "1.20"
+          otp-version: "29"
 
       - name: Restore deps cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
@@ -181,8 +181,8 @@ jobs:
       - name: Setup Elixir
         uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
-          elixir-version: "1.18"
-          otp-version: "28"
+          elixir-version: "1.20"
+          otp-version: "29"
 
       - name: Restore deps cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
