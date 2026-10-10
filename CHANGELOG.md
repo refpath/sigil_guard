@@ -115,6 +115,19 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
 
 <!-- changelog -->
 
+## [v1.0.5](https://github.com/refpath/sigil_guard/compare/v1.0.4...v1.0.5) (2026-10-10)
+
+
+
+
+### Bug Fixes:
+
+* package: isolate archive checks from inherited Mix paths by futhr
+
+* ci: clean downloaded scanner files after checks by futhr
+
+* tooling: retry interrupted secret scanner downloads by futhr
+
 ## [v1.0.4](https://github.com/refpath/sigil_guard/compare/v1.0.3...v1.0.4) (2026-09-16)
 
 
