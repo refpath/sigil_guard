@@ -4,7 +4,9 @@ export MIX_ENV=test
 mkdir -p _build/security-mutations
 report=_build/security-mutations/verdict.log
 status=0
-mix muex --files lib/sigil_guard/verdict.ex --test-paths test/sigil_guard/verdict_test.exs \
+# Keep Muex JSON compiler diagnostics complete; inspect/1 otherwise truncates long binaries.
+mix run --no-start -e 'Inspect.Opts.default_inspect_fun(fn term, opts -> Inspect.inspect(term, %{opts | printable_limit: :infinity}) end); Mix.Task.run("muex", System.argv())' -- \
+  --files lib/sigil_guard/verdict.ex --test-paths test/sigil_guard/verdict_test.exs \
   --no-optimize --fail-at 100 --concurrency 1 --timeout 30000 --format json > "${report}" 2>&1 || status=$?
 if [ "${status}" -gt 1 ]; then
   cat "${report}"
