@@ -633,11 +633,15 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
   Validation/build, attestation, and publication are separate jobs. Only the
   attestation job has OIDC/write permissions. Release verification MUST reject
   a tag unless GitHub reports `github.ref_protected == true`. Only the
-  environment-scoped publication job can read the Hex key, and only its
-  `mix hex.publish` step receives it. Repository administrators MUST configure
+  environment-scoped publication job supplies the Hex key to its
+  `mix hex.publish` step. Repository administrators MUST configure
   the `hex-publish` required-reviewer and deployment-tag protections and store
-  the key as an environment secret; naming the environment in YAML is not proof
-  that these owner-managed controls exist.
+  the key as an environment secret unless the library owner explicitly
+  authorizes publication using an existing repository secret. Naming the
+  environment in YAML is not proof that these owner-managed controls exist.
+  The library owner (`futhr`) is the required reviewer and may approve releases
+  they initiate. Releases initiated by other maintainers require the owner's
+  approval.
   Before publish, a fresh Hex build MUST equal the attested tar; after publish,
   the registry download MUST match it byte for byte.
 

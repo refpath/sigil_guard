@@ -82,10 +82,14 @@ Workflow YAML cannot create or prove owner-managed repository protections.
 Before releasing, an administrator must:
 
 1. activate a ruleset covering `v*` tags so `github.ref_protected` is `true`;
-2. create the `hex-publish` environment, require a non-initiating reviewer,
-   disable protection-rule bypass, and restrict deployment tags to `v*`;
-3. store `HEX_API_KEY` as an environment secret, not a repository secret; and
+2. create the `hex-publish` environment, require approval by the library owner
+   (`futhr`), allow the owner to approve their own releases, disable
+   protection-rule bypass, and restrict deployment tags to `v*`;
+3. store `HEX_API_KEY` as an environment secret, or use an existing repository
+   secret when the library owner explicitly authorizes publication; and
 4. protect `main` with required pull-request review and the complete CI checks.
+
+Releases initiated by other maintainers still require the owner's approval.
 
 Without the protected tag the workflow fails during release-identity
 verification. Without the environment protections, the workflow declaration
