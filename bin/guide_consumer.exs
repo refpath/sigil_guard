@@ -4,6 +4,8 @@ ExUnit.start()
 Code.require_file(Path.expand("../test/support/guide_fixture.ex", __DIR__))
 
 defmodule SigilGuard.IntegrationGuideConsumer do
+  @moduledoc false
+
   use ExUnit.Case, async: false
 
   @target System.fetch_env!("SIGIL_GUIDE_TARGET")
@@ -121,18 +123,40 @@ defmodule SigilGuard.IntegrationGuideConsumer do
       "jido" ->
         context = %{trust_level: :high, guard_options: [on_sensitive: :redact]}
 
-        assert {:error, {:sigil_guard_denied, :redact, _}} =
+        assert {:error,
+                {:sigil_guard_denied, :redact,
+                 "Sensitive content redacted before boundary crossing"}} =
                  SigilGuard.GuideFixture.call(MyApp.Actions.GuardedEcho, :run, [
                    %{text: secret},
                    context
                  ])
 
-        assert {:error, _} =
+        assert {:error,
+                %{
+                  __struct__: Jido.Action.Error.ExecutionFailureError,
+                  message: message,
+                  details: details
+                } = error} =
                  SigilGuard.GuideFixture.call(Jido.Exec, :run, [
                    MyApp.Actions.GuardedEcho,
                    %{text: secret},
                    context
                  ])
+
+        assert message ===
+                 ~s({:sigil_guard_denied, :redact, "Sensitive content redacted before boundary crossing"})
+
+        assert details === %{}
+
+        assert %{type: :execution_error} =
+                 SigilGuard.GuideFixture.call(Jido.Action.Error, :to_map, [error])
+
+        refute Exception.message(error) =~ secret
+
+        assert String.starts_with?(
+                 to_string(:code.which(Jido.Exec)),
+                 Application.app_dir(:jido_action) <> "/"
+               )
 
       "llm" ->
         context = %{trust_level: :high, guard_options: [on_sensitive: :redact]}
@@ -149,6 +173,9 @@ defmodule SigilGuard.IntegrationGuideConsumer do
                    %{"query" => secret},
                    context
                  ])
+
+        assert reason ===
+                 ~s({:sigil_guard_denied, :redact, "Sensitive content redacted before boundary crossing"})
 
         assert is_binary(reason)
         refute reason =~ secret
