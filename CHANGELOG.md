@@ -122,6 +122,8 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
 
 ### Bug Fixes:
 
+* tooling: retain complete compiler diagnostics in mutation reports by futhr
+
 * package: isolate archive checks from inherited Mix paths by futhr
 
 * ci: clean downloaded scanner files after checks by futhr
