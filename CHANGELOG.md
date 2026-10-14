@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## Unreleased
+
+- Update Cowboy to 2.20.0, Cowlib to 2.21.0, Decimal to 3.2.0 and Req to
+  0.7.5, and refresh pinned GitHub Actions.
+- Update the optional live AI notebook's ReqLLM pin to 1.28.0.
+- Remove the resolved Cowlib cookie/header advisory exceptions. Retain only
+  CVE-2026-43966 for the test-only structured-header encoder, which is absent
+  from the production archive.
+
 ## Unreleased Breaking Changes For 1.0.0
 
 SigilGuard 1.0 is a deliberate breaking release. Apply

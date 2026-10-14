@@ -142,8 +142,8 @@ Livebook's package-tutorial guidance and keeps local development reproducible
 without breaking the badge path.
 
 The optional live AI path is the only chapter that adds a provider library.
-It pins ReqLLM to the version used to write and rehearse the talk. The normal
-offline validation never installs it and never performs network I/O.
+It pins ReqLLM to 1.28.0. Rehearse the live path after changing that pin;
+the normal offline validation never installs it or performs provider requests.
 
 ## Rehearsal Checklist
 

@@ -16,17 +16,9 @@ defmodule SigilGuard.MixProject do
       package: package(),
       source_url: @source_url,
       homepage_url: @source_url,
-      # Cowlib is pulled only by the test-only Bypass dependency. The published
-      # library neither ships Cowlib nor calls the affected header encoders.
-      # Cowlib 2.20 also contains the Link-header validation fix; no Hex release
-      # currently clears the remaining upstream advisory metadata.
-      hex: [
-        ignore_advisories: [
-          "CVE-2026-43966",
-          "CVE-2026-43969",
-          "CVE-2026-43971"
-        ]
-      ],
+      # Test-only Bypass still pulls an advisory-marked structured-header
+      # encoder. The production archive excludes Cowlib and this encoder.
+      hex: [ignore_advisories: ["CVE-2026-43966"]],
       docs: docs(),
       dialyzer: dialyzer(),
       test_coverage: [tool: ExCoveralls],

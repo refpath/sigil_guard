@@ -63,7 +63,7 @@ live_ai? = not forced_scripted? and is_binary(openai_key) and openai_key != ""
     {{:sigil_guard, "~> 1.0"}, []}
   end
 
-optional_ai_deps = if live_ai?, do: [{:req_llm, "== 1.20.0"}], else: []
+optional_ai_deps = if live_ai?, do: [{:req_llm, "== 1.28.0"}], else: []
 Mix.install([sigil_guard_dep | optional_ai_deps], install_opts)
 
 ai_mode = if live_ai?, do: :live, else: :scripted
