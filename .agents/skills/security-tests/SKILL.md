@@ -20,6 +20,11 @@ Choose cases from the mechanism rather than applying a blanket matrix:
 - Parser/boundary changes: test malformed containers, ambiguous canonical keys,
   bounded input, and the specified error/verdict without unintended effects.
 
+Use [ReplayStoreTest](../../../test/sigil_guard/replay_store_test.exs) for real
+one-winner, live-capacity and monotonic-expiry assertions. Read
+[Runtime](../../../lib/sigil_guard/runtime.ex) before changing ownership: named
+ETS is process-global and must belong to its supervisor-owned runtime. Scope
+restart/expiry guarantees to that lifetime; it is not durable multi-node storage.
 Use explicit time/nonce inputs where supported, stable fixture bytes, and cleanup
 for shared ETS/process state. Consult
 [existing tests](../../../test/sigil_guard/) and
@@ -29,5 +34,10 @@ concrete negative assertions with coverage-only execution.
 
 Run the affected tests and inspect assertions for the actual contract. Public
 compatibility proof should exercise the generic
-[consumer suite](../../../test/sigil_guard/conformance/consumer_contracts_test.exs).
-Label fixture/unit/property evidence and unavailable live host evidence accurately.
+[consumer suite](../../../test/sigil_guard/conformance/consumer_contracts_test.exs),
+which compiles actual guide callers. Give expectations independently of the
+implementation: change one binding at a time and assert the verdict plus absence
+of a forbidden host callback or consumed claim. Preserve complete native values
+and canonical bytes, including false, nil, integer/float identity and ambiguous
+keys; a convenient re-encoding must not invent equivalence. Label fixture/unit/
+property, package and unavailable live-host evidence separately.

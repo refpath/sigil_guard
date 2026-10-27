@@ -22,4 +22,10 @@ task/mechanism/stage triggers, and supporting references must resolve.
 Validate frontmatter, references, tracking/ignore boundaries, and directory
 symlinks with existing tools. Consider representative tasks and adjacent tasks
 that should not select a skill. Report this reading-based assessment separately
-from any actual client execution. Do not create reports or reusable prompt files.
+from any actual client execution. For substantial procedure changes compare
+baseline/candidate on identical bounded artifacts/tools where available and
+inspect actual calls, patches and verdicts. Use replay consumption, guide prose,
+runtime table ownership and missing-host cases; a consumer-fixture pass must not
+become a live-host claim. Keep fixture and donor identities neutral as the root
+contract requires. Guidance needs no dependency/package build. Do not create
+reports or reusable prompt files.

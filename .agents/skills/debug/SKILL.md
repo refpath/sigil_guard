@@ -15,7 +15,12 @@ Sanitize secrets and private identifiers. Reduce the reproduction without
 discarding the boundary condition that makes it fail.
 
 Separate parsing/canonicalization, digest binding, identity/trust, policy,
-replay-store state, clock/expiry, host callbacks, and compatibility as applicable.
+replay-store state, clock/expiry, host callbacks and compatibility as applicable.
+For stateful symptoms inspect the [Runtime table owner](../../../lib/sigil_guard/runtime.ex)
+before assuming a pure verifier or durable store. Verify callback invocation and
+claim state through the real public boundary; a fake error or empty output does
+not establish that the protected effect never ran. Remove only edits motivated
+by a disproved hypothesis before applying another fix.
 For a gate failure, read the existing command and its owning configuration before
 changing guidance or application code.
 

@@ -19,9 +19,18 @@ zone, action/payload digests, policy verdict, key/bundle lifetime, replay state,
 audit evidence, and host callbacks. Follow only relevant paths; distinguish host
 assumptions from guarantees enforced by the library.
 
-Implement at the owning module. Prefer behaviours and plain data structs where
-state is unnecessary; retain supervised OTP ownership where runtime security
-depends on state lifetime. Test the changed mechanism through public APIs,
+Classify the changed public API as pure or runtime-stateful before editing.
+Pure paths keep time, network and host effects explicit; do not acquire hidden
+process/configuration dependencies. For runtime paths inspect
+[Runtime](../../../lib/sigil_guard/runtime.ex) and
+[ReplayStore](../../../lib/sigil_guard/replay_store.ex) ownership, restart and
+capacity/expiry behavior. This process-global state is not a host durability or
+distributed replay guarantee.
+
+For each mandatory invariant name its public trigger, exact input binding,
+enforcing owner, independent expected acceptance/refusal and actual observation.
+Implement at that owner. Prefer behaviours and plain data where state is
+unnecessary; retain supervision where security depends on state lifetime. Test the changed mechanism through public APIs,
 including relevant negative cases. Use existing
 [consumer assertions](../../../test/sigil_guard/conformance/consumer_contracts_test.exs)
 when public contracts are affected.
