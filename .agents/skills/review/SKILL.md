@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review changes for security, compatibility, test integrity, and documentation drift when review is requested or runtime security work reaches delivery. Trace reachable attack paths for affected trust boundaries; exclude routine prose cleanup.
+description: "Review changes, delivery or requested security audits for reachable security, compatibility, host-boundary, test-integrity and documentation defects. Trace affected verification and policy paths; exclude routine prose cleanup."
 ---
 
 # Review
@@ -29,3 +29,31 @@ stateful runtime lifetimes rather than assuming every API is pure.
 Report concrete defects and uncertainty separately. A suspicious writing style
 does not establish provenance or a bug. If no issue is found, say so and state
 what was actually reviewed/tested and what remains unverified.
+
+
+## Scoped security assessment
+
+For an audit, trace the selected caller/origin/sink, manifest and action digest
+through policy, confirmation/replay state and any host callback. Keep in-process
+verification distinct from host authentication, durable storage and sandboxing.
+Record revision/working-tree scope, checked paths and missing host evidence;
+use security-tests for the mechanism's behavioral proof.
+
+Establish each claim against the strongest current control and owning contract.
+Confirmed findings need a complete reachable boundary trace and evidence for
+the stated consequence. Keep decisive unobserved facts as `needs_validation`,
+with the exact missing check and no severity; reject disproved claims.
+Distinguish source inspection, inspected tests, executed local tests and live
+evidence. Group duplicate root causes and recheck previous findings against
+current source and conditions.
+
+Use the existing validation owner for authorized dummy-data regressions.
+Executing untrusted code or hostile native/availability checks requires verified
+OS isolation, no external networking, a sanitized environment and resource/time
+limits. If unavailable, leave that execution unverified and continue source
+review. A review grants no live/provider operations or agent-permission changes.
+Independent verification is conditional on authorized, available delegation;
+otherwise state the single-reviewer limit. Return findings in chat unless the
+requested deliverable and repository contract permit a report.
+
+Audit-method background: [Cloudflare's source-first workflow](https://github.com/cloudflare/security-audit-skill/tree/c1c8a8c1471069fb0e188eeaff69b8e8db6564a8/skills/security-audit).
