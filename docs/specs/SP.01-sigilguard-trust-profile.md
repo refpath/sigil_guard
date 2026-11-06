@@ -761,7 +761,7 @@ per-call option, then application env key, then the default below.
 | Max clock skew | `60_000` ms | From `:max_skew_ms` opt, else config. Matches the v2 envelope `max_skew_ms` convention. |
 | Replay protection | off | Opt-in per verify call with `replay: true`, exactly as today. |
 | Replay scope | `{identity, nonce}` | Key is `{"attestation:" <> predicate.actor.id, nonce}` in `SigilGuard.ReplayStore.check_and_put/3` on the existing `:sigil_guard_replay` ETS table. |
-| Replay entry TTL | remaining lifetime | `max(expires_at - now, 1)` ms, overridable with `:replay_ttl_ms`. |
+| Replay entry TTL | at least `300_000` ms | `max(expires_at - now + S + 1, requested TTL, 1)` ms. The requested TTL resolves from `:replay_ttl_ms`, otherwise `:ttl_ms`, then application `:replay_ttl_ms`, then `300_000` ms. |
 
 Freshness rules, evaluated with `now` (or the `:now` opt) and skew `S`:
 `now > expires_at + S` fails with `{:error, :expired_attestation}`;
@@ -770,6 +770,11 @@ Freshness rules, evaluated with `now` (or the `:now` opt) and skew `S`:
 invalid and fails with `{:error, :invalid_payload}` at sign and validate
 time. A second `verify` with `replay: true` for a live `{actor, nonce}`
 pair fails with `{:error, :replay_detected}`.
+
+Consuming verification retains the nonce through the inclusive
+`expires_at + S` acceptance boundary. A shorter requested replay TTL cannot
+reduce that window. Longer retention does not extend attestation validity;
+freshness is checked independently before the replay claim.
 
 ### Operational Defaults Rationale (Normative Anchor)
 
@@ -781,7 +786,7 @@ All are configuration (overridable), never hardcoded.
 |---------|-------|------------------|-------|
 | Attestation TTL | `300_000` ms (5 min) | Short-lived like an OAuth authorization code (single-use, ≤10 min per RFC 6749); a tool call's approval window is minutes, not hours. | SP.01 |
 | Max clock skew | `60_000` ms (60 s) | The conventional JWT/`nbf`/`exp` leeway (RFC 7519 practice); tolerates NTP drift without widening the replay window meaningfully. | SP.01 |
-| Replay entry TTL | remaining lifetime | Bounded by attestation TTL (`max(expires_at - now, 1)`), so a replay record never outlives the credential it protects — replay TTL ≤ attestation TTL by construction. | SP.01 |
+| Replay entry TTL | at least the remaining accepted lifetime | The default requested retention is `300_000` ms. Retention also covers expiry skew and its inclusive boundary, even when the requested TTL is shorter; it may outlive signature acceptance. | SP.01 |
 | Confirmation TTL | `300_000` ms (5 min) | Same as attestation TTL; a human approval window (SP.03). | SP.03 |
 | Hook timeout | `5_000` ms (5 s) | Conservative synchronous-call budget (HTTP client norm); on a blockable phase a timeout fails closed (blocks). | SP.04 |
 | Delegation max depth | `8` | Pragmatic bound (no RFC standard); deeper agent-delegation chains are treated as abuse (`:delegation_too_deep`). | SP.13 |
