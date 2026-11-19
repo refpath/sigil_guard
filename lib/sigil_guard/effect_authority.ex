@@ -57,7 +57,27 @@ defmodule SigilGuard.EffectAuthority do
           | :policy_epoch_mismatch
           | :effect_not_yet_valid
           | :effect_deadline_passed
-          | Envelope.refusal()
+          | :unknown_effect_envelope
+          | :invalid_effect_envelope
+          | :effect_envelope_mismatch
+          | :effect_envelope_expired
+          | :target_out_of_envelope
+          | :operation_out_of_envelope
+          | :parameter_out_of_envelope
+
+  @typedoc "What an outcome report claims, kept apart from what the host observed."
+  @type outcome :: %{
+          authentication: :verified | :unsigned | :invalid,
+          claimed: :success | :failure | :none,
+          acceptance: :accepted | :rejected | :undetermined
+        }
+
+  @typedoc "Values for one audit event about a physical-effect operation."
+  @type audit_fields :: %{
+          result: String.t(),
+          result_info: SigilGuard.Audit.ExecutionResult.t(),
+          metadata: %{optional(String.t()) => String.t()}
+        }
 
   @doc """
   Reads the binding record from a request and validates it.
@@ -90,7 +110,7 @@ defmodule SigilGuard.EffectAuthority do
   @doc since: "1.1.0"
   @spec binding_digest(term()) :: {:ok, String.t()} | {:error, :invalid_effect_binding}
   def binding_digest(record) do
-    with :ok <- Record.validate(record), do: jcs_digest(record, :invalid_effect_binding)
+    with :ok <- Record.validate(record), do: {:ok, jcs_digest(record)}
   end
 
   @doc """
@@ -104,10 +124,11 @@ defmodule SigilGuard.EffectAuthority do
   @spec operation_key(term()) :: {:ok, String.t()} | {:error, :invalid_effect_binding}
   def operation_key(record) do
     with :ok <- Record.validate(record) do
-      jcs_digest(
-        %{"operation_id" => record["operation_id"], "target_id" => record["target"]["id"]},
-        :invalid_effect_binding
-      )
+      {:ok,
+       jcs_digest(%{
+         "operation_id" => record["operation_id"],
+         "target_id" => record["target"]["id"]
+       })}
     end
   end
 
@@ -195,7 +216,7 @@ defmodule SigilGuard.EffectAuthority do
   otherwise. The report's own claim is never an observation.
   """
   @doc since: "1.1.0"
-  @spec classify_outcome(term()) :: {:ok, Outcome.outcome()} | {:error, :invalid_outcome_input}
+  @spec classify_outcome(term()) :: {:ok, outcome()} | {:error, :invalid_outcome_input}
   def classify_outcome(input), do: Outcome.classify(input)
 
   @doc """
@@ -213,7 +234,7 @@ defmodule SigilGuard.EffectAuthority do
   `result_info` on the event. The audit chain covers `result` only.
   """
   @doc since: "1.1.0"
-  @spec audit_fields(term()) :: {:ok, Outcome.audit_fields()} | {:error, :invalid_audit_input}
+  @spec audit_fields(term()) :: {:ok, audit_fields()} | {:error, :invalid_audit_input}
   def audit_fields(input), do: Outcome.audit_fields(input)
 
   defp admit_options(opts) do
@@ -298,10 +319,9 @@ defmodule SigilGuard.EffectAuthority do
   defp check(true, _), do: :ok
   defp check(false, reason), do: {:error, reason}
 
-  defp jcs_digest(value, error) do
-    case JCS.encode(value) do
-      {:ok, bytes} -> {:ok, Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)}
-      {:error, _} -> {:error, error}
-    end
+  # A validated record holds ASCII strings only, which JCS always encodes.
+  defp jcs_digest(value) do
+    {:ok, bytes} = JCS.encode(value)
+    Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
   end
 end

@@ -18,7 +18,10 @@ defmodule SigilGuard.EffectAuthorityFixture do
 
   @doc "Return the baseline `tools/call` request with its binding record."
   @spec request() :: map()
-  def request, do: FixturePath.read_json!("effect_authority/request.json")
+  def request do
+    %{} = request = FixturePath.read_json!("effect_authority/request.json")
+    request
+  end
 
   @doc "Return the binding record carried by `request/0`."
   @spec record() :: map()
@@ -60,7 +63,7 @@ defmodule SigilGuard.EffectAuthorityFixture do
   end
 
   @doc "Return the compiled policy file that confirms the two cell tools."
-  @spec policy() :: map()
+  @spec policy() :: PolicyFile.t()
   def policy do
     {:ok, policy} = PolicyFile.parse(FixturePath.read!("effect_authority/cell.policy"))
     policy
@@ -71,7 +74,7 @@ defmodule SigilGuard.EffectAuthorityFixture do
   def facts do
     record = record()
 
-    %{
+    Map.new(
       principal: @actor,
       target: %{id: record["target"]["id"], environment: :physical},
       artifacts: Enum.map(record["artifacts"], &%{name: &1["name"], sha256: &1["sha256"]}),
@@ -79,12 +82,15 @@ defmodule SigilGuard.EffectAuthorityFixture do
       policy_epoch: record["policy_epoch"],
       observed_at: DateTime.add(@now, -500, :millisecond),
       now: @now
-    }
+    )
   end
 
   @doc "Return the baseline effect envelope `E0`."
   @spec envelope() :: map()
-  def envelope, do: FixturePath.read_json!("effect_authority/envelope.json")
+  def envelope do
+    %{} = envelope = FixturePath.read_json!("effect_authority/envelope.json")
+    envelope
+  end
 
   @doc "Return `request` with its record naming `envelope` by id and digest."
   @spec name_envelope(map(), map()) :: map()

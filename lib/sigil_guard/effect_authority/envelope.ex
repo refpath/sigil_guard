@@ -105,14 +105,16 @@ defmodule SigilGuard.EffectAuthority.Envelope do
     end
   end
 
-  defp arguments(%{"params" => params}), do: argument_map(params)
-  defp arguments(%{params: params}), do: argument_map(params)
-  defp arguments(_), do: :error
+  # The record was read from these params, so they are a map.
+  defp arguments(request) do
+    {:ok, params} = Record.params(request)
 
-  defp argument_map(%{"arguments" => arguments}), do: arguments
-  defp argument_map(%{arguments: arguments}), do: arguments
-  defp argument_map(params) when is_map(params), do: %{}
-  defp argument_map(_), do: :error
+    case params do
+      %{"arguments" => arguments} -> arguments
+      %{arguments: arguments} -> arguments
+      _ -> %{}
+    end
+  end
 
   defp parameters(bounds, arguments) when is_map(arguments) do
     same_keys? = Enum.sort(Map.keys(arguments)) == Enum.sort(Map.keys(bounds))

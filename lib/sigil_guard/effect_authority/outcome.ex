@@ -47,24 +47,13 @@ defmodule SigilGuard.EffectAuthority.Outcome do
   ]
   @claim_results [:operation_already_claimed, :operation_binding_conflict]
 
-  @type outcome :: %{
-          authentication: :verified | :unsigned | :invalid,
-          claimed: :success | :failure | :none,
-          acceptance: :accepted | :rejected | :undetermined
-        }
-
-  @type audit_fields :: %{
-          result: String.t(),
-          result_info: ExecutionResult.t(),
-          metadata: %{optional(String.t()) => String.t()}
-        }
-
   @doc false
   @spec valid_transition?(term(), term()) :: boolean()
   def valid_transition?(from, to), do: to in Map.get(@transitions, from, [])
 
   @doc false
-  @spec classify(term()) :: {:ok, outcome()} | {:error, :invalid_outcome_input}
+  @spec classify(term()) ::
+          {:ok, SigilGuard.EffectAuthority.outcome()} | {:error, :invalid_outcome_input}
   def classify(input) do
     with true <-
            closed?(input, [:authentication, :claimed, :observations, :required_observations], [
@@ -86,7 +75,8 @@ defmodule SigilGuard.EffectAuthority.Outcome do
   end
 
   @doc false
-  @spec audit_fields(term()) :: {:ok, audit_fields()} | {:error, :invalid_audit_input}
+  @spec audit_fields(term()) ::
+          {:ok, SigilGuard.EffectAuthority.audit_fields()} | {:error, :invalid_audit_input}
   def audit_fields(input) do
     with true <- closed?(input, [:state], [:binding_digest, :operation_key, :refusal, :outcome]),
          true <- is_map_key(@transitions, input.state),

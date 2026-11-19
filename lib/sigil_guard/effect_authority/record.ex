@@ -30,6 +30,14 @@ defmodule SigilGuard.EffectAuthority.Record do
     end
   end
 
+  # The gateway binds the string key when both aliases exist.
+  @doc false
+  @spec params(term()) :: {:ok, map()} | :error
+  def params(%{"params" => params}) when is_map(params), do: {:ok, params}
+  def params(%{"params" => _}), do: :error
+  def params(%{params: params}) when is_map(params), do: {:ok, params}
+  def params(_), do: :error
+
   @doc false
   @spec validate(term()) :: :ok | {:error, :invalid_effect_binding}
   def validate(record) do
@@ -98,11 +106,6 @@ defmodule SigilGuard.EffectAuthority.Record do
 
   def strictly_ascending?([_, _ | _]), do: false
   def strictly_ascending?(_), do: true
-
-  defp params(%{"params" => params}) when is_map(params), do: {:ok, params}
-  defp params(%{"params" => _}), do: :error
-  defp params(%{params: params}) when is_map(params), do: {:ok, params}
-  defp params(_), do: :error
 
   defp metadata(%{"_meta" => _, _meta: _}), do: :ambiguous
   defp metadata(%{"_meta" => metadata}) when is_map(metadata), do: {:ok, metadata}

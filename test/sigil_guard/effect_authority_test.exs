@@ -899,6 +899,28 @@ defmodule SigilGuard.EffectAuthorityTest do
                {:error, :parameter_out_of_envelope}
     end
 
+    test "reads arguments from an atom-keyed adapter request" do
+      arguments = %{"speed_mm_s" => 120, "x_mm" => 250, "y_mm" => 100}
+      {:ok, sha256} = EffectAuthority.envelope_digest(Fixture.envelope())
+      record = Map.put(Fixture.record(), "envelope", %{"id" => "env-0001", "sha256" => sha256})
+
+      request = fn arguments ->
+        %{
+          method: "tools/call",
+          params: %{
+            name: "cell.move",
+            arguments: arguments,
+            _meta: %{"dev.sigilguard/effect" => record}
+          }
+        }
+      end
+
+      assert admit_enveloped(request.(arguments)) == :ok
+
+      assert admit_enveloped(request.(%{arguments | "speed_mm_s" => 121})) ==
+               {:error, :parameter_out_of_envelope}
+    end
+
     test "refuses an operation outside the envelope" do
       weld = enveloped(put_in(Fixture.request(), ["params", "name"], "cell.weld"))
       request = enveloped(Fixture.request())
@@ -984,6 +1006,11 @@ defmodule SigilGuard.EffectAuthorityTest do
                {:error, :effect_envelope_expired}
 
       assert admit_enveloped(enveloped(Fixture.request(), exact), envelope: exact) == :ok
+
+      assert admit_enveloped(enveloped(Fixture.request(), exact),
+               envelope: exact,
+               facts: at(~U[2026-11-19 12:05:00.000Z])
+             ) == :ok
     end
 
     test "a simulated target never satisfies an envelope for the physical one" do
