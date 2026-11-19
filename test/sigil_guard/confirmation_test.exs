@@ -572,6 +572,68 @@ defmodule SigilGuard.ConfirmationTest do
     end
   end
 
+  describe "digest and replay boundaries" do
+    @request_context [phase: :tool_request, origin: :model, sink: :tool, tool: "cell.move"]
+
+    test "an integer and an equal float share attestation digests but not the confirmation digest" do
+      integer = %{"tool" => "cell.move", "arguments" => %{"speed_mm_s" => 120}}
+      float = %{"tool" => "cell.move", "arguments" => %{"speed_mm_s" => 120.0}}
+      decision = %{confirm_decision() | phase: :tool_request}
+
+      assert Digest.payload_digest(integer) == Digest.payload_digest(float)
+
+      assert Digest.action_digest(:tool_request, integer, @request_context) ==
+               Digest.action_digest(:tool_request, float, @request_context)
+
+      refute Confirmation.action_digest(integer, @request_context) ==
+               Confirmation.action_digest(float, @request_context)
+
+      assert {:ok, token} =
+               Confirmation.issue(integer, @request_context, decision, @key, now: @now)
+
+      assert {:error, :digest_mismatch} =
+               Confirmation.verify(token, float, @request_context, @key, now: @now)
+    end
+
+    test "the confirmation digest covers context metadata and the workspace root digest" do
+      payload = %{"tool" => "cell.move"}
+      with_metadata = Keyword.put(@request_context, :metadata, %{note: "changed"})
+
+      with_workspace =
+        Keyword.put(@request_context, :workspace_root_digest, String.duplicate("b", 64))
+
+      for changed <- [with_metadata, with_workspace] do
+        refute Confirmation.action_digest(payload, @request_context) ==
+                 Confirmation.action_digest(payload, changed)
+
+        assert Digest.context_digest(:tool_request, @request_context) ==
+                 Digest.context_digest(:tool_request, changed)
+      end
+    end
+
+    test "a consumed token verifies again after the runtime restarts" do
+      payload = %{"tool" => "cell.move"}
+      decision = %{confirm_decision() | phase: :tool_request}
+
+      assert {:ok, token} =
+               Confirmation.issue(payload, @request_context, decision, @key, now: @now)
+
+      assert {:ok, _} = Confirmation.verify(token, payload, @request_context, @key, now: @now)
+
+      assert {:error, :replay_detected} =
+               Confirmation.verify(token, payload, @request_context, @key, now: @now)
+
+      SigilGuard.TestRuntime.restart()
+
+      assert {:ok, _} = Confirmation.verify(token, payload, @request_context, @key, now: @now)
+
+      assert {:error, :expired} =
+               Confirmation.verify(token, payload, @request_context, @key,
+                 now: DateTime.add(@now, 301, :second)
+               )
+    end
+  end
+
   defp confirm_decision do
     %Decision{
       verdict: {:confirm, "approval required"},

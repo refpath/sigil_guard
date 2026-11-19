@@ -835,6 +835,33 @@ defmodule SigilGuard.ToolGatewayTest do
     end
   end
 
+  describe "action digest recording" do
+    test "a decision allowed without confirmation carries a nil action digest" do
+      decision = ToolGateway.guard_request(request(), trust_level: :high)
+
+      assert decision.verdict == :allowed
+      assert Map.fetch!(decision.audit_metadata, :action_digest) == nil
+    end
+
+    test "the :protocol_version option changes the bound action digest" do
+      opts = [manifests: %{"repo_file_write" => suspicious_manifest()}, require_manifest: true]
+
+      from_message = ToolGateway.guard_request(request(), sandbox_context(), opts)
+
+      from_option =
+        ToolGateway.guard_request(
+          request(),
+          sandbox_context(),
+          opts ++ [protocol_version: "2026-07-28"]
+        )
+
+      assert {:confirm, _} = from_message.verdict
+      assert from_option.audit_metadata.protocol_version == "2026-07-28"
+      refute Map.has_key?(from_message.audit_metadata, :protocol_version)
+      refute from_message.audit_metadata.action_digest == from_option.audit_metadata.action_digest
+    end
+  end
+
   describe "verify_manifest/2" do
     test "returns normalized manifests from the manifest set" do
       assert {:ok, %CapabilityManifest{} = capability} =

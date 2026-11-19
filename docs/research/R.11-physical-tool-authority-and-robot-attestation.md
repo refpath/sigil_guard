@@ -52,12 +52,14 @@ Before SP.19 was written, the modules behind confirmation, digests, the tool gat
 - A binding record placed under `params._meta` is retained by `MCP.SecurityPayload`, changes the gateway payload digest, and produced no built-in scanner hit for one sample record containing SHA-256 digests (probe).
 - The trust-bundle cache, with its accepted-sequence floor and revocation union, is per boot, like the replay table. SP.02 names the signed `rollback_floor` inside the embedded bundle as the floor that survives a restart.
 
+Tests committed afterwards assert the number, restart, context-coverage, tool-list and action-digest results above; SP.19 names each one.
+
 ### 2.2 Third inspection before implementation
 
 The specification was checked against the code again before any of it was built. "Probe" and "code reading" mean what they mean in section 2.1.
 
 - A payload whose digest cannot be computed made the runtime gate skip `BoundaryPolicy.evaluate/2`. A `null` argument, an integer of 2^53 or more, or invalid UTF-8 was enough, and a policy-file rule that blocked the request then did not apply. This was a defect in existing code, not a design gap. It is fixed, and `runtime/gate_test.exs` holds the regression cases.
-- The gateway binds the MCP protocol version it selected, and a `:protocol_version` option overrides the one in the message. The action digest therefore cannot be recomputed from the request and context alone (probe).
+- The gateway binds the MCP protocol version it selected, and a `:protocol_version` option overrides the one in the message. The action digest therefore cannot be recomputed from the request and context alone (`tool_gateway_test.exs` "the :protocol_version option changes the bound action digest").
 - Consuming an inbound attestation nonce on every guard pass refuses the confirmed retry, which presents the same envelope a second time. The committed test "can consume attestation nonces for replay protection" shows the second consumption is refused.
 - A decision exposes `action_digest` and `manifest_digest`. The payload and context digests a ledger record needs are computed inside the gateway and are not returned (code reading).
 - The audit chain preimage is `id`, `type`, `actor`, `action`, `result` and `timestamp`. `result_info` and `metadata` are outside it (code reading).

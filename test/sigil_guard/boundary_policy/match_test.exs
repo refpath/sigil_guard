@@ -120,6 +120,24 @@ defmodule SigilGuard.BoundaryPolicy.MatchTest do
                eval([tool: %{"name" => "x"}, actor: %{"id" => "other"}], policy)
     end
 
+    test "an explicit tool list under default block passes only the listed tools for the actor" do
+      policy =
+        compile!(
+          "version 3\n[rules]\ndefault block\nallow tool:cell.move,cell.grip actor:svc:bot\n"
+        )
+
+      bot = %{"id" => "svc:bot"}
+
+      assert {:allow, ["line_4"]} = eval([tool: %{"name" => "cell.move"}, actor: bot], policy)
+      assert {:allow, ["line_4"]} = eval([tool: %{"name" => "cell.grip"}, actor: bot], policy)
+
+      assert {:block, ["policy.default"]} =
+               eval([tool: %{"name" => "cell.weld"}, actor: bot], policy)
+
+      assert {:block, ["policy.default"]} =
+               eval([tool: %{"name" => "cell.move"}, actor: %{"id" => "other"}], policy)
+    end
+
     test "hits categories: secret and any both match a secret hit; the stronger wins" do
       policy = compile!("version 3\n[rules]\nredact hits:any\nconfirm hits:secret\n")
       assert {:confirm, ids} = eval([hits: [%{"category" => :secret}]], policy)

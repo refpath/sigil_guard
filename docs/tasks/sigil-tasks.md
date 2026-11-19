@@ -61,8 +61,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 287 / 295 tasks done (97%).** Milestones: 15 complete, 1 planned.
-**Current milestone: M13 planned - physical effect authority.**
+**Overall: 288 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
+**Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 0 | 8 | 0% | Planned |
-| — | **Total** | **287** | **295** | **97%** | 15 done |
+| M13 | Physical effect authority | 1 | 8 | 12% | In progress |
+| — | **Total** | **288** | **295** | **98%** | 15 done |
 
 ### Release Handoff
 
@@ -3028,7 +3028,7 @@ Requirement identifiers `PE.01` to `PE.48` and conformance cases `SG-F1` to
 `SG-F6` are defined in SP.19. Sixteen requirements are already met by
 existing code and need no task; the tasks below cover the rest.
 
-- [ ] M13.01 Characterization tests for current behaviour stated in SP.19.
+- [x] M13.01 Characterization tests for current behaviour stated in SP.19.
   - AC: committed tests show that a token consumed before a
     `SigilGuard.Runtime` restart verifies again until expiry, that `120` and
     `120.0` give equal attestation digests and different confirmation

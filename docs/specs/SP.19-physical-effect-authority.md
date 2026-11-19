@@ -124,8 +124,8 @@ Requirement IDs are stable. Status values:
 - `host`: obligation on the host application. The library does not enforce
   it and cannot observe a violation.
 
-Test names are quoted from the files under `test/sigil_guard/` at the commit
-that introduced this spec.
+Test names are quoted from the files under `test/sigil_guard/` as of the
+last revision of this spec.
 
 ### Scope And Activation
 
@@ -177,9 +177,10 @@ today; the binding record adds the rest without changing any digest rule.
 
 Numbers need care. RFC 8785 serializes `120` and `120.0` to the same bytes,
 so the SP.01 attestation digests treat them as one value, while the
-confirmation token digest distinguishes them (probe, 2026-11-19; no
-committed test asserts either fact). The binding record therefore carries
-strings only, and envelope bounds accept JSON integers only.
+confirmation token digest distinguishes them (`confirmation_test.exs` "an
+integer and an equal float share attestation digests but not the
+confirmation digest"). The binding record therefore carries strings only,
+and envelope bounds accept JSON integers only.
 
 ### Substitution Refusal
 
@@ -233,7 +234,7 @@ nothing else. A count bound stays host-owned because it needs durable state.
 
 | ID | Requirement | Status | Evidence |
 |----|-------------|--------|----------|
-| PE.16 | A tool without a pinned manifest is blocked when manifests are required, and a policy rule with `tool:` and `actor:` matchers restricts a principal to the tools it lists. | met | `ToolGateway`, `BoundaryPolicy.Match`; `tool_gateway_test.exs` "fails closed for unknown tools without creating atom keys"; `boundary_policy/match_test.exs` "star matches any present tool but requires the actor to match". An explicit tool list under `default block` was shown by probe on 2026-11-19; no committed test uses one. |
+| PE.16 | A tool without a pinned manifest is blocked when manifests are required, and a policy rule with `tool:` and `actor:` matchers restricts a principal to the tools it lists. | met | `ToolGateway`, `BoundaryPolicy.Match`; `tool_gateway_test.exs` "fails closed for unknown tools without creating atom keys"; `boundary_policy/match_test.exs` "star matches any present tool but requires the actor to match", "an explicit tool list under default block passes only the listed tools for the actor"; `runtime/gate_test.exs` "a null argument does not bypass the policy file default" |
 | PE.17 | Static parameter bounds are pinned: the manifest digest covers `input_schema_sha256`, and a changed schema is rejected. | met | `CapabilityManifest`; `threat_model/tm05_rug_pull_test.exs` "a swapped input schema after approval is rejected on the refresh" |
 | PE.18 | Evaluating arguments against the pinned JSON Schema is host-owned (SP.16). SigilGuard does not refuse an argument that violates `enum`, `minimum`, or `maximum` in a pinned schema. | host | - |
 | PE.19 | An effect envelope is approved by guarding and confirming a host-chosen request that carries the complete document at `params._meta["dev.sigilguard/effect-envelope"]`. That request names a tool with a pinned manifest and is guarded with `effect_binding: :off`, because it dispatches nothing. The existing token binds the document through the payload digest; no new token type exists. Before it presents the approval the host calls `envelope_digest/1`, which refuses a malformed document, and afterwards it records the digest as approved. The library keeps no record of approvals. | specified | - |
@@ -253,7 +254,7 @@ Current behaviour, stated against the implementation:
 | Wall clock set back | Retention is a monotonic duration fixed at first verification, while expiry is read from wall time. If wall time moves back after consumption, the claim can lapse while the token still reads as unexpired. | code reading, `confirmation.ex`, `replay_store.ex` |
 | Capacity | At 100,000 live claims a new claim returns `:replay_capacity_exceeded`. Live entries are not evicted and the verification fails. The limit is not a `SigilGuard.Config` key. | `replay_store_test.exs` "capacity exhaustion fails closed without evicting a live nonce" |
 | Table owner | `SigilGuard.Runtime` owns the table. | `runtime_test.exs` "runtime owns the ETS tables and validated configuration" |
-| Runtime or node restart | The table is destroyed with its owner. A token consumed before the restart verifies again afterwards until its `expires_at`. | probe, 2026-11-19; no committed test |
+| Runtime or node restart | The table is destroyed with its owner. A token consumed before the restart verifies again afterwards until its `expires_at`. | `confirmation_test.exs` "a consumed token verifies again after the runtime restarts" |
 | Several nodes | Each node has its own table. One token can be consumed once per node. | code reading, `replay_store.ex` |
 | In-VM callers | The table is `:public` and `ReplayStore.clear/0` is public. Code in the same VM can remove claims. | code reading, `replay_store.ex` |
 | Opt-outs | `consume: false` on a token and the default `replay: false` on an attestation skip the store. | `confirmation_test.exs` "can keep confirmation tokens reusable for stateless checks"; SP.01 Replay And Expiry Semantics |
@@ -434,12 +435,14 @@ supplied. Supplying one for a record that names none fails with
 
 Step 2 depends on PE.09. Today the gate records `action_digest` only on a
 `confirm` decision, where it stays after the token is accepted; a decision
-that was allowed without confirmation carries `nil` (probe, 2026-11-19). The
+that was allowed without confirmation carries `nil` (`tool_gateway_test.exs`
+"a decision allowed without confirmation carries a nil action digest"). The
 gateway binds the protocol version it selected, which a `:protocol_version`
-option can override, so step 2 recomputes with the version the decision
-records. `context` is the value the host passed to `guard_request/3`,
+option can override ("the :protocol_version option changes the bound action
+digest"), so step 2 recomputes with the version the decision records. `context` is the value the host passed to `guard_request/3`,
 `metadata` and `workspace_root_digest` included: the action digest covers
-the whole context.
+the whole context (`confirmation_test.exs` "the confirmation digest covers
+context metadata and the workspace root digest").
 
 Step 7 compares `context.actor` only. A context without `actor` never
 admits. `identity` is bound by the digests and is not compared.
@@ -735,7 +738,7 @@ and one physical target. `E0` was approved through PE.19.
 | 6 | Tool `cell.weld` | `:operation_out_of_envelope`; with manifests required the gateway already blocks with `:unknown_manifest` | PE.16, PE.20 | gateway part passes |
 | 7 | `E0` with the speed bound widened to 200, binding still naming the old digest | `:effect_envelope_mismatch` | PE.21 | new |
 | 8 | Same as step 1 with no `:envelope` supplied | `:unknown_effect_envelope` | PE.20, PE.35 | new |
-| 9 | Static variant without an envelope: the same tools pinned by manifest and a policy rule limiting the principal to them | listed tool passes the rule; unlisted tool and other principal block; an out-of-bounds argument is not refused by the library | PE.16, PE.17, PE.18 | manifest part passes; tool list shown by probe |
+| 9 | Static variant without an envelope: the same tools pinned by manifest and a policy rule limiting the principal to them | listed tool passes the rule; unlisted tool and other principal block; an out-of-bounds argument is not refused by the library | PE.16, PE.17, PE.18 | passes |
 | 10 | `E0` with an unknown key, a float bound, or unsorted operations | `envelope_digest/1` and `admit` return `:invalid_effect_envelope` | PE.19, PE.20 | new |
 
 Falsifier: an out-of-set tool, target, or value is admitted; every in-set
@@ -820,7 +823,7 @@ changes a result; the atom count grows with distinct inputs.
 | Test | Module | What It Verifies |
 |------|--------|------------------|
 | existing binding and replay tests | suites cited under Requirements | the 16 `met` requirements keep holding |
-| characterization | `ReplayStoreTest`, `ConfirmationTest`, `BoundaryPolicy.MatchTest` | restart re-acceptance, the `120` / `120.0` digest behaviour, and an explicit tool-list rule, so facts shown here by probe become committed tests |
+| characterization | `ConfirmationTest`, `BoundaryPolicy.MatchTest`, `ToolGatewayTest`, `Runtime.GateTest` | restart re-acceptance, the `120` / `120.0` digest behaviour, context coverage of the confirmation digest, an explicit tool-list rule, the nil action digest on a plain allow, and the protocol-version binding |
 | happy path | `EffectAuthorityTest` | valid binding, valid envelope, admitted request |
 | tamper path | `EffectAuthorityTest` | every admission and membership step returns its reason in order |
 | malformed input | `EffectAuthorityTest` | closed maps, identifier rule, limits, totality property |
@@ -832,7 +835,7 @@ changes a result; the atom count grows with distinct inputs.
 
 - [x] Record source reading and disposition in R.11.
 - [x] Specify requirements, data model, and conformance cases.
-- [ ] Commit characterization tests for the facts shown by probe.
+- [x] Commit characterization tests for the facts shown by probe.
 - [ ] Implement `SigilGuard.EffectAuthority` validation, digests, and
       admission.
 - [ ] Add the `:effect_binding` gateway option and consuming verification.
