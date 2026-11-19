@@ -9,8 +9,12 @@ defmodule SigilGuard.GuideFixture do
 
   @doc false
   @spec compile(String.t(), module()) :: :ok
-  def compile(guide, module) do
-    path = Path.join([@root, "guides", "integrations", guide <> ".md"])
+  def compile(guide, module), do: compile_file(Path.join("integrations", guide <> ".md"), module)
+
+  @doc false
+  @spec compile_file(Path.t(), module()) :: :ok
+  def compile_file(relative, module) do
+    path = Path.join([@root, "guides", relative])
     prefix = "defmodule " <> inspect(module) <> " do"
 
     [source] =

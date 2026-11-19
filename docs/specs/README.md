@@ -93,16 +93,8 @@ compatibility shims.
 | [`SP.14`](SP.14-ecosystem-integrations-and-interoperability.md) | implemented | Integration contracts (hermes_mcp, Jido, LangChain, Tidewave), cheatsheets, livebooks, SECURITY.md, and maintainer-owned adoption handoff. | Livebook execution, guide compile checks, docs coverage. |
 | [`SP.15`](SP.15-benchmark-methodology-and-baselines.md) | implemented | Benchmark scenario matrix, environment disclosure, CI regression thresholds, llm-guard comparison rules, SLO ratification. | Bench harness smoke test, baseline regression gates. |
 | [`SP.16`](SP.16-mcp-2026-07-28-and-apps-contracts.md) | implemented | MCP v2 structured action binding, MRTR/result discrimination, application-defined JSON-RPC codes, manifest v2, and MCP Apps boundary helpers. | Structured tamper, exact-version response, manifest header/icon/UI drift, app visibility, and UI-resource tests. |
+| [`SP.19`](SP.19-physical-effect-authority.md) | implemented | Physical-effect request binding, deny-only admission against current host facts, the effect envelope, replay limits and the host ledger contract, outcome authentication versus acceptance, and non-goals. | Conformance cases SG-F1 to SG-F6: substitution, envelope membership, replay versus effects with a ledger fake, check-to-use changes, evidence honesty, hostile input. |
 | [`SP.17`](SP.17-external-assessment-projection.md) | implemented | Host-context OSCAL Assessment Results v1.2.3 observation projection with pinned evidence digests and no inferred findings. | Schema-conformant golden output, digest tamper, malformed context, time/scope, privacy, and export compatibility. |
-
-## Planned Specs
-
-These specs are accepted designs without library code. A `planned` spec
-names what current code already satisfies and what is not implemented.
-
-| Spec | Status | Owns | Planned Tests |
-|------|--------|------|---------------|
-| [`SP.19`](SP.19-physical-effect-authority.md) | planned | Physical-effect request binding, deny-only admission against current host facts, the effect envelope, replay limits and the host ledger contract, outcome authentication versus acceptance, and non-goals. | Conformance cases SG-F1 to SG-F6: substitution, envelope membership, replay versus effects with a ledger fake, check-to-use changes, evidence honesty, hostile input. |
 
 ## Foundation And Transition Specs
 

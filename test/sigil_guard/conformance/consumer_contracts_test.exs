@@ -487,7 +487,75 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
 
   describe "physical-effect gateway contracts" do
     alias SigilGuard.EffectAuthorityFixture, as: EffectFixture
+    alias SigilGuard.TestEffectLedger
     alias SigilGuard.ToolGateway
+
+    defmodule GuideLedger do
+      @moduledoc false
+
+      @spec claim(map()) :: term()
+      def claim(record), do: SigilGuard.TestEffectLedger.claim(__MODULE__, record)
+
+      @spec transition(String.t(), atom()) :: term()
+      def transition(key, :dispatched), do: SigilGuard.TestEffectLedger.dispatch(__MODULE__, key)
+      def transition(key, to), do: SigilGuard.TestEffectLedger.transition(__MODULE__, key, to)
+    end
+
+    defmodule GuideTarget do
+      @moduledoc false
+
+      @spec send_command(String.t(), map()) :: {:sent, String.t()}
+      def send_command(key, _), do: {:sent, key}
+    end
+
+    test "the guide's receiving boundary dispatches once and refuses changed conditions" do
+      SigilGuard.ReplayStore.clear()
+      on_exit(&SigilGuard.ReplayStore.clear/0)
+
+      start_supervised!(%{
+        id: GuideLedger,
+        start: {TestEffectLedger, :start_link, [[name: GuideLedger]]}
+      })
+
+      :ok = SigilGuard.GuideFixture.compile_file("physical-effects.md", MyApp.Cell.Boundary)
+
+      host = fn facts -> %{ledger: GuideLedger, target: GuideTarget, facts: fn -> facts end} end
+
+      dispatch = fn decision, request, facts ->
+        SigilGuard.GuideFixture.call(MyApp.Cell.Boundary, :dispatch, [
+          decision,
+          request,
+          EffectFixture.context(),
+          host.(facts)
+        ])
+      end
+
+      request = EffectFixture.request()
+      decision = EffectFixture.approve(request)
+      key = decision.audit_metadata.effect_operation_key
+
+      assert dispatch.(decision, request, EffectFixture.facts()) == {:sent, key}
+
+      assert dispatch.(EffectFixture.approve(request), request, EffectFixture.facts()) ==
+               {:operation_already_claimed, :dispatched}
+
+      next =
+        put_in(request, ["params", "_meta", "dev.sigilguard/effect", "operation_id"], "op-0002")
+
+      advanced = %{EffectFixture.facts() | policy_epoch: "example-bundle:43"}
+      refused = EffectFixture.approve(next)
+
+      assert dispatch.(refused, next, advanced) == {:refused, :policy_epoch_mismatch}
+
+      assert TestEffectLedger.state(GuideLedger, refused.audit_metadata.effect_operation_key) ==
+               :refused
+
+      pending =
+        ToolGateway.guard_request(request, EffectFixture.context(), EffectFixture.gateway_opts())
+
+      assert dispatch.(pending, request, EffectFixture.facts()) == {:refused, :not_authorized}
+      assert TestEffectLedger.commands(GuideLedger) == [key]
+    end
 
     test "the option defaults to :off and leaves the JSON-RPC result unchanged" do
       opts = Keyword.delete(EffectFixture.gateway_opts(), :effect_binding)

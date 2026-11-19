@@ -141,8 +141,7 @@ only.
 Single use holds within one runtime. `SigilGuard.ReplayStore` is per boot and
 per node, so a token consumed before a restart verifies again until its
 `expires_at`. [SP.19](SP.19-physical-effect-authority.md) states these limits
-and plans a block for `consume_confirmation: false` on a physical-effect
-request.
+and blocks `consume_confirmation: false` on a physical-effect request.
 
 ## Metadata Namespace
 

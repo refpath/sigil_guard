@@ -14,7 +14,7 @@ sigil_guard:
 
 # R.11 — Physical tool authority, contextual admission and replay boundaries
 
-**Revised:** 2026-11-19. **Status:** complete. **Decision:** adopted as the planned specification [SP.19](../specs/SP.19-physical-effect-authority.md), which is specified and not implemented. Branch baseline: `d57dc2b23ca9495bf896bb6bb705ea070f985cf1`. No physical-device security campaign or safety certification is claimed.
+**Revised:** 2026-11-19. **Status:** complete. **Decision:** adopted as [SP.19](../specs/SP.19-physical-effect-authority.md), implemented as milestone M13. Branch baseline: `d57dc2b23ca9495bf896bb6bb705ea070f985cf1`. No physical-device security campaign or safety certification is claimed.
 
 ## 1. Research objective
 
@@ -132,7 +132,7 @@ The positive cases matter: a system that denies all requests does not demonstrat
 
 ## 7. Research-to-specification disposition
 
-SP.19 adopts this note. It gives each requirement a stable `PE.` identifier and a status: met by current code with the module and test named, specified and not implemented, or a host obligation. It turns SG-F1 to SG-F6 into acceptance tests with inputs, expected decisions and falsifiers.
+SP.19 adopts this note. It gives each requirement a stable `PE.` identifier and a status: met by library code with the module and test named, or a host obligation. It turns SG-F1 to SG-F6 into acceptance tests with inputs, expected decisions and falsifiers.
 
 | Case | SP.19 section | Outcome of the expressiveness check |
 |---|---|---|

@@ -5,6 +5,22 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Add `SigilGuard.EffectAuthority` and the `:effect_binding` option of
+  `SigilGuard.ToolGateway.guard_request/3` for tool requests that change the
+  physical world (SP.19). A request carries a closed binding record under
+  `params._meta["dev.sigilguard/effect"]`; `admit/5` compares it with facts
+  the host reads immediately before dispatch and refuses with a named reason.
+  Effect envelopes bound a set of operations, targets and integer arguments.
+  `classify_outcome/1` keeps a signed report apart from observed acceptance.
+  The option defaults to `:off` and changes no existing decision, digest,
+  telemetry metadata or wire shape. See `guides/physical-effects.md`.
+- Add `SigilGuard.MCP.SecurityPayload.context/3`, the boundary context both
+  gateways evaluate and digest.
+- Encode JCS strings that need no escaping with a byte scan instead of a
+  per-codepoint pass. Canonical bytes are unchanged.
+- Build the gateway projection and context once per request or result, compute
+  the gate's action digest once, and read the clock and application env in
+  `SigilGuard.Attestation` only when the caller supplies no value.
 - Fix two gateway crashes. `ToolGateway.guard_request/3` and `guard_result/3`
   raised `FunctionClauseError` for a non-map request or result that reached a
   `confirm` verdict, and `response_for_decision/3` raised `ArgumentError` when

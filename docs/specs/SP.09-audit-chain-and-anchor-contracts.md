@@ -301,7 +301,7 @@ location. URI fragments carry only the anchor digest.
 
 ## Physical Effect Evidence
 
-[SP.19](SP.19-physical-effect-authority.md) plans audit metadata for
+[SP.19](SP.19-physical-effect-authority.md) defines audit metadata for
 physical-effect operations: `effect_binding_digest`, `effect_operation_key`,
 `effect_state`, `effect_refusal`, `effect_authentication`, `effect_claimed`,
 and `effect_acceptance`. They are values inside the existing `metadata` map,
@@ -310,5 +310,4 @@ so the event format and the chain constants do not change. For these events
 observations and stays `nil` when only a signed claim exists, and the
 `result` label is the ledger state. `EffectAuthority.audit_fields/1` builds
 the three values. The chain preimage covers `result` and not `result_info`
-or `metadata`, so acceptance is recorded without chain protection. Nothing
-in this section is implemented.
+or `metadata`, so acceptance is recorded without chain protection.

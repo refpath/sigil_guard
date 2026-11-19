@@ -52,6 +52,24 @@ actor identity, resource URIs and digests are policy facts; a tool name by itsel
 is not verified side-effect evidence. Bind origin, sink, phase, trust zone and
 sandbox facts from host-controlled context.
 
+Guard a request that changes the physical world with `effect_binding: :required`
+and call `SigilGuard.EffectAuthority.admit/5` at the last host check before I/O.
+The library validates the binding record and compares it with facts the host
+supplies; the host owns everything durable. Write an effect-ledger claim keyed
+by `effect_operation_key` before any I/O, with create-if-absent semantics, in
+storage that survives restart and is shared by every host instance that can
+reach the target. An existing claim with equal digests is reconciled, not
+dispatched; one with different digests is refused. After a restart a record in
+`claimed` may resume at admission, and a record that was in flight becomes
+`unknown` and is reconciled against the target, never dispatched again
+automatically. Carry `operation_id` in the target protocol's order or goal
+identity where it has one. The library does not evaluate arguments against a
+pinned `input_schema`, and it does not decide which observations accept an
+outcome: both stay with the host. It plans no motion, is not part of an
+emergency or protective stop, and its output is not a certification or a claim
+of conformity with a machinery or cybersecurity standard. See
+[Physical-effect requests](physical-effects.md).
+
 The MCP conformance suite tests a host transport adapter, not this transport-free
 core. Run the [official suite](https://github.com/modelcontextprotocol/conformance)
 against the actual host adapter in its release pipeline. SigilGuard's local

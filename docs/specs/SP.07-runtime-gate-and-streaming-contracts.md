@@ -20,9 +20,9 @@ candidates, buffer custom patterns of unknown width, enforce the stream byte
 budget, and emit only complete UTF-8 codepoints.
 
 Requests with a physical effect are specified by
-[SP.19](SP.19-physical-effect-authority.md), which is planned. It requires a
-decision to record `action_digest` for every verdict on such a request.
-Today only a `confirm` decision records it.
+[SP.19](SP.19-physical-effect-authority.md). With `effect_binding: :required`
+the gateway records `action_digest` for every verdict on such a request.
+Otherwise only a `confirm` decision records it.
 
 ## Executive Summary
 
@@ -217,7 +217,7 @@ evidence-linked without raw payloads:
 | `evidence_refs` | `[String.t()]` | Audit event ids and checkpoint digests supporting the decision (SP.05). Each ref becomes the `ref` value of a `predicate.evidence` entry in SP.01. |
 | `effect` | `:allow \| :redact \| :quarantine \| nil` | The post-confirmation executable action, separated from the unified verdict. On a `:confirm` decision, `action` is the unified verdict `:confirm` while `effect` records what to execute once confirmation is accepted. On non-confirm decisions `effect` MAY mirror `action` or be `nil`. The confirmation dispatch (`ToolGateway`/`Base`) reads `effect`, not `action`, to decide what runs after acceptance; the confirmation token binding is unchanged (it never depended on `action`). |
 
-Additionally, runtime decisions surface the boundary labels `source`, `sink`,
+Runtime decisions also surface the boundary labels `source`, `sink`,
 `trust_zone`, `actor`, `resource`, and `phase` so evidence is complete without
 raw payloads.
 

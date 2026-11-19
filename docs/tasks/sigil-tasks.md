@@ -19,7 +19,7 @@ research note.
 ## Orientation (Read First)
 
 Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. Milestones F through M12 are complete; M13 is planned.
+rewrite. Milestones F through M12 are complete; M13 lacks only its gate task.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 294 / 295 tasks done (100%).** Milestones: 15 complete, 1 in progress.
+**Overall: 294 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -82,7 +82,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 7 | 8 | 88% | In progress |
-| — | **Total** | **294** | **295** | **100%** | 15 done |
+| — | **Total** | **294** | **295** | **99%** | 15 done |
 
 ### Release Handoff
 
@@ -93,9 +93,10 @@ M10 added an optional, host-context OSCAL Assessment Results v1.2.3
 observation projection without changing native audit exports or Agent Trust
 statements.
 
-M13 is specified by `SP.19` and not started. It adds a payload-carried effect
-binding, a deny-only admission check, and conformance cases for requests with
-a physical effect. It changes no existing contract.
+M13 implements `SP.19`: a payload-carried effect binding, a deny-only
+admission check, and conformance cases for requests with a physical effect.
+The `:effect_binding` option defaults to `:off` and changes no existing
+contract.
 
 Post-release maintenance includes ongoing dependency-audit remediation,
 per-module security coverage review, and periodic regression review of the
@@ -2905,8 +2906,8 @@ added during an adversarial hardening round (both verified against primary
 sources, 2026-07-02). D20 supersedes D19 for final MCP `2026-07-28`
 compatibility before the unreleased 1.0 publication. D21 adds the separately
 versioned external assessment projection without reopening native evidence or
-Agent Trust contracts. D22 records the planned physical-effect authority
-design, which also leaves those contracts unchanged.
+Agent Trust contracts. D22 records the physical-effect authority design,
+which also leaves those contracts unchanged.
 
 | # | Decision and rationale | Owning doc(s) |
 |---|------------------------|---------------|
@@ -2931,7 +2932,7 @@ design, which also leaves those contracts unchanged.
 | D19 | **Superseded by D20.** The pre-release gateway selected `-32050..-32056` before MCP reserved that range. It never ships as the 1.0 contract. | `SP.03`, `SP.08` |
 | D20 | **MCP `2026-07-28` alignment without a framework/transport dependency.** SigilGuard uses `-31990..-31984`, canonical structured MCP action binding, required modern result discrimination, manifest v2 display/UI/header coverage, and app-origin/UI-resource verification. Transport sessions, discovery, authorization, subscriptions, tasks, HTTP headers, and rendering remain host-owned. | `R.08`, `SP.16`, `SP.03`, `SP.08` |
 | D21 | **OSCAL Assessment Results v1.2.3 is an optional host-context observation projection, never a source of inferred compliance claims.** The adapter binds a pinned native export digest, requires exact reviewed controls and subjects, emits no findings or satisfaction states, and leaves audit export and Agent Trust bytes unchanged. | `R.10`, `SP.17` |
-| D22 | **Physical-effect authority is a payload-carried binding plus a deny-only admission check against host-supplied current facts.** No statement type, DSSE payload type, confirmation claim, manifest field, or configuration key is added, and the library gains no durable store. The replay store stays per boot and per node; effect identity and reconciliation belong to a host ledger. A signed outcome report stays a claim; physical acceptance comes from host observations. The library makes no motion, stop, or certification decision. Planned, not implemented. | `R.11`, `SP.19` |
+| D22 | **Physical-effect authority is a payload-carried binding plus a deny-only admission check against host-supplied current facts.** No statement type, DSSE payload type, confirmation claim, manifest field, or configuration key is added, and the library gains no durable store. The replay store stays per boot and per node; effect identity and reconciliation belong to a host ledger. A signed outcome report stays a claim; physical acceptance comes from host observations. The library makes no motion, stop, or certification decision. | `R.11`, `SP.19` |
 
 ## Deferred (Post-1.0.0)
 
@@ -3021,12 +3022,12 @@ reference-consumer deployment were not exercised by this milestone.
 > References: `docs/specs/SP.19-physical-effect-authority.md`,
 > `docs/research/R.11-physical-tool-authority-and-robot-attestation.md`
 > Effort: L
-> Status: planned
+> Status: in-progress
 > Dependencies: SP.01, SP.03, SP.04, SP.07, SP.08, SP.09, R.11
 
 Requirement identifiers `PE.01` to `PE.48` and conformance cases `SG-F1` to
-`SG-F6` are defined in SP.19. Sixteen requirements are already met by
-existing code and need no task; the tasks below cover the rest.
+`SG-F6` are defined in SP.19. Sixteen requirements were met by existing code
+and needed no task; the tasks below cover the rest.
 
 - [x] M13.01 Characterization tests for current behaviour stated in SP.19.
   - AC: committed tests show that a token consumed before a
@@ -3087,11 +3088,19 @@ existing code and need no task; the tasks below cover the rest.
     step of SG-F1 to SG-F6, including the positive steps, with neutral
     fixtures under `test/fixtures/effect_authority/`.
 - [ ] M13.08 Host guidance and full gate.
-  - AC: `guides/strict-deployment.md` states the host obligations PE.18,
-    PE.28, PE.29, PE.31, PE.32, and PE.41 and the non-goals PE.46 to PE.48.
+  - AC: `guides/strict-deployment.md` and `guides/physical-effects.md` state
+    the host obligations PE.18, PE.28, PE.29, PE.31, PE.32, and PE.41 and the
+    non-goals PE.46 to PE.48. The consumer suite compiles and runs the
+    receiving-boundary example in the guide.
   - AC: `SP.19` status and its requirement table are updated to what the code
     then does; the complete application gate passes with coverage at or
     above 95%; no publish, push, or tag is performed.
+
+M13.08 stays open. On 2026-11-19 `./bin/check` passed every check except
+`mix hex.audit`, with 95.5% coverage. `mix hex.audit` reports the retained
+cowlib advisory and fails the same way on the commit before M13, so the
+exception in `mix.exs` needs a maintainer decision. Hosted CI and a real
+receiving boundary were not exercised by this milestone.
 
 ## Package verification maintenance
 

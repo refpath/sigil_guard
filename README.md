@@ -27,8 +27,7 @@ call, a tool result, or a model output may cross a boundary, and produces
 signed, tamper-evident evidence of every decision. It runs in-process on the
 BEAM: no sidecar, no proxy hop, no network call on the decision path.
 
-The problem it addresses is the one every agent deployment eventually hits: a
-model with access to private data, exposure to untrusted content, and the
+A model with access to private data, exposure to untrusted content, and the
 ability to act or communicate outward is one poisoned tool description or
 prompt-injected result away from doing real damage. Model-level guardrails help
 but are probabilistic. SigilGuard is the deterministic layer underneath: signed
@@ -63,6 +62,7 @@ in-process library is a better fit.
 | **Streaming sanitizer** | Chunk-safe holdback so a secret split across output chunks is never emitted early. |
 | **Tamper-evident audit** | HMAC-linked event chains, Merkle checkpoints with inclusion and consistency proofs, signed exports, and external anchoring. |
 | **Agent-to-agent trust** | Signed agent cards and delegation-chain validation for inter-agent calls. |
+| **Physical-effect authority** | A closed binding record, a deny-only admission check against host-supplied current facts, and effect envelopes for tool requests that change the physical world. |
 | **Vault** | AES-256-GCM secret storage behind a swappable behaviour (KMS, HSM, external vault). |
 | **Telemetry** | `:telemetry` events plus OpenTelemetry-style attribute mapping for every decision. |
 
@@ -250,6 +250,16 @@ confirmed =
     confirmation_key: confirmation_key
   )
 ```
+
+### Physical-effect requests
+
+Guard a request that moves a robot or drives a machine with
+`effect_binding: :required`. The request carries a closed binding record that
+names its operation, target, artifacts, and dispatch window, and
+`SigilGuard.EffectAuthority.admit/5` compares that record with facts the host
+reads immediately before dispatch. The host owns the durable effect ledger and
+the target protocol. See the
+[Physical-effect requests](guides/physical-effects.md) guide.
 
 ### MCP v2 (`2026-07-28`) and MCP Apps
 

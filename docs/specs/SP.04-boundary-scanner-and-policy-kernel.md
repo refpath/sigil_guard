@@ -114,7 +114,7 @@ downgrade), and the D17 risk×trust ladder - by the same strongest-wins rule.
 See SP.07 *Gate ↔ Kernel Delegation*. `BoundaryPolicy.evaluate/2` used directly
 by a host applies only the kernel contributions above.
 
-The planned physical-effect checks of
+The physical-effect checks of
 [SP.19](SP.19-physical-effect-authority.md) contribute `block` only. They
 never weaken a verdict in this order and never stand in for a `confirm`.
 

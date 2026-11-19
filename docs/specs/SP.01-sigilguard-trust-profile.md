@@ -347,7 +347,7 @@ or approval bound to one sandbox can never be replayed against another
 `"none"`; SP.04 policy treats both as untrusted. Two context fields are
 normatively excluded: `action` (bound through `action_digest`) and
 `metadata` (host-private, unbounded, non-canonical; hosts that need metadata
-bound into evidence MUST place it in the payload). The planned effect binding
+bound into evidence MUST place it in the payload). The effect binding
 of [SP.19](SP.19-physical-effect-authority.md) follows this rule.
 
 ### Payload Digest (All Statement Types)

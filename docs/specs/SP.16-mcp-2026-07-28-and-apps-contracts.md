@@ -91,7 +91,7 @@ parameter keys, numbers, booleans, null, `inputResponses`, and `requestState`
 are retained. Progress, trace, logging, subscription-correlation, and display
 identity metadata are not approval input. Protocol version is extracted and
 bound separately. Client capabilities and unknown extension metadata remain
-inside `payload` because they may change request behavior. The planned
+inside `payload` because they may change request behavior. The
 [SP.19](SP.19-physical-effect-authority.md) effect binding relies on this: it
 travels under the `dev.sigilguard/effect` key.
 

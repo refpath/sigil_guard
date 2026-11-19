@@ -23,9 +23,11 @@ defmodule SigilGuard.TestEffectLedger do
           binding_digest: String.t()
         }
 
-  @doc "Start an empty ledger."
+  @doc "Start an empty ledger. Pass `:name` to register it."
   @spec start_link(keyword()) :: Agent.on_start()
-  def start_link(_ \\ []), do: Agent.start_link(fn -> %{records: %{}, commands: []} end)
+  def start_link(opts \\ []) do
+    Agent.start_link(fn -> %{records: %{}, commands: []} end, Keyword.take(opts, [:name]))
+  end
 
   @doc "Build the ledger record from the digests a gateway decision records."
   @spec record(Decision.t()) :: ledger_record()

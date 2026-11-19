@@ -164,6 +164,7 @@ defmodule SigilGuard.MixProject do
         "SECURITY.md": [title: "Security"],
         "CONTRIBUTING.md": [title: "Contributing"],
         "guides/strict-deployment.md": [title: "Strict Deployment"],
+        "guides/physical-effects.md": [title: "Physical-Effect Requests"],
         "guides/library-maintenance.md": [title: "Library Maintenance"],
         LICENSE: [title: "License"]
       ],
@@ -201,6 +202,7 @@ defmodule SigilGuard.MixProject do
           SigilGuard.CapabilityManifest,
           SigilGuard.Context,
           SigilGuard.Decision,
+          SigilGuard.EffectAuthority,
           SigilGuard.Hooks,
           SigilGuard.HTTPClient,
           SigilGuard.Identity,
