@@ -157,8 +157,8 @@ defmodule MyApp.MCPServer do
 end
 ```
 
-The important invariant is placement: guard request payloads before side
-effects, and guard result payloads before model exposure.
+Guard request payloads before side effects, and guard result payloads before
+model exposure.
 
 ## Plug Placement
 

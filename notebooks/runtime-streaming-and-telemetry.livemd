@@ -8,9 +8,8 @@ independent chunks; together they are the synthetic AWS credential used
 throughout this tutorial track.
 
 This chapter starts at that concrete failure mode, then adds the extension and
-observability seams a host needs in production. The important invariant is
-that extensions may raise risk or deny an action, but they cannot turn a
-deterministic denial into an allow.
+observability seams a host needs in production. Extensions may raise risk or
+deny an action, but they cannot turn a deterministic denial into an allow.
 
 ## Setup
 

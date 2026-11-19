@@ -296,8 +296,8 @@ SigilGuardTalk.Webhook.reset()
 %{callback_invocations: 0, side_effect: :prevented}
 ```
 
-> **On stage:** the important output is not merely `action: :block`. It is
-> `callback_invocations: 0`. The effect was unreachable.
+> **On stage:** read out `callback_invocations: 0` after `action: :block`. The
+> effect was unreachable.
 
 ## Safe Work Still Works
 
@@ -362,7 +362,7 @@ true = Enum.any?(result_decision.indicators, &(&1.id == :ignore_instructions))
 ## What This Demo Actually Proves
 
 It does not prove that a particular model always follows or refuses prompt
-injection. It proves something stronger and more useful to an operator:
+injection. It proves:
 
 1. The model returns a proposal, not authority.
 2. The host labels the proposed crossing with facts outside model control.

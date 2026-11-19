@@ -90,13 +90,12 @@ default architecture because SigilGuard is an embeddable library.
 
 ## Context
 
-The current codebase has a strong pure-Elixir foundation: envelope
+The current codebase has a pure-Elixir foundation: envelope
 signing, replay checks, MCP gateway helpers, streaming sanitization,
 confirmation tokens, staged scanning, signed bundle verification/quarantine,
 audit checkpoints/exports, release SBOM tasks, repo policy, and coverage above
-95%. The remaining strategic gap is not "finish the port." It is defining a
-modern trust architecture that is boundary-aware enough for agent systems and
-small enough to embed cleanly.
+95%. The remaining gap is a trust architecture that is boundary-aware enough
+for agent systems and small enough to embed cleanly.
 
 MCP is becoming the dominant tool boundary, while A2A and ACP-style protocols
 are converging on inter-agent and editor-agent interoperability. Those protocols
@@ -117,7 +116,7 @@ integration with optional Rust/NIF pieces, which no longer matches the intended
 repo direction.
 
 That means the main migration risk is private/direct Git use, not broad public
-Hex adoption. V3 should therefore be explicit and honest:
+Hex adoption. V3 should therefore:
 
 - keep package users on `~> 0.2` unless they opt into `~> 1.0`;
 - align the repo directly to `1.0.0` as the major release line;

@@ -125,8 +125,7 @@ merit. D9 fixes the end state:
   never a silent no-op. An optional `req`-based default anchor client MAY
   ship as an optional dependency for hosts that want a batteries-included
   store.
-- **jason stays.** It is ubiquitous, battle-tested, and already present in
-  consumers; the earlier mandate to drop it for the stdlib `JSON` module is
+- **jason stays.** It is ubiquitous and already present in consumers; the earlier mandate to drop it for the stdlib `JSON` module is
   reversed. The stdlib `JSON` module (OTP 27) is an acceptable alternative
   but is not required. The Elixir floor still rises to `~> 1.18`, now
   justified by OTP 27 crypto and set-theoretic types rather than by JSON.

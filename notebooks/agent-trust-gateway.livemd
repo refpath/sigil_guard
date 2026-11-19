@@ -10,8 +10,7 @@ two facts, a production host needs to answer three different questions:
 3. Can the next system verify what was decided without trusting our prose?
 
 This chapter answers them with capability manifests, confirmation tokens, and
-DSSE attestations. Each object binds a different thing. Treating them as one
-generic “signature” is where security designs tend to become hand-wavy.
+DSSE attestations. Each object binds a different thing.
 
 ## Setup
 

@@ -41,7 +41,7 @@ overreaches SigilGuard's boundary as an embedded library.
 
 ## Research Question
 
-Against the current agentic and MCP attack landscape, which threats does an
+Among current agentic and MCP attacks, which threats does an
 embedded SigilGuard verifier mitigate, which does it only detect, and which are
 structurally out of scope for a library that does not own the transport,
 identity provider, sandbox, or model? Each answer MUST be tied to a named
@@ -82,8 +82,8 @@ SigilGuard is an embedded, native-Elixir security runtime for MCP and
 agent-tool boundaries. It ships no proxy, no control plane, and no model. Its
 boundary vocabulary already models phase, origin, source, sink, actor,
 identity, trust zone, action, and audience (`SigilGuard.Context`). That
-vocabulary is exactly what the current attack landscape demands: mid-2026
-attacks are overwhelmingly boundary attacks, not payload-only attacks. A scanner
+vocabulary matches current attacks: mid-2026 attacks are overwhelmingly
+boundary attacks, not payload-only attacks. A scanner
 that only inspects tool *output* misses tool poisoning, line jumping, and schema
 injection, because those live in tool *metadata* delivered before any content is
 scanned. SigilGuard's answer is a verification ladder over signed trust
@@ -409,7 +409,7 @@ contracts (D8). `out-of-scope` rows MUST NOT be softened into prevention claims;
 they exist to justify the assume-compromised-tooling posture and to bound
 SigilGuard's honest security surface.
 
-**Rationale:** the mid-2026 landscape is dominated by boundary attacks that
+**Rationale:** mid-2026 attacks are dominated by boundary attacks that
 model-level filtering cannot stop by construction. A deterministic policy kernel
 over signed trust material - validated in direction by CaMeL, the design-
 patterns catalogue, and ETDI - is the only defense that offers reproducible,

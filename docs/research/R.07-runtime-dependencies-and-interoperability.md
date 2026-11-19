@@ -135,8 +135,8 @@ optimise for:
 `mix.exs` today declares three runtime dependencies: `finch ~> 0.19`,
 `jason ~> 1.4`, and `telemetry ~> 1.0`, with an Elixir floor of `~> 1.17`.
 
-Jason is referenced in 13 files and stays. It is ubiquitous, battle-tested,
-and already transitively present in effectively every consumer (Phoenix,
+Jason is referenced in 13 files and stays. It is ubiquitous and already
+transitively present in effectively every consumer (Phoenix,
 Ecto, and most HTTP clients pull it in), so it adds no practical
 supply-chain surface a host does not already carry, and it is the reference
 JSON library the wider ecosystem is written against. Elixir v1.18 (released
@@ -350,8 +350,8 @@ NimbleOptions-rejection mandates.
   justified on its own merit in a spec or research note.
 - The Elixir floor MUST rise from `~> 1.17` to `~> 1.18`, justified by OTP 27
   crypto primitives and set-theoretic types, NOT by JSON.
-- `jason` MUST stay. It is ubiquitous, battle-tested, and already
-  transitively present in consumers. The stdlib `JSON` module (OTP 27) is an
+- `jason` MUST stay. It is ubiquitous and already transitively present in
+  consumers. The stdlib `JSON` module (OTP 27) is an
   acceptable alternative but is NOT required; the earlier mandate to drop
   Jason for built-in JSON is reversed.
 - `:nimble_options` MUST be adopted for configuration and option validation:

@@ -211,7 +211,7 @@ best reported ensemble still produced rates of 2.40% and 9.32% on the two
 evaluated models. Fine-tuning reduced hallucination most strongly but degraded
 HumanEval performance, sharply in one model.
 
-Most importantly for security design, the authors reject a live master list of
+For security design, the authors reject a live master list of
 currently valid package names as an effective defense. Once an adversary
 publishes a hallucinated name, it enters that list. A curated set of expected
 packages is stronger because it expresses authorization, while a registry

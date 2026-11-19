@@ -16,8 +16,8 @@ sigil_guard:
 ## Executive Summary
 
 This spec documents the implemented vault behaviour, in-memory AES-256-GCM
-vault, identity provider behaviour, and trust-level hierarchy. These modules are
-small but define important extension seams for host applications. In v3, host
+vault, identity provider behaviour, and trust-level hierarchy. These modules
+define extension seams for host applications. In v3, host
 identity remains host-owned; SigilGuard only normalizes actor/issuer claims for
 trust bundles, attestations, and policy decisions. This update records the v3
 actor/issuer identity shape (R.05), a config-driven trust-mapping core default,

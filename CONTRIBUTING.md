@@ -1,7 +1,5 @@
 # Contributing to SigilGuard
 
-Thank you for your interest in contributing to SigilGuard!
-
 ## Getting Started
 
 1. Fork the repository

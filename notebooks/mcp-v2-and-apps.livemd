@@ -2,9 +2,8 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fmcp-v2-and-apps.livemd)
 
-Security wrappers often fail in a surprisingly mundane way: they flatten a
-structured protocol message into text and lose the distinctions the signature
-was supposed to protect. `false`, `0`, `nil`, and a missing field are not the
+A security wrapper that flattens a structured protocol message into text loses
+the distinctions the signature was supposed to protect. `false`, `0`, `nil`, and a missing field are not the
 same operation. Neither are an interim MCP result and a completed one.
 
 This chapter keeps those distinctions intact for the `2026-07-28` MCP revision,
