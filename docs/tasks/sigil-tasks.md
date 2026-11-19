@@ -3042,33 +3042,42 @@ existing code and need no task; the tasks below cover the rest.
     `binding_digest/1`, and `operation_key/1` implement the closed record of
     SP.19 and are total over arbitrary terms (PE.27, PE.44).
   - AC: unknown keys, wrong types, non-ASCII or empty identifiers, unsorted or
-    duplicate artifacts, and inverted deadlines return
-    `:invalid_effect_binding`; no atom is created from input.
+    duplicate artifacts, inverted deadlines, and a `params` map with both
+    metadata keys return `:invalid_effect_binding`; an absent record returns
+    `:effect_binding_required`; no atom is created from input.
 - [ ] M13.03 Gateway activation and consuming verification.
   - AC: `effect_binding: :off` changes no decision, digest, golden vector, or
     consumer contract assertion (PE.01, PE.03).
   - AC: `effect_binding: :required` blocks a missing or malformed record,
-    blocks `consume_confirmation: false`, verifies an inbound attestation
-    with `replay: true`, and records `action_digest` for every verdict
-    (PE.09, PE.25). All three deny reasons map to `-31990`.
+    blocks `consume_confirmation: false`, blocks a request whose digests
+    cannot be computed, and records `action_digest`, `payload_digest`, and
+    `context_digest` for every other verdict (PE.09). The three new deny
+    reasons map to `-31990`.
+  - AC: an inbound attestation nonce is consumed once, on the pass that
+    allows execution; the confirmed retry with the same envelope passes and
+    a later pass is refused (PE.25).
+  - AC: the three effect telemetry keys appear only under `:required`.
 - [ ] M13.04 Admission against current facts.
   - AC: `EffectAuthority.admit/5` returns the reasons of the SP.19 admission
     order in that order, one per failing step, as bare atoms (PE.11, PE.14,
     PE.15, PE.33, PE.34, PE.35).
   - AC: boundary tests cover `not_before`, `not_after`, and
     `:max_fact_age_ms` to the millisecond; the function reads no clock.
+  - AC: a decision produced with a `:protocol_version` option admits.
 - [ ] M13.05 Effect envelope and membership.
-  - AC: `envelope_digest/1` and the membership steps of SP.19 are implemented;
-    an envelope is approved only through an existing confirmation token over
-    the request that carries it (PE.19, PE.20, PE.21).
+  - AC: `envelope_digest/1` and the membership steps of SP.19 are implemented.
+    The conformance suite approves `E0` through an existing confirmation
+    token over the request that carries it, and `admit/5` refuses a supplied
+    document whose digest differs from the one the binding names (PE.19,
+    PE.20, PE.21).
   - AC: integer ranges and scalar enums are the only bounds; a float, an
     undeclared argument, or a missing declared argument is refused.
 - [ ] M13.06 Outcome classification and audit metadata.
   - AC: `classify_outcome/1` returns authentication, claim, and acceptance as
     independent fields; acceptance depends on host observations only (PE.38,
     PE.39).
-  - AC: audit events for physical-effect operations follow PE.40 and the
-    metadata keys listed in SP.19; no record or argument value enters
+  - AC: `audit_fields/1` returns the PE.40 result label, execution result,
+    and the metadata keys listed in SP.19; no record or argument value enters
     metadata or telemetry (PE.13, PE.26).
 - [ ] M13.07 Ledger fake and conformance cases.
   - AC: `test/support/test_effect_ledger.ex` implements the host ledger

@@ -50,7 +50,18 @@ Before SP.19 was written, the modules behind confirmation, digests, the tool gat
 - The library never evaluates arguments against a pinned `input_schema`. SP.16 leaves JSON Schema validation to the host.
 - The boundary policy grammar has matchers for `tool` and `actor` and none for `mcp_server`, `resource_uri` or payload values. A rule listing tools under `default block` passed the listed tool and blocked an unlisted tool and another actor (probe).
 - A binding record placed under `params._meta` is retained by `MCP.SecurityPayload`, changes the gateway payload digest, and produced no built-in scanner hit for one sample record containing SHA-256 digests (probe).
-- The trust-bundle rollback floor and revocation union are per boot, like the replay table.
+- The trust-bundle cache, with its accepted-sequence floor and revocation union, is per boot, like the replay table. SP.02 names the signed `rollback_floor` inside the embedded bundle as the floor that survives a restart.
+
+### 2.2 Third inspection before implementation
+
+The specification was checked against the code again before any of it was built. "Probe" and "code reading" mean what they mean in section 2.1.
+
+- A payload whose digest cannot be computed made the runtime gate skip `BoundaryPolicy.evaluate/2`. A `null` argument, an integer of 2^53 or more, or invalid UTF-8 was enough, and a policy-file rule that blocked the request then did not apply. This was a defect in existing code, not a design gap. It is fixed, and `runtime/gate_test.exs` holds the regression cases.
+- The gateway binds the MCP protocol version it selected, and a `:protocol_version` option overrides the one in the message. The action digest therefore cannot be recomputed from the request and context alone (probe).
+- Consuming an inbound attestation nonce on every guard pass refuses the confirmed retry, which presents the same envelope a second time. The committed test "can consume attestation nonces for replay protection" shows the second consumption is refused.
+- A decision exposes `action_digest` and `manifest_digest`. The payload and context digests a ledger record needs are computed inside the gateway and are not returned (code reading).
+- The audit chain preimage is `id`, `type`, `actor`, `action`, `result` and `timestamp`. `result_info` and `metadata` are outside it (code reading).
+- `[:sigil_guard, :mcp, :request]` metadata passes through a closed key list, so a new key is dropped unless the list names it (code reading).
 
 ## 3. What robotics research changes about the trust question
 
@@ -141,8 +152,8 @@ No algorithm here decides a trajectory, controls an emergency stop or certifies 
 Citation identity (title, authors, year, edition and catalogue, arXiv or regulation number) was rechecked for every reference below on 2026-11-19. The ISO catalogue and EUR-Lex pages refused automated retrieval and were confirmed through search records only. ISO 21423:2026 and ISO 10218-1:2025 are the current published editions. Section 9 records what was read of each source afterwards, and section 10 lists what that reading changed.
 
 - **[P1]** CaP-X, proceedings/author project inspected: https://proceedings.mlr.press/v306/fu26u.html ; https://capgym.github.io/ . Motivation for program-producing agents, not evidence for SigilGuard security.
-- **[P2]** *Coding Agents for Generalized Task and Motion Planning Problems*, arXiv:2609.30233, full-text simulated study inspected: https://arxiv.org/abs/2609.30233 .
-- **[P3]** OpenVLA, arXiv:2406.09246, full-text policy study inspected: https://arxiv.org/html/2406.09246v3 .
+- **[P2]** *Coding Agents for Generalized Task and Motion Planning Problems*, arXiv:2609.30233, a simulated study; abstract and selected passages read: https://arxiv.org/abs/2609.30233 .
+- **[P3]** OpenVLA, arXiv:2406.09246, a policy study; abstract and action-representation passages read: https://arxiv.org/html/2406.09246v3 .
 - **[P4]** Black-Box Simplex, arXiv:2102.12981, primary record checked: https://arxiv.org/abs/2102.12981 . The paper's control-assurance problem is distinct from request authenticity.
 
 Existing protocol reference points: JCS https://www.rfc-editor.org/rfc/rfc8785 ; DSSE https://github.com/secure-systems-lab/dsse ; in-toto https://github.com/in-toto/attestation . This revision does not claim a fresh cryptographic implementation audit.
@@ -159,8 +170,8 @@ Read on 2026-11-19 from the primary text unless noted. "Full" means the named do
 
 | Source | Version and extent read | What SP.19 takes from it |
 |---|---|---|
-| [DSSE](https://github.com/secure-systems-lab/dsse) | v1.0.2, 2024-05-10; `protocol.md` and `envelope.md` in full. The repository now resolves to `dsse-lf/dsse`. | The signature covers the PAE of the payload type and the exact payload bytes; the verifier passes on the bytes it verified; `keyid` is an unauthenticated hint. The text has no replay, freshness, nonce or expiry provision and puts key management out of scope. |
-| [in-toto attestation](https://github.com/in-toto/attestation) | v1.2.0, 2026-03-18; `spec/v1` statement, resource descriptor, predicate and envelope in full | A Statement has four fields and none is an issuer, a time, an expiry or a nonce. Subjects are immutable artifacts matched by digest. A resource descriptor needs one of `uri`, `digest` or `content`. Consumers ignore unknown fields unless a predicate says otherwise. |
+| [DSSE](https://github.com/secure-systems-lab/dsse) | v1.0.2, 2024-05-10; `protocol.md` and `envelope.md` in full; the scope list in `README.md`. The repository now resolves to `dsse-lf/dsse`. | The signature covers the PAE of the payload type and the exact payload bytes; the verifier passes on the bytes it verified; `keyid` is an unauthenticated hint. The text has no replay, freshness, nonce or expiry provision. `README.md` lists key management as out of scope. |
+| [in-toto attestation](https://github.com/in-toto/attestation) | v1.2.0, 2026-03-18; `spec/v1` statement, resource descriptor, predicate and envelope in full; the parsing rules in `spec/v1/README.md` | A Statement has four fields and none is an issuer, a time, an expiry or a nonce. Subjects are immutable artifacts matched by digest. A resource descriptor needs one of `uri`, `digest` or `content`. Consumers ignore unknown fields unless a predicate says otherwise. |
 | [SLSA build provenance](https://slsa.dev/spec/v1.2/build-provenance) | v1.2; provenance page in full, verification page steps 1 and 2 | External parameters must be complete at Build L3 and verifiers should reject unrecognized ones. A parameter may be allowed a range of values when every value in the range is known to be safe. Provenance describes a build that already ran, not an authorization. |
 | [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html) | sections 1, 3 and 5, appendices B (part), D, E and F | Numbers are IEEE 754 doubles in ECMAScript form, so `120` and `120.0` are one value. Larger integers are carried as strings. Strings are not normalized. Section 5 requires data validation as well as signature verification. |
 
@@ -168,7 +179,7 @@ Read on 2026-11-19 from the primary text unless noted. "Full" means the named do
 
 | Source | Version and extent read | What SP.19 takes from it |
 |---|---|---|
-| [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html) | sections 4.2, 4.3, 8, 9 and 11 | The only requirement on replay is a limited acceptance time. Storing `jti` values is described with "can", is scoped to the target URI, and "may not always be feasible" when servers share no state. DPoP does not protect the request body (11.7). |
+| [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html) | sections 4.2, 4.3, 8, 9 and 11 | A proof must match the request method and URI and is accepted only for a limited time. Single use is optional: storing `jti` values is described with "can", is scoped to the target URI, and "may not always be feasible" when servers share no state. DPoP does not protect the request body (11.7). |
 | [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) | sections 2, 4.5, 4.10 and 4.14 | A resource server must refuse a token not meant for it (2.3). Sender-constraining and audience restriction are recommendations. |
 | [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html) | full | `resource` is an absolute URI without a fragment. The audience may be coarser than the resource, so it does not by itself identify one device. |
 | [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html) | July 2025; sections 3.2.5 to 3.2.8 and four glossary entries | Replay resistance rests on nonces or challenges that prove freshness. Authentication intent needs an explicit response to each request. Both are defined for authenticating a claimant, not for authorizing one action. |
@@ -192,7 +203,7 @@ Read on 2026-11-19 from the primary text unless noted. "Full" means the named do
 
 | Source | Version and extent read | What SP.19 takes from it |
 |---|---|---|
-| [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28) | revision `2026-07-28`, marked current; repository commit `c5c0da7` of 2026-11-18. Tools (except two example blocks), cancellation, multi round-trip and authorization security pages in full; base protocol, authorization, elicitation and transports in part. The draft differs by two minor changes. | Tool annotations are hints and are untrusted unless the server is trusted. A human in the loop is a recommendation. Authorization is optional, defined for HTTP transports, and has no per-call clause in the pages read. A request `id` is unique only among outstanding requests and a retry uses a new one. There is no idempotency key. A cancellation can arrive after completion and a server may ignore it. Vendor-prefixed `_meta` keys are permitted. |
+| [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28) | revision `2026-07-28`, marked current; repository commit `c5c0da7` of 2026-11-18. Tools (except two example blocks), cancellation, multi round-trip and authorization security pages in full; base protocol, authorization, elicitation and transports in part. The draft changelog lists two entries: a newer Client ID Metadata Document reference, and a restored `_meta` field on five types, none of them `CallToolRequestParams`. | Tool annotations are hints and are untrusted unless the server is trusted. A human in the loop is a recommendation. Authorization is optional and defined for HTTP transports. A token accompanies every HTTP request, and no clause in the pages read binds a grant to one call's arguments. A request `id` is unique only among outstanding requests and a retry uses a new one. There is no idempotency key. A cancellation can arrive after completion and a server may ignore it. Vendor-prefixed `_meta` keys are permitted. |
 | [MCP tasks extension](https://github.com/modelcontextprotocol/ext-tasks) | v0.2.3; creation, cancellation and security sections | Cancellation is cooperative and does not guarantee that work stopped. |
 | [OWASP LLM01:2025](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) and [OWASP Top 10 for Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) | LLM01 description and mitigations; ASI01 and ASI02 | Natural-language input is untrusted. High-impact actions need confirmation by a person or a policy engine. |
 | arXiv:2503.18813, arXiv:2506.08837 | abstracts and selected passages | Background on separating control flow from untrusted data. Already cited by SP.04. |
@@ -235,10 +246,11 @@ No clause of a paywalled standard was read. These documents limit what SP.19 may
 
 ## 10. What the reading changed
 
-1. DSSE and the in-toto Statement give integrity and a typed payload and nothing about freshness, replay, target or deadline. Those bindings have to come from the profile. SP.19 puts them in the guarded payload so no envelope or statement type changes.
-2. The replay guidance read here assumes shared state for single use and says so. RFC 8881 states the restart limit outright. SP.19 therefore states what the replay store cannot promise and puts effect identity in a durable host ledger.
+1. DSSE and the in-toto Statement give integrity and a typed payload and nothing about freshness, replay, audience or deadline. A Statement names the artifacts it applies to, not a recipient. Those bindings have to come from the profile. SP.19 puts them in the guarded payload so no envelope or statement type changes.
+2. RFC 9449 section 11.1 says single-use tracking may not be feasible when servers share no state. RFC 8881 states the restart limit outright. SP.19 therefore states what the replay store cannot promise and puts effect identity in a durable host ledger.
 3. MCP `2026-07-28` has no request-level idempotency and no confirmed cancellation, while VDA 5050 and ROS 2 actions do carry a command identity. SP.19 binds a host-assigned `operation_id` and requires the host to convey it where the target protocol can carry one.
-4. SLSA requires external parameters to be complete, recommends rejecting unknown ones, and allows a range of values known to be safe. Envelope membership follows that model: every argument has a declared bound or the request is refused.
+4. SLSA requires external parameters to be complete at Build L3, recommends rejecting unknown ones, and allows a range of values known to be safe. Envelope membership follows that model: every argument has a declared bound or the request is refused.
 5. RFC 8785 number handling led to a binding record of strings and to integer-only bounds.
 6. The second code inspection found that the gateway does not consume inbound attestation nonces and that only `confirm` decisions record an action digest. Both become requirements for physical-effect requests.
-7. Corrections to earlier wording: the Black-Box Simplex guarantee is conditional as recorded in section 9; the ROS 2 articles support the transport-level description and not, by themselves, the statement about command parameters; Regulation (EU) 2023/1230 is a scope boundary alongside the Cyber Resilience Act; CWE-441 has a new name.
+7. The third inspection changed four rules. Admission recomputes the action digest with the protocol version the decision records. An attestation nonce is consumed once, on the pass that allows execution. The gateway records the payload and context digests for the ledger. A library function builds the audit fields, and the specification says which of them the chain covers.
+8. Corrections to earlier wording: the Black-Box Simplex guarantee is conditional as recorded in section 9; the ROS 2 articles support the transport-level description and not, by themselves, the statement about command parameters; Regulation (EU) 2023/1230 is a scope boundary alongside the Cyber Resilience Act; CWE-441 has a new name.

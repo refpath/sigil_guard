@@ -511,8 +511,8 @@ allocation (Decision D20, SP.16).
 reasons: `:effect_binding_required`, `:invalid_effect_binding`, and
 `:effect_replay_protection_required`. They map to `-31990` and mint no code.
 SP.19 also records that `guard_request/3` verifies an inbound attestation
-without consuming its nonce, and requires consumption for physical-effect
-requests.
+without consuming its nonce, and plans one consumption for a physical-effect
+request, on the pass that allows execution.
 
 ## Agent-To-Agent Pointer
 

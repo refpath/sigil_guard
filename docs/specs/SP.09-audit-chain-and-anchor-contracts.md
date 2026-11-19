@@ -308,4 +308,7 @@ and `effect_acceptance`. They are values inside the existing `metadata` map,
 so the event format and the chain constants do not change. For these events
 `result_info.success` records physical acceptance decided from host
 observations and stays `nil` when only a signed claim exists, and the
-`result` label is the ledger state. Nothing in this section is implemented.
+`result` label is the ledger state. `EffectAuthority.audit_fields/1` builds
+the three values. The chain preimage covers `result` and not `result_info`
+or `metadata`, so acceptance is recorded without chain protection. Nothing
+in this section is implemented.

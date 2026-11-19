@@ -131,7 +131,7 @@ that introduced this spec.
 
 | ID | Requirement | Status | Evidence |
 |----|-------------|--------|----------|
-| PE.01 | `ToolGateway.guard_request/3` accepts the option `:effect_binding` with the closed values `:off` (default) and `:required`. With `:off` no decision, digest, or wire shape changes. Any other value blocks with deny reason `:invalid_effect_binding`. | specified | - |
+| PE.01 | `ToolGateway.guard_request/3` accepts the option `:effect_binding` with the closed values `:off` (default) and `:required`. With `:off` no decision, digest, telemetry metadata, or wire shape changes. Any other value blocks with deny reason `:invalid_effect_binding`. The `MCP.Gateway` functions delegate to `guard_request/3` and pass the option through. `ToolGateway.Base` reads no `ToolGateway` option, this one included. | specified | - |
 | PE.02 | Every check in this spec contributes `block` or nothing. It never upgrades a verdict in the SP.04 order `block > quarantine > confirm > redact > allow`, and a passed check never replaces a required confirmation. | specified | - |
 | PE.03 | The spec adds no statement type, payload type, confirmation claim, `_agent_*` key, manifest field, or `SigilGuard.Config` key. Existing golden vectors and the consumer contract assertions stay byte-identical. | specified | - |
 
@@ -171,7 +171,7 @@ today; the binding record adds the rest without changing any digest rule.
 | PE.06 | Parameters are bound as structured JSON: keys, nesting, booleans, `null`, and strings each change the digests. | met | `MCP.SecurityPayload`; `mcp/security_payload_test.exs` "different keys and non-string values produce different security bindings" |
 | PE.07 | The endpoint is bound through `mcp_server` and `resource_uri` in the context digest, and the gateway refuses a request whose `:resource` or `:audience` option does not match the pinned manifest. | met | `Attestation.Digest`, `ToolGateway`; `attestation/digest_test.exs` "accepts keyword context extras and rejects unknown statement types"; `threat_model/tm06_confused_deputy_test.exs` "a request indicating the wrong resource is blocked", "a credential minted for the wrong audience is blocked" |
 | PE.08 | Values under an unreserved `params._meta` key are part of the bound payload: changing one changes the payload digest and the confirmation digests. The effect binding uses the key `dev.sigilguard/effect` and so needs no new digest rule. | met | `MCP.SecurityPayload`; `mcp/security_payload_test.exs` "metadata capabilities and extensions change the security binding" |
-| PE.09 | With `effect_binding: :required`, `guard_request/3` validates the record against the closed schema under Effect Binding Record before the runtime gate runs. A missing record blocks with `:effect_binding_required`; a malformed one blocks with `:invalid_effect_binding`. The decision records the request's action digest for every verdict. | specified | - |
+| PE.09 | With `effect_binding: :required`, `guard_request/3` checks the option value, runs the manifest, freshness, resource, visibility, sandbox, and attestation checks in their existing order, and then, before the runtime gate, refuses `consume_confirmation: false` (PE.25), computes the request digests, and validates the record against the closed schema under Effect Binding Record. A request whose digests cannot be computed blocks with `:invalid_payload`. A missing record blocks with `:effect_binding_required`; a malformed one blocks with `:invalid_effect_binding`. Every other decision, including one blocked before the gate, records `action_digest`, `payload_digest`, and `context_digest` in `audit_metadata`, and `effect_binding_digest` and `effect_operation_key` when the record is valid. | specified | - |
 | PE.10 | Authority has a bounded lifetime. A confirmation token is refused after `expires_at` with `:expired`; an attestation is refused after `expires_at` plus skew with `:expired_attestation`. Tokens are never renewed. | met | `Confirmation`, `Attestation`; `confirmation_test.exs` "rejects expired tokens"; `attestation_sign_verify_test.exs` "honors expiration skew boundaries" |
 | PE.11 | The operation deadline is separate from authority expiry. Admission refuses when `now` is later than `not_after` (`:effect_deadline_passed`) or earlier than `not_before` (`:effect_not_yet_valid`). No skew allowance extends `not_after`. Both the authority lifetime and the deadline must hold. | specified | - |
 
@@ -236,7 +236,7 @@ nothing else. A count bound stays host-owned because it needs durable state.
 | PE.16 | A tool without a pinned manifest is blocked when manifests are required, and a policy rule with `tool:` and `actor:` matchers restricts a principal to the tools it lists. | met | `ToolGateway`, `BoundaryPolicy.Match`; `tool_gateway_test.exs` "fails closed for unknown tools without creating atom keys"; `boundary_policy/match_test.exs` "star matches any present tool but requires the actor to match". An explicit tool list under `default block` was shown by probe on 2026-11-19; no committed test uses one. |
 | PE.17 | Static parameter bounds are pinned: the manifest digest covers `input_schema_sha256`, and a changed schema is rejected. | met | `CapabilityManifest`; `threat_model/tm05_rug_pull_test.exs` "a swapped input schema after approval is rejected on the refresh" |
 | PE.18 | Evaluating arguments against the pinned JSON Schema is host-owned (SP.16). SigilGuard does not refuse an argument that violates `enum`, `minimum`, or `maximum` in a pinned schema. | host | - |
-| PE.19 | An effect envelope is approved by guarding and confirming a request that carries the complete document at `params._meta["dev.sigilguard/effect-envelope"]`. The existing token binds it through the payload digest. No new token type exists. | specified | - |
+| PE.19 | An effect envelope is approved by guarding and confirming a host-chosen request that carries the complete document at `params._meta["dev.sigilguard/effect-envelope"]`. That request names a tool with a pinned manifest and is guarded with `effect_binding: :off`, because it dispatches nothing. The existing token binds the document through the payload digest; no new token type exists. Before it presents the approval the host calls `envelope_digest/1`, which refuses a malformed document, and afterwards it records the digest as approved. The library keeps no record of approvals. | specified | - |
 | PE.20 | A binding that names an envelope is admitted only when the host supplies a document whose digest equals `effect.envelope.sha256` and the request is a member under Envelope Membership. Otherwise admission returns the named refusal. | specified | - |
 | PE.21 | An envelope is immutable and identified by its digest. Widening a bound, adding a target or operation, or extending `not_after` produces a different digest and needs a new approval. No amendment operation exists. | specified | - |
 
@@ -268,7 +268,7 @@ token and 360 s for an attestation.
 | PE.22 | Within one runtime, a second consuming verification of the same token or attestation while it is live is refused with `:replay_detected`, including under concurrent attempts. | met | `ReplayStore.check_and_put/4`; `confirmation_test.exs` "consumes confirmation tokens by default"; `attestation_sign_verify_test.exs` "can consume attestation nonces for replay protection" |
 | PE.23 | Retention covers the whole acceptance window and is measured on the monotonic clock. | met | `ReplayStore`, `Attestation`; `replay_store_test.exs` tests cited above |
 | PE.24 | Capacity exhaustion refuses the new claim and keeps live claims. | met | `ReplayStore`; `replay_store_test.exs` "capacity exhaustion fails closed without evicting a live nonce" |
-| PE.25 | A physical-effect request is verified with consumption. With `effect_binding: :required`, `consume_confirmation: false` blocks with `:effect_replay_protection_required`, and an inbound attestation is verified with `replay: true`. | specified | - |
+| PE.25 | A physical-effect request is verified with consumption. With `effect_binding: :required`, `consume_confirmation: false` blocks with `:effect_replay_protection_required`. An inbound attestation is verified without consumption before the gate, as today, and its nonce is consumed once, on the pass whose decision allows execution. A pass that ends in `confirm`, `quarantine`, or `block` consumes nothing, so the same envelope can accompany the confirmed retry. A failed consumption blocks with `:invalid_attestation` and `attestation_error` set to the SP.01 atom, for example `:replay_detected`. | specified | - |
 | PE.26 | No decision field, telemetry attribute, audit event, guide, or API document produced by the library describes a replay-store pass as evidence that an effect has not occurred, or `:replay_detected` as evidence that it has. | specified | - |
 
 ### Durable Effect Reconciliation
@@ -279,7 +279,7 @@ this contract.
 | ID | Requirement | Status | Evidence |
 |----|-------------|--------|----------|
 | PE.27 | `EffectAuthority.operation_key/1` returns the lowercase-hex SHA-256 of the JCS bytes of `{"operation_id": ..., "target_id": ...}` taken from a valid binding. `EffectAuthority.binding_digest/1` returns the digest of the JCS bytes of the record. Both are pure. | specified | - |
-| PE.28 | Before any external I/O the host writes a ledger record `{operation_key, payload_digest, context_digest, binding_digest, state: claimed}` with create-if-absent semantics. The write is durable across process and node restart and is visible to every host instance that can reach the target. | host | - |
+| PE.28 | Before any external I/O the host writes a ledger record `{operation_key, payload_digest, context_digest, binding_digest, state: claimed}` with create-if-absent semantics. The write is durable across process and node restart and is visible to every host instance that can reach the target. The four values are the `effect_operation_key`, `payload_digest`, `context_digest`, and `effect_binding_digest` that the decision records (PE.09). | host | - |
 | PE.29 | A claim for an existing key with equal digests does not dispatch; the host reads the recorded state and reconciles. A claim for an existing key with different digests is refused as `operation_binding_conflict`. | host | - |
 | PE.30 | Ledger states and transitions are the closed set under Ledger States. `EffectAuthority.valid_transition?/2` is the pure, shared definition. | specified | - |
 | PE.31 | After a restart, a record in `claimed` means no I/O was issued and the host may resume at the admission step with fresh facts. A record in `dispatched`, `acknowledged`, or `cancel_requested` becomes `unknown` and is reconciled against the target by operation identity. It is never dispatched again automatically. | host | - |
@@ -306,9 +306,11 @@ approver's view ages.
 Admission narrows the interval between check and use; it does not close it.
 After `admit/5` returns `:ok` a person can enter the workspace or a fixture
 can move. The controller's own state checks and the equipment's protective
-functions own that interval. The trust-bundle rollback floor and revocation
-union are also per boot (SP.02), so a host that needs them across restarts
-persists its approved state itself.
+functions own that interval. The trust-bundle cache, with its
+accepted-sequence floor and revocation union, is also per boot (SP.02). The
+signed `rollback_floor` inside the embedded bundle is the only floor that
+survives a restart, so a host that needs the accepted sequence or the
+revocation union across restarts persists that state itself.
 
 ### Evidence Honesty
 
@@ -320,7 +322,7 @@ that the action succeeded.
 |----|-------------|--------|----------|
 | PE.38 | `EffectAuthority.classify_outcome/1` returns three separate fields: `authentication` (`verified`, `unsigned`, `invalid`), `claimed` (`success`, `failure`, `none`), and `acceptance` (`accepted`, `rejected`, `undetermined`). No field is derived from another. | specified | - |
 | PE.39 | `acceptance` depends only on host-supplied observations: `rejected` when any observation contradicts, `accepted` when at least `required_observations` distinct sources confirm and none contradicts, otherwise `undetermined`. The report's own claim is never counted as an observation, and an observation whose `source` equals the report issuer is refused as input. | specified | - |
-| PE.40 | In an audit event for a physical-effect operation, `result_info.success` (`Audit.ExecutionResult`) is `true` only when `acceptance` is `accepted`, `false` when it is `rejected`, and `nil` otherwise. The `result` label is the ledger state. The claim, authentication, and acceptance are recorded as separate metadata values. | specified | - |
+| PE.40 | `EffectAuthority.audit_fields/1` returns the `result` label, the `Audit.ExecutionResult`, and the metadata map for an audit event about a physical-effect operation. `result` is the ledger state. `result_info.success` is `true` only when `acceptance` is `accepted`, `false` when it is `rejected`, and `nil` otherwise. The claim, authentication, and acceptance are separate metadata values. The audit chain covers `result`; `result_info` and `metadata` are outside the chain preimage (SP.09), so acceptance is recorded without chain protection. | specified | - |
 | PE.41 | Which observations count, how many are required, and whether sources are independent is the host's acceptance criterion. | host | - |
 
 ### Untrusted Observations
@@ -355,6 +357,13 @@ is the content of a command.
 The record is a string-keyed map at `params._meta["dev.sigilguard/effect"]`.
 It is closed: an unknown key, a wrong type, or a value outside its rule
 fails with `:invalid_effect_binding`.
+
+`fetch_binding/1` reads the record from the `params` value the gateway
+binds: the string key `"params"`, or the atom key `:params` when the string
+key is absent. Inside it the record sits under `"_meta"` or `:_meta`. A
+`params` map that has both metadata keys is ambiguous and fails with
+`:invalid_effect_binding`, as does a value at the record key that is not a
+map. A request without `params` has no record.
 
 An **identifier** is 1 to 256 bytes of printable ASCII (`0x21` to `0x7E`).
 Identifiers are compared byte for byte, with no case folding, Unicode
@@ -403,8 +412,8 @@ sides are absent or both are present with equal values.
 
 | Step | Check | Refusal |
 |------|-------|---------|
-| 1 | Options are a keyword list with a positive integer `:max_fact_age_ms` and optional `:envelope`, `:manifest_digest` | `:invalid_options` |
-| 2 | `decision` is a `SigilGuard.Decision` with action `:allow` whose `audit_metadata.action_digest` equals the action digest recomputed from `request` and `context` as the gateway computes it | `:not_authorized` |
+| 1 | Options are a keyword list with a positive integer `:max_fact_age_ms`, an optional `:envelope`, and no other key | `:invalid_options` |
+| 2 | `decision` is a `SigilGuard.Decision` with verdict `:allowed` and action `:allow` whose `audit_metadata.action_digest` equals the action digest recomputed from `request`, `context`, and `audit_metadata.protocol_version`, as the gateway computes it | `:not_authorized` |
 | 3 | The record is present | `:effect_binding_required` |
 | 4 | The record is valid | `:invalid_effect_binding` |
 | 5 | `current` is valid | `:invalid_current_facts` |
@@ -417,16 +426,23 @@ sides are absent or both are present with equal values.
 | 12 | Policy epochs are equal | `:policy_epoch_mismatch` |
 | 13 | `now` is not before `not_before` | `:effect_not_yet_valid` |
 | 14 | `now` is not after `not_after` | `:effect_deadline_passed` |
-| 15 | Envelope membership, when the record names an envelope | see Envelope Membership |
+| 15 | Envelope membership | see Envelope Membership |
 
-A record without `envelope` passes step 15. Supplying `:envelope` for a
-record that names none fails with `:invalid_options`. `:manifest_digest` is
-the digest the gateway verified for this request, recorded as
-`decision.audit_metadata.manifest_digest`.
+A record without `envelope` passes step 15 when no `:envelope` option is
+supplied. Supplying one for a record that names none fails with
+`:effect_envelope_mismatch`.
 
 Step 2 depends on PE.09. Today the gate records `action_digest` only on a
 `confirm` decision, where it stays after the token is accepted; a decision
-that was allowed without confirmation carries none (probe, 2026-11-19).
+that was allowed without confirmation carries `nil` (probe, 2026-11-19). The
+gateway binds the protocol version it selected, which a `:protocol_version`
+option can override, so step 2 recomputes with the version the decision
+records. `context` is the value the host passed to `guard_request/3`,
+`metadata` and `workspace_root_digest` included: the action digest covers
+the whole context.
+
+Step 7 compares `context.actor` only. A context without `actor` never
+admits. `identity` is bound by the digests and is not compared.
 
 ### Effect Envelope Document
 
@@ -474,8 +490,8 @@ Evaluated in order after step 14; the first failure is returned.
 | 15.7 | Frame revisions are equal | `:frame_revision_mismatch` |
 | 15.8 | Policy epochs are equal | `:policy_epoch_mismatch` |
 | 15.9 | `now` and the binding's `not_after` are not after the envelope's `not_after` | `:effect_envelope_expired` |
-| 15.10 | The tool is listed and `:manifest_digest` equals its `manifest_sha256` | `:operation_out_of_envelope` |
-| 15.11 | `arguments` is a map whose key set equals the operation's `parameters` key set and every value matches its bound | `:parameter_out_of_envelope` |
+| 15.10 | The tool named by the request is listed and `decision.audit_metadata.manifest_digest` equals its `manifest_sha256` | `:operation_out_of_envelope` |
+| 15.11 | `params.arguments`, or an empty map when the key is absent, is a string-keyed map whose key set equals the operation's `parameters` key set and every value matches its bound | `:parameter_out_of_envelope` |
 
 Whether an envelope is still approved is a host fact. The host passes only
 envelopes it currently holds as approved.
@@ -515,7 +531,10 @@ defmodule SigilGuard.EffectAuthority do
           | :target_out_of_envelope | :operation_out_of_envelope
           | :parameter_out_of_envelope
 
-  @spec fetch_binding(request :: term()) :: {:ok, map()} | :error
+  @spec fetch_binding(request :: term()) ::
+          {:ok, map()}
+          | {:error, :effect_binding_required | :invalid_effect_binding}
+
   @spec validate_binding(term()) :: :ok | {:error, :invalid_effect_binding}
 
   @spec binding_digest(term()) ::
@@ -545,11 +564,21 @@ defmodule SigilGuard.EffectAuthority do
              acceptance: :accepted | :rejected | :undetermined
            }}
           | {:error, :invalid_outcome_input}
+
+  @spec audit_fields(term()) ::
+          {:ok,
+           %{
+             result: String.t(),
+             result_info: SigilGuard.Audit.ExecutionResult.t(),
+             metadata: %{optional(String.t()) => String.t()}
+           }}
+          | {:error, :invalid_audit_input}
 end
 ```
 
 Every function is total over arbitrary terms and returns a tagged tuple
-instead of raising. `classify_outcome/1` takes an atom-keyed closed map with
+instead of raising. `fetch_binding/1` returns a record only when it is
+valid. `classify_outcome/1` takes an atom-keyed closed map with
 `:authentication`, `:claimed`, optional `:issuer`, `:observations` (a list of
 `%{source: identifier, result: :confirms | :contradicts}`), and
 `:required_observations` (positive integer). The host obtains
@@ -557,15 +586,22 @@ instead of raising. `classify_outcome/1` takes an atom-keyed closed map with
 `{:ok, _}` is `:verified`, an error is `:invalid`, and no envelope is
 `:unsigned`.
 
+`audit_fields/1` takes an atom-keyed closed map with `:state` (a ledger
+state) and optional `:binding_digest`, `:operation_key`, `:refusal` (an
+admission refusal), and `:outcome` (the map `classify_outcome/1` returned).
+The host passes `result` and `metadata` to `Audit.new_event/5` and sets
+`result_info` on the event.
+
 ## Module Map
 
 | Module | Purpose | State |
 |--------|---------|-------|
 | `lib/sigil_guard/effect_authority.ex` | Binding and envelope validation, digests, admission, transition table, outcome classification. | proposed |
 | `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks. | existing; change proposed |
+| `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | existing; change proposed |
 | `lib/sigil_guard/confirmation.ex` | Token binding and single use. | existing; unchanged |
 | `lib/sigil_guard/replay_store.ex` | Per-boot nonce claims. | existing; unchanged |
-| `lib/sigil_guard/mcp/security_payload.ex` | Retains unreserved `_meta` values in the binding. | existing; unchanged |
+| `lib/sigil_guard/mcp/security_payload.ex` | Retains unreserved `_meta` values in the binding; builds the gateway context that `guard_request/3` and `admit/5` both digest. | existing; change proposed |
 | `test/sigil_guard/effect_authority_test.exs` | Unit, tamper, malformed, and property tests. | proposed |
 | `test/sigil_guard/conformance/physical_effect_test.exs` | SG-F1 to SG-F6. | proposed |
 | `test/support/test_effect_ledger.ex` | In-memory ledger fake with a simulated restart. | proposed |
@@ -586,20 +622,24 @@ host's mapping. VDA 5050 3.0.0 identifies an order by `orderId` and
 `orderUpdateId` and rejects a lower or conflicting update. A ROS 2 action
 goal has a client-generated UUID. MCP `2026-07-28` defines no request-level
 idempotency: a JSON-RPC `id` is unique only among outstanding requests and a
-retry uses a new one. In all three, cancellation is a request the receiver
-may not honour.
+retry uses a new one. In none of the three does a cancel request guarantee
+that the work stops: an MCP server may ignore it, a ROS 2 action server may
+reject it, and VDA 5050 calls order cancellation unreliable.
 
 ## Telemetry And Observability
 
 | Event | Type | Metadata | Purpose |
 |-------|------|----------|---------|
-| `[:sigil_guard, :mcp, :request]` | event | adds `effect_binding` (`absent`, `valid`, `invalid`), `effect_binding_digest`, `effect_operation_key` | Correlate a gateway decision with a ledger record. |
+| `[:sigil_guard, :mcp, :request]` | event | with `effect_binding: :required` only, adds `effect_binding` (`absent`, `valid`, `invalid`), `effect_binding_digest`, `effect_operation_key` | Correlate a gateway decision with a ledger record. |
 
 `EffectAuthority` functions are pure and emit no event, like direct
 `Attestation` calls (SP.01). The host emits or audits admission and outcome
 results. The added metadata contains no record value, argument value,
 target identifier, or operation identifier; the operation key is already a
-hash. Existing metadata keeps its SP.03 content.
+hash. Existing metadata keeps its SP.03 content. The OTel forwarder maps the
+keys to `sigilguard.effect.binding`, `sigilguard.effect.binding_digest`, and
+`sigilguard.effect.operation_key`; the two digests are high-cardinality
+attributes.
 
 Audit metadata keys for physical-effect events: `effect_binding_digest`,
 `effect_operation_key`, `effect_state`, `effect_refusal`,
@@ -615,6 +655,11 @@ with `data.status` `"blocked"` under the SP.03 registry; no code is minted.
 | `:effect_binding_required` | `effect_binding: :required` and no record | attach a binding |
 | `:invalid_effect_binding` | malformed record or invalid option value | fix the record or option |
 | `:effect_replay_protection_required` | `consume_confirmation: false` on a physical-effect request | verify with consumption |
+
+Two existing reasons gain a trigger under `effect_binding: :required`:
+`:invalid_payload` when the request digests cannot be computed, and
+`:invalid_attestation` (code `-31985`) when the attestation nonce cannot be
+consumed.
 
 Admission refusals are listed under Admission Order and Envelope
 Membership. Every refusal requires a fresh gate pass and, where the verdict
@@ -691,6 +736,7 @@ and one physical target. `E0` was approved through PE.19.
 | 7 | `E0` with the speed bound widened to 200, binding still naming the old digest | `:effect_envelope_mismatch` | PE.21 | new |
 | 8 | Same as step 1 with no `:envelope` supplied | `:unknown_effect_envelope` | PE.20, PE.35 | new |
 | 9 | Static variant without an envelope: the same tools pinned by manifest and a policy rule limiting the principal to them | listed tool passes the rule; unlisted tool and other principal block; an out-of-bounds argument is not refused by the library | PE.16, PE.17, PE.18 | manifest part passes; tool list shown by probe |
+| 10 | `E0` with an unknown key, a float bound, or unsorted operations | `envelope_digest/1` and `admit` return `:invalid_effect_envelope` | PE.19, PE.20 | new |
 
 Falsifier: an out-of-set tool, target, or value is admitted; every in-set
 choice is refused; a widened envelope is admitted under the old approval.
@@ -710,6 +756,7 @@ Uses the ledger fake. A restart is simulated by stopping and starting
 | 6 | Same `operation_id` and target with a changed argument | ledger returns `operation_binding_conflict` | PE.29 | new |
 | 7 | A different `operation_id` | claimed and dispatched | PE.28 | new |
 | 8 | Restart with a record in `dispatched` | record becomes `unknown`; no second dispatch | PE.31 | new |
+| 9 | A request with an inbound attestation: guard without a token, guard again with `T0`, then guard a third time with a second token | `confirm`; allowed; `:invalid_attestation` with `replay_detected` | PE.25 | new |
 
 Falsifier: two dispatches for one operation key; a test or document that
 attributes the refusal in step 4 or 5 to the replay store; step 7 refused.
@@ -727,6 +774,7 @@ attributes the refusal in step 4 or 5 to the replay store; step 7 refused.
 | 7 | As step 5, no report arrives | `cancel_requested` then `unknown` | PE.36 | new |
 | 8 | A new operation after the withdrawal | refused as in step 2 | PE.35 | new |
 | 9 | `admit` with a blocked decision, a decision still awaiting confirmation, or an allowed decision for another request | `:not_authorized` each | PE.02, PE.14 | new |
+| 10 | Step 1 with the gateway given a `:protocol_version` option | `:ok` | PE.14 | new |
 
 Falsifier: a command reaches the fake target after a refusal; the ledger
 shows `cancelled` or `finished` without a target report or observation;
@@ -760,8 +808,9 @@ changes; `authentication` changes when only observations change;
 | 5 | Tool result whose observation fields contain instruction text aimed at the model | blocked or quarantined at the `tool_result` boundary | PE.42 | passes |
 | 6 | The same text inside an observation `source` or a report passed to `classify_outcome/1` | no change in any output field; non-identifier input is `:invalid_outcome_input` | PE.44, PE.45 | new |
 | 7 | Arbitrary generated terms for every argument of every function | tagged result, no raise | PE.44 | new |
-| 8 | Any case above | no network call and no new atom | PE.44 | sweeps exist for current modules |
+| 8 | Any case above | no network call and no new atom | PE.44 | no-network sweeps exist; no committed test measures atom growth |
 | 9 | Benign tool result | allowed | PE.42 | passes |
+| 10 | A physical-effect request with a `null` argument | blocked with `:invalid_payload` | PE.09 | new |
 
 Falsifier: a malformed input raises or is admitted; text in an observation
 changes a result; the atom count grows with distinct inputs.
@@ -826,7 +875,7 @@ they bound scope only.
 - [SLSA v1.2 build provenance](https://slsa.dev/spec/v1.2/build-provenance)
 - [RFC 8785 - JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785.html)
 - [RFC 9449 - DPoP](https://www.rfc-editor.org/rfc/rfc9449.html), section 11
-- [RFC 9700 - OAuth 2.0 Security Best Current Practice](https://www.rfc-editor.org/rfc/rfc9700.html)
+- [RFC 9700 - Best Current Practice for OAuth 2.0 Security](https://www.rfc-editor.org/rfc/rfc9700.html)
 - [RFC 8707 - Resource Indicators for OAuth 2.0](https://www.rfc-editor.org/rfc/rfc8707.html)
 - [RFC 8881 - NFSv4.1](https://www.rfc-editor.org/rfc/rfc8881.html), section 2.10.6
 - [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html), sections 3.2.7 and 3.2.8
