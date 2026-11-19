@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Fix a policy bypass in the runtime gate. A payload whose digest could not be
+  computed (a `null` map value, an integer outside the JCS range, or invalid
+  UTF-8) made the gate skip `BoundaryPolicy.evaluate/2`, so a policy-file rule
+  that blocked the request did not apply. The kernel now always runs, and a
+  Boundary it rejects blocks.
 - Update Cowboy to 2.20.0, Cowlib to 2.21.0, Decimal to 3.2.0 and Req to
   0.7.5, and refresh pinned GitHub Actions.
 - Update the optional live AI notebook's ReqLLM pin to 1.28.0.

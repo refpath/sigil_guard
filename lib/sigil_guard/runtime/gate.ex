@@ -446,31 +446,26 @@ defmodule SigilGuard.Runtime.Gate do
   # kernel contributes policy-file `[rules]`, the sandbox matrix, hooks, adaptive
   # signals, and the shared invariants (untrusted-tool-request, secret->external);
   # the gate keeps scanner-failure, quarantine gradations, risk x trust, and the
-  # broader sensitive-content rules it alone observes. A malformed Boundary is
-  # skipped so it can never override the gate.
+  # broader sensitive-content rules it alone observes. The kernel always runs:
+  # the digests are evidence, so a payload that cannot be digested still meets
+  # the policy rules, and a Boundary the kernel rejects blocks.
   defp evaluate_boundary(state) do
-    boundary = build_boundary(state)
-
-    case Boundary.validate(boundary) do
-      :ok -> BoundaryPolicy.evaluate(boundary, boundary_opts(state))
-      {:error, _} -> nil
-    end
+    state
+    |> build_boundary()
+    |> BoundaryPolicy.evaluate(boundary_opts(state))
   end
 
   defp build_boundary(state) do
     context = state.context
 
     payload_digest =
-      case Digest.payload_digest(state.payload) do
-        {:ok, digest} -> digest
-        {:error, _} -> nil
-      end
+      evidence_digest(Digest.payload_digest(state.payload), "payload_digest_error:")
 
     action_digest =
-      case Confirmation.fetch_action_digest(state.payload, context) do
-        {:ok, digest} -> digest
-        {:error, _} -> nil
-      end
+      evidence_digest(
+        Confirmation.fetch_action_digest(state.payload, context),
+        "action_digest_error:"
+      )
 
     Boundary.new(%{
       phase: boundary_phase(context.phase),
@@ -497,11 +492,13 @@ defmodule SigilGuard.Runtime.Gate do
   defp boundary_context_digest(context) do
     statement_type = boundary_statement_type(context.phase)
 
-    case Digest.context_digest(statement_type, context) do
-      {:ok, digest} -> digest
-      {:error, reason} -> derived_digest("context_digest_error:" <> Atom.to_string(reason))
-    end
+    evidence_digest(Digest.context_digest(statement_type, context), "context_digest_error:")
   end
+
+  defp evidence_digest({:ok, digest}, _), do: digest
+
+  defp evidence_digest({:error, reason}, label),
+    do: derived_digest(label <> Atom.to_string(reason))
 
   defp boundary_statement_type(:inbound_user), do: :model_ingress
   defp boundary_statement_type(:outbound_model), do: :model_egress
@@ -540,10 +537,7 @@ defmodule SigilGuard.Runtime.Gate do
     Base.encode16(:crypto.hash(:sha256, seed), case: :lower)
   end
 
-  defp boundary_matched_rules(nil), do: []
   defp boundary_matched_rules(%Decision{matched_rules: rules}), do: rules
-
-  defp combine_with_boundary(gate, nil), do: gate
 
   defp combine_with_boundary({gate_verdict, gate_action, _} = gate, %Decision{} = boundary) do
     gate_rank = Verdict.rank(unified_strength(gate_verdict, gate_action))

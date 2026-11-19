@@ -941,4 +941,86 @@ defmodule SigilGuard.Runtime.GateTest do
     assert decision.action == :block
     assert Enum.any?(decision.hits, &(&1.name == "aws_access_key"))
   end
+
+  describe "policy kernel evaluation when a payload cannot be digested" do
+    @undigestable [
+      {"a null argument", nil},
+      {"an integer outside the JCS range", 9_007_199_254_740_992},
+      {"invalid UTF-8", <<255, 254>>}
+    ]
+
+    setup do
+      {:ok, policy} =
+        SigilGuard.BoundaryPolicy.File.parse(
+          "version 3\n[rules]\ndefault block\nallow tool:listed actor:agent-1\n"
+        )
+
+      %{policy: policy}
+    end
+
+    for {label, value} <- @undigestable do
+      test "#{label} does not bypass the policy file default", %{policy: policy} do
+        value = unquote(Macro.escape(value))
+        assert {:error, _} = Digest.payload_digest(gate_request("unlisted", value))
+
+        assert gate_decision("unlisted", value, policy).action == :block
+        assert gate_decision("listed", value, policy).action == :allow
+      end
+    end
+
+    test "a tool result with a null field still meets a block rule" do
+      {:ok, policy} =
+        SigilGuard.BoundaryPolicy.File.parse(
+          "version 3\n[rules]\ndefault allow\nblock phase:tool_result tool:reader\n"
+        )
+
+      context = [
+        phase: :tool_result,
+        origin: :tool,
+        sink: :model,
+        tool: "reader",
+        trust_level: :high
+      ]
+
+      assert Gate.evaluate(%{"value" => nil}, context, boundary_policy: policy).action == :block
+      assert Gate.evaluate(%{"value" => nil}, context).action == :allow
+    end
+
+    test "a Boundary the kernel rejects blocks instead of skipping the kernel", %{policy: policy} do
+      decision =
+        Gate.evaluate(
+          "safe",
+          [phase: :tool_request, origin: nil, sink: :tool, tool: "listed", actor: "agent-1"],
+          boundary_policy: policy
+        )
+
+      assert decision.action == :block
+      assert decision.reason == "invalid_source"
+    end
+
+    defp gate_request(tool, value) do
+      SigilGuard.MCP.SecurityPayload.for_gate(
+        %{
+          "method" => "tools/call",
+          "params" => %{"name" => tool, "arguments" => %{"x" => value}}
+        },
+        :request
+      )
+    end
+
+    defp gate_decision(tool, value, policy) do
+      Gate.evaluate(
+        gate_request(tool, value),
+        [
+          phase: :tool_request,
+          origin: :model,
+          sink: :tool,
+          tool: tool,
+          actor: "agent-1",
+          trust_level: :high
+        ],
+        boundary_policy: policy
+      )
+    end
+  end
 end

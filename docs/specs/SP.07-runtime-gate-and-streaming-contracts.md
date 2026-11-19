@@ -124,7 +124,11 @@ Per call, the gate:
    `trust_level`, the scanner `hits` (closed `:secret` category), and — only when
    the host supplied them — `tool` and `sandbox` (see *Sandbox default* below).
    Populate the three SP.01 digests from `Attestation.Digest.digests/4` (they are
-   evidence, inert to the verdict) so `evidence_refs`/audit are grounded.
+   evidence, inert to the verdict) so `evidence_refs`/audit are grounded. A digest
+   that cannot be computed, for example for a payload with a `null` map value, an
+   integer outside the JCS range, or invalid UTF-8, is replaced by a digest
+   derived from the error reason. The Boundary stays valid and step 3 always
+   runs. A Boundary the kernel rejects blocks.
 3. **Evaluates the kernel.** `BoundaryPolicy.evaluate(boundary, policy:,
    repo_facts:, on_sensitive:, hooks:, adaptive_detector:, hook_timeout_ms:)`
    contributes the policy-file `[rules]`, sandbox matrix, hook, adaptive, and the
