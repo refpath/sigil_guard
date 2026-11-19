@@ -2,8 +2,6 @@ defmodule SigilGuard.Vault.Entry do
   @moduledoc """
   Vault entry representing an encrypted secret.
 
-  Tracks the vault-entry shape used for encrypted secrets.
-
   ## Fields
 
     * `:id` — unique vault identifier

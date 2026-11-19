@@ -8,7 +8,7 @@ defmodule SigilGuard.Hooks do
   lifecycle `Blockable` column is normative: `on_session_start/2` and
   `on_session_end/2` are notification-only, the other seven are blockable.
 
-  `dispatch/3` invokes the callback matching the boundary phase on each hook in
+  `dispatch/2` invokes the callback matching the boundary phase on each hook in
   registration order, time-bounded by `:hook_timeout_ms` (default `5_000`).
   Malformed options, a non-module hook entry, or an invalid timeout fail closed
   as `:invalid_hook_options` on a blockable phase and log-and-continue on a

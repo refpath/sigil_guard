@@ -4,8 +4,8 @@ defmodule SigilGuard.Vault.InMemory do
 
   Suitable for development, testing, and single-node deployments.
   Entries live in a private ETS table owned by the vault process and
-  are lost when it stops — **no entry survives a restart, with or
-  without a configured master key**. For durable secrets, implement
+  are lost when it stops. No entry survives a restart, with or without a
+  configured master key. For durable secrets, implement
   `SigilGuard.Vault` against persistent storage.
 
   ## Usage
@@ -13,10 +13,8 @@ defmodule SigilGuard.Vault.InMemory do
       # Start the vault (automatically creates ETS table)
       {:ok, _pid} = SigilGuard.Vault.InMemory.start_link([])
 
-      # Store a secret
       {:ok, vault_id} = SigilGuard.Vault.InMemory.encrypt("my-secret", "API key")
 
-      # Retrieve it
       {:ok, "my-secret"} = SigilGuard.Vault.InMemory.decrypt(vault_id)
 
   Plaintext accepts arbitrary binary bytes. Malformed plaintext or descriptions

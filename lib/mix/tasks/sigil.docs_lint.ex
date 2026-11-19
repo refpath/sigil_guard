@@ -6,9 +6,10 @@ defmodule Mix.Tasks.Sigil.DocsLint do
 
       mix sigil.docs_lint
 
-  The task checks spec/task drift, forbidden terminology, known-dead public
-  URLs, stale three-digit research/spec identifiers, local filesystem links,
-  and old public wire/config vocabulary in public documentation.
+  The task checks spec/task drift, stale three-digit research/spec
+  identifiers, local filesystem links, and old public wire/config vocabulary
+  in public documentation. Forbidden terms and known-dead URLs are checked
+  only when a caller passes them to `lint/1`; the built-in lists are empty.
   """
 
   use Mix.Task

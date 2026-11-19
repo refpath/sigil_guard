@@ -2,16 +2,13 @@ defmodule SigilGuard.Backend do
   @moduledoc """
   Behaviour for SigilGuard processing backends.
 
-  SigilGuard now ships a single native Elixir implementation. The behaviour
-  remains as an extension point for applications that need a custom scanner,
-  signer, policy, or audit implementation behind the public facade.
+  SigilGuard ships one built-in implementation, `SigilGuard.Backend.Elixir`. A
+  custom module can replace scanning and policy evaluation behind the public
+  facade.
 
   ## Example
 
-      # Get the configured backend module
       backend = SigilGuard.Backend.impl()
-
-      # Scan text
       {:ok, "safe"} = backend.scan("safe", [])
 
   """

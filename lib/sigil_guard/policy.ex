@@ -10,9 +10,9 @@ defmodule SigilGuard.Policy do
 
       :low < :medium < :high
 
-  - **low** — Read-only, within workspace. Requires `:low` trust.
-  - **medium** — State-modifying but recoverable. Requires `:medium` trust.
-  - **high** — Destructive or irreversible. Requires `:high` trust.
+  - low: read-only, within workspace. Requires `:low` trust.
+  - medium: state-modifying but recoverable. Requires `:medium` trust.
+  - high: destructive or irreversible. Requires `:high` trust.
 
   ## Default Trust Thresholds
 
@@ -82,7 +82,7 @@ defmodule SigilGuard.Policy do
   ## Options
 
     * `:risk_level` — override the risk classification (default: look up via `:risk_mappings`)
-    * `:risk_mappings` — map of action pattern to risk level
+    * `:risk_mappings` — map of exact action name to risk level
     * `:trust_thresholds` — override default trust thresholds per risk level
 
   ## Examples
@@ -122,7 +122,7 @@ defmodule SigilGuard.Policy do
   end
 
   @doc """
-  Classify the risk level of an action based on pattern matching.
+  Classify the risk level of an action by name.
 
   Uses `:risk_mappings` option or falls back to built-in heuristics based on
   action name prefixes.

@@ -2,8 +2,8 @@ defmodule SigilGuard.Telemetry do
   @moduledoc """
   Telemetry event definitions and span helpers for SigilGuard.
 
-  All SigilGuard operations emit `:telemetry` events that you can attach
-  handlers to for metrics, logging, or alerting. The helpers in this module
+  SigilGuard emits the `:telemetry` events listed below. Attach handlers to
+  them for metrics, logging, or alerting. The helpers in this module
   can also translate SigilGuard metadata into OpenTelemetry-style string
   attributes for span/event exporters.
 
@@ -36,7 +36,7 @@ defmodule SigilGuard.Telemetry do
       Measurements: `%{system_time: integer}`
       Metadata: `%{action: String.t() | atom, risk_level: atom, trust_level: atom,
       trust_required: atom | nil, error_reason: atom | nil}`; boundary-kernel
-      decisions additionally carry `%{verdict: atom, phase: atom}`
+      decisions also carry `%{verdict: atom, phase: atom}`
 
     * `[:sigil_guard, :boundary, :hook]`
       Measurements: `%{duration: non_neg_integer}` (native time units)
@@ -189,12 +189,9 @@ defmodule SigilGuard.Telemetry do
     :repo_unmatched_paths
   ]
 
-  # The 1.0 attribute namespace is `sigilguard.*` throughout. The mapping is
-  # mechanical - leading `sigil.` becomes `sigilguard.` and the redundant
-  # `.security.` segment is dropped - plus the exact-name exceptions (hashed
-  # actor/identity/confirmation.actor, `content_hash` to the attestation subject
-  # `payload.digest`, and the `<subject>.digest` family). Legacy
-  # `sigil.registry.*` and `sigil.envelope.*` attributes are removed.
+  # Every attribute uses the `sigilguard.*` namespace. Actor, identity, and
+  # confirmation actor export as `.hash`; `content_hash` maps to the attestation
+  # subject `payload.digest`; digests use the `<subject>.digest` family.
   @attribute_map %{
     action: "sigilguard.action",
     action_digest: "sigilguard.action.digest",

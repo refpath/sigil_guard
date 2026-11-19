@@ -61,7 +61,7 @@ defmodule SigilGuard.Patterns do
   @default_max_match_bytes 256
   @max_match_bytes_limit 4096
 
-  # Width hints size the minimum holdback; unbounded expressions additionally
+  # Width hints size the minimum holdback; unbounded expressions also
   # require candidate retention or whole-stream buffering.
   @built_in_patterns [
     %{

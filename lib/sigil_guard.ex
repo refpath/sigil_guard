@@ -5,13 +5,14 @@ defmodule SigilGuard do
   SigilGuard provides composable security layers for MCP (Model Context
   Protocol) tool calls and AI agent interactions:
 
-  1. **Sensitivity Scanning** — Detect credentials, API keys, and secrets in text
-  2. **Agent Trust Attestations** — DSSE-backed evidence for tamper detection
-  3. **Policy Enforcement** — Risk classification with trust-gated access control
-  4. **Tamper-Evident Audit** — HMAC-SHA256 chain for immutable audit logs
-  5. **Secure Vaulting** — Encrypted storage for sensitive values
-  6. **Runtime Gating** — Boundary-aware MCP/tool request and result decisions
-  7. **Repo Policy** — Deterministic repo path governance
+  1. Sensitivity scanning: detect credentials, API keys, and secrets in text
+  2. Agent Trust attestations: DSSE-backed evidence for tamper detection
+  3. Policy enforcement: risk classification with trust-gated access control
+  4. Tamper-evident audit: an HMAC-SHA256 chain that detects modification,
+     insertion, deletion, and reordering
+  5. Secure vaulting: encrypted storage for sensitive values
+  6. Runtime gating: boundary-aware MCP/tool request and result decisions
+  7. Repo policy: deterministic repo path governance
 
   ## Runtime Configuration
 
@@ -118,7 +119,7 @@ defmodule SigilGuard do
   @doc """
   Evaluate a boundary-aware runtime decision.
 
-  This is the phase-2 entrypoint for MCP/tool-call security. It combines
+  This is the entrypoint for MCP/tool-call security. It combines
   scanning, quarantine indicators, source-to-sink rules, and policy
   evaluation into a `%SigilGuard.Decision{}`.
 

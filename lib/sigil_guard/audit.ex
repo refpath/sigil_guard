@@ -124,7 +124,7 @@ defmodule SigilGuard.Audit do
   The `hashed`-class `actor` field is replaced by its `hash_field/2` form; the
   `clear`-class fields (`id`, `type`, `action`, `result`, `timestamp`) are left
   verbatim. `metadata` is outside the chain preimage (host-classified) and is not
-  transformed. Apply `classify/2` **before** `sign_event/3` so the chain HMAC and
+  transformed. Apply `classify/2` before `sign_event/3` so the chain HMAC and
   Merkle root cover the hashed actor - destroying the field-hash key
   (crypto-erasure) then leaves every chain and proof verification green.
 

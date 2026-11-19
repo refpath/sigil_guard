@@ -4,7 +4,7 @@ defmodule SigilGuard.Audit.Witness do
 
   Cosigning lets independent witnesses co-attest a checkpoint so verification no
   longer rests on the operator's key alone. It is optional, offline-compatible,
-  and additive: witnesses append a `{keyid, sig}` entry over the **identical**
+  and additive: witnesses append a `{keyid, sig}` entry over the identical
   DSSE PAE bytes of the operator's checkpoint-state statement
   (`SigilGuard.Audit.Checkpoint.to_statement/1`), never modifying the payload or
   the existing signatures.

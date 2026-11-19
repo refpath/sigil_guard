@@ -10,8 +10,8 @@ defmodule SigilGuard.Audit.CloudEvents do
 
   The `data` payload is the privacy-filtered event: the scalar fields verbatim
   (`actor` is whatever the event already carries, so classify it with
-  `SigilGuard.Audit.classify/2` first) plus a metadata allowlist of the reserved
-  signed audit keys only—unknown host keys and raw content are omitted—and
+  `SigilGuard.Audit.classify/2` first) plus an allowlist of the reserved
+  metadata keys. Unknown host keys and raw content are omitted, and
   `trace_id`/`span_id` move to `traceparent` rather than appearing in `data`.
   """
 
@@ -22,7 +22,7 @@ defmodule SigilGuard.Audit.CloudEvents do
   @datacontenttype "application/json"
   @default_source "urn:sigilguard"
 
-  # These signed clear-class keys project into `data.metadata`.
+  # These reserved clear-class keys project into `data.metadata`.
   # `trace_id`/`span_id` are deliberately excluded - they become `traceparent`.
   @reserved_metadata_keys ~w(
     evidence decision_id decision scanner_summary

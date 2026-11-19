@@ -2,8 +2,9 @@ defmodule SigilGuard.Audit.EventType do
   @moduledoc """
   Audit event types used by SigilGuard.
 
-  These atoms preserve the existing audit event vocabulary for consumers.
-  Use these atoms as the `type` field when creating audit events for protocol compliance.
+  Closed vocabulary of audit event types. Pass `to_string/1` of an atom as the
+  `type` of `SigilGuard.Audit.new_event/5`; the atom itself fits the optional
+  `event_type` struct field.
 
   ## Event Types
 

@@ -2,7 +2,8 @@ defmodule SigilGuard.Config do
   @moduledoc """
   Configuration access for SigilGuard.
 
-  All settings are read from application env under `:sigil_guard`.
+  `validate!/0` reads application env under `:sigil_guard`. `validate!/1`
+  validates an explicit keyword list.
 
   ## Options
 

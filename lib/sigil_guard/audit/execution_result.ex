@@ -2,8 +2,6 @@ defmodule SigilGuard.Audit.ExecutionResult do
   @moduledoc """
   Typed execution result for audit events.
 
-  Tracks the execution-result shape used in audit events.
-
   ## Fields
 
     * `:success` — whether execution completed successfully

@@ -2,8 +2,6 @@ defmodule SigilGuard.Audit.Action do
   @moduledoc """
   Typed action information for audit events.
 
-  Tracks the action shape used in audit events.
-
   ## Fields
 
     * `:description` — command or tool name being executed

@@ -348,7 +348,6 @@ defmodule SigilGuard.Audit.Export do
   end
 
   defp verify_each_inclusion(proofs, checkpoint, events) do
-    # Read the root tolerantly (string or atom key), like the rest of the module.
     root = checkpoint_root(checkpoint)
     events = List.to_tuple(events)
 

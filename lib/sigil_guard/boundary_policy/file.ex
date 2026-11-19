@@ -11,8 +11,9 @@ defmodule SigilGuard.BoundaryPolicy.File do
   blank lines are ignored, and inside `[rules]`/`[contracts]` a line beginning
   with whitespace continues the previous logical line (joined with one space).
   The `[repo]` body is passed to the repo-policy parser verbatim, with no folding.
-  Files over 256 KiB fail `:policy_too_large`; any grammar violation fails
-  `:invalid_policy_file`.
+  Files over 256 KiB fail `:policy_too_large`. A grammar violation fails
+  `:invalid_policy_file`, except in `[contracts]`, where it fails
+  `:invalid_output_contract` or `:unknown_transform`.
   """
 
   alias SigilGuard.BoundaryPolicy.Contract

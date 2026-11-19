@@ -8,9 +8,9 @@ defmodule SigilGuard.Identity do
 
       :low < :medium < :high
 
-  - **low** — Anonymous or unverified user. Rate-limited, scan-only access.
-  - **medium** — Verified identity (email, OIDC, social login). Standard access.
-  - **high** — Strong verification (eIDAS, government ID, hardware key). Full access.
+  - low: anonymous or unverified user. Meets only a `:low` trust threshold.
+  - medium: verified identity (email, OIDC, social login).
+  - high: strong verification (eIDAS, government ID, hardware key).
 
   ## Implementing an Identity Provider
 
