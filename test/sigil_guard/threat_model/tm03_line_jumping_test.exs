@@ -6,7 +6,7 @@ defmodule SigilGuard.ThreatModel.TM03LineJumpingTest do
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.ToolGateway
 
-  @manifest SigilGuard.FixturePath.read_json!("capability_manifest/repo_file_write.manifest.json")
+  @manifest SigilGuard.FixturePath.read_unexpiring_manifest!()
   @opts [manifests: %{@manifest["name"] => @manifest}, server: @manifest["server"]]
 
   # A line-jump payload smuggled into the tool's description.

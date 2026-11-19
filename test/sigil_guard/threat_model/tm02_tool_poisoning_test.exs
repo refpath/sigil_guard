@@ -5,7 +5,7 @@ defmodule SigilGuard.ThreatModel.TM02ToolPoisoningTest do
 
   alias SigilGuard.ToolGateway
 
-  @manifest SigilGuard.FixturePath.read_json!("capability_manifest/repo_file_write.manifest.json")
+  @manifest SigilGuard.FixturePath.read_unexpiring_manifest!()
 
   defp verify(observed) do
     ToolGateway.verify_manifest(observed,

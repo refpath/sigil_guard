@@ -10,7 +10,7 @@ defmodule SigilGuard.ThreatModel.TM07PassthroughSessionTest do
   alias SigilGuard.Runtime.Gate
   alias SigilGuard.ToolGateway
 
-  @manifest SigilGuard.FixturePath.read_json!("capability_manifest/repo_file_write.manifest.json")
+  @manifest SigilGuard.FixturePath.read_unexpiring_manifest!()
 
   @now ~U[2026-07-03 12:00:00.000Z]
   @confirmation_key :crypto.hash(:sha256, "tm07-session-confirmation-key")

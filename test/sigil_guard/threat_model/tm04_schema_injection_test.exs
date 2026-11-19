@@ -6,7 +6,7 @@ defmodule SigilGuard.ThreatModel.TM04SchemaInjectionTest do
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.ToolGateway
 
-  @manifest SigilGuard.FixturePath.read_json!("capability_manifest/repo_file_write.manifest.json")
+  @manifest SigilGuard.FixturePath.read_unexpiring_manifest!()
 
   # A tools/call request for the guarded tool. It carries no manifest of its own,
   # so the pinned manifest supplies the schema under evaluation.

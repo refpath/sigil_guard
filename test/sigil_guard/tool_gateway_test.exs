@@ -12,8 +12,6 @@ defmodule SigilGuard.ToolGatewayTest do
   alias SigilGuard.ToolGateway
   alias SigilGuard.TrustBundle
 
-  @fixture SigilGuard.FixturePath.path("capability_manifest")
-  @manifest_fixture "repo_file_write.manifest.json"
   @confirmation_key :crypto.hash(:sha256, "tool-gateway-confirmation-test-key")
   @request_action_digest String.duplicate("a", 64)
   @now ~U[2026-06-30 12:00:00.000Z]
@@ -1899,12 +1897,7 @@ defmodule SigilGuard.ToolGatewayTest do
     |> Map.put("suspicious_params", ["apiKey"])
   end
 
-  defp manifest do
-    @fixture
-    |> Path.join(@manifest_fixture)
-    |> File.read!()
-    |> Jason.decode!()
-  end
+  defp manifest, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
 
   defp attach_runtime_gate_telemetry(tool) do
     parent = self()

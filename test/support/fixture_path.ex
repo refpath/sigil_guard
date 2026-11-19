@@ -30,4 +30,17 @@ defmodule SigilGuard.FixturePath do
     |> read!()
     |> Jason.decode!()
   end
+
+  @doc """
+  Read the `repo_file_write` manifest fixture with a far-future expiry.
+
+  The committed fixture expires on 2027-01-01 and its bytes are a golden
+  vector. A test that guards it against the wall clock uses this copy, so the
+  suite does not start failing on that date.
+  """
+  @spec read_unexpiring_manifest!() :: map()
+  def read_unexpiring_manifest! do
+    %{} = manifest = read_json!("capability_manifest/repo_file_write.manifest.json")
+    Map.put(manifest, "expires_at", "2099-01-01T00:00:00.000Z")
+  end
 end
