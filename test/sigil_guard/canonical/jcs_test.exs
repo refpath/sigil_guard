@@ -162,6 +162,33 @@ defmodule SigilGuard.Canonical.JCSTest do
       end
     end
 
+    property "a string is escaped per RFC 8785 whether or not it needs escaping" do
+      check all(value <- string(:utf8), max_runs: 500) do
+        expected =
+          value
+          |> String.to_charlist()
+          |> Enum.map_join(&reference_escape/1)
+
+        assert JCS.encode(value) == {:ok, "\"" <> expected <> "\""}
+        assert JCS.encode(%{value => value}) == {:ok, "{\"#{expected}\":\"#{expected}\"}"}
+      end
+    end
+
+    test "strings without quote, backslash, or control bytes are emitted verbatim" do
+      separators = <<0x2028::utf8, 0x2029::utf8>>
+
+      for value <- ["", "plain", "snowman ☃", "emoji 😀", <<"del ", 0x7F>>, "slash /", separators] do
+        assert JCS.encode(value) == {:ok, <<?", value::binary, ?">>}
+      end
+    end
+
+    test "quote, backslash, and control bytes are escaped next to multi-byte characters" do
+      value = <<"é", ?", "☃", ?\\, "😀", ?\n, 0x01, 0x1F>>
+
+      assert JCS.encode(value) ==
+               {:ok, ~S("é\"☃\\😀\n\u0001\u001f")}
+    end
+
     property "map keys are emitted in UTF-16 code-unit order" do
       check all(pairs <- adversarial_pairs(), max_runs: 100) do
         assert {:ok, canonical} = JCS.encode(Map.new(pairs))
@@ -303,6 +330,20 @@ defmodule SigilGuard.Canonical.JCSTest do
 
     "{" <> Enum.join(encoded_pairs, ",") <> "}"
   end
+
+  defp reference_escape(?"), do: "\\\""
+  defp reference_escape(?\\), do: "\\\\"
+  defp reference_escape(?\b), do: "\\b"
+  defp reference_escape(?\t), do: "\\t"
+  defp reference_escape(?\n), do: "\\n"
+  defp reference_escape(?\f), do: "\\f"
+  defp reference_escape(?\r), do: "\\r"
+
+  defp reference_escape(codepoint) when codepoint < 0x20 do
+    "\\u" <> String.pad_leading(String.downcase(Integer.to_string(codepoint, 16)), 4, "0")
+  end
+
+  defp reference_escape(codepoint), do: <<codepoint::utf8>>
 
   defp utf16_sort_key(key) do
     :unicode.characters_to_binary(key, :utf8, {:utf16, :big})

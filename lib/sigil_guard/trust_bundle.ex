@@ -1,10 +1,11 @@
 defmodule SigilGuard.TrustBundle do
   @moduledoc """
-  Public API shell for embedded SigilGuard trust bundles.
+  Public API for embedded SigilGuard trust bundles.
 
   Trust bundles are local, DSSE-signed JSON documents. The full schema,
   role-threshold verification, cache, quarantine, and development bootstrap
-  behavior are implemented in the staged `TrustBundle.*` modules. Core
+  behavior are implemented in `SigilGuard.TrustBundle.Schema`, `Verify`,
+  `Cache`, and `Quarantine`. Core
   verification never fetches remote material; hosts own any transport and pass
   verified bytes, maps, files, or `priv/` sources into this API.
 
@@ -130,9 +131,6 @@ defmodule SigilGuard.TrustBundle do
   rescue
     ArgumentError -> quarantine_error(:invalid_source, %{source: {:priv, app, rel}}, opts)
   end
-
-  defp do_load(:none, opts),
-    do: quarantine_error(:invalid_source, %{source: :none}, opts)
 
   defp do_load(source, opts),
     do: quarantine_error(:invalid_source, %{source: source}, opts)

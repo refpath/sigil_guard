@@ -26,7 +26,7 @@ defmodule SigilGuard.ToolGateway do
 
   Use `guard_request/3` before executing a tool and `guard_result/3` before
   returning output to a model. The `guarded_request/3` and `guarded_result/3`
-  variants additionally shape adapter-friendly JSON-RPC responses. Use
+  variants also shape adapter-friendly JSON-RPC responses. Use
   `verify_manifest/2` whenever a discovered tool definition is refreshed.
 
   ## Examples
@@ -57,6 +57,7 @@ defmodule SigilGuard.ToolGateway do
   alias SigilGuard.Decision
   alias SigilGuard.MCP.Protocol
   alias SigilGuard.MCP.SecurityPayload
+  alias SigilGuard.Runtime.Gate
   alias SigilGuard.Telemetry
   alias SigilGuard.ToolGateway.Base, as: GatewayBase
   alias SigilGuard.ToolGateway.Effect
@@ -137,8 +138,8 @@ defmodule SigilGuard.ToolGateway do
            :ok <- require_sandbox(capability, request_context),
            :ok <- verify_inbound_attestation(request, payload, request_context, capability, opts),
            :ok <- Effect.check_request(effect) do
-        request
-        |> GatewayBase.guard_request(context, opts)
+        payload
+        |> Gate.evaluate(request_context, opts)
         |> put_protocol_metadata(request, opts)
         |> put_manifest_metadata(capability)
         |> maybe_force_suspicious_confirmation(payload, request_context, capability, opts)
@@ -306,8 +307,8 @@ defmodule SigilGuard.ToolGateway do
     decision =
       case request_action_digest(opts) do
         :ok ->
-          result
-          |> GatewayBase.guard_result(context, opts)
+          payload
+          |> Gate.evaluate(result_context, opts)
           |> put_protocol_metadata(result, opts)
           |> put_result_binding_metadata(opts)
           |> maybe_apply_result_confirmation(payload, result_context, result, opts)
@@ -534,7 +535,7 @@ defmodule SigilGuard.ToolGateway do
       with {:ok, capability} <- manifest_struct(entry),
            :ok <- matching_tool_name(tool, capability),
            :ok <- optional_matching_server(server, capability) do
-        {:ok, entry}
+        {:ok, capability}
       else
         _ -> false
       end
@@ -633,11 +634,11 @@ defmodule SigilGuard.ToolGateway do
          {:ok, output_schema} <- optional_observed_map(observed, "outputSchema", :output_schema),
          {:ok, annotations} <- optional_observed_map(observed, "annotations", :annotations),
          {:ok, ui} <- optional_observed_ui(observed),
-         :ok <- required_when_pinned("title", title, pinned.title),
-         :ok <- required_when_pinned("icons", icons, pinned.icons),
-         :ok <- required_when_pinned("outputSchema", output_schema, pinned.output_schema),
-         :ok <- required_when_pinned("annotations", annotations, pinned.annotations),
-         :ok <- required_when_pinned("ui", ui, pinned.ui) do
+         :ok <- required_when_pinned(title, pinned.title),
+         :ok <- required_when_pinned(icons, pinned.icons),
+         :ok <- required_when_pinned(output_schema, pinned.output_schema),
+         :ok <- required_when_pinned(annotations, pinned.annotations),
+         :ok <- required_when_pinned(ui, pinned.ui) do
       manifest =
         pinned
         |> pinned_manifest_map()
@@ -747,10 +748,9 @@ defmodule SigilGuard.ToolGateway do
 
   defp normalize_observed_ui(_), do: {:error, :invalid_manifest}
 
-  defp required_when_pinned(_, _, nil), do: :ok
-  defp required_when_pinned(_, nil, _), do: {:error, :invalid_manifest}
-
-  defp required_when_pinned(_, _, _), do: :ok
+  defp required_when_pinned(_, nil), do: :ok
+  defp required_when_pinned(nil, _), do: {:error, :invalid_manifest}
+  defp required_when_pinned(_, _), do: :ok
 
   defp maybe_put_observed(manifest, _, nil), do: manifest
   defp maybe_put_observed(manifest, key, value), do: Map.put(manifest, key, value)
@@ -774,7 +774,7 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp now(opts) do
-    case Keyword.get(opts, :now, DateTime.utc_now(:millisecond)) do
+    case Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:millisecond) end) do
       %DateTime{} = now -> {:ok, now}
       _ -> {:error, :invalid_now}
     end
@@ -1154,22 +1154,22 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
-  defp fetch_confirmation_token(token_source) do
+  defp fetch_confirmation_token(token_source) when is_map(token_source) do
     case Attestation.fetch_confirmation(token_source) do
       {:ok, token} -> {:ok, token}
       :error -> fetch_nested_confirmation_token(token_source)
     end
   end
 
-  defp fetch_nested_confirmation_token(token_source) when is_map(token_source) do
+  defp fetch_confirmation_token(_), do: :error
+
+  defp fetch_nested_confirmation_token(token_source) do
     case first_present_payload_term(token_source, confirmation_token_paths()) do
       {:ok, token} when is_binary(token) -> {:ok, token}
       {:ok, _} -> {:error, :invalid_confirmation_token}
       :not_found -> :error
     end
   end
-
-  defp fetch_nested_confirmation_token(_), do: :error
 
   defp verify_confirmation(decision, payload, context, token, opts) do
     with {:ok, key} <- confirmation_key(opts),

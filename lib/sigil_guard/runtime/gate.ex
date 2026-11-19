@@ -52,7 +52,7 @@ defmodule SigilGuard.Runtime.Gate do
   """
   @spec evaluate(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def evaluate(payload, context \\ %Context{}, opts \\ []) do
-    {_, decision} = evaluate_normalized(payload, context, opts)
+    decision = evaluate_normalized(payload, context, opts)
 
     emit_decision(decision)
     decision
@@ -61,21 +61,17 @@ defmodule SigilGuard.Runtime.Gate do
   defp evaluate_normalized(payload, raw_context, opts) do
     case normalize_runtime_context(raw_context) do
       {:ok, context} ->
-        decision =
-          with :ok <- Context.validate(context),
-               :ok <- validate_runtime_options(opts),
-               :ok <- SigilGuard.Limits.check(payload, opts),
-               {:ok, text, action} <- runtime_inputs(payload, context) do
-            evaluate_checked(payload, context, text, action, opts)
-          else
-            {:error, reason} -> malformed_input_decision(context, reason)
-          end
-
-        {context, decision}
+        with :ok <- Context.validate(context),
+             :ok <- validate_runtime_options(opts),
+             :ok <- SigilGuard.Limits.check(payload, opts),
+             {:ok, text, action} <- runtime_inputs(payload, context) do
+          evaluate_checked(payload, context, text, action, opts)
+        else
+          {:error, reason} -> malformed_input_decision(context, reason)
+        end
 
       {:error, reason} ->
-        context = %Context{}
-        {context, malformed_input_decision(context, reason)}
+        malformed_input_decision(%Context{}, reason)
     end
   end
 
@@ -402,7 +398,8 @@ defmodule SigilGuard.Runtime.Gate do
     {gate_verdict, gate_action, gate_reason} =
       strongest_verdict(state.policy_verdict, source_sink)
 
-    boundary_decision = evaluate_boundary(state)
+    action_digest = Confirmation.fetch_action_digest(state.payload, state.context)
+    boundary_decision = evaluate_boundary(state, action_digest)
 
     {verdict, raw_action, reason} =
       combine_with_boundary({gate_verdict, gate_action, gate_reason}, boundary_decision)
@@ -410,7 +407,7 @@ defmodule SigilGuard.Runtime.Gate do
     action = unified_action(verdict, raw_action)
 
     {verdict, action, reason, action_digest, action_digest_error} =
-      enforce_confirmable_digest(state, verdict, action, reason)
+      enforce_confirmable_digest(action_digest, verdict, action, reason)
 
     effect = decision_effect(action, raw_action)
     sanitize_action = if action == :confirm, do: effect, else: action
@@ -449,23 +446,19 @@ defmodule SigilGuard.Runtime.Gate do
   # broader sensitive-content rules it alone observes. The kernel always runs:
   # the digests are evidence, so a payload that cannot be digested still meets
   # the policy rules, and a Boundary the kernel rejects blocks.
-  defp evaluate_boundary(state) do
+  defp evaluate_boundary(state, action_digest) do
     state
-    |> build_boundary()
+    |> build_boundary(action_digest)
     |> BoundaryPolicy.evaluate(boundary_opts(state))
   end
 
-  defp build_boundary(state) do
+  defp build_boundary(state, action_digest) do
     context = state.context
 
     payload_digest =
       evidence_digest(Digest.payload_digest(state.payload), "payload_digest_error:")
 
-    action_digest =
-      evidence_digest(
-        Confirmation.fetch_action_digest(state.payload, context),
-        "action_digest_error:"
-      )
+    action_digest = evidence_digest(action_digest, "action_digest_error:")
 
     Boundary.new(%{
       phase: boundary_phase(context.phase),
@@ -576,21 +569,17 @@ defmodule SigilGuard.Runtime.Gate do
   defp normalize_effect(action) when action in [:allow, :redact, :quarantine], do: action
   defp normalize_effect(_), do: :allow
 
-  # Surface the deciding reason as a typed matched rule. The full
-  # per-rule delegation flows once the gate routes verdicts through
-  # BoundaryPolicy; today the gate's assembled reason is the contributing rule.
+  # The gate contributes one typed rule carrying its assembled reason. Kernel
+  # rules are appended by `boundary_matched_rules/1`.
   defp matched_rules(nil), do: []
   defp matched_rules(reason) when is_binary(reason), do: [%{rule_id: "gate", explanation: reason}]
 
-  defp enforce_confirmable_digest(state, {:confirm, _} = verdict, action, reason) do
-    case Confirmation.fetch_action_digest(state.payload, state.context) do
-      {:ok, digest} ->
-        {verdict, action, reason, digest, nil}
+  defp enforce_confirmable_digest({:ok, digest}, {:confirm, _} = verdict, action, reason),
+    do: {verdict, action, reason, digest, nil}
 
-      {:error, digest_error} ->
-        {:blocked, :block, "Confirmation action digest could not be computed: #{digest_error}",
-         nil, digest_error}
-    end
+  defp enforce_confirmable_digest({:error, digest_error}, {:confirm, _}, _, _) do
+    {:blocked, :block, "Confirmation action digest could not be computed: #{digest_error}", nil,
+     digest_error}
   end
 
   defp enforce_confirmable_digest(_, verdict, action, reason) do

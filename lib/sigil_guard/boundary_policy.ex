@@ -202,7 +202,7 @@ defmodule SigilGuard.BoundaryPolicy do
         quarantine_indicators(boundary),
         sandbox_matrix(boundary, matching, opts),
         repo_facts(opts),
-        policy_contribution(boundary, opts, matching)
+        policy_contribution(opts, matching)
       ]
       |> Enum.reject(&is_nil/1)
       |> Kernel.++(hook.contributions)
@@ -375,7 +375,7 @@ defmodule SigilGuard.BoundaryPolicy do
     end
   end
 
-  defp policy_contribution(_, opts, matching) do
+  defp policy_contribution(opts, matching) do
     case Keyword.get(opts, :policy) do
       nil -> nil
       %PolicyFile{} = policy -> apply_policy_file(policy, matching)

@@ -392,7 +392,7 @@ defmodule SigilGuard.Attestation do
   defp context_actor_id(_), do: {:error, :invalid_payload}
 
   defp attestation_now(opts) do
-    case Keyword.get(opts, :now, DateTime.utc_now()) do
+    case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
       %DateTime{} = now -> {:ok, now}
       _ -> {:error, :invalid_payload}
     end
@@ -400,7 +400,9 @@ defmodule SigilGuard.Attestation do
 
   defp attestation_ttl_ms(opts) do
     ttl_ms =
-      Keyword.get(opts, :ttl_ms, Application.get_env(:sigil_guard, :attestation_ttl_ms, 300_000))
+      Keyword.get_lazy(opts, :ttl_ms, fn ->
+        Application.get_env(:sigil_guard, :attestation_ttl_ms, 300_000)
+      end)
 
     if is_integer(ttl_ms) and ttl_ms > 0 do
       {:ok, ttl_ms}
@@ -793,7 +795,7 @@ defmodule SigilGuard.Attestation do
   end
 
   defp verify_now(opts) do
-    case Keyword.get(opts, :now, DateTime.utc_now()) do
+    case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
       %DateTime{} = now -> {:ok, now}
       _ -> {:error, :invalid_payload}
     end
@@ -869,7 +871,10 @@ defmodule SigilGuard.Attestation do
   end
 
   defp configured_positive_integer(opts, opt_key, config_key, default) do
-    value = Keyword.get(opts, opt_key, Application.get_env(:sigil_guard, config_key, default))
+    value =
+      Keyword.get_lazy(opts, opt_key, fn ->
+        Application.get_env(:sigil_guard, config_key, default)
+      end)
 
     if is_integer(value) and value > 0 do
       {:ok, value}
@@ -879,7 +884,10 @@ defmodule SigilGuard.Attestation do
   end
 
   defp configured_non_negative_integer(opts, opt_key, config_key, default) do
-    value = Keyword.get(opts, opt_key, Application.get_env(:sigil_guard, config_key, default))
+    value =
+      Keyword.get_lazy(opts, opt_key, fn ->
+        Application.get_env(:sigil_guard, config_key, default)
+      end)
 
     if is_integer(value) and value >= 0 do
       {:ok, value}

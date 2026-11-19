@@ -146,8 +146,8 @@ defmodule SigilGuard.Confirmation do
 
   def verify(token, payload, context, key, opts) when is_binary(token) do
     with :ok <- validate_key(key),
-         {:ok, claims, signature} <- decode_token(token),
-         :ok <- verify_signature(claims, signature, key),
+         {:ok, claims, body, signature} <- decode_token(token),
+         :ok <- verify_signature(body, signature, key),
          :ok <- validate_claims(claims),
          :ok <- validate_expiry(claims, opts),
          :ok <- validate_digest(claims, payload, context, opts),
@@ -212,7 +212,7 @@ defmodule SigilGuard.Confirmation do
              {:ok, claims} <- SigilGuard.Canonical.JSON.decode(body),
              :ok <- validate_canonical_body(body, claims),
              {:ok, signature} <- decode_b64u(signature_b64u) do
-          {:ok, claims, signature}
+          {:ok, claims, body, signature}
         else
           _ -> {:error, :invalid_token}
         end
@@ -224,13 +224,10 @@ defmodule SigilGuard.Confirmation do
 
   defp decode_b64u(value), do: Base.url_decode64(value, padding: false)
 
-  defp verify_signature(claims, signature, key) do
-    expected =
-      claims
-      |> canonical_bytes()
-      |> sign_bytes(key)
-
-    if secure_compare(expected, signature) do
+  # `body` is the canonical encoding of the claims: `decode_token/1` refuses
+  # any other bytes.
+  defp verify_signature(body, signature, key) do
+    if secure_compare(sign_bytes(body, key), signature) do
       :ok
     else
       {:error, :invalid_signature}

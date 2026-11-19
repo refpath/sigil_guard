@@ -144,13 +144,20 @@ defmodule SigilGuard.Canonical.JCS do
   end
 
   defp encode_string(value) do
-    encoded_codepoints =
-      value
-      |> String.to_charlist()
-      |> Enum.map(&encode_codepoint/1)
-
-    [?", encoded_codepoints, ?"]
+    if escape?(value), do: [?", escaped(value), ?"], else: [?", value, ?"]
   end
+
+  defp escaped(value) do
+    value
+    |> String.to_charlist()
+    |> Enum.map(&encode_codepoint/1)
+  end
+
+  # Every byte JCS escapes is below 0x80, so none can sit inside a multi-byte
+  # UTF-8 sequence and a byte scan is enough.
+  defp escape?(<<byte, _::binary>>) when byte < 0x20 or byte == ?" or byte == ?\\, do: true
+  defp escape?(<<_, rest::binary>>), do: escape?(rest)
+  defp escape?(<<>>), do: false
 
   defp encode_codepoint(?"), do: "\\\""
   defp encode_codepoint(?\\), do: "\\\\"

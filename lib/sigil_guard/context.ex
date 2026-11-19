@@ -66,7 +66,6 @@ defmodule SigilGuard.Context do
           metadata: map()
         }
 
-  @enforce_keys []
   defstruct phase: :tool_request,
             actor: nil,
             identity: nil,

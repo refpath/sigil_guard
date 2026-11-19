@@ -217,10 +217,10 @@ defmodule SigilGuard.ToolGateway.Base do
   end
 
   @doc """
-  Guard a signed MCP tool request before execution.
+  Fail closed for a signed MCP tool request.
 
-  This helper accepts only Agent Trust attestation metadata and fails closed
-  for absent or invalid evidence.
+  The 1.0 runtime has no accepting path for envelope-shaped request metadata:
+  the decision is always a block that names the reason.
   """
   @spec guard_signed_request(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_signed_request(request, context \\ %{}, opts \\ []) do
@@ -698,7 +698,7 @@ defmodule SigilGuard.ToolGateway.Base do
       }
     }
 
-    emit_signed_request(decision, :invalid, reason)
+    Telemetry.emit_mcp_decision(decision.audit_metadata)
     decision
   end
 
@@ -709,15 +709,6 @@ defmodule SigilGuard.ToolGateway.Base do
   end
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
-
-  defp emit_signed_request(%Decision{} = decision, envelope_status, envelope_reason) do
-    metadata =
-      decision.audit_metadata
-      |> Map.put(:envelope_status, envelope_status)
-      |> Map.put(:envelope_reason, envelope_reason)
-
-    Telemetry.emit_mcp_decision(metadata)
-  end
 
   defp jsonrpc_result(%{"jsonrpc" => _, "id" => id, "result" => result} = source, _, opts) do
     %{
