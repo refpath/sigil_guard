@@ -8,8 +8,15 @@ defmodule SigilGuard.BackendTest do
   alias SigilGuard.Backend
 
   setup do
-    original = Application.get_env(:sigil_guard, :backend)
-    on_exit(fn -> Application.put_env(:sigil_guard, :backend, original || :elixir) end)
+    original = Application.fetch_env(:sigil_guard, :backend)
+
+    on_exit(fn ->
+      case original do
+        {:ok, backend} -> Application.put_env(:sigil_guard, :backend, backend)
+        :error -> Application.delete_env(:sigil_guard, :backend)
+      end
+    end)
+
     :ok
   end
 
