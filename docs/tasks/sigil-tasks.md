@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 292 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
+**Overall: 293 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 5 | 8 | 62% | In progress |
-| — | **Total** | **292** | **295** | **99%** | 15 done |
+| M13 | Physical effect authority | 6 | 8 | 75% | In progress |
+| — | **Total** | **293** | **295** | **99%** | 15 done |
 
 ### Release Handoff
 
@@ -3072,7 +3072,7 @@ existing code and need no task; the tasks below cover the rest.
     PE.20, PE.21).
   - AC: integer ranges and scalar enums are the only bounds; a float, an
     undeclared argument, or a missing declared argument is refused.
-- [ ] M13.06 Outcome classification and audit metadata.
+- [x] M13.06 Outcome classification and audit metadata.
   - AC: `classify_outcome/1` returns authentication, claim, and acceptance as
     independent fields; acceptance depends on host observations only (PE.38,
     PE.39).

@@ -583,7 +583,7 @@ end
 Every function is total over arbitrary terms and returns a tagged tuple
 instead of raising. `fetch_binding/1` returns a record only when it is
 valid. `classify_outcome/1` takes an atom-keyed closed map with
-`:authentication`, `:claimed`, optional `:issuer`, `:observations` (a list of
+`:authentication`, `:claimed`, optional `:issuer`, `:observations` (a list of at most 256
 `%{source: identifier, result: :confirms | :contradicts}`), and
 `:required_observations` (positive integer). The host obtains
 `:authentication` from `Attestation.verify/3` over the outcome report:
@@ -591,8 +591,12 @@ valid. `classify_outcome/1` takes an atom-keyed closed map with
 `:unsigned`.
 
 `audit_fields/1` takes an atom-keyed closed map with `:state` (a ledger
-state) and optional `:binding_digest`, `:operation_key`, `:refusal` (an
-admission refusal), and `:outcome` (the map `classify_outcome/1` returned).
+state) and optional `:binding_digest`, `:operation_key`, `:refusal`, and
+`:outcome` (the map `classify_outcome/1` returned). `:refusal` is an
+admission refusal, valid only with state `refused`, or one of the ledger
+results `:operation_already_claimed` and `:operation_binding_conflict`,
+valid with the state of the existing record. The metadata map has string
+keys and string values.
 The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 `result_info` on the event.
 
@@ -604,6 +608,7 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 | `lib/sigil_guard/effect_authority/record.ex` | Closed validator for the binding record and the shared identifier, timestamp, digest, target, and artifact rules. | implemented |
 | `lib/sigil_guard/effect_authority/facts.ex` | Closed validator for the host's current facts. | implemented |
 | `lib/sigil_guard/effect_authority/envelope.ex` | Closed validator, digest, and membership steps for the effect envelope. | implemented |
+| `lib/sigil_guard/effect_authority/outcome.ex` | Ledger transition table, outcome classification, and audit fields. | implemented |
 | `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks, attestation nonce consumption. | implemented |
 | `lib/sigil_guard/tool_gateway/effect.ex` | Gateway-side state for one physical-effect request: option value, replay protection, digests, and record. | implemented |
 | `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | implemented |
@@ -848,7 +853,7 @@ changes a result; the atom count grows with distinct inputs.
 - [x] Implement admission against current facts.
 - [x] Add the `:effect_binding` gateway option and consuming verification.
 - [x] Implement envelope membership.
-- [ ] Implement outcome classification and audit metadata.
+- [x] Implement outcome classification and audit metadata.
 - [ ] Add the ledger fake and SG-F1 to SG-F6.
 - [ ] Document host obligations in the strict deployment guide.
 - [ ] Qualify one real receiving boundary separately; not part of this

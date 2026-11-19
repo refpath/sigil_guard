@@ -37,6 +37,7 @@ defmodule SigilGuard.EffectAuthority do
   alias SigilGuard.Decision
   alias SigilGuard.EffectAuthority.Envelope
   alias SigilGuard.EffectAuthority.Facts
+  alias SigilGuard.EffectAuthority.Outcome
   alias SigilGuard.EffectAuthority.Record
   alias SigilGuard.MCP.SecurityPayload
 
@@ -161,6 +162,59 @@ defmodule SigilGuard.EffectAuthority do
       })
     end
   end
+
+  @doc """
+  Returns whether a host ledger record may move from one state to another.
+
+  The states are `:claimed`, `:refused`, `:dispatched`, `:acknowledged`,
+  `:cancel_requested`, `:unknown`, `:finished`, `:failed`, and `:cancelled`.
+  `:refused`, `:finished`, `:failed`, and `:cancelled` are terminal. A cancel
+  request moves to `:cancel_requested`, never directly to `:cancelled`. Any
+  other term returns `false`.
+  """
+  @doc since: "1.1.0"
+  @spec valid_transition?(term(), term()) :: boolean()
+  def valid_transition?(from, to), do: Outcome.valid_transition?(from, to)
+
+  @doc """
+  Separates what an outcome report claims from what the host observed.
+
+  The input is an atom-keyed closed map:
+
+    * `:authentication` - `:verified`, `:unsigned`, or `:invalid`, from
+      verifying the report.
+    * `:claimed` - `:success`, `:failure`, or `:none`, as the report states.
+    * `:observations` - at most 256 `%{source: ..., result: :confirms | :contradicts}`
+      maps from sources other than the report issuer.
+    * `:required_observations` - positive integer.
+    * `:issuer` - optional identifier of the report issuer.
+
+  `:authentication` and `:claimed` are returned unchanged. `:acceptance` is
+  `:rejected` when any observation contradicts, `:accepted` when at least
+  `:required_observations` distinct sources confirm, and `:undetermined`
+  otherwise. The report's own claim is never an observation.
+  """
+  @doc since: "1.1.0"
+  @spec classify_outcome(term()) :: {:ok, Outcome.outcome()} | {:error, :invalid_outcome_input}
+  def classify_outcome(input), do: Outcome.classify(input)
+
+  @doc """
+  Builds the audit values for a physical-effect operation.
+
+  The input is an atom-keyed closed map with `:state` (a ledger state) and
+  optional `:binding_digest`, `:operation_key`, `:refusal`, and `:outcome`
+  (the map `classify_outcome/1` returned). `:refusal` is an admission refusal,
+  valid with state `:refused`, or one of the ledger results
+  `:operation_already_claimed` and `:operation_binding_conflict`.
+
+  `result` is the ledger state. `result_info.success` is `true` only for an
+  accepted outcome, `false` for a rejected one, and `nil` otherwise. Pass
+  `result` and `metadata` to `SigilGuard.Audit.new_event/5` and set
+  `result_info` on the event. The audit chain covers `result` only.
+  """
+  @doc since: "1.1.0"
+  @spec audit_fields(term()) :: {:ok, Outcome.audit_fields()} | {:error, :invalid_audit_input}
+  def audit_fields(input), do: Outcome.audit_fields(input)
 
   defp admit_options(opts) do
     with true <- Keyword.keyword?(opts),
