@@ -2,15 +2,15 @@
 
 This is the canonical execution checklist for SigilGuard v3, the embedded
 Agent Trust Profile runtime. V3 is a deliberate, spec-governed breaking
-release: every architectural decision (D1-D21) is closed, research-backed,
+release: every architectural decision (D1-D22) is closed, research-backed,
 and recorded below with rationale (see Closed Decisions); no open choices
-remain. Execute milestones strictly in order F -> M0 -> M1 -> ... -> M11. A
+remain. Execute milestones strictly in order F -> M0 -> M1 -> ... -> M13. A
 task is done only when its AC bullets hold and its named test families
 exist. Migration lives in `MIGRATING-1.0.md`, `CHANGELOG.md`, and release
 notes - never in permanent legacy runtime shims.
 
-This file, the research notes (`../research/R.01`-`R.10`), and the specs
-(`../specs/SP.01`-`SP.18`) are the complete, self-contained plan of record.
+This file, the research notes (`../research/R.01`-`R.11`), and the specs
+(`../specs/SP.01`-`SP.19`) are the complete, self-contained plan of record.
 An implementer needs nothing outside `docs/` and the codebase. The decisions
 were derived from primary-source research and adversarially verified against
 those sources; do not reopen a closed decision without a superseding
@@ -19,7 +19,7 @@ research note.
 ## Orientation (Read First)
 
 Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. All milestones described below are complete.
+rewrite. Milestones F through M12 are complete; M13 is planned.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
@@ -61,8 +61,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 287 / 287 tasks done (100%).** Milestones: 15 complete.
-**Current milestone: M12 complete - production boundary hardening.**
+**Overall: 287 / 295 tasks done (97%).** Milestones: 15 complete, 1 planned.
+**Current milestone: M13 planned - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -81,7 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| — | **Total** | **287** | **287** | **100%** | 15 done |
+| M13 | Physical effect authority | 0 | 8 | 0% | Planned |
+| — | **Total** | **287** | **295** | **97%** | 15 done |
 
 ### Release Handoff
 
@@ -91,6 +92,10 @@ release artifacts with MCP `2026-07-28`.
 M10 added an optional, host-context OSCAL Assessment Results v1.2.3
 observation projection without changing native audit exports or Agent Trust
 statements.
+
+M13 is specified by `SP.19` and not started. It adds a payload-carried effect
+binding, a deny-only admission check, and conformance cases for requests with
+a physical effect. It changes no existing contract.
 
 Post-release maintenance includes ongoing dependency-audit remediation,
 per-module security coverage review, and periodic regression review of the
@@ -106,7 +111,7 @@ are maintainer-owned operations and are intentionally outside this checklist.
 After the owner-managed package flow, validate the reference consumer against
 the actual 1.0.0 package artifact as release handoff evidence.
 
-The table counts every milestone task (F through M12, including M7A) exactly
+The table counts every milestone task (F through M13, including M7A) exactly
 once. The
 Mandatory Gates section is a recurring pre-commit checklist and the Deferred
 section is post-1.0.0 parking; neither is counted here.
@@ -2900,7 +2905,8 @@ added during an adversarial hardening round (both verified against primary
 sources, 2026-07-02). D20 supersedes D19 for final MCP `2026-07-28`
 compatibility before the unreleased 1.0 publication. D21 adds the separately
 versioned external assessment projection without reopening native evidence or
-Agent Trust contracts.
+Agent Trust contracts. D22 records the planned physical-effect authority
+design, which also leaves those contracts unchanged.
 
 | # | Decision and rationale | Owning doc(s) |
 |---|------------------------|---------------|
@@ -2925,6 +2931,7 @@ Agent Trust contracts.
 | D19 | **Superseded by D20.** The pre-release gateway selected `-32050..-32056` before MCP reserved that range. It never ships as the 1.0 contract. | `SP.03`, `SP.08` |
 | D20 | **MCP `2026-07-28` alignment without a framework/transport dependency.** SigilGuard uses `-31990..-31984`, canonical structured MCP action binding, required modern result discrimination, manifest v2 display/UI/header coverage, and app-origin/UI-resource verification. Transport sessions, discovery, authorization, subscriptions, tasks, HTTP headers, and rendering remain host-owned. | `R.08`, `SP.16`, `SP.03`, `SP.08` |
 | D21 | **OSCAL Assessment Results v1.2.3 is an optional host-context observation projection, never a source of inferred compliance claims.** The adapter binds a pinned native export digest, requires exact reviewed controls and subjects, emits no findings or satisfaction states, and leaves audit export and Agent Trust bytes unchanged. | `R.10`, `SP.17` |
+| D22 | **Physical-effect authority is a payload-carried binding plus a deny-only admission check against host-supplied current facts.** No statement type, DSSE payload type, confirmation claim, manifest field, or configuration key is added, and the library gains no durable store. The replay store stays per boot and per node; effect identity and reconciliation belong to a host ledger. A signed outcome report stays a claim; physical acceptance comes from host observations. The library makes no motion, stop, or certification decision. Planned, not implemented. | `R.11`, `SP.19` |
 
 ## Deferred (Post-1.0.0)
 
@@ -3008,6 +3015,74 @@ These were local macOS checks. Existing Cowlib advisory exceptions remain;
 minimum dependency compilation and optional Jido dependencies emitted upstream
 warnings. Hosted CI, release publication, hostile filesystem races and a
 reference-consumer deployment were not exercised by this milestone.
+
+## M13 - Physical Effect Authority
+
+> References: `docs/specs/SP.19-physical-effect-authority.md`,
+> `docs/research/R.11-physical-tool-authority-and-robot-attestation.md`
+> Effort: L
+> Status: planned
+> Dependencies: SP.01, SP.03, SP.04, SP.07, SP.08, SP.09, R.11
+
+Requirement identifiers `PE.01` to `PE.48` and conformance cases `SG-F1` to
+`SG-F6` are defined in SP.19. Sixteen requirements are already met by
+existing code and need no task; the tasks below cover the rest.
+
+- [ ] M13.01 Characterization tests for current behaviour stated in SP.19.
+  - AC: committed tests show that a token consumed before a
+    `SigilGuard.Runtime` restart verifies again until expiry, that `120` and
+    `120.0` give equal attestation digests and different confirmation
+    digests, that an explicit `tool:` list under `default block` passes only
+    the listed tools, and that an allowed decision without confirmation
+    carries no `action_digest`.
+  - AC: no library code changes; SP.19 evidence cells that say "probe" name
+    the new tests.
+- [ ] M13.02 Effect binding validation and digests.
+  - AC: `SigilGuard.EffectAuthority.fetch_binding/1`, `validate_binding/1`,
+    `binding_digest/1`, and `operation_key/1` implement the closed record of
+    SP.19 and are total over arbitrary terms (PE.27, PE.44).
+  - AC: unknown keys, wrong types, non-ASCII or empty identifiers, unsorted or
+    duplicate artifacts, and inverted deadlines return
+    `:invalid_effect_binding`; no atom is created from input.
+- [ ] M13.03 Gateway activation and consuming verification.
+  - AC: `effect_binding: :off` changes no decision, digest, golden vector, or
+    consumer contract assertion (PE.01, PE.03).
+  - AC: `effect_binding: :required` blocks a missing or malformed record,
+    blocks `consume_confirmation: false`, verifies an inbound attestation
+    with `replay: true`, and records `action_digest` for every verdict
+    (PE.09, PE.25). All three deny reasons map to `-31990`.
+- [ ] M13.04 Admission against current facts.
+  - AC: `EffectAuthority.admit/5` returns the reasons of the SP.19 admission
+    order in that order, one per failing step, as bare atoms (PE.11, PE.14,
+    PE.15, PE.33, PE.34, PE.35).
+  - AC: boundary tests cover `not_before`, `not_after`, and
+    `:max_fact_age_ms` to the millisecond; the function reads no clock.
+- [ ] M13.05 Effect envelope and membership.
+  - AC: `envelope_digest/1` and the membership steps of SP.19 are implemented;
+    an envelope is approved only through an existing confirmation token over
+    the request that carries it (PE.19, PE.20, PE.21).
+  - AC: integer ranges and scalar enums are the only bounds; a float, an
+    undeclared argument, or a missing declared argument is refused.
+- [ ] M13.06 Outcome classification and audit metadata.
+  - AC: `classify_outcome/1` returns authentication, claim, and acceptance as
+    independent fields; acceptance depends on host observations only (PE.38,
+    PE.39).
+  - AC: audit events for physical-effect operations follow PE.40 and the
+    metadata keys listed in SP.19; no record or argument value enters
+    metadata or telemetry (PE.13, PE.26).
+- [ ] M13.07 Ledger fake and conformance cases.
+  - AC: `test/support/test_effect_ledger.ex` implements the host ledger
+    contract of PE.28 to PE.31 with a simulated restart;
+    `valid_transition?/2` matches the SP.19 state table (PE.30, PE.36).
+  - AC: `test/sigil_guard/conformance/physical_effect_test.exs` passes every
+    step of SG-F1 to SG-F6, including the positive steps, with neutral
+    fixtures under `test/fixtures/effect_authority/`.
+- [ ] M13.08 Host guidance and full gate.
+  - AC: `guides/strict-deployment.md` states the host obligations PE.18,
+    PE.28, PE.29, PE.31, PE.32, and PE.41 and the non-goals PE.46 to PE.48.
+  - AC: `SP.19` status and its requirement table are updated to what the code
+    then does; the complete application gate passes with coverage at or
+    above 95%; no publish, push, or tag is performed.
 
 ## Package verification maintenance
 

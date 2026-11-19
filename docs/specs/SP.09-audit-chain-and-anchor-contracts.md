@@ -298,3 +298,14 @@ storage. Receipt validation is not a rollback operation.
 Local receipts must percent-encode path components so literal `#`, `?`, `%`,
 spaces and Unicode round-trip through their file URI without changing the
 location. URI fragments carry only the anchor digest.
+
+## Physical Effect Evidence
+
+[SP.19](SP.19-physical-effect-authority.md) plans audit metadata for
+physical-effect operations: `effect_binding_digest`, `effect_operation_key`,
+`effect_state`, `effect_refusal`, `effect_authentication`, `effect_claimed`,
+and `effect_acceptance`. They are values inside the existing `metadata` map,
+so the event format and the chain constants do not change. For these events
+`result_info.success` records physical acceptance decided from host
+observations and stays `nil` when only a signed claim exists, and the
+`result` label is the ledger state. Nothing in this section is implemented.

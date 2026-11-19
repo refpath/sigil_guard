@@ -507,6 +507,13 @@ allocation (Decision D20, SP.16).
 | `-31985` | `"invalid_attestation"` | `attestation: :required` with a missing envelope, or any SP.01 `verify_error`. | `attestation_error` (SP.01 atom as string). |
 | `-31984` | `"sandbox_required"` | `:sandbox_required`. | `tool`, `required_isolation`, `received_isolation`, `sandbox_id_present` (boolean). |
 
+[SP.19](SP.19-physical-effect-authority.md) plans three further block
+reasons: `:effect_binding_required`, `:invalid_effect_binding`, and
+`:effect_replay_protection_required`. They map to `-31990` and mint no code.
+SP.19 also records that `guard_request/3` verifies an inbound attestation
+without consuming its nonce, and requires consumption for physical-effect
+requests.
+
 ## Agent-To-Agent Pointer
 
 This spec is tool-focused. The `agent_request`/`agent_response` statement

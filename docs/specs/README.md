@@ -34,6 +34,7 @@ flowchart TD
     SP15[SP.15 Benchmark Methodology]
     SP16[SP.16 MCP v2 And Apps]
     SP17[SP.17 External Assessment Projection]
+    SP19[SP.19 Physical Effect Authority]
 
     R01 --> SP01
     SP01 --> SP02
@@ -70,6 +71,9 @@ flowchart TD
     V3 --> SP15
     V3 --> SP16
     SP05 --> SP17
+    SP03 --> SP19
+    SP04 --> SP19
+    SP08 --> SP19
 ```
 
 ## V3 Agent Trust Profile Specs
@@ -90,6 +94,15 @@ compatibility shims.
 | [`SP.15`](SP.15-benchmark-methodology-and-baselines.md) | implemented | Benchmark scenario matrix, environment disclosure, CI regression thresholds, llm-guard comparison rules, SLO ratification. | Bench harness smoke test, baseline regression gates. |
 | [`SP.16`](SP.16-mcp-2026-07-28-and-apps-contracts.md) | implemented | MCP v2 structured action binding, MRTR/result discrimination, application-defined JSON-RPC codes, manifest v2, and MCP Apps boundary helpers. | Structured tamper, exact-version response, manifest header/icon/UI drift, app visibility, and UI-resource tests. |
 | [`SP.17`](SP.17-external-assessment-projection.md) | implemented | Host-context OSCAL Assessment Results v1.2.3 observation projection with pinned evidence digests and no inferred findings. | Schema-conformant golden output, digest tamper, malformed context, time/scope, privacy, and export compatibility. |
+
+## Planned Specs
+
+These specs are accepted designs without library code. A `planned` spec
+names what current code already satisfies and what is not implemented.
+
+| Spec | Status | Owns | Planned Tests |
+|------|--------|------|---------------|
+| [`SP.19`](SP.19-physical-effect-authority.md) | planned | Physical-effect request binding, deny-only admission against current host facts, the effect envelope, replay limits and the host ledger contract, outcome authentication versus acceptance, and non-goals. | Conformance cases SG-F1 to SG-F6: substitution, envelope membership, replay versus effects with a ledger fake, check-to-use changes, evidence honesty, hostile input. |
 
 ## Foundation And Transition Specs
 
@@ -122,6 +135,9 @@ These specs capture current behavior that v3 should reuse, rewire, or remove.
 - MCP protocol-revision compatibility and MCP Apps security belong in `SP.16`.
 - External assessment projections and their authority boundary belong in
   `SP.17`; native audit evidence remains owned by `SP.05`.
+- Physical-effect bindings, admission, effect envelopes, and the host ledger
+  contract belong in `SP.19`; digests stay in `SP.01`, tokens in `SP.03`,
+  and policy verdicts in `SP.04`.
 - Old SIGIL wire fields, registry-named modules, old profile names, and Rust
   vectors belong only in migration docs or historical fixtures.
 

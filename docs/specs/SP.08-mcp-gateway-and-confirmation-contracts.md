@@ -138,6 +138,12 @@ verification fails with `{:error, :replay_detected}`. `consume: false`
 remains available as an explicit per-call opt-out for tests and dry runs
 only.
 
+Single use holds within one runtime. `SigilGuard.ReplayStore` is per boot and
+per node, so a token consumed before a restart verifies again until its
+`expires_at`. [SP.19](SP.19-physical-effect-authority.md) states these limits
+and plans a block for `consume_confirmation: false` on a physical-effect
+request.
+
 ## Metadata Namespace
 
 The `_agent_*` key prefix is RESERVED for SigilGuard across all guarded

@@ -114,6 +114,10 @@ downgrade), and the D17 risk×trust ladder - by the same strongest-wins rule.
 See SP.07 *Gate ↔ Kernel Delegation*. `BoundaryPolicy.evaluate/2` used directly
 by a host applies only the kernel contributions above.
 
+The planned physical-effect checks of
+[SP.19](SP.19-physical-effect-authority.md) contribute `block` only. They
+never weaken a verdict in this order and never stand in for a `confirm`.
+
 ### Data Flow
 
 ```mermaid
@@ -294,6 +298,10 @@ ids are `line_<n>`, where `n` is the first physical line of the logical line.
 `none` MUST be the sole value in its matcher. `isolation:absent` matches a
 context with no isolation level; it exists so an explicit rule can override
 the matrix's absent column and is never implied by any other value.
+
+No matcher reads a target identity or a payload value. Task-scoped
+operation, target, and parameter bounds are specified by the SP.19 effect
+envelope, not by policy rules.
 
 ### Precedence
 

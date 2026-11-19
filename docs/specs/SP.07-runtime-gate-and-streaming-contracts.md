@@ -19,6 +19,11 @@ a fixed holdback alone cannot protect unbounded regex candidates. Retain those
 candidates, buffer custom patterns of unknown width, enforce the stream byte
 budget, and emit only complete UTF-8 codepoints.
 
+Requests with a physical effect are specified by
+[SP.19](SP.19-physical-effect-authority.md), which is planned. It requires a
+decision to record `action_digest` for every verdict on such a request.
+Today only a `confirm` decision records it.
+
 ## Executive Summary
 
 This spec documents the implemented runtime gate, context normalization,
