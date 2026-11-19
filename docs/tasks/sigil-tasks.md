@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 288 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
+**Overall: 289 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 1 | 8 | 12% | In progress |
-| — | **Total** | **288** | **295** | **98%** | 15 done |
+| M13 | Physical effect authority | 2 | 8 | 25% | In progress |
+| — | **Total** | **289** | **295** | **98%** | 15 done |
 
 ### Release Handoff
 
@@ -3037,7 +3037,7 @@ existing code and need no task; the tasks below cover the rest.
     carries no `action_digest`.
   - AC: no library code changes; SP.19 evidence cells that say "probe" name
     the new tests.
-- [ ] M13.02 Effect binding validation and digests.
+- [x] M13.02 Effect binding validation and digests.
   - AC: `SigilGuard.EffectAuthority.fetch_binding/1`, `validate_binding/1`,
     `binding_digest/1`, and `operation_key/1` implement the closed record of
     SP.19 and are total over arbitrary terms (PE.27, PE.44).
