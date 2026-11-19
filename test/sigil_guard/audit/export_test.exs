@@ -512,31 +512,25 @@ defmodule SigilGuard.Audit.ExportTest do
       {:ok, export} = evidence_export(events)
       key = [public_key_b64u: TestSigner.public_key_b64u()]
 
-      # A non-map checkpoint statement.
       assert Export.verify(Map.put(export, "checkpoint_statement", "nope"), events, key) ==
                {:error, :invalid_checkpoint_statement}
 
-      # A statement whose payload carries no subject.
       no_subject = %{"payload" => Base.url_encode64(~s({"a":1}), padding: false)}
 
       assert Export.verify(Map.put(export, "checkpoint_statement", no_subject), events, key) ==
                {:error, :invalid_checkpoint_statement}
 
-      # A non-list inclusion_proofs value.
       assert Export.verify(Map.put(export, "inclusion_proofs", "nope"), events, key) ==
                {:error, :invalid_inclusion_proofs}
 
-      # A non-map inclusion proof entry.
       assert Export.verify(Map.put(export, "inclusion_proofs", ["nope"]), events, key) ==
                {:error, :invalid_inclusion_proof}
 
-      # An inclusion proof whose leaf index is outside the event list.
       out_of_range = Map.put(hd(export["inclusion_proofs"]), "leaf_index", 99)
 
       assert Export.verify(Map.put(export, "inclusion_proofs", [out_of_range]), events, key) ==
                {:error, :invalid_inclusion_proof}
 
-      # A non-integer leaf index.
       non_integer = Map.put(hd(export["inclusion_proofs"]), "leaf_index", "0")
 
       assert Export.verify(Map.put(export, "inclusion_proofs", [non_integer]), events, key) ==

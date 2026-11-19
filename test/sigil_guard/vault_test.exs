@@ -213,7 +213,6 @@ defmodule SigilGuard.VaultTest do
       {:status, _, _, items} = :sys.get_status(InMemory)
       status_str = inspect(items, limit: :infinity)
 
-      # Master key should be redacted, not leaked as raw bytes
       assert status_str =~ "REDACTED"
       refute status_str =~ "master_key: <<"
     end

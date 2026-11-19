@@ -41,10 +41,6 @@ defmodule SigilGuard.StreamingVectorFixture do
   end
 
   @doc false
-  @spec context() :: keyword()
-  def context, do: @context
-
-  @doc false
   @spec vectors() :: [map()]
   def vectors do
     per_pattern_vectors() ++ special_vectors() ++ confusable_vectors()

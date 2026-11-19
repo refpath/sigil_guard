@@ -52,7 +52,6 @@ defmodule SigilGuard.Audit.ProofTest do
       tree = load("tree.json")
       [h0 | _] = tree["leaves"]
 
-      # root_1 = H0, root_2 = N01, root_4 = N0123, root_5 = R5.
       assert tree["roots"]["1"] == h0
       assert tree["roots"]["2"] == tree["nodes"]["N01"]
       assert tree["roots"]["4"] == tree["nodes"]["N0123"]

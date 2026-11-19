@@ -15,7 +15,6 @@ defmodule SigilGuard.TestSigner do
 
   @behaviour SigilGuard.Signer
 
-  # Fixed seed for deterministic test keypair
   @seed :crypto.hash(:sha256, "sigil_guard_test_seed_v1")
 
   @doc false

@@ -137,10 +137,9 @@ defmodule SigilGuard.Audit.EvidenceTest do
         |> Audit.new_event("actor", "act", "ok", %{"evidence" => [ref]})
         |> Audit.sign_event(@chain_key)
 
-      # The decision's attestation and the audit event carry the identical ref.
       assert get_in(statement, ["predicate", "evidence"]) == [ref]
       assert audit_event.metadata["evidence"] == [ref]
-      # And it resolves to the real checkpoint artifact.
+
       assert Evidence.resolve(audit_event.metadata["evidence"], [{:checkpoint, ctx.checkpoint}]) ==
                :ok
     end

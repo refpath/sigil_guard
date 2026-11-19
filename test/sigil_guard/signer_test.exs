@@ -106,7 +106,6 @@ defmodule SigilGuard.SignerTest do
       signer = Ed25519.new(priv)
       signature = Ed25519.sign_with(signer, "message")
 
-      # Flip a bit in the signature
       <<first_byte, rest::binary>> = signature
       tampered = <<Bitwise.bxor(first_byte, 1), rest::binary>>
 

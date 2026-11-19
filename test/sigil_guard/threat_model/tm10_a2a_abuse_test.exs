@@ -129,8 +129,6 @@ defmodule SigilGuard.ThreatModel.TM10A2AAbuseTest do
     end
   end
 
-  ## Signers
-
   defmodule Issuer do
     @behaviour SigilGuard.Signer
     @seed :binary.copy(<<0x21>>, 32)
@@ -171,8 +169,6 @@ defmodule SigilGuard.ThreatModel.TM10A2AAbuseTest do
     def public_key, do: elem(:crypto.generate_key(:eddsa, :ed25519, @seed), 0)
     defp priv, do: elem(:crypto.generate_key(:eddsa, :ed25519, @seed), 1)
   end
-
-  ## Helpers
 
   defp issuer_material, do: %{Envelope.keyid(Issuer.public_key()) => Issuer.public_key()}
 

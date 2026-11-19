@@ -152,7 +152,6 @@ defmodule SigilGuard.Runtime.StreamTest do
         Enum.reduce(chunks, {Stream.new(@stream_ctx, []), []}, fn chunk, {stream, acc} ->
           {stream, decision, piece} = Stream.push(stream, chunk)
           assert decision.verdict == :allowed
-          # No emitted prefix may carry raw secret bytes.
           refute piece =~ @secret
           {stream, [piece | acc]}
         end)

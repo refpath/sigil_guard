@@ -107,8 +107,6 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
     end
   end
 
-  ## Helpers (mirrors SigilGuard.TrustBundle.VerifyTest)
-
   defp bundle_document do
     %{
       "profile" => "sigil_guard_trust_bundle/v1",

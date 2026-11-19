@@ -105,7 +105,6 @@ defmodule SigilGuard.AuditTest do
 
       signed = Audit.build_chain(events, @secret_key)
 
-      # Tamper with the second event
       tampered = List.update_at(signed, 1, fn event -> %{event | action: "tampered"} end)
 
       assert {:broken, 1} = Audit.verify_chain(tampered, @secret_key)
@@ -132,7 +131,6 @@ defmodule SigilGuard.AuditTest do
 
       signed = Audit.build_chain(events, @secret_key)
 
-      # Corrupt the prev_hmac of the second event to break the chain
       broken =
         List.update_at(signed, 1, fn event ->
           %{event | prev_hmac: "corrupted_hmac_value"}
@@ -372,7 +370,6 @@ defmodule SigilGuard.AuditTest do
 
       assert String.starts_with?(hashed, "fh1:")
       assert byte_size(hashed) == byte_size("fh1:") + 64
-      # Deterministic and key-bound.
       assert Audit.hash_field("did:web:alice", @field_hash_key) == hashed
       refute Audit.hash_field("did:web:bob", @field_hash_key) == hashed
       refute Audit.hash_field("did:web:alice", :crypto.hash(:sha256, "other")) == hashed

@@ -67,7 +67,6 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
       {:ok, a} = ReleaseStatement.statement(tarball: tarball_a, sbom: sbom, version: "1.0.0")
       {:ok, b} = ReleaseStatement.statement(tarball: tarball_b, sbom: sbom, version: "1.0.0")
 
-      # Different tarball bytes yield a different release action digest.
       refute action_digest(a) == action_digest(b)
     end
 
