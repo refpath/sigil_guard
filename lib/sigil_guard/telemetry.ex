@@ -71,6 +71,11 @@ defmodule SigilGuard.Telemetry do
       confirmation_reason: atom | nil, confirmation_actor: String.t() | nil,
       confirmation_nonce_hash: String.t() | nil,
       content_hash: String.t() | nil}`
+      With `effect_binding: :required` the metadata also carries
+      `effect_binding: :absent | :valid | :invalid`,
+      `effect_binding_digest: String.t()`, and
+      `effect_operation_key: String.t()`; the two digests are present only
+      for a valid record.
 
     * `[:sigil_guard, :audit, :logged]`
       Measurements: `%{system_time: integer}`
@@ -176,6 +181,9 @@ defmodule SigilGuard.Telemetry do
     :confirmation_nonce_hash,
     :confirmation_issued_at,
     :confirmation_expires_at,
+    :effect_binding,
+    :effect_binding_digest,
+    :effect_operation_key,
     :repo_policy_verdict,
     :repo_policy_rules,
     :repo_unmatched_paths
@@ -208,6 +216,9 @@ defmodule SigilGuard.Telemetry do
     content_hash: "sigilguard.payload.digest",
     detector: "sigilguard.boundary.adaptive.detector",
     dev: "sigilguard.trust_bundle.dev",
+    effect_binding: "sigilguard.effect.binding",
+    effect_binding_digest: "sigilguard.effect.binding_digest",
+    effect_operation_key: "sigilguard.effect.operation_key",
     error: "sigilguard.error.reason",
     error_reason: "sigilguard.error.reason",
     event_type: "sigilguard.audit.event_type",
@@ -259,6 +270,8 @@ defmodule SigilGuard.Telemetry do
     "sigilguard.audit.anchor.digest",
     "sigilguard.confirmation.actor.hash",
     "sigilguard.confirmation.nonce_hash",
+    "sigilguard.effect.binding_digest",
+    "sigilguard.effect.operation_key",
     "sigilguard.identity.hash",
     "sigilguard.mcp.protocol_version",
     "sigilguard.mcp.result_type",

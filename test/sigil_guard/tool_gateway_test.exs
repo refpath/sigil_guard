@@ -852,7 +852,7 @@ defmodule SigilGuard.ToolGatewayTest do
         ToolGateway.guard_request(
           request(),
           sandbox_context(),
-          opts ++ [protocol_version: "2026-07-28"]
+          Keyword.put(opts, :protocol_version, "2026-07-28")
         )
 
       assert {:confirm, _} = from_message.verdict

@@ -485,6 +485,46 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     end
   end
 
+  describe "physical-effect gateway contracts" do
+    alias SigilGuard.EffectAuthorityFixture, as: EffectFixture
+    alias SigilGuard.ToolGateway
+
+    test "the option defaults to :off and leaves the JSON-RPC result unchanged" do
+      opts = Keyword.delete(EffectFixture.gateway_opts(), :effect_binding)
+
+      assert ToolGateway.guarded_request(EffectFixture.request(), EffectFixture.context(), opts) ==
+               ToolGateway.guarded_request(
+                 EffectFixture.request(),
+                 EffectFixture.context(),
+                 Keyword.put(opts, :effect_binding, :off)
+               )
+    end
+
+    test "the three refusals use the blocked code and name no request value" do
+      refusals = [
+        {EffectFixture.drop_record(EffectFixture.request()), [], :effect_binding_required},
+        {EffectFixture.put_record(EffectFixture.request(), %{}), [], :invalid_effect_binding},
+        {EffectFixture.request(), [consume_confirmation: false],
+         :effect_replay_protection_required}
+      ]
+
+      for {request, overrides, reason} <- refusals do
+        assert {:error, response, decision} =
+                 ToolGateway.guarded_request(
+                   request,
+                   EffectFixture.context(),
+                   EffectFixture.gateway_opts(overrides)
+                 )
+
+        assert decision.audit_metadata.deny_reason == reason
+        assert response["error"]["code"] == -31_990
+        assert response["error"]["data"]["status"] == "blocked"
+        assert response["error"]["data"]["action"] == "block"
+        refute inspect(response) =~ "urn:example:cell-a:arm-1"
+      end
+    end
+  end
+
   describe "Audit struct contract" do
     test "field set is asserted literally" do
       event = Audit.new_event("runtime.decision", "host:operator:42", "read_file", "success")

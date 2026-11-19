@@ -508,6 +508,7 @@ take the `sigilguard.` form).
 | `sigilguard.profile`, `sigilguard.verdict`, `sigilguard.outcome`, `sigilguard.phase`, `sigilguard.origin`, `sigilguard.sink`, `sigilguard.trust_zone`, `sigilguard.trust_level`, `sigilguard.risk_level` | bounded enum | no |
 | `sigilguard.event`, `sigilguard.component`, `sigilguard.operation` | bounded enum | no |
 | `sigilguard.tool.name`, `sigilguard.mcp.server` | bounded per deployment | no |
+| `sigilguard.effect.binding` | bounded enum (`absent`, `valid`, `invalid`; SP.19) | no |
 | `sigilguard.rules.matched`, `sigilguard.hit_count`, `sigilguard.indicator_count`, `sigilguard.indicator_ids`, `sigilguard.scanner.*`, `sigilguard.repo_policy.*` | bounded (rule/pattern ids, counts) | no |
 | `sigilguard.decision.id`, `sigilguard.actor.hash`, `sigilguard.identity.hash` | high cardinality | yes |
 | `sigilguard.action.digest`, `sigilguard.payload.digest`, `sigilguard.context.digest`, `sigilguard.manifest.digest`, `sigilguard.policy.digest` | high cardinality (digests) | yes |
@@ -521,8 +522,9 @@ yields `sigilguard.action.digest`, `sigilguard.payload.digest` (from
 the related `sigilguard.action.digest_error` is a bounded error reason. The
 high-cardinality opt-in set is every emitted digest, hash, opaque id, or URI:
 the table rows above plus `sigilguard.confirmation.actor.hash`,
-`sigilguard.confirmation.nonce_hash`, `sigilguard.trust_bundle.digest`, and
-`sigilguard.agent_trust.card_digest`.
+`sigilguard.confirmation.nonce_hash`, `sigilguard.trust_bundle.digest`,
+`sigilguard.agent_trust.card_digest`, `sigilguard.effect.binding_digest`, and
+`sigilguard.effect.operation_key`.
 
 `otel_attributes/4` gains `include_high_cardinality: boolean` (default
 `false`): high-cardinality attributes are dropped unless opted in, so

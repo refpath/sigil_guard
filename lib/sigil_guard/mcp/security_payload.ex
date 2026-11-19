@@ -152,8 +152,8 @@ defmodule SigilGuard.MCP.SecurityPayload do
 
   Phase, origin, and sink follow from `direction`. Tool, action, and server
   are read from `message`. A key present in `context` replaces the value
-  read from the message. A malformed tool or action name stays `:invalid`,
-  which the runtime gate refuses.
+  read from the message. A malformed tool or action name stays `:invalid`;
+  the runtime gate refuses a malformed action.
   """
   @doc since: "1.1.0"
   @spec context(term(), direction(), Context.t() | map() | keyword()) :: Context.t()

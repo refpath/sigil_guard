@@ -59,6 +59,7 @@ defmodule SigilGuard.ToolGateway do
   alias SigilGuard.MCP.SecurityPayload
   alias SigilGuard.Telemetry
   alias SigilGuard.ToolGateway.Base, as: GatewayBase
+  alias SigilGuard.ToolGateway.Effect
   alias SigilGuard.TrustBundle
 
   @typedoc "A closed reason for rejecting a manifest, request, or result."
@@ -82,6 +83,9 @@ defmodule SigilGuard.ToolGateway do
           | :invalid_confirmation_token
           | :missing_confirmation_key
           | :confirmation_failed
+          | :effect_binding_required
+          | :invalid_effect_binding
+          | :effect_replay_protection_required
 
   @typedoc "An attestation construction or signing failure."
   @type attest_error :: Attestation.from_decision_error() | Attestation.sign_error()
@@ -111,25 +115,40 @@ defmodule SigilGuard.ToolGateway do
     * `:confirmation` - `:honor` or `:off`; defaults to `:honor`.
     * `:confirmation_token`, `:confirmation_key`, `:consume_confirmation`,
       `:now` - forwarded to token verification.
+    * `:effect_binding` - `:off` (default) or `:required`. `:required` marks a
+      request that changes the physical world. The request must carry a valid
+      `SigilGuard.EffectAuthority` binding record, `consume_confirmation: false`
+      is refused, an inbound attestation nonce is consumed once on the pass
+      that allows execution, and every decision records `action_digest`,
+      `payload_digest`, and `context_digest` for the host ledger.
   """
   @spec guard_request(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_request(request, context \\ %{}, opts \\ []) do
     payload = request_payload(request, opts)
     request_context = SecurityPayload.context(request, :request, context)
+    effect = Effect.new(request, payload, request_context, opts)
 
     decision =
-      with {:ok, capability} <- resolve_manifest(payload.tool, opts),
+      with :ok <- Effect.check_option(effect),
+           {:ok, capability} <- resolve_manifest(payload.tool, opts),
            :ok <- manifest_freshness(capability, opts),
            :ok <- passthrough_resource_audience(capability, opts),
            :ok <- verify_caller_visibility(capability, request_context),
            :ok <- require_sandbox(capability, request_context),
-           :ok <- verify_inbound_attestation(request, payload, request_context, capability, opts) do
+           :ok <- verify_inbound_attestation(request, payload, request_context, capability, opts),
+           :ok <- Effect.check_request(effect) do
         request
         |> GatewayBase.guard_request(context, opts)
         |> put_protocol_metadata(request, opts)
         |> put_manifest_metadata(capability)
         |> maybe_force_suspicious_confirmation(payload, request_context, capability, opts)
         |> maybe_apply_confirmation(payload, request_context, request, opts)
+        |> consume_effect_attestation(
+          effect,
+          request,
+          {payload, request_context, capability},
+          opts
+        )
       else
         {:error, denial} ->
           denial
@@ -137,7 +156,9 @@ defmodule SigilGuard.ToolGateway do
           |> put_protocol_metadata(request, opts)
       end
 
-    emit_mcp_decision(decision)
+    decision
+    |> put_effect_metadata(effect)
+    |> emit_mcp_decision()
   end
 
   @doc """
@@ -922,17 +943,52 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp verify_attestation_envelope(envelope, payload, context, capability, opts) do
-    verify_opts =
-      opts
-      |> Keyword.take([:now, :max_skew_ms])
-      |> Keyword.put(:payload, payload)
-      |> Keyword.put(:context, context)
-      |> maybe_put_manifest_digest(capability)
+    verify_opts = inbound_verify_opts(payload, context, capability, opts)
 
     case Attestation.verify(envelope, Keyword.get(opts, :trust_material, %{}), verify_opts) do
       {:ok, _} -> :ok
       {:error, _} -> {:error, :invalid_attestation}
     end
+  end
+
+  defp inbound_verify_opts(payload, context, capability, opts) do
+    opts
+    |> Keyword.take([:now, :max_skew_ms])
+    |> Keyword.put(:payload, payload)
+    |> Keyword.put(:context, context)
+    |> maybe_put_manifest_digest(capability)
+  end
+
+  # The nonce is consumed only when the decision allows execution, so a pass
+  # that ends in confirm leaves the envelope usable for the confirmed retry.
+  defp consume_effect_attestation(
+         %Decision{verdict: :allowed} = decision,
+         %Effect{mode: :required},
+         request,
+         {payload, context, capability},
+         opts
+       ) do
+    with true <- Keyword.get(opts, :attestation, :off) in [:optional, :required],
+         {:ok, envelope} <- Attestation.fetch(request),
+         verify_opts = inbound_verify_opts(payload, context, capability, opts),
+         {:error, reason} <-
+           Attestation.verify(
+             envelope,
+             Keyword.get(opts, :trust_material, %{}),
+             Keyword.put(verify_opts, :replay, true)
+           ) do
+      {:invalid_attestation, %{attestation_error: reason}}
+      |> deny(payload, context)
+      |> put_protocol_metadata(request, opts)
+    else
+      _ -> decision
+    end
+  end
+
+  defp consume_effect_attestation(%Decision{} = decision, _, _, _, _), do: decision
+
+  defp put_effect_metadata(%Decision{} = decision, %Effect{} = effect) do
+    %{decision | audit_metadata: Map.merge(decision.audit_metadata, Effect.metadata(effect))}
   end
 
   defp maybe_put_manifest_digest(opts, %CapabilityManifest{digest: digest})

@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 289 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
+**Overall: 290 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 2 | 8 | 25% | In progress |
-| — | **Total** | **289** | **295** | **98%** | 15 done |
+| M13 | Physical effect authority | 3 | 8 | 38% | In progress |
+| — | **Total** | **290** | **295** | **98%** | 15 done |
 
 ### Release Handoff
 
@@ -3045,7 +3045,7 @@ existing code and need no task; the tasks below cover the rest.
     duplicate artifacts, inverted deadlines, and a `params` map with both
     metadata keys return `:invalid_effect_binding`; an absent record returns
     `:effect_binding_required`; no atom is created from input.
-- [ ] M13.03 Gateway activation and consuming verification.
+- [x] M13.03 Gateway activation and consuming verification.
   - AC: `effect_binding: :off` changes no decision, digest, golden vector, or
     consumer contract assertion (PE.01, PE.03).
   - AC: `effect_binding: :required` blocks a missing or malformed record,

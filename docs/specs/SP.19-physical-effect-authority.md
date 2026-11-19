@@ -601,12 +601,14 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 |--------|---------|-------|
 | `lib/sigil_guard/effect_authority.ex` | Public API: record lookup, digests, admission order, transition table, outcome classification, audit fields. | in progress |
 | `lib/sigil_guard/effect_authority/record.ex` | Closed validator for the binding record and the shared identifier, timestamp, digest, target, and artifact rules. | implemented |
-| `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks. | existing; change proposed |
-| `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | existing; change proposed |
+| `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks, attestation nonce consumption. | implemented |
+| `lib/sigil_guard/tool_gateway/effect.ex` | Gateway-side state for one physical-effect request: option value, replay protection, digests, and record. | implemented |
+| `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | implemented |
 | `lib/sigil_guard/confirmation.ex` | Token binding and single use. | existing; unchanged |
 | `lib/sigil_guard/replay_store.ex` | Per-boot nonce claims. | existing; unchanged |
-| `lib/sigil_guard/mcp/security_payload.ex` | Retains unreserved `_meta` values in the binding; builds the gateway context that `guard_request/3` and `admit/5` both digest. | existing; change proposed |
+| `lib/sigil_guard/mcp/security_payload.ex` | Retains unreserved `_meta` values in the binding; `context/3` builds the gateway context that `guard_request/3` and `admit/5` both digest. | implemented |
 | `test/sigil_guard/effect_authority_test.exs` | Unit, tamper, malformed, and property tests. | in progress |
+| `test/sigil_guard/tool_gateway_effect_test.exs` | Gateway option, digest recording, replay rules, attestation consumption, and telemetry. | implemented |
 | `test/sigil_guard/conformance/physical_effect_test.exs` | SG-F1 to SG-F6. | proposed |
 | `test/support/test_effect_ledger.ex` | In-memory ledger fake with a simulated restart. | proposed |
 | `test/fixtures/effect_authority/` | Neutral request, manifest, policy, and envelope fixtures. | in progress |
@@ -841,7 +843,7 @@ changes a result; the atom count grows with distinct inputs.
 - [x] Commit characterization tests for the facts shown by probe.
 - [x] Implement `SigilGuard.EffectAuthority` record validation and digests.
 - [ ] Implement admission against current facts.
-- [ ] Add the `:effect_binding` gateway option and consuming verification.
+- [x] Add the `:effect_binding` gateway option and consuming verification.
 - [ ] Implement envelope membership.
 - [ ] Implement outcome classification and audit metadata.
 - [ ] Add the ledger fake and SG-F1 to SG-F6.
