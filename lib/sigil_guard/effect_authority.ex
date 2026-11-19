@@ -32,7 +32,31 @@ defmodule SigilGuard.EffectAuthority do
   @moduledoc since: "1.1.0"
 
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Confirmation
+  alias SigilGuard.Context
+  alias SigilGuard.Decision
+  alias SigilGuard.EffectAuthority.Envelope
+  alias SigilGuard.EffectAuthority.Facts
   alias SigilGuard.EffectAuthority.Record
+  alias SigilGuard.MCP.SecurityPayload
+
+  @typedoc "The reason an admission is refused, in the order the checks run."
+  @type refusal ::
+          :invalid_options
+          | :not_authorized
+          | :effect_binding_required
+          | :invalid_effect_binding
+          | :invalid_current_facts
+          | :stale_current_facts
+          | :principal_mismatch
+          | :target_mismatch
+          | :target_environment_mismatch
+          | :artifact_mismatch
+          | :frame_revision_mismatch
+          | :policy_epoch_mismatch
+          | :effect_not_yet_valid
+          | :effect_deadline_passed
+          | Envelope.refusal()
 
   @doc """
   Reads the binding record from a request and validates it.
@@ -85,6 +109,140 @@ defmodule SigilGuard.EffectAuthority do
       )
     end
   end
+
+  @doc """
+  Returns the lowercase-hex SHA-256 of an effect envelope's JCS bytes.
+
+  The document is validated first. An unknown key, a float bound, an inverted
+  range, unsorted or duplicate targets or operations, and a string that is not
+  valid UTF-8 are refused.
+  """
+  @doc since: "1.1.0"
+  @spec envelope_digest(term()) :: {:ok, String.t()} | {:error, :invalid_effect_envelope}
+  def envelope_digest(document), do: Envelope.digest(document)
+
+  @doc """
+  Decides whether an allowed request may be dispatched now.
+
+  `decision` is the value `SigilGuard.ToolGateway.guard_request/3` returned for
+  `request` and `context` with `effect_binding: :required`. `current` is an
+  atom-keyed closed map of facts the host read from its own sources:
+  `:principal`, `:target` (`%{id: ..., environment: :physical | :simulated}`),
+  `:policy_epoch`, `:observed_at`, and `:now`, plus optional `:artifacts`
+  (`%{name: ..., sha256: ...}` maps) and `:frame_revision`.
+
+  Options:
+
+    * `:max_fact_age_ms` - required positive integer. Facts older than this at
+      `:now`, or observed after `:now`, are stale.
+    * `:envelope` - the approved effect envelope document, when the record
+      names one.
+
+  The checks run in the SP.19 admission order and the first failure is
+  returned as a bare atom. The result is not a credential: it applies to the
+  dispatch that follows immediately, and a refusal never upgrades a verdict.
+  """
+  @doc since: "1.1.0"
+  @spec admit(term(), term(), Context.t() | map() | keyword(), term(), term()) ::
+          :ok | {:error, refusal()}
+  def admit(decision, request, context, current, opts) do
+    with {:ok, options} <- admit_options(opts),
+         bound_context = SecurityPayload.context(request, :request, context),
+         {:ok, metadata} <- authorized(decision, request, bound_context),
+         {:ok, record} <- Record.fetch(request),
+         {:ok, facts} <- Facts.validate(current),
+         :ok <- fresh(facts, options.max_fact_age_ms),
+         :ok <- conditions(record, facts, bound_context.actor) do
+      Envelope.admit(record, options.envelope, %{
+        actor: bound_context.actor,
+        now: facts.now,
+        request: request,
+        manifest_digest: metadata[:manifest_digest]
+      })
+    end
+  end
+
+  defp admit_options(opts) do
+    with true <- Keyword.keyword?(opts),
+         [] <- Keyword.keys(opts) -- [:max_fact_age_ms, :envelope],
+         {:ok, age} when is_integer(age) and age > 0 <- Keyword.fetch(opts, :max_fact_age_ms) do
+      {:ok, %{max_fact_age_ms: age, envelope: Keyword.fetch(opts, :envelope)}}
+    else
+      _ -> {:error, :invalid_options}
+    end
+  end
+
+  defp authorized(
+         %Decision{
+           verdict: :allowed,
+           action: :allow,
+           audit_metadata: %{action_digest: digest} = metadata
+         },
+         request,
+         bound_context
+       )
+       when is_binary(digest) do
+    payload = SecurityPayload.for_gate(request, :request, protocol_opts(metadata))
+
+    case Confirmation.fetch_action_digest(payload, bound_context) do
+      {:ok, ^digest} -> {:ok, metadata}
+      _ -> {:error, :not_authorized}
+    end
+  end
+
+  defp authorized(_, _, _), do: {:error, :not_authorized}
+
+  defp protocol_opts(%{protocol_version: version}) when is_binary(version),
+    do: [protocol_version: version]
+
+  defp protocol_opts(_), do: []
+
+  defp fresh(%{now: now, observed_at: observed_at}, max_age)
+       when observed_at <= now and now - observed_at <= max_age,
+       do: :ok
+
+  defp fresh(_, _), do: {:error, :stale_current_facts}
+
+  defp conditions(record, facts, actor) do
+    target = record["target"]
+
+    with :ok <- check(facts.principal == actor, :principal_mismatch),
+         :ok <- check(target["id"] == facts.target["id"], :target_mismatch),
+         :ok <-
+           check(
+             target["environment"] == facts.target["environment"],
+             :target_environment_mismatch
+           ),
+         :ok <- check(artifact_digests(record) == facts.artifacts, :artifact_mismatch),
+         :ok <-
+           check(record["frame_revision"] == facts.frame_revision, :frame_revision_mismatch),
+         :ok <- check(record["policy_epoch"] == facts.policy_epoch, :policy_epoch_mismatch) do
+      window(record, facts.now)
+    end
+  end
+
+  defp artifact_digests(%{"artifacts" => artifacts}),
+    do: Map.new(artifacts, &{&1["name"], &1["sha256"]})
+
+  defp artifact_digests(_), do: nil
+
+  defp window(record, now) do
+    cond do
+      now < unix_ms(record["not_before"], now) -> {:error, :effect_not_yet_valid}
+      now > unix_ms(record["not_after"], now) -> {:error, :effect_deadline_passed}
+      true -> :ok
+    end
+  end
+
+  defp unix_ms(nil, absent), do: absent
+
+  defp unix_ms(timestamp, _) do
+    {:ok, datetime} = Record.timestamp(timestamp)
+    DateTime.to_unix(datetime, :millisecond)
+  end
+
+  defp check(true, _), do: :ok
+  defp check(false, reason), do: {:error, reason}
 
   defp jcs_digest(value, error) do
     case JCS.encode(value) do

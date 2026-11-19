@@ -66,6 +66,64 @@ defmodule SigilGuard.EffectAuthorityFixture do
     policy
   end
 
+  @doc "Return the baseline current facts, read half a second before `now/0`."
+  @spec facts() :: map()
+  def facts do
+    record = record()
+
+    %{
+      principal: @actor,
+      target: %{id: record["target"]["id"], environment: :physical},
+      artifacts: Enum.map(record["artifacts"], &%{name: &1["name"], sha256: &1["sha256"]}),
+      frame_revision: record["frame_revision"],
+      policy_epoch: record["policy_epoch"],
+      observed_at: DateTime.add(@now, -500, :millisecond),
+      now: @now
+    }
+  end
+
+  @doc "Return the baseline effect envelope `E0`."
+  @spec envelope() :: map()
+  def envelope, do: FixturePath.read_json!("effect_authority/envelope.json")
+
+  @doc "Return `request` with its record naming `envelope` by id and digest."
+  @spec name_envelope(map(), map()) :: map()
+  def name_envelope(request, envelope) do
+    {:ok, sha256} = SigilGuard.EffectAuthority.envelope_digest(envelope)
+    reference = %{"id" => envelope["id"], "sha256" => sha256}
+
+    put_in(request, ["params", "_meta", @record_key, "envelope"], reference)
+  end
+
+  @doc """
+  Guard `request`, confirm it with a fresh token, and return the allowed decision.
+
+  The token nonce is consumed in `SigilGuard.ReplayStore`.
+  """
+  @spec approve(map(), keyword()) :: SigilGuard.Decision.t()
+  def approve(request, overrides \\ []) do
+    opts = gateway_opts(overrides)
+    pending = SigilGuard.ToolGateway.guard_request(request, context(), opts)
+
+    issue_opts =
+      opts
+      |> Keyword.take([:protocol_version])
+      |> Keyword.merge(now: @now, manifest: pending.audit_metadata.manifest_digest)
+
+    {:ok, token} =
+      SigilGuard.ToolGateway.issue_confirmation(
+        request,
+        context(),
+        pending,
+        confirmation_key(),
+        issue_opts
+      )
+
+    request
+    |> SigilGuard.Attestation.attach_confirmation(token)
+    |> SigilGuard.ToolGateway.guard_request(context(), opts)
+  end
+
   @doc "Return the confirmation key the fixtures issue tokens with."
   @spec confirmation_key() :: binary()
   def confirmation_key, do: :crypto.hash(:sha256, "effect-authority-fixture")

@@ -79,11 +79,17 @@ defmodule SigilGuard.EffectAuthority.Record do
   @doc false
   @spec artifacts?(term()) :: boolean()
   def artifacts?([_ | _] = artifacts) do
-    length(artifacts) <= @max_artifacts and Enum.all?(artifacts, &artifact?/1) and
+    bounded_list?(artifacts, @max_artifacts) and Enum.all?(artifacts, &artifact?/1) and
       strictly_ascending?(Enum.map(artifacts, & &1["name"]))
   end
 
   def artifacts?(_), do: false
+
+  @doc false
+  @spec bounded_list?(term(), non_neg_integer()) :: boolean()
+  def bounded_list?([], _), do: true
+  def bounded_list?([_ | rest], left) when left > 0, do: bounded_list?(rest, left - 1)
+  def bounded_list?(_, _), do: false
 
   @doc false
   @spec strictly_ascending?([String.t()]) :: boolean()

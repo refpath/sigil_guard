@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 290 / 295 tasks done (98%).** Milestones: 15 complete, 1 in progress.
+**Overall: 292 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 3 | 8 | 38% | In progress |
-| — | **Total** | **290** | **295** | **98%** | 15 done |
+| M13 | Physical effect authority | 5 | 8 | 62% | In progress |
+| — | **Total** | **292** | **295** | **99%** | 15 done |
 
 ### Release Handoff
 
@@ -3057,14 +3057,14 @@ existing code and need no task; the tasks below cover the rest.
     allows execution; the confirmed retry with the same envelope passes and
     a later pass is refused (PE.25).
   - AC: the three effect telemetry keys appear only under `:required`.
-- [ ] M13.04 Admission against current facts.
+- [x] M13.04 Admission against current facts.
   - AC: `EffectAuthority.admit/5` returns the reasons of the SP.19 admission
     order in that order, one per failing step, as bare atoms (PE.11, PE.14,
     PE.15, PE.33, PE.34, PE.35).
   - AC: boundary tests cover `not_before`, `not_after`, and
     `:max_fact_age_ms` to the millisecond; the function reads no clock.
   - AC: a decision produced with a `:protocol_version` option admits.
-- [ ] M13.05 Effect envelope and membership.
+- [x] M13.05 Effect envelope and membership.
   - AC: `envelope_digest/1` and the membership steps of SP.19 are implemented.
     The conformance suite approves `E0` through an existing confirmation
     token over the request that carries it, and `admit/5` refuses a supplied

@@ -1,0 +1,42 @@
+{
+  "envelope_format": "sigil_guard_effect_envelope/v1",
+  "id": "env-0001",
+  "principal": "spiffe://example.test/agent/planner",
+  "artifacts": [
+    {
+      "name": "controller-config",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "name": "program",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "targets": [
+    {
+      "id": "urn:example:cell-a:arm-1",
+      "environment": "physical"
+    }
+  ],
+  "operations": [
+    {
+      "tool": "cell.grip",
+      "manifest_sha256": "9ae38df7f9fdc51c3b60cf3837c38d9ce9bb2eeb6bedeca414565cb741953002",
+      "parameters": {
+        "state": {"enum": ["closed", "open"]}
+      }
+    },
+    {
+      "tool": "cell.move",
+      "manifest_sha256": "2ab617dadec91f984e73735519451c09cdadbbbba943c5716ff519577eb15b4e",
+      "parameters": {
+        "speed_mm_s": {"range": {"min": 1, "max": 120}},
+        "x_mm": {"range": {"min": 0, "max": 500}},
+        "y_mm": {"range": {"min": 0, "max": 500}}
+      }
+    }
+  ],
+  "frame_revision": "cal-r3",
+  "policy_epoch": "example-bundle:42:3333333333333333333333333333333333333333333333333333333333333333",
+  "not_after": "2026-11-19T13:00:00.000Z"
+}

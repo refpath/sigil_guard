@@ -399,7 +399,7 @@ unknown keys, or wrong types fail with `:invalid_current_facts`.
 |-------|------|----------|--------|
 | `:principal` | identifier | yes | Principal authenticated for this dispatch. |
 | `:target` | `%{id: identifier, environment: :physical \| :simulated}` | yes | Asset the host is about to address, as the host resolved it. |
-| `:artifacts` | list of `%{name: identifier, sha256: hex}` | no | Digests the host computed over the exact bytes it will hand to the executor. |
+| `:artifacts` | list of 1 to 16 `%{name: identifier, sha256: hex}`, names unique, any order | no | Digests the host computed over the exact bytes it will hand to the executor. |
 | `:frame_revision` | identifier | no | Revision currently active on the target. |
 | `:policy_epoch` | identifier | yes | Epoch currently in force. |
 | `:observed_at` | `DateTime` | yes | When the host read these facts. |
@@ -451,7 +451,7 @@ admits. `identity` is bound by the digests and is not compared.
 
 The document is a string-keyed closed map with format marker
 `sigil_guard_effect_envelope/v1`. Its digest is the lowercase-hex SHA-256 of
-its JCS bytes after SP.01 normalization.
+the JCS bytes of the validated document.
 
 | Field | Type | Required | Rule |
 |-------|------|----------|------|
@@ -465,13 +465,14 @@ its JCS bytes after SP.01 normalization.
 | `policy_epoch` | identifier | yes | Epoch the envelope was approved under. |
 | `not_after` | timestamp | yes | Last dispatch time for any operation. |
 
-An operation is `{"tool": string, "manifest_sha256": lowercase-hex-64,
-"parameters": map}`. `parameters` maps each permitted top-level argument
-name to one bound:
+An operation is `{"tool": identifier, "manifest_sha256": lowercase-hex-64,
+"parameters": map}` with no other key. `parameters` maps each permitted
+top-level argument name, a non-empty UTF-8 string, to one bound. A bound is
+a map with exactly one of the two keys below:
 
 | Bound | Form | Argument matches when |
 |-------|------|-----------------------|
-| enum | `{"enum": [scalar, ...]}` with 1 to 64 strings, booleans, or integers | it has the same JSON type and value as a listed scalar; a float never matches |
+| enum | `{"enum": [scalar, ...]}` with 1 to 64 UTF-8 strings, booleans, or integers inside the SP.01 integer range | it has the same JSON type and value as a listed scalar; a float never matches |
 | range | `{"range": {"min": integer, "max": integer}}`, both inside the SP.01 integer range, `min <= max` | it is a JSON integer with `min <= value <= max` |
 
 Bounds apply to top-level scalar arguments. Floating-point bounds and
@@ -601,6 +602,8 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 |--------|---------|-------|
 | `lib/sigil_guard/effect_authority.ex` | Public API: record lookup, digests, admission order, transition table, outcome classification, audit fields. | in progress |
 | `lib/sigil_guard/effect_authority/record.ex` | Closed validator for the binding record and the shared identifier, timestamp, digest, target, and artifact rules. | implemented |
+| `lib/sigil_guard/effect_authority/facts.ex` | Closed validator for the host's current facts. | implemented |
+| `lib/sigil_guard/effect_authority/envelope.ex` | Closed validator, digest, and membership steps for the effect envelope. | implemented |
 | `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks, attestation nonce consumption. | implemented |
 | `lib/sigil_guard/tool_gateway/effect.ex` | Gateway-side state for one physical-effect request: option value, replay protection, digests, and record. | implemented |
 | `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | implemented |
@@ -842,9 +845,9 @@ changes a result; the atom count grows with distinct inputs.
 - [x] Specify requirements, data model, and conformance cases.
 - [x] Commit characterization tests for the facts shown by probe.
 - [x] Implement `SigilGuard.EffectAuthority` record validation and digests.
-- [ ] Implement admission against current facts.
+- [x] Implement admission against current facts.
 - [x] Add the `:effect_binding` gateway option and consuming verification.
-- [ ] Implement envelope membership.
+- [x] Implement envelope membership.
 - [ ] Implement outcome classification and audit metadata.
 - [ ] Add the ledger fake and SG-F1 to SG-F6.
 - [ ] Document host obligations in the strict deployment guide.
