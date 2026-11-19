@@ -56,7 +56,6 @@ defmodule SigilGuard.ToolGateway.Base do
   @unknown_manifest_code -31_986
   @invalid_attestation_code -31_985
   @sandbox_required_code -31_984
-  @invalid_payload_field false
 
   @doc """
   Guard an MCP tool request before execution.
@@ -68,7 +67,7 @@ defmodule SigilGuard.ToolGateway.Base do
   def guard_request(request, context \\ %{}, opts \\ []) do
     request
     |> SecurityPayload.for_gate(:request, opts)
-    |> Runtime.Gate.evaluate(request_context(request, context), opts)
+    |> Runtime.Gate.evaluate(SecurityPayload.context(request, :request, context), opts)
   end
 
   @doc """
@@ -107,7 +106,7 @@ defmodule SigilGuard.ToolGateway.Base do
   def issue_confirmation_token(request, context, %Decision{} = decision, key, opts \\ []) do
     Confirmation.issue(
       SecurityPayload.for_gate(request, :request, opts),
-      request_context(request, context),
+      SecurityPayload.context(request, :request, context),
       decision,
       key,
       opts
@@ -149,7 +148,7 @@ defmodule SigilGuard.ToolGateway.Base do
   def issue_result_confirmation_token(result, context, %Decision{} = decision, key, opts \\ []) do
     Confirmation.issue(
       SecurityPayload.for_gate(result, :result, opts),
-      result_context(result, context),
+      SecurityPayload.context(result, :result, context),
       decision,
       key,
       opts
@@ -171,7 +170,12 @@ defmodule SigilGuard.ToolGateway.Base do
   def guard_confirmed_request(request, context \\ %{}, opts \\ []) do
     decision = guard_request(request, context, opts)
 
-    maybe_apply_confirmation(decision, request, request_context(request, context), opts)
+    maybe_apply_confirmation(
+      decision,
+      request,
+      SecurityPayload.context(request, :request, context),
+      opts
+    )
   end
 
   @doc """
@@ -258,7 +262,7 @@ defmodule SigilGuard.ToolGateway.Base do
   def guard_result(result, context \\ %{}, opts \\ []) do
     result
     |> SecurityPayload.for_gate(:result, opts)
-    |> Runtime.Gate.evaluate(result_context(result, context), opts)
+    |> Runtime.Gate.evaluate(SecurityPayload.context(result, :result, context), opts)
   end
 
   @doc """
@@ -273,7 +277,12 @@ defmodule SigilGuard.ToolGateway.Base do
   def guard_confirmed_result(result, context \\ %{}, opts \\ []) do
     decision = guard_result(result, context, opts)
 
-    maybe_apply_result_confirmation(decision, result, result_context(result, context), opts)
+    maybe_apply_result_confirmation(
+      decision,
+      result,
+      SecurityPayload.context(result, :result, context),
+      opts
+    )
   end
 
   @doc """
@@ -326,7 +335,7 @@ defmodule SigilGuard.ToolGateway.Base do
   @spec stream_result(Context.t() | map() | keyword(), keyword()) :: Runtime.Stream.t()
   def stream_result(context \\ %{}, opts \\ []) do
     %{}
-    |> result_context(context)
+    |> SecurityPayload.context(:result, context)
     |> Runtime.Stream.new(opts)
   end
 
@@ -378,107 +387,6 @@ defmodule SigilGuard.ToolGateway.Base do
       jsonrpc_error(id, error_code(decision), error_message(decision), error_data(decision, opts))
     end
   end
-
-  defp request_context(request, context) do
-    tool = tool_name(request)
-    action = action_name(request)
-
-    defaults = %{
-      phase: :tool_request,
-      origin: :model,
-      sink: :tool,
-      tool: context_field(tool),
-      action: action_field(action, tool),
-      mcp_server: context_field(mcp_server(request))
-    }
-
-    merge_context(defaults, context)
-  end
-
-  defp result_context(result, context) do
-    tool = tool_name(result)
-    action = action_name(result)
-
-    defaults = %{
-      phase: :tool_result,
-      origin: :tool,
-      sink: :model,
-      tool: context_field(tool),
-      action: action_field(action, tool),
-      mcp_server: context_field(mcp_server(result))
-    }
-
-    merge_context(defaults, context)
-  end
-
-  defp merge_context(defaults, context) do
-    context
-    |> Context.overrides()
-    |> then(&Map.merge(defaults, &1))
-    |> Context.new()
-  end
-
-  defp tool_name(payload) do
-    SecurityPayload.tool_name(payload)
-  end
-
-  defp action_name(payload) do
-    SecurityPayload.action_name(payload)
-  end
-
-  defp mcp_server(payload) do
-    first_payload_value(payload, [
-      [:mcp_server],
-      ["mcp_server"],
-      [:server],
-      ["server"],
-      [:params, :server],
-      [:params, "server"],
-      ["params", :server],
-      ["params", "server"]
-    ])
-  end
-
-  defp first_payload_value(payload, paths) when is_map(payload) do
-    Enum.reduce_while(paths, nil, fn path, nil ->
-      case fetch_path(payload, path) do
-        {:ok, nil} -> {:cont, nil}
-        {:ok, value} when is_binary(value) -> {:halt, value}
-        {:ok, _} -> {:halt, @invalid_payload_field}
-        :error -> {:cont, nil}
-      end
-    end)
-  end
-
-  defp first_payload_value(_, _), do: nil
-
-  defp fetch_path(payload, [key]) when is_map(payload), do: Map.fetch(payload, key)
-
-  defp fetch_path(payload, [key | rest]) when is_map(payload) do
-    case Map.fetch(payload, key) do
-      {:ok, value} when is_map(value) -> fetch_path(value, rest)
-      {:ok, nil} -> :error
-      {:ok, _} -> {:ok, @invalid_payload_field}
-      :error -> :error
-    end
-  end
-
-  defp fetch_path(_, _), do: :error
-
-  defp action_field(action, tool) do
-    if invalid_payload_field?(action) or invalid_payload_field?(tool) do
-      @invalid_payload_field
-    else
-      action
-    end
-  end
-
-  defp context_field(value) do
-    if invalid_payload_field?(value), do: nil, else: value
-  end
-
-  defp invalid_payload_field?(@invalid_payload_field), do: true
-  defp invalid_payload_field?(_), do: false
 
   defp executable?(%Decision{verdict: :allowed, action: action}), do: action in [:allow, :redact]
   defp executable?(%Decision{}), do: false
@@ -760,7 +668,7 @@ defmodule SigilGuard.ToolGateway.Base do
   end
 
   defp envelope_decision(request, context, reason) do
-    context = request_context(request, context)
+    context = SecurityPayload.context(request, :request, context)
     content_hash = hash_text(SecurityPayload.for_gate(request, :request).text)
 
     decision = %Decision{

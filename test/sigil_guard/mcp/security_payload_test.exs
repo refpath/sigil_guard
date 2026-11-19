@@ -130,6 +130,50 @@ defmodule SigilGuard.MCP.SecurityPayloadTest do
     assert gate.action == "tools/call"
   end
 
+  describe "context/3" do
+    @call %{
+      "method" => "tools/call",
+      "server" => "cell-mcp",
+      "params" => %{"name" => "cell.move", "arguments" => %{"x_mm" => 1}}
+    }
+
+    test "derives phase, origin, sink, tool, action, and server from the message" do
+      assert %SigilGuard.Context{
+               phase: :tool_request,
+               origin: :model,
+               sink: :tool,
+               tool: "cell.move",
+               action: "cell.move",
+               mcp_server: "cell-mcp"
+             } = SecurityPayload.context(@call, :request, %{})
+
+      assert %SigilGuard.Context{phase: :tool_result, origin: :tool, sink: :model} =
+               SecurityPayload.context(@call, :result, [])
+    end
+
+    test "a key present in the supplied context replaces the derived value" do
+      context = SecurityPayload.context(@call, :request, tool: "other", sink: :external)
+
+      assert context.tool == "other"
+      assert context.sink == :external
+      assert context.action == "cell.move"
+    end
+
+    test "a malformed name stays :invalid and a malformed server is dropped" do
+      message = %{"params" => %{"name" => 7, "server" => 7}}
+      context = SecurityPayload.context(message, :request, %{})
+
+      assert context.tool == :invalid
+      assert context.action == :invalid
+      assert context.mcp_server == nil
+    end
+
+    test "a non-map message yields the direction defaults" do
+      assert %SigilGuard.Context{tool: nil, action: nil, mcp_server: nil, phase: :tool_request} =
+               SecurityPayload.context("plain", :request, :not_a_context)
+    end
+  end
+
   test "handles scalar and malformed messages without raising" do
     assert is_map(SecurityPayload.request("plain"))
     assert is_map(SecurityPayload.result(nil))

@@ -41,6 +41,7 @@ defmodule SigilGuard.MCP.SecurityPayload do
   """
   @moduledoc since: "1.0.0"
 
+  alias SigilGuard.Context
   alias SigilGuard.MCP.Protocol
 
   @guard_metadata_keys [
@@ -147,6 +148,28 @@ defmodule SigilGuard.MCP.SecurityPayload do
   end
 
   @doc """
+  Builds the boundary context a gateway evaluates and digests for `message`.
+
+  Phase, origin, and sink follow from `direction`. Tool, action, and server
+  are read from `message`. A key present in `context` replaces the value
+  read from the message. A malformed tool or action name stays `:invalid`,
+  which the runtime gate refuses.
+  """
+  @doc since: "1.1.0"
+  @spec context(term(), direction(), Context.t() | map() | keyword()) :: Context.t()
+  def context(message, direction, context) when direction in [:request, :result] do
+    direction
+    |> boundary_defaults()
+    |> Map.merge(%{
+      tool: tool_name(message),
+      action: action_name(message),
+      mcp_server: context_field(mcp_server(message))
+    })
+    |> Map.merge(Context.overrides(context))
+    |> Context.new()
+  end
+
+  @doc """
   Extracts the first tool name from common MCP and adapter map shapes.
 
   Returns `nil` when no candidate field exists and `:invalid` when a candidate
@@ -209,6 +232,22 @@ defmodule SigilGuard.MCP.SecurityPayload do
   end
 
   def strip_guard_metadata(value), do: value
+
+  defp boundary_defaults(:request), do: %{phase: :tool_request, origin: :model, sink: :tool}
+  defp boundary_defaults(:result), do: %{phase: :tool_result, origin: :tool, sink: :model}
+
+  defp mcp_server(message) do
+    first_payload_value(message, [
+      [:mcp_server],
+      ["mcp_server"],
+      [:server],
+      ["server"],
+      [:params, :server],
+      [:params, "server"],
+      ["params", :server],
+      ["params", "server"]
+    ])
+  end
 
   defp projection(message, direction, opts) do
     stripped = strip_guard_metadata(message)
