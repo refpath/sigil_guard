@@ -417,7 +417,7 @@ defmodule SigilGuard.ToolGateway do
   defp request_action_digest(opts) do
     case Keyword.fetch(opts, :request_action_digest) do
       {:ok, digest} when is_binary(digest) ->
-        if digest =~ ~r/^[0-9a-f]{64}$/, do: :ok, else: {:error, :invalid_payload}
+        if digest =~ ~r/\A[0-9a-f]{64}\z/, do: :ok, else: {:error, :invalid_payload}
 
       {:ok, _} ->
         {:error, :invalid_payload}
@@ -1168,6 +1168,8 @@ defmodule SigilGuard.ToolGateway do
       :not_found -> :error
     end
   end
+
+  defp fetch_nested_confirmation_token(_), do: :error
 
   defp verify_confirmation(decision, payload, context, token, opts) do
     with {:ok, key} <- confirmation_key(opts),

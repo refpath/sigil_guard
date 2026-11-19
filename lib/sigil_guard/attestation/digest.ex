@@ -11,7 +11,7 @@ defmodule SigilGuard.Attestation.Digest do
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Context
 
-  @sha256_regex ~r/^[0-9a-f]{64}$/
+  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @statement_types ~w(
     tool_request
     tool_result

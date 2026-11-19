@@ -5,6 +5,14 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Fix two gateway crashes. `ToolGateway.guard_request/3` and `guard_result/3`
+  raised `FunctionClauseError` for a non-map request or result that reached a
+  `confirm` verdict, and `response_for_decision/3` raised `ArgumentError` when
+  a bundle-supplied indicator with a string id fired. Both now return a
+  decision or a JSON-RPC error.
+- Reject a SHA-256 digest followed by a newline. `Boundary.validate/1`, the
+  `:request_action_digest`, `:manifest_digest`, `:output_schema_sha256` and
+  `:card_digest` options, and release artifact digests accepted one.
 - Fix a policy bypass in the runtime gate. A payload whose digest could not be
   computed (a `null` map value, an integer outside the JCS range, or invalid
   UTF-8) made the gate skip `BoundaryPolicy.evaluate/2`, so a policy-file rule

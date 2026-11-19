@@ -33,6 +33,14 @@ defmodule SigilGuard.Attestation.AgentPredicateTest do
              }
     end
 
+    test "rejects a card digest followed by a newline" do
+      assert AgentPredicate.build_request(request_payload(),
+               card_digest: @card_digest <> "\n",
+               peer_trust: :medium,
+               verdict: :allow
+             ) == {:error, :invalid_payload}
+    end
+
     test "requires quarantine or block when no card digest is bound" do
       assert {:error, :invalid_payload} =
                AgentPredicate.build_request(request_payload(), peer_trust: :low, verdict: :allow)

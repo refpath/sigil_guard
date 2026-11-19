@@ -85,6 +85,15 @@ defmodule SigilGuard.BoundaryTest do
                :ok
     end
 
+    test "rejects a digest followed by a newline" do
+      for field <- [:action_digest, :payload_digest, :context_digest] do
+        digest = Map.fetch!(valid_fields(%{}), field) <> "\n"
+
+        assert Boundary.validate(Boundary.new(valid_fields(%{field => digest}))) ==
+                 {:error, :invalid_boundary}
+      end
+    end
+
     test "rejects out-of-enum values with typed errors" do
       cases = [
         {:invalid_phase, %{phase: :session_paused}},

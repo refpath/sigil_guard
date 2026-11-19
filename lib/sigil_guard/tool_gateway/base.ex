@@ -812,7 +812,7 @@ defmodule SigilGuard.ToolGateway.Base do
         "risk_level" => error_value(decision.risk_level),
         "trust_level" => error_value(decision.trust_level),
         "hit_count" => length(decision.hits),
-        "indicator_ids" => Enum.map(decision.indicators, &Atom.to_string(&1.id)),
+        "indicator_ids" => Enum.map(decision.indicators, &error_value(&1.id)),
         "content_hash" => decision.content_hash,
         "action_digest" => metadata[:action_digest],
         "evidence" => evidence_data(metadata[:evidence]),

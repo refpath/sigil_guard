@@ -35,7 +35,7 @@ defmodule SigilGuard.Attestation do
   @confirmation_atom_key :_agent_confirmation
   @confirmation_token_key "confirmation_token"
   @confirmation_token_atom_key :confirmation_token
-  @sha256_regex ~r/^[0-9a-f]{64}$/
+  @sha256_regex ~r/\A[0-9a-f]{64}\z/
 
   @strip_keys [
     @trust_key,

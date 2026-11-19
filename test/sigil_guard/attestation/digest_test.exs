@@ -441,6 +441,35 @@ defmodule SigilGuard.Attestation.DigestTest do
     end
   end
 
+  describe "digest values" do
+    @digest String.duplicate("a", 64)
+
+    test "a digest followed by a newline is not a digest" do
+      result = fn digest ->
+        Digest.action_digest(:tool_result, %{"ok" => true}, [tool: "reader"],
+          request_action_digest: digest
+        )
+      end
+
+      release = fn digest ->
+        Digest.action_digest(
+          :release,
+          %{
+            "package" => "example",
+            "version" => "1.0.0",
+            "artifacts" => [%{"name" => "example.tar", "sha256" => digest}]
+          },
+          []
+        )
+      end
+
+      assert {:ok, _} = result.(@digest)
+      assert {:ok, _} = release.(@digest)
+      assert result.(@digest <> "\n") == {:error, :invalid_payload}
+      assert release.(@digest <> "\n") == {:error, :invalid_payload}
+    end
+  end
+
   describe "digests/4" do
     test "returns action, payload, context, and applicable manifest digests" do
       payload = %{"name" => "repo_file_write"}

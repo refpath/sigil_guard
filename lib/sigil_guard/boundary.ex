@@ -15,7 +15,7 @@ defmodule SigilGuard.Boundary do
 
   alias SigilGuard.Lifecycle
 
-  @sha256_regex ~r/^[0-9a-f]{64}$/
+  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @source_sensitivities [:public, :internal, :private]
   @isolation_levels [:none, :container, :vm, :remote_attested]
   @trust_levels [:low, :medium, :high]

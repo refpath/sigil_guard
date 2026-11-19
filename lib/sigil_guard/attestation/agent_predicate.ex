@@ -10,7 +10,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
 
   alias SigilGuard.Canonical.JCS
 
-  @sha256_regex ~r/^[0-9a-f]{64}$/
+  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @trust_levels ~w(low medium high)
   @response_statuses ~w(ok error)
 
