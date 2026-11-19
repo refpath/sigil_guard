@@ -61,7 +61,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 293 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
+**Overall: 294 / 295 tasks done (100%).** Milestones: 15 complete, 1 in progress.
 **Current milestone: M13 in progress - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 6 | 8 | 75% | In progress |
-| — | **Total** | **293** | **295** | **99%** | 15 done |
+| M13 | Physical effect authority | 7 | 8 | 88% | In progress |
+| — | **Total** | **294** | **295** | **100%** | 15 done |
 
 ### Release Handoff
 
@@ -3079,7 +3079,7 @@ existing code and need no task; the tasks below cover the rest.
   - AC: `audit_fields/1` returns the PE.40 result label, execution result,
     and the metadata keys listed in SP.19; no record or argument value enters
     metadata or telemetry (PE.13, PE.26).
-- [ ] M13.07 Ledger fake and conformance cases.
+- [x] M13.07 Ledger fake and conformance cases.
   - AC: `test/support/test_effect_ledger.ex` implements the host ledger
     contract of PE.28 to PE.31 with a simulated restart;
     `valid_transition?/2` matches the SP.19 state table (PE.30, PE.36).

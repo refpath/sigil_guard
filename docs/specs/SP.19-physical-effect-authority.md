@@ -604,7 +604,7 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 
 | Module | Purpose | State |
 |--------|---------|-------|
-| `lib/sigil_guard/effect_authority.ex` | Public API: record lookup, digests, admission order, transition table, outcome classification, audit fields. | in progress |
+| `lib/sigil_guard/effect_authority.ex` | Public API: record lookup, digests, admission order, transition table, outcome classification, audit fields. | implemented |
 | `lib/sigil_guard/effect_authority/record.ex` | Closed validator for the binding record and the shared identifier, timestamp, digest, target, and artifact rules. | implemented |
 | `lib/sigil_guard/effect_authority/facts.ex` | Closed validator for the host's current facts. | implemented |
 | `lib/sigil_guard/effect_authority/envelope.ex` | Closed validator, digest, and membership steps for the effect envelope. | implemented |
@@ -615,12 +615,12 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 | `lib/sigil_guard/confirmation.ex` | Token binding and single use. | existing; unchanged |
 | `lib/sigil_guard/replay_store.ex` | Per-boot nonce claims. | existing; unchanged |
 | `lib/sigil_guard/mcp/security_payload.ex` | Retains unreserved `_meta` values in the binding; `context/3` builds the gateway context that `guard_request/3` and `admit/5` both digest. | implemented |
-| `test/sigil_guard/effect_authority_test.exs` | Unit, tamper, malformed, and property tests. | in progress |
+| `test/sigil_guard/effect_authority_test.exs` | Unit, tamper, malformed, and property tests. | implemented |
 | `test/sigil_guard/tool_gateway_effect_test.exs` | Gateway option, digest recording, replay rules, attestation consumption, and telemetry. | implemented |
-| `test/sigil_guard/conformance/physical_effect_test.exs` | SG-F1 to SG-F6. | proposed |
-| `test/support/test_effect_ledger.ex` | In-memory ledger fake with a simulated restart. | proposed |
-| `test/fixtures/effect_authority/` | Neutral request, manifest, policy, and envelope fixtures. | in progress |
-| `test/support/effect_authority_fixture.ex` | Reads the fixtures and builds the baseline context and current facts. | in progress |
+| `test/sigil_guard/conformance/physical_effect_test.exs` | SG-F1 to SG-F6 through the gateway, with a test receiving boundary. | implemented |
+| `test/support/test_effect_ledger.ex` | In-memory ledger fake with a simulated restart and a command log. | implemented |
+| `test/fixtures/effect_authority/` | Neutral request, manifest, policy, and envelope fixtures. | implemented |
+| `test/support/effect_authority_fixture.ex` | Reads the fixtures and builds the baseline context and current facts. | implemented |
 | `test/support/test_runtime.ex` | Restarts the supervised runtime to discard per-boot state. | implemented |
 
 ## Integration Points
@@ -729,11 +729,11 @@ not met.
 | 6 | `M0` with another version | `:manifest_digest_mismatch` | PE.05, PE.12 | passes |
 | 7 | `R0`, `C0` unchanged; `F0` with another target id, environment, artifact digest, frame revision, policy epoch, or principal, one at a time | `:target_mismatch`, `:target_environment_mismatch`, `:artifact_mismatch`, `:frame_revision_mismatch`, `:policy_epoch_mismatch`, `:principal_mismatch` | PE.14, PE.15 | new |
 | 8 | `F0` with `now` one millisecond after `not_after` | `:effect_deadline_passed` | PE.11 | new |
-| 9 | Every refusal above | reason is a bare atom; no fixture value appears in the decision, error data, or telemetry | PE.13, PE.14 | passes for the token path |
+| 9 | Every refusal above | the reason is a bare atom; no record value, argument name or value, or token byte appears in the decision, error data, or telemetry | PE.13, PE.14 | passes for the token path |
 
 Falsifier: any step from 2 to 8 returns an accepted token or `:ok`; two
 different condition changes in step 7 return the same reason; a refusal
-contains a fixture identifier, digest, or argument value.
+contains a record value, an argument name or value, or token bytes.
 
 ### SG-F2 - Adaptive Envelope
 
@@ -854,7 +854,7 @@ changes a result; the atom count grows with distinct inputs.
 - [x] Add the `:effect_binding` gateway option and consuming verification.
 - [x] Implement envelope membership.
 - [x] Implement outcome classification and audit metadata.
-- [ ] Add the ledger fake and SG-F1 to SG-F6.
+- [x] Add the ledger fake and SG-F1 to SG-F6.
 - [ ] Document host obligations in the strict deployment guide.
 - [ ] Qualify one real receiving boundary separately; not part of this
       repository.
