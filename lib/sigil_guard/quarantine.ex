@@ -45,6 +45,44 @@ defmodule SigilGuard.Quarantine do
     do: Enum.reject(indicators(), &(&1.id in @poisoning_indicator_ids))
 
   @doc """
+  Return whether `sets` is a well-formed `:indicator_sets` option.
+
+  The `:injection` and `:poisoning` entries, where present, must be lists of
+  indicators with an atom or string `:id`, a compiled `:pattern`, a
+  `:severity` of `:low`, `:medium` or `:high`, and a `:prefilter` list of
+  strings. `inspect/3` raises on other shapes; `SigilGuard.Runtime.Gate`
+  checks with this function first and blocks.
+
+      iex> SigilGuard.Quarantine.valid_indicator_sets?(%{injection: []})
+      true
+
+      iex> SigilGuard.Quarantine.valid_indicator_sets?(%{injection: [%{id: :x}]})
+      false
+
+  """
+  @doc since: "1.1.0"
+  @spec valid_indicator_sets?(term()) :: boolean()
+  def valid_indicator_sets?(sets) when is_map(sets) and not is_struct(sets) do
+    sets
+    |> Map.take([:injection, :poisoning])
+    |> Enum.all?(fn {_, indicators} -> valid_indicators?(indicators) end)
+  end
+
+  def valid_indicator_sets?(_), do: false
+
+  defp valid_indicators?(indicators) when is_list(indicators),
+    do: not List.improper?(indicators) and Enum.all?(indicators, &valid_indicator?/1)
+
+  defp valid_indicators?(_), do: false
+
+  defp valid_indicator?(%{id: id, pattern: %Regex{}, severity: severity, prefilter: prefilter})
+       when (is_atom(id) or is_binary(id)) and severity in [:low, :medium, :high] and
+              is_list(prefilter),
+       do: not List.improper?(prefilter) and Enum.all?(prefilter, &is_binary/1)
+
+  defp valid_indicator?(_), do: false
+
+  @doc """
   Inspect text for deterministic quarantine indicators.
 
   The `:indicator_sets` option (`%{injection: [...], poisoning: [...]}`, from

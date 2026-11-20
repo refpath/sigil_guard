@@ -120,7 +120,8 @@ defmodule SigilGuard.Runtime.Gate do
       timeout = Keyword.get(opts, :hook_timeout_ms, 5_000)
 
       if valid_hooks?(hooks) and (is_nil(detector) or is_atom(detector)) and
-           is_integer(timeout) and timeout >= 0 and timeout <= @max_timeout_ms,
+           is_integer(timeout) and timeout >= 0 and timeout <= @max_timeout_ms and
+           valid_indicator_sets?(opts),
          do: :ok,
          else: {:error, :invalid_options}
     else
@@ -129,6 +130,13 @@ defmodule SigilGuard.Runtime.Gate do
   end
 
   defp valid_hooks?(hooks), do: is_list(hooks) and Enum.all?(hooks, &is_atom/1)
+
+  defp valid_indicator_sets?(opts) do
+    case Keyword.fetch(opts, :indicator_sets) do
+      {:ok, sets} -> Quarantine.valid_indicator_sets?(sets)
+      :error -> true
+    end
+  end
 
   defp runtime_inputs(payload, context) do
     with {:ok, text} <- Context.fetch_text(payload),
@@ -249,13 +257,8 @@ defmodule SigilGuard.Runtime.Gate do
     end
   end
 
-  # A malformed `:indicator_sets` option makes inspection raise. Fail closed
-  # like a scanner failure, with the built-in indicators as the result.
-  defp inspect_quarantine(text, context, opts, scanner_error) do
-    {Quarantine.inspect(text, context, opts), scanner_error}
-  rescue
-    _ -> {Quarantine.inspect(text, context, []), :scanner_failed}
-  end
+  defp inspect_quarantine(text, context, opts, scanner_error),
+    do: {Quarantine.inspect(text, context, opts), scanner_error}
 
   defp scanner_error_hit(text) do
     [

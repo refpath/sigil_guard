@@ -98,13 +98,7 @@ defmodule SigilGuard.Boundary do
   def new(%_{}), do: %__MODULE__{}
 
   def new(fields) when is_list(fields) do
-    try do
-      fields
-      |> Map.new()
-      |> new()
-    rescue
-      ArgumentError -> %__MODULE__{}
-    end
+    if pairs?(fields), do: new(Map.new(fields)), else: %__MODULE__{}
   end
 
   def new(fields) when is_map(fields) do
@@ -136,6 +130,8 @@ defmodule SigilGuard.Boundary do
   end
 
   def validate(_), do: {:error, :invalid_boundary}
+
+  defp pairs?(fields), do: not List.improper?(fields) and Enum.all?(fields, &match?({_, _}, &1))
 
   defp require_phase(phase) do
     if Lifecycle.phase?(phase), do: :ok, else: {:error, :invalid_phase}

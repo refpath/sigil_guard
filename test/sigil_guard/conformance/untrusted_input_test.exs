@@ -509,15 +509,15 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
       end
     end
 
-    test "malformed indicator sets fail closed as a scanner failure" do
-      for sets <- [%{injection: 5}, %{injection: [5]}, %{injection: [%{}]}] do
+    test "malformed indicator sets are refused as malformed options" do
+      for sets <- [%{injection: 5}, %{injection: [5]}, %{injection: [%{}]}, :sets, [1 | 2]] do
         decision =
           Gate.evaluate("build completed", [phase: :tool_result, sink: :model],
             indicator_sets: sets
           )
 
         assert decision.action == :block
-        assert decision.audit_metadata.scanner_error == :scanner_failed
+        assert decision.reason =~ "invalid_options"
       end
     end
 

@@ -113,13 +113,9 @@ defmodule SigilGuard.RepoPolicy do
   end
 
   def compile(raw) when is_list(raw) do
-    try do
-      raw
-      |> Map.new()
-      |> compile()
-    rescue
-      ArgumentError -> {:error, :invalid_policy}
-    end
+    if not List.improper?(raw) and Enum.all?(raw, &match?({_, _}, &1)),
+      do: compile(Map.new(raw)),
+      else: {:error, :invalid_policy}
   end
 
   def compile(raw) when is_map(raw) do

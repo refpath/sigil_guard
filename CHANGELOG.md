@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Runtime.Gate.evaluate/3` checks `:indicator_sets` with the new
+  `SigilGuard.Quarantine.valid_indicator_sets?/1` and blocks a malformed
+  value as malformed options. It used to rescue the exception from the
+  quarantine inspector and block with `scanner_error: :scanner_failed`.
 - Add `SigilGuard.Scanner.scan_result/2`, which returns `{:error, reason}`
   where `scan/2` raises. The gate and output contracts use it instead of
   rescuing every exception around the scanner.
