@@ -28,6 +28,7 @@ defmodule SigilGuard.Attestation do
   alias SigilGuard.Context
   alias SigilGuard.Crypto
   alias SigilGuard.ReplayStore
+  alias SigilGuard.TrustBundle.Issuers
   alias SigilGuard.TrustProfile
 
   @trust_key "_agent_trust"
@@ -46,6 +47,9 @@ defmodule SigilGuard.Attestation do
     @confirmation_token_key,
     @confirmation_token_atom_key
   ]
+
+  # The trust-bundle delegate role whose keys may sign attestations.
+  @issuer_role "attestation"
 
   @statement_types %{
     "tool_request" => :tool_request,
@@ -83,6 +87,7 @@ defmodule SigilGuard.Attestation do
           | :duplicate_keyid
           | :missing_trust_bundle
           | :unknown_key_id
+          | :untrusted_issuer
           | :invalid_signature
           | :pae_mismatch
           | :invalid_profile
@@ -183,10 +188,12 @@ defmodule SigilGuard.Attestation do
       when is_map(trust_material) and map_size(trust_material) > 0 do
     with {:ok, payload} <- unsigned_payload(envelope),
          :ok <- expected_payload_sha256(payload, opts),
-         {:ok, verified_payload} <- Envelope.verify(envelope, trust_material),
+         {:ok, authorized, resolver} <- Issuers.resolve(trust_material, @issuer_role, opts),
+         {:ok, verified_payload} <- Issuers.verify_envelope(envelope, authorized, resolver),
          :ok <- require_same_payload(payload, verified_payload),
          {:ok, statement} <- decode_statement(verified_payload),
          {:ok, statement} <- TrustProfile.validate(statement),
+         :ok <- required_manifest(statement, opts),
          :ok <- maybe_verify_digests(statement, opts),
          :ok <- validate_freshness(statement, opts),
          :ok <- maybe_consume_nonce(statement, opts) do
@@ -722,6 +729,32 @@ defmodule SigilGuard.Attestation do
       {:error, _} ->
         {:error, :invalid_profile}
     end
+  end
+
+  # `require_manifest: true` holds whether or not the other digests are
+  # recomputed: the statement names a manifest and it is the one supplied.
+  defp required_manifest(statement, opts) do
+    if Keyword.get(opts, :require_manifest, false) == true do
+      statement
+      |> subject_digest("manifest")
+      |> compare_required_manifest(Digest.option_manifest_digest(opts))
+    else
+      :ok
+    end
+  end
+
+  defp compare_required_manifest(digest, {:ok, digest}) when is_binary(digest), do: :ok
+  defp compare_required_manifest(nil, _), do: {:error, :unknown_manifest}
+
+  defp compare_required_manifest(_, {:ok, expected}) when is_binary(expected),
+    do: {:error, :manifest_digest_mismatch}
+
+  defp compare_required_manifest(_, _), do: {:error, :unknown_manifest}
+
+  defp subject_digest(statement, name) do
+    Enum.find_value(statement["subject"], fn entry ->
+      entry["name"] == name && get_in(entry, ["digest", "sha256"])
+    end)
   end
 
   defp maybe_verify_digests(statement, opts) do

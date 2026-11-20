@@ -453,11 +453,14 @@ subject while the caller supplies neither option fails with
 `{:error, :unknown_manifest}`. A different digest, or a caller-supplied
 manifest against a statement without the subject, fails with
 `{:error, :manifest_digest_mismatch}`. Action/payload/context mismatches
-fail with `{:error, :digest_mismatch}`. `verify/3` reads no
-`:require_manifest` option: a statement without a `manifest` subject
-verifies when the caller supplies no manifest. A caller that requires a
-manifest checks for the subject itself; `SigilGuard.ToolGateway` has its own
-`:require_manifest` option (SP.03).
+fail with `{:error, :digest_mismatch}`. Without `require_manifest: true` a
+statement that has no `manifest` subject verifies when the caller supplies no
+manifest. With it, the statement MUST carry a `manifest` subject equal to the
+digest of the supplied `:manifest` or `:manifest_digest`, whether or not the
+other digests are recomputed: a missing subject, missing or malformed
+manifest material, fails with `{:error, :unknown_manifest}`, and a different
+digest with `{:error, :manifest_digest_mismatch}`. `SigilGuard.ToolGateway`
+has its own `:require_manifest` option for manifest resolution (SP.03).
 
 ## Canonical Example And Golden Vectors
 
@@ -636,6 +639,7 @@ defmodule SigilGuard.Attestation do
   @type verify_error ::
           :invalid_envelope | :invalid_payload_type | :invalid_base64
           | :duplicate_keyid | :missing_trust_bundle | :unknown_key_id
+          | :untrusted_issuer
           | :invalid_signature | :pae_mismatch | :invalid_profile
           | :unsupported_profile_version | :unknown_statement_type
           | :invalid_payload | :digest_mismatch | :manifest_digest_mismatch
@@ -661,16 +665,17 @@ defmodule SigilGuard.Attestation do
 
   @spec verify(
           envelope :: map(),
-          trust_material :: %{optional(String.t()) => binary()},
+          trust_material ::
+            %{optional(String.t()) => binary()} | SigilGuard.TrustBundle.t(),
           opts :: keyword()
         ) :: {:ok, statement :: map()} | {:error, verify_error()}
   # trust_material maps keyid to a raw 32-byte or base64/base64url Ed25519
-  # public key. A %TrustBundle{} is not accepted: it resolves no keyid and
-  # the call returns :unknown_key_id. opts: :payload and :context (both
+  # public key, or is a verified TrustBundle whose "attestation" delegate
+  # role names the signing keys (SP.02). opts: :payload and :context (both
   # needed for any digest recomputation), :manifest or :manifest_digest,
-  # :request_action_digest, :max_skew_ms, :replay (default false; :consume
-  # is an alias), :replay_ttl_ms, :expected_payload_sha256, :now.
-  # :require_manifest is not read.
+  # :require_manifest (default false), :request_action_digest,
+  # :max_skew_ms, :replay (default false; :consume is an alias),
+  # :replay_ttl_ms, :expected_payload_sha256, :now.
 
   @spec from_decision(
           SigilGuard.Decision.t(),
@@ -731,13 +736,19 @@ resolved-but-invalid signature fails with `:invalid_signature`); unresolved
 keyids are tolerated to support witness cosigning (R.02), and their `sig`
 values are not decoded. Role thresholds are owned by SP.02.
 
-Trust material is a keyid-to-public-key map and nothing else. `verify/3`
-does not read a `%SigilGuard.TrustBundle{}`: the struct passes the non-empty
-map check, none of its fields is a keyid, and the call returns
-`{:error, :unknown_key_id}`. No function turns a bundle's `keys` minus its
-revocations into this map. The host builds it from the verified bundle
-document, choosing the keyids it accepts as attestation signers and leaving
-out revoked ones.
+Trust material is a keyid-to-public-key map or a verified
+`%SigilGuard.TrustBundle{}`. With a bundle, the signing keys are the keys of
+its delegate role named `"attestation"`, less every key the bundle or the
+cache lists as revoked. A key signs only what its role covers, so the root
+keys, the `"bundle"` keys and the `"agent_card"` keys do not sign
+attestations, and a bundle without the role authorizes none. `verify/3`
+then fails with `{:error, :untrusted_issuer}` when a signature comes from a
+revoked key or from a key the bundle holds for another role, when fewer
+distinct `"attestation"` keys signed than the role's `threshold`, or when
+the role, the bundle document or the root role is past `expires_at` (`:now`,
+`:max_skew_ms`). A signature from a key the bundle does not hold is
+`{:error, :unknown_key_id}`. If a newer snapshot of the same `bundle_id` is
+cached, its document is the one consulted.
 
 Digest recomputation runs only when both `:payload` and `:context` are
 given. With one or neither, `verify/3` checks the signatures, the Statement
@@ -952,7 +963,7 @@ predicate adds the list to the statement before `Attestation.sign/3`.
 |--------|-------------|-----------|----------|
 | Host app | `attach`/`fetch`, `sign`/`verify`, `from_decision` | inbound | Elixir API |
 | MCP gateway (SP.03) | digest computation, request/result binding | internal | Elixir API |
-| TrustBundle (SP.02) | none in code: `Attestation.verify/3` takes a keyid map that the host builds from a verified bundle; no role threshold is applied to attestations | inbound | Elixir API |
+| TrustBundle (SP.02) | `Attestation.verify/3` accepts a verified bundle as trust material and resolves the `"attestation"` delegate role's keys, less revocations, with the role threshold | inbound | Elixir API |
 | Audit (SP.05) | evidence refs; checkpoints/exports as DSSE envelopes | internal | Elixir API |
 
 ## Telemetry And Observability
@@ -980,12 +991,13 @@ atoms instead of inventing artifact-specific ones.
 | `:invalid_base64` | `payload`, or the `sig` of a signature whose keyid resolves, is not decodable base64/base64url | fix producer | envelope rejected |
 | `:duplicate_keyid` | two `signatures` entries share a `keyid` | re-issue the envelope | envelope rejected |
 | `:missing_trust_bundle` | verify called with trust material that is not a non-empty map | pass a non-empty keyid-to-public-key map | host decides |
-| `:unknown_key_id` | no envelope `keyid` resolves in the trust material; always the case when a `%TrustBundle{}` is passed to `Attestation.verify/3` | pass a map that contains the signer's keyid | verification fails closed |
+| `:unknown_key_id` | no envelope `keyid` resolves in the trust material | pass a map, or a bundle, that contains the signer's keyid | verification fails closed |
+| `:untrusted_issuer` | trust material is a bundle and the signing key is revoked, belongs to another role, falls short of the `"attestation"` role threshold, or the role, bundle or root has expired | sign with a current `"attestation"` key | verification fails closed |
 | `:invalid_signature` | Ed25519 verification fails for a resolved keyid, or a signature is not 64 bytes | re-sign; investigate tamper | request blocked |
 | `:pae_mismatch` | decoded payload bytes differ from the caller-supplied `:expected_payload_sha256` (conformance and cross-artifact checks) | reject the substituted payload; regenerate fixtures | verification fails |
 | `:digest_mismatch` | recomputed action/payload/context digest differs from its subject entry | reject | tamper detected |
 | `:manifest_digest_mismatch` | recomputed manifest digest differs from the `manifest` subject entry | refresh and re-sign the manifest | request blocked |
-| `:unknown_manifest` | `Attestation.verify/3` recomputes digests, the statement carries a `manifest` subject, and the caller supplies neither `:manifest` nor `:manifest_digest`; in `SigilGuard.ToolGateway`, `:require_manifest` is in force and no manifest resolves (SP.03) | supply the signed manifest | request blocked |
+| `:unknown_manifest` | `Attestation.verify/3` recomputes digests, the statement carries a `manifest` subject, and the caller supplies neither `:manifest` nor `:manifest_digest`; or `require_manifest: true` and the statement has no `manifest` subject or the caller supplies no usable manifest material; in `SigilGuard.ToolGateway`, `:require_manifest` is in force and no manifest resolves (SP.03) | supply the signed manifest | request blocked |
 | `:expired_attestation` | `now > expires_at + skew`, or `issued_at > now + skew` | re-issue a fresh attestation | request blocked |
 | `:replay_detected` | `{actor, nonce}` already live in `SigilGuard.ReplayStore` | re-issue with a fresh nonce | request blocked |
 | `:replay_capacity_exceeded` | consuming verification while `SigilGuard.ReplayStore` already holds 100,000 entries | retry after entries expire | request blocked |

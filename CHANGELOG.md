@@ -5,6 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Attestation.verify/3` accepts a verified
+  `%SigilGuard.TrustBundle{}` as trust material. The signing keys are those of
+  the bundle's delegate role named `"attestation"`, less revoked keys, under
+  the role's threshold and expiry. A signature from a revoked key or from a
+  key of another role returns the new error `:untrusted_issuer`. A bundle
+  passed here used to resolve no key at all.
+- `SigilGuard.Attestation.verify/3` honours `require_manifest: true`: the
+  statement must carry a `manifest` subject equal to the supplied `:manifest`
+  or `:manifest_digest`.
 - **Behaviour change.** `SigilGuard.TrustBundle.verify/2`, and `load/2` with
   `cache: false`, refuse a bundle below the state already accepted in this
   boot: a sequence at or below the cached snapshot's, a sequence below the

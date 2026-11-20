@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.02"
   title: "Embedded Trust Bundles"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: critical
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -282,7 +282,7 @@ top-level fields fail with `{:error, :invalid_bundle_format}`.
 | `expires_at` | string | yes | Same format; MUST be later than `issued_at`. |
 | `roles` | map | yes | Exactly the keys `root` and `delegates`. |
 | `roles.root` | map | yes | `{"keyids": [string], "threshold": integer, "version": string, "expires_at": string}`; `version` matches `^[1-9][0-9]*$`. |
-| `roles.delegates` | list | yes | Entries `{"name": string, "keyids": [string], "threshold": integer, "expires_at": string}`; names unique; MUST include `"bundle"`. A delegate role named `"agent_card"` authorizes agent-card issuance (SP.13); its keyids are the trusted card signers. |
+| `roles.delegates` | list | yes | Entries `{"name": string, "keyids": [string], "threshold": integer, "expires_at": string}`; names unique; MUST include `"bundle"`. A delegate role named `"agent_card"` authorizes agent-card issuance (SP.13); its keyids are the trusted card signers. A delegate role named `"attestation"` authorizes attestation signing (SP.01): only its keys verify an attestation checked against the bundle. |
 | `keys` | map | yes | keyid to `{"alg": "ed25519", "public_key": string}`; `public_key` is base64url (no padding) of a 32-byte Ed25519 key; keyid MUST equal `"sha256:" <> hex` of the raw key (SP.01 convention). |
 | `tools` | list | no | Capability manifests or `{"name": string, "manifest_digest": string}` refs; entry shape owned by SP.03. |
 | `policies` | list | no | Boundary and repo policy rules; shapes owned by SP.04 and SP.11. |
@@ -600,7 +600,7 @@ for removed `registry_*` config keys are owned by SP.01.
 | System | Integration | Direction | Protocol |
 |--------|-------------|-----------|----------|
 | Host app | `load/1,2`, `verify/2`, `dev_bundle/1`, accessors | inbound | Elixir API |
-| Attestation (SP.01) | Not implemented in code. `Attestation.verify/3` takes a keyid-to-public-key map; a `t()` passed as trust material resolves no key and returns `:unknown_key_id`. The host builds the map from the verified document's `keys` and leaves out revoked keyids | inbound | Elixir API |
+| Attestation (SP.01) | `Attestation.verify/3` accepts `t()` as trust material: keyids resolve against the `"attestation"` delegate role's keys, less revocations, under the role threshold and expiry | inbound | Elixir API |
 | Gateway (SP.03) | verified capability manifests from `tools` | internal | Elixir API |
 | Scanner/policy (SP.04, SP.11) | `patterns` and `policies` sections | internal | Elixir API |
 | Identity (SP.10) | `identity_issuers/1` returns the section; no identity resolver reads it, so the host applies it | inbound | Elixir API |

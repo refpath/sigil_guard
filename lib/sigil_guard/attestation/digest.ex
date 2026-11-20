@@ -571,7 +571,14 @@ defmodule SigilGuard.Attestation.Digest do
   end
 
   defp maybe_manifest_digest(statement_type, opts)
-       when statement_type in [:tool_request, :tool_result, :agent_request, :agent_response] do
+       when statement_type in [:tool_request, :tool_result, :agent_request, :agent_response],
+       do: option_manifest_digest(opts)
+
+  defp maybe_manifest_digest(_, _), do: {:ok, nil}
+
+  @doc false
+  @spec option_manifest_digest(keyword()) :: {:ok, String.t() | nil} | {:error, error_reason()}
+  def option_manifest_digest(opts) do
     cond do
       Keyword.has_key?(opts, :manifest_digest) ->
         validate_digest(Keyword.fetch!(opts, :manifest_digest))
@@ -583,8 +590,6 @@ defmodule SigilGuard.Attestation.Digest do
         {:ok, nil}
     end
   end
-
-  defp maybe_manifest_digest(_, _), do: {:ok, nil}
 
   defp validate_digest(value) when is_binary(value) do
     if Regex.match?(@sha256_regex, value), do: {:ok, value}, else: {:error, :invalid_payload}

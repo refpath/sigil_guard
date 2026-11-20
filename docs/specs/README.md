@@ -90,7 +90,7 @@ under M14 in [`../tasks/sigil-tasks.md`](../tasks/sigil-tasks.md).
 | Spec | Status | Owns | Primary Tests |
 |------|--------|------|---------------|
 | [`SP.01`](SP.01-sigilguard-trust-profile.md) | implemented | Agent Trust vocabulary, breaking boundary, `_agent_trust`, DSSE envelope over JCS Statement payloads, digest computation, error taxonomy. | Profile validation, canonical vectors, replay and digest mismatch. |
-| [`SP.02`](SP.02-embedded-trust-bundles.md) | implemented/partial | Local signed bundles, roots, revocations, sequence/expiry, quarantine, no network core. | Valid bundle, malformed bundle, rollback, expired bundle, revoked key, no-network tests. |
+| [`SP.02`](SP.02-embedded-trust-bundles.md) | implemented | Local signed bundles, roots, revocations, sequence/expiry, quarantine, no network core. | Valid bundle, malformed bundle, rollback, expired bundle, revoked key, no-network tests. |
 | [`SP.03`](SP.03-mcp-attestation-gateway.md) | implemented/partial | Capability manifests, request/result attestations, audience/resource binding. | Tool digest drift, schema drift, wrong audience, token passthrough, poisoned result. |
 | [`SP.04`](SP.04-boundary-scanner-and-policy-kernel.md) | implemented | Boundary policy input, lifecycle hooks, trust zones, sandbox identity, deterministic explanations. | Split secrets, validation confidence, hook phases, sandbox mismatch, path policy. |
 | [`SP.05`](SP.05-audit-and-release-provenance.md) | implemented/partial | Signed audit events, OTel attributes, Merkle proofs, witness cosigning, privacy classes, anchors, SBOM/release provenance, `HTTPClient` behaviour. | Signed exports, inclusion/consistency proofs, anchor verification, telemetry privacy, provenance docs. |

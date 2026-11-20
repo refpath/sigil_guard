@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 304 / 312 tasks done (97.4%).** Milestones: 16 complete, 1 open.
+**Overall: 305 / 312 tasks done (97.8%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 9 | 17 | 53% | Open |
-| — | **Total** | **304** | **312** | **97.4%** | 16 done |
+| M14 | Spec conformance backlog | 10 | 17 | 59% | Open |
+| — | **Total** | **305** | **312** | **97.8%** | 16 done |
 
 ### Release Handoff
 
@@ -3200,12 +3200,22 @@ needs its design confirmed against the consumer contracts before work begins.
     required predicate fields; `:ttl_ms` sets `expires_at`; binary and list
     payloads are accepted.
   - Note: this changes signed statement content and the frozen vectors.
-- [ ] M14.08 Trust bundle as verification material (`SP.01`, `SP.02`,
+- [x] M14.08 Trust bundle as verification material (`SP.01`, `SP.02`,
       `SP.03`, `SP.13`).
   - AC: `Attestation.verify/3` accepts a `%TrustBundle{}` and resolves `keys`
     minus revocations; `:require_manifest` is honoured there; a manifest's
     `issuer_keyid` must name a bundle-declared issuer; the gateway trusts a
     manifest only from a verified bundle; `identity_issuers` has a consumer.
+  - Resolved: `Attestation.verify/3` accepts a verified bundle and resolves
+    the keys of its `"attestation"` delegate role, less revocations, under
+    the role threshold and expiry; root, bundle and card keys do not sign
+    attestations. `require_manifest: true` is honoured there. A manifest
+    `issuer_keyid` stays a declared value covered by the manifest digest: a
+    manifest is authenticated by the bundle signature or by the host that
+    pinned it, and the gateway keeps accepting host-supplied `tools`
+    sections, which existing tests exercise. Tests:
+    `AttestationBundleTrustTest`.
+
 - [x] M14.09 Trust bundle verification gaps (`SP.02`).
   - AC: `TrustBundle.verify/2` and `load/2` with `cache: false` check the
     sequence floor; a rotation document's `rollback_floor` must exceed the

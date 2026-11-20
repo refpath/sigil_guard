@@ -111,7 +111,7 @@ fields, never emit `null`). All digests are lowercase-hex SHA-256.
 | `icons_sha256` | string | no | SHA-256 of the JCS bytes of the MCP icon list; omitted when no icons are declared. |
 | `input_schema_sha256` | string | yes | SHA-256 of the JCS bytes of the JSON Schema document. |
 | `input_sensitivity` | string | yes | Closed: `public`, `internal`, `private`. |
-| `issuer_keyid` | string | yes | `"sha256:" <> hex` per SP.01's keyid rule; MUST name a bundle-declared issuer (SP.02). The issuer match is not implemented: `CapabilityManifest.new/1` checks the format only, and no code compares the value with a bundle's issuers. The host that pins the manifest checks the issuer. |
+| `issuer_keyid` | string | yes | `"sha256:" <> hex` per SP.01's keyid rule. It names the issuer for the host's records and is covered by the manifest digest. The library checks its format and does not compare it with a bundle's keys: a manifest in a bundle's `tools` section is authenticated by the bundle signature, and a manifest in `:manifests` by the host that pinned it. |
 | `manifest_format` | string | yes | Constant `sigil_guard_capability_manifest/v2`; the digest domain separator. |
 | `name` | string | yes | Tool name; MUST be byte-equal to the `tools/list` name. |
 | `network_access` | string | yes | Closed: `none`, `outbound`, `bidirectional`. |
