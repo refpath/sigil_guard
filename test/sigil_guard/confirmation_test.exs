@@ -3,6 +3,8 @@ defmodule SigilGuard.ConfirmationTest do
 
   use ExUnit.Case, async: false
 
+  doctest SigilGuard.Confirmation
+
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Confirmation
   alias SigilGuard.Decision

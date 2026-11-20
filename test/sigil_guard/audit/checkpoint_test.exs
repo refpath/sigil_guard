@@ -3,6 +3,8 @@ defmodule SigilGuard.Audit.CheckpointTest do
 
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Audit.Checkpoint
+
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.TestSigner

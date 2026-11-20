@@ -104,6 +104,35 @@ defmodule SigilGuard.Confirmation do
     * `:now` - `DateTime` used for deterministic tests.
     * `:nonce` - nonce used for deterministic tests.
     * `:manifest` - pinned manifest digest to bind into the token.
+
+  ## Examples
+
+      iex> key = :binary.copy(<<7>>, 32)
+      ...>
+      ...> context = [
+      ...>   phase: :tool_request,
+      ...>   origin: :model,
+      ...>   sink: :tool,
+      ...>   trust_level: :low,
+      ...>   actor: "agent-1"
+      ...> ]
+      ...>
+      ...> decision =
+      ...>   SigilGuard.Runtime.Gate.evaluate("rotate the deploy key", context, risk_level: :medium)
+      ...>
+      ...> {:ok, token} =
+      ...>   SigilGuard.Confirmation.issue("rotate the deploy key", context, decision, key)
+      ...>
+      ...> {:ok, _claims} =
+      ...>   SigilGuard.Confirmation.verify(token, "rotate the deploy key", context, key,
+      ...>     consume: false
+      ...>   )
+      ...>
+      ...> SigilGuard.Confirmation.verify(token, "rotate the prod key", context, key,
+      ...>   consume: false
+      ...> )
+      {:error, :digest_mismatch}
+
   """
   @spec issue(term(), Context.t() | map() | keyword(), Decision.t(), binary(), keyword()) ::
           {:ok, String.t()} | {:error, term()}

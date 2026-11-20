@@ -58,6 +58,17 @@ defmodule SigilGuard.Runtime.Gate do
       a capability manifest the caller verified. The sandbox matrix and
       `effect:` policy rules use the classes it declares; without it a tool is
       class `execute`. `SigilGuard.ToolGateway` sets it from the pinned manifest.
+
+  ## Examples
+
+      iex> context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+      ...> decision = SigilGuard.Runtime.Gate.evaluate("build finished in 42s", context)
+      ...> {decision.verdict, decision.action}
+      {:allowed, :allow}
+      iex> decision = SigilGuard.Runtime.Gate.evaluate("key AKIAIOSFODNN7EXAMPLE", context)
+      ...> {decision.action, decision.sanitized_text}
+      {:redact, "key [AWS_KEY]"}
+
   """
   @spec evaluate(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def evaluate(payload, context \\ %Context{}, opts \\ []) do

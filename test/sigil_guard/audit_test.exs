@@ -2,6 +2,8 @@ defmodule SigilGuard.AuditTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
+
+  doctest SigilGuard.Audit
   use ExUnitProperties
 
   alias SigilGuard.Audit

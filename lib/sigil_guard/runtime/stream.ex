@@ -67,6 +67,19 @@ defmodule SigilGuard.Runtime.Stream do
   default so stream checks keep a conservative holdback. Options must be a
   keyword list. `:patterns` must contain compiled regex maps with positive
   integer width hints when supplied; invalid configuration raises `ArgumentError`.
+
+  ## Examples
+
+  A secret split across two chunks is held back until it can be redacted.
+
+      iex> context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+      iex> stream = SigilGuard.Runtime.Stream.new(context, [])
+      iex> {stream, _decision, ""} = SigilGuard.Runtime.Stream.push(stream, "token AKIAIOSF")
+      iex> {stream, _decision, ""} = SigilGuard.Runtime.Stream.push(stream, "ODNN7EXAMPLE done")
+      iex> {_stream, decision, emitted} = SigilGuard.Runtime.Stream.finish(stream)
+      iex> {decision.action, emitted}
+      {:redact, "token [AWS_KEY] done"}
+
   """
   @spec new(Context.t() | map() | keyword(), keyword()) :: t()
   def new(context \\ %Context{}, opts \\ []) do

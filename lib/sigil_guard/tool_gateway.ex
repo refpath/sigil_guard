@@ -124,6 +124,19 @@ defmodule SigilGuard.ToolGateway do
       is refused, an inbound attestation nonce is consumed once on the pass
       that allows execution, and every decision records `action_digest`,
       `payload_digest`, and `context_digest` for the host ledger.
+
+  ## Examples
+
+      iex> request = %{
+      ...>   "jsonrpc" => "2.0",
+      ...>   "id" => 1,
+      ...>   "method" => "tools/call",
+      ...>   "params" => %{"name" => "read_file", "arguments" => %{"path" => "README.md"}}
+      ...> }
+      ...>
+      ...> SigilGuard.ToolGateway.guard_request(request, trust_level: :high).action
+      :allow
+
   """
   @spec guard_request(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_request(request, context \\ %{}, opts \\ []) do
@@ -369,6 +382,21 @@ defmodule SigilGuard.ToolGateway do
 
   @doc """
   Guard a tool result and return the JSON-RPC-compatible tuple shape.
+
+  ## Examples
+
+      iex> result = %{
+      ...>   "jsonrpc" => "2.0",
+      ...>   "id" => 1,
+      ...>   "result" => %{"content" => [%{"type" => "text", "text" => "key AKIAIOSFODNN7EXAMPLE"}]}
+      ...> }
+      ...>
+      ...> {:ok, response, _decision} =
+      ...>   SigilGuard.ToolGateway.guarded_result(result, trust_level: :high)
+      ...>
+      ...> response["result"]["content"]
+      [%{"type" => "text", "text" => "key [AWS_KEY]"}]
+
   """
   @spec guarded_result(term(), Context.t() | map() | keyword(), keyword()) ::
           {:ok, map(), Decision.t()} | {:error, map(), Decision.t()}

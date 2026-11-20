@@ -3,6 +3,8 @@ defmodule SigilGuard.Runtime.StreamTest do
 
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Runtime.Stream
+
   use ExUnitProperties
 
   alias SigilGuard.Context

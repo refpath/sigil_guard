@@ -77,6 +77,22 @@ defmodule SigilGuard.Audit.Checkpoint do
     * `:metadata` - optional JSON-compatible metadata for operators.
     * `:anchor` - optional external anchor/WORM location metadata.
     * `:generated_at` - optional ISO 8601 timestamp, defaults to current UTC.
+
+  ## Examples
+
+      iex> key = :binary.copy(<<1>>, 32)
+      ...>
+      ...> chain =
+      ...>   SigilGuard.Audit.build_chain(
+      ...>     [SigilGuard.Audit.new_event("tool_call", "agent-1", "read_file", "allowed")],
+      ...>     key
+      ...>   )
+      ...>
+      ...> {:ok, checkpoint} = SigilGuard.Audit.Checkpoint.create(chain, [])
+      ...> {:ok, verified} = SigilGuard.Audit.Checkpoint.verify(checkpoint, chain, [])
+      ...> verified.status
+      :unsigned
+
   """
   @spec create([Audit.t()], keyword()) :: {:ok, t()} | {:error, atom()}
   def create(events, opts \\ [])

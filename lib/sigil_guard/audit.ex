@@ -302,6 +302,22 @@ defmodule SigilGuard.Audit do
       signed = SigilGuard.Audit.build_chain(unsigned, secret_key)
       :ok = SigilGuard.Audit.verify_chain(signed, secret_key)
 
+
+  ## Examples
+
+      iex> key = :binary.copy(<<1>>, 32)
+      ...>
+      ...> events = [
+      ...>   SigilGuard.Audit.new_event("tool_call", "agent-1", "read_file", "allowed"),
+      ...>   SigilGuard.Audit.new_event("tool_call", "agent-1", "write_file", "blocked")
+      ...> ]
+      ...>
+      ...> chain = SigilGuard.Audit.build_chain(events, key)
+      ...> SigilGuard.Audit.verify_chain(chain, key)
+      :ok
+      iex> SigilGuard.Audit.verify_chain(List.update_at(chain, 1, &%{&1 | result: "allowed"}), key)
+      {:broken, 1}
+
   """
   @spec build_chain([t()], binary()) :: [t()]
   def build_chain(events, key) do

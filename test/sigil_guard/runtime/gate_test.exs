@@ -40,6 +40,8 @@ end
 defmodule SigilGuard.Runtime.GateTest do
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Runtime.Gate
+
   use ExUnitProperties
 
   alias SigilGuard.Attestation.Digest

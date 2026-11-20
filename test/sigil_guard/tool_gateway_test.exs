@@ -3,6 +3,8 @@ defmodule SigilGuard.ToolGatewayTest do
 
   use ExUnit.Case, async: false
 
+  doctest SigilGuard.ToolGateway
+
   alias __MODULE__.TrustedSigner
   alias SigilGuard.Attestation
   alias SigilGuard.CapabilityManifest
