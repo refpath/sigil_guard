@@ -47,6 +47,12 @@ flowchart TD
     R10 --> SP09[SP.09]
     R11[R.11 Physical Tool Authority]
     R11 --> SP19[SP.19]
+    R12[R.12 Conformance Backlog Decisions]
+    R12 --> SP01
+    R12 --> SP02
+    R12 --> SP05
+    R12 --> SP10[SP.10]
+    R12 --> SP13
 ```
 
 ## Current Research Notes
@@ -64,6 +70,7 @@ flowchart TD
 | [`R.09`](R.09-adversarial-hallucination-squatting.md) | complete | adopted | [`SP.04`](../specs/SP.04-boundary-scanner-and-policy-kernel.md), [`SP.07`](../specs/SP.07-runtime-gate-and-streaming-contracts.md), [`SP.14`](../specs/SP.14-ecosystem-integrations-and-interoperability.md), [`SP.15`](../specs/SP.15-benchmark-methodology-and-baselines.md) | Adversarial hallucination squatting is an end-to-end resource-selection and prompt-injection scenario: hosts own canonical resolution and acquisition, execution runtimes own isolation, and SigilGuard preserves untrusted influence, mediates derived actions, binds evidence, and gains no named detector or registry path. |
 | [`R.10`](R.10-external-assessment-formats-and-evidence-projection.md) | complete | adopted | [`SP.17`](../specs/SP.17-external-assessment-projection.md) | OSCAL Assessment Results v1.2.3 can reference hashed evidence but does not authorize SigilGuard to infer control satisfaction; a separate host-context adapter emits observations only, with explicit loss markers and no changes to authoritative export or Statement bytes. |
 | [`R.11`](R.11-physical-tool-authority-and-robot-attestation.md) | complete | adopted | [`SP.19`](../specs/SP.19-physical-effect-authority.md), [`SP.01`](../specs/SP.01-sigilguard-trust-profile.md), [`SP.04`](../specs/SP.04-boundary-scanner-and-policy-kernel.md), [`SP.08`](../specs/SP.08-mcp-gateway-and-confirmation-contracts.md) | A physical-effect request needs target, artifact, frame-revision, deadline, and policy-epoch bindings that no existing field carries, a deny-only admission check against current host facts, and a host-owned durable ledger for effects; the per-boot replay store, signed outcome reports, and transport security do not supply these, and no envelope, statement type, or safety claim is added. |
+| [`R.12`](R.12-conformance-backlog-decisions.md) | complete | adopted | [`SP.01`](../specs/SP.01-sigilguard-trust-profile.md), [`SP.02`](../specs/SP.02-embedded-trust-bundles.md), [`SP.05`](../specs/SP.05-audit-and-release-provenance.md), [`SP.10`](../specs/SP.10-vault-and-identity-contracts.md), [`SP.13`](../specs/SP.13-agent-to-agent-trust-statements.md) | The unmet requirements of the M14 backlog are settled against TUF, DSSE, in-toto, SPIFFE-ID, did:key, SLSA, MCP, and OpenTelemetry: a first-seen rotation chain needs a host-supplied genesis root, rollback is checked inside verification, attestation issuers are a bundle role, statements gain predicate fields that consumers may ignore, identifiers stay opaque with optional syntax helpers, a digest check needs a value from another step, and high-cardinality attributes are opt-in. |
 
 ## Evidence Map
 
@@ -80,6 +87,7 @@ flowchart TD
 | MCP v2 (`2026-07-28`) and MCP Apps | Stateless requests, MRTR, result discrimination, error allocation, and embedded UI introduce new security boundaries. | `R.08`, `SP.16` |
 | OSCAL assessment interchange | Assessment Results v1.2.3 can reference hashed evidence, but control conclusions remain assessor-owned; the optional host-context projection is observation-only and explicitly lossy. | `R.10`, `SP.17` |
 | Hallucinated resource resolution and promptware | Predictable repository, package, and skill identifiers become an attack path only when untrusted retrieval gains unmediated authority. | `R.09`, `SP.04`, `SP.07`, `SP.14`, `SP.15` |
+| Trusted-root bootstrap, signature thresholds, and attestation parsing rules | TUF ships the root out of band, DSSE leaves the trusted key set to the verifier, and in-toto consumers ignore unrecognized fields, which together decide bundle pinning, issuer roles, and which statement fields may be added. | `R.12`, `SP.01`, `SP.02`, `SP.13` |
 | Replay, effect identity, and device-boundary protocols | DSSE and in-toto carry no freshness or target semantics, replay guidance assumes shared durable state for single use, and MCP has no request idempotency or confirmed cancellation, so effect reconciliation is host-owned. | `R.11`, `SP.19` |
 
 ## Resolved Backlog

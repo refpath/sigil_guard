@@ -2913,7 +2913,9 @@ sources, 2026-07-02). D20 supersedes D19 for final MCP `2026-07-28`
 compatibility before the unreleased 1.0 publication. D21 adds the separately
 versioned external assessment projection without reopening native evidence or
 Agent Trust contracts. D22 records the physical-effect authority design,
-which also leaves those contracts unchanged.
+which also leaves those contracts unchanged. D23 to D45 settle the M14
+conformance backlog; R.12 holds the sources for those that rest on a
+standard.
 
 | # | Decision and rationale | Owning doc(s) |
 |---|------------------------|---------------|
@@ -2939,6 +2941,29 @@ which also leaves those contracts unchanged.
 | D20 | **MCP `2026-07-28` alignment without a framework/transport dependency.** SigilGuard uses `-31990..-31984`, canonical structured MCP action binding, required modern result discrimination, manifest v2 display/UI/header coverage, and app-origin/UI-resource verification. Transport sessions, discovery, authorization, subscriptions, tasks, HTTP headers, and rendering remain host-owned. | `R.08`, `SP.16`, `SP.03`, `SP.08` |
 | D21 | **OSCAL Assessment Results v1.2.3 is an optional host-context observation projection, never a source of inferred compliance claims.** The adapter binds a pinned native export digest, requires exact reviewed controls and subjects, emits no findings or satisfaction states, and leaves audit export and Agent Trust bytes unchanged. | `R.10`, `SP.17` |
 | D22 | **Physical-effect authority is a payload-carried binding plus a deny-only admission check against host-supplied current facts.** No statement type, DSSE payload type, confirmation claim, manifest field, or configuration key is added, and the library gains no durable store. The replay store stays per boot and per node; effect identity and reconciliation belong to a host ledger. A signed outcome report stays a claim; physical acceptance comes from host observations. The library makes no motion, stop, or certification decision. | `R.11`, `SP.19` |
+| D23 | **A boundary hook may return either continue form on every phase.** A continue return cannot weaken a decision, so its form is not phase-checked; `{:block, reason}` and `{:confirm, reason}` are accepted only on a blockable phase. | `SP.04` |
+| D24 | **`source_sensitivity` is read from `context.metadata`, not from a `Context` field.** Every `Context` field enters the confirmation token digest, so a new field would invalidate issued tokens. | `SP.04`, `SP.08` |
+| D25 | **The native Elixir backend is the only backend.** A configured `:backend` key raises `SigilGuard.ConfigError` on both the validated and the lazy path; there is no selection seam. | `SP.06` |
+| D26 | **Identifiers are opaque strings.** `Identity.spiffe_id?/1` and `did_key_public_key/1` implement the two syntaxes for hosts that want them; no decision depends on an identifier's scheme. | `R.12`, `SP.10` |
+| D27 | **The built-in scanner covers the shipped pattern sets.** Further detectors run through the host's `:pipeline` option; the core gains no detector registry. | `SP.04` |
+| D28 | **A time bound on scanning is the host's.** The library sets no scanner timeout and produces no `:scanner_timeout`; input size limits bound the work. | `SP.04` |
+| D29 | **The hit category vocabulary is open.** `Patterns.secret_category?/1` defines which categories count as secrets for the kernel and the output contracts. | `SP.04` |
+| D30 | **Output contracts are applied by the gate to text payloads.** A stream window is exempt because a size cap and a class check are properties of the whole message; the host applies the contract to the assembled output. | `SP.04`, `SP.07` |
+| D31 | **A first-seen bundle with a rotation chain needs a host-supplied `:genesis_root`.** TUF ships the trusted root out of band and has no trust-on-first-use; a chain cannot vouch for its own first link. | `R.12`, `SP.02` |
+| D32 | **No bundle-state Statement is emitted.** The lifecycle facts the library records are the quarantine records and the telemetry events; a host that wants signed lifecycle evidence defines its own predicate. | `SP.02` |
+| D33 | **Freshness skew for bundles and agent cards is a per-call `:max_skew_ms` option.** The application key is not read on those paths, because a pure API acquires no hidden configuration. | `SP.02`, `SP.13` |
+| D34 | **Attestation issuers are the keys of the bundle delegate role named `attestation`.** `Attestation.verify/3` accepts a trust bundle and resolves issuers through that role, apart from bundle signers and card issuers. | `R.12`, `SP.01`, `SP.02` |
+| D35 | **A manifest's `issuer_keyid` is declarative.** DSSE forbids security decisions on a key identifier; the gateway trusts a manifest because the host pinned it or a verified bundle carries it. | `R.12`, `SP.03` |
+| D36 | **The confirmation token's `action_digest` is the legacy digest of the context and the stripped payload.** Token preimages are frozen for issued tokens; the attestation action subject binds a different thing and is not substituted. | `SP.08` |
+| D37 | **The signed `MCP.Gateway` helpers stay fail-closed.** They block with `:legacy_envelope_removed` so a caller of the removed envelope path is refused; `ToolGateway.guard_request/3` with `attestation: :required` replaces them. | `SP.03`, `SP.08` |
+| D38 | **A decision correlation id is a host option.** `Gate.evaluate/3` copies `:decision_id` to the decision and the event and mints none, because a decision depends on its inputs only. | `SP.05`, `SP.07` |
+| D39 | **The sandbox matrix applies in the gate only when the context declares an isolation level.** The `absent` column is reachable through `BoundaryPolicy.evaluate/2`; applying it by default would quarantine every tool call of a host that declares none. | `SP.04`, `SP.07` |
+| D40 | **The telemetry attribute set is what the mapper emits.** MCP protocol fields are on the MCP event only. `sigilguard.profile`, `sigilguard.context.digest`, `sigilguard.quarantine.ref`, and `sigilguard.attestation.*` are not part of the contract, and there is no forwarder flag: the host attaches a handler and calls `Telemetry.otel_attributes/4`. | `R.12`, `SP.05` |
+| D41 | **The `action` subject of a gateway attestation is the digest of the raw MCP message: method, tool, and arguments.** The projection is rebuilt in JSON-RPC shape before it is read. Releases up to 1.0.5 bound the tool name only, so this is a wire change with a MIGRATING entry. | `SP.01`, `SP.03` |
+| D42 | **`from_decision/3` writes a generated nonce, timestamps with three fractional digits, the decision's matched rules, its checked evidence references, and the `boundary` mirror.** These are additions that an in-toto consumer ignores when it does not know them. | `R.12`, `SP.01` |
+| D43 | **Agent-to-agent trust keeps three earlier choices and tightens two.** Peer trust resolution is an explicit option; a card that fails verification returns its error; inbound request verification is host-composed. `quarantined` follows the indicators whatever the verdict, and `resource.audience` binds a response to its requester. | `SP.13` |
+| D44 | **A benchmark fixture must take the path its scenario names.** The harness checks this before timing. BM.08 reports a difference and no percentage against the no-op control. | `SP.15` |
+| D45 | **The consumer-side check of a release is `gh attestation verify`.** The structural SBOM check is producer-side, and no step compares a file with a digest computed from that file. | `R.12`, `SP.05` |
 
 ## Deferred (Post-1.0.0)
 
