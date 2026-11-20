@@ -228,11 +228,9 @@ defmodule SigilGuard.TrustBundle.Cache do
   end
 
   defp put_existing(bundle, {_, cached, _, _, _, _} = row) do
-    case {same_snapshot?(bundle, cached), rejection(bundle, row)} do
-      {true, _} -> {:ok, cached}
-      {false, {:error, reason}} -> {:error, reason}
-      {false, :ok} -> replace(bundle, row)
-    end
+    if same_snapshot?(bundle, cached),
+      do: {:ok, cached},
+      else: with(:ok <- rejection(bundle, row), do: replace(bundle, row))
   end
 
   defp replace(bundle, {_, _, floor, pin, digests, revoked} = row) do

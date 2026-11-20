@@ -119,7 +119,7 @@ defmodule SigilGuard.Scanner.Pipeline do
   end
 
   defp structurally_valid?(%{pattern: %{name: "database_uri"}, match: match} = candidate, _) do
-    label_boundary?(candidate) and String.contains?(match, "://") and String.contains?(match, ":") and
+    label_boundary?(candidate) and String.contains?(match, "://") and
       String.ends_with?(match, "@")
   end
 

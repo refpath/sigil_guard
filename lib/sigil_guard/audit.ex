@@ -297,13 +297,6 @@ defmodule SigilGuard.Audit do
 
   ## Examples
 
-      unsigned = [event1, event2, event3]
-      signed = SigilGuard.Audit.build_chain(unsigned, secret_key)
-      :ok = SigilGuard.Audit.verify_chain(signed, secret_key)
-
-
-  ## Examples
-
       iex> key = :binary.copy(<<1>>, 32)
       ...>
       ...> events = [

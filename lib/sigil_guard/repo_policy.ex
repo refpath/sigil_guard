@@ -183,9 +183,9 @@ defmodule SigilGuard.RepoPolicy do
 
   def load(repo_root, opts) when is_binary(repo_root) do
     with :ok <- validate_loader_options(opts),
-         {:ok, _} <- loader_max_bytes(opts),
-         {:ok, path} <- find_file(repo_root, opts) do
-      load_file(path, opts)
+         {:ok, max_bytes} <- loader_max_bytes(opts),
+         {:ok, path} <- find_valid_file(Path.expand(repo_root), opts) do
+      load_valid_file(Path.expand(path), max_bytes)
     end
   end
 
@@ -201,10 +201,13 @@ defmodule SigilGuard.RepoPolicy do
   def find_file(repo_root, opts \\ [])
 
   def find_file(repo_root, opts) when is_binary(repo_root) do
-    root = Path.expand(repo_root)
+    with :ok <- validate_loader_options(opts), do: find_valid_file(Path.expand(repo_root), opts)
+  end
 
-    with :ok <- validate_loader_options(opts),
-         {:ok, candidates} <-
+  def find_file(_, _), do: {:error, :invalid_options}
+
+  defp find_valid_file(root, opts) do
+    with {:ok, candidates} <-
            normalize_policy_paths(Keyword.get(opts, :candidates, @default_policy_paths)),
          :ok <- reject_legacy_policy_paths(root) do
       case SigilGuard.PolicyPath.first_existing(root, candidates) do
@@ -214,8 +217,6 @@ defmodule SigilGuard.RepoPolicy do
     end
   end
 
-  def find_file(_, _), do: {:error, :invalid_options}
-
   @doc """
   Load a policy from a specific file path.
 
@@ -224,19 +225,20 @@ defmodule SigilGuard.RepoPolicy do
   @spec load_file(Path.t(), keyword()) :: {:ok, t()} | {:error, term()}
   def load_file(path, opts \\ [])
 
-  # sobelow_skip ["Traversal.FileModule"]
   def load_file(path, opts) when is_binary(path) do
-    path = Path.expand(path)
-
     with :ok <- validate_loader_options(opts),
          {:ok, max_bytes} <- loader_max_bytes(opts),
-         :ok <- ensure_policy_file(path, max_bytes),
-         {:ok, text} <- File.read(path) do
-      parse(text)
-    end
+         do: load_valid_file(Path.expand(path), max_bytes)
   end
 
   def load_file(_, _), do: {:error, :invalid_options}
+
+  # sobelow_skip ["Traversal.FileModule"]
+  defp load_valid_file(path, max_bytes) do
+    with :ok <- ensure_policy_file(path, max_bytes),
+         {:ok, text} <- File.read(path),
+         do: parse(text)
+  end
 
   @doc """
   Evaluate a compiled policy against a repo-change context.

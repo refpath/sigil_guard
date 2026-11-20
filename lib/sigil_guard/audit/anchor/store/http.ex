@@ -526,7 +526,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
         :ok
 
       is_map(ref) ->
-        verify_required_receipt_signature(ref, opts)
+        Receipt.verify(ref, receipt_verify_opts(opts))
 
       true ->
         {:error, :missing_receipt}
