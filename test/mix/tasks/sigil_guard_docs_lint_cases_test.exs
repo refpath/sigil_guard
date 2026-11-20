@@ -1,11 +1,11 @@
-defmodule Mix.Tasks.Sigil.DocsLintCasesTest do
+defmodule Mix.Tasks.SigilGuard.DocsLintCasesTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
 
   import SigilGuard.CaseFixtures.Tmp, only: [fixture_root: 1]
 
-  alias Mix.Tasks.Sigil.DocsLint
+  alias Mix.Tasks.SigilGuard.DocsLint
 
   defp front_matter(id), do: "---\nid: \"#{id}\"\n---\n\n# #{id}\n"
 

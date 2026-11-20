@@ -25,9 +25,9 @@
     {:dialyzer, command: "mix dialyzer"},
 
     # Documentation
-    {:docs_lint, command: "mix sigil.docs_lint"},
-    {:migration_gate, command: "mix sigil.migration_gate"},
-    {:livebooks, command: "mix sigil.livebook_check"},
+    {:docs_lint, command: "mix sigil_guard.docs_lint"},
+    {:migration_gate, command: "mix sigil_guard.migration_gate"},
+    {:livebooks, command: "mix sigil_guard.livebook_check"},
     {:doctor, command: "mix doctor"},
     {:ex_doc, command: "mix docs --warnings-as-errors"},
 

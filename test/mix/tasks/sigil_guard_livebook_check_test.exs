@@ -1,11 +1,11 @@
-defmodule Mix.Tasks.Sigil.LivebookCheckTest do
+defmodule Mix.Tasks.SigilGuard.LivebookCheckTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
 
-  alias Mix.Tasks.Sigil.LivebookCheck
+  alias Mix.Tasks.SigilGuard.LivebookCheck
 
   describe "run/1" do
     test "prints success for clean notebooks" do

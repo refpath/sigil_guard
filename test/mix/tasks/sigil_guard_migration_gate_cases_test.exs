@@ -1,11 +1,11 @@
-defmodule Mix.Tasks.Sigil.MigrationGateCasesTest do
+defmodule Mix.Tasks.SigilGuard.MigrationGateCasesTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
 
   import SigilGuard.CaseFixtures.Tmp, only: [fixture_root: 1]
 
-  alias Mix.Tasks.Sigil.MigrationGate
+  alias Mix.Tasks.SigilGuard.MigrationGate
 
   test "raises with every finding when the guide lacks a mapping or has a broken link" do
     root =

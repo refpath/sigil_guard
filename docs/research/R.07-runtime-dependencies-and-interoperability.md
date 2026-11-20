@@ -457,7 +457,7 @@ present. Both paths construct the same MCP-shaped candidate and pass through
 the same SigilGuard boundary. The full notebook suite gets a reader-facing
 catalog, explicit learning paths, expected outcomes, production caveats, and
 speaker cues; every deterministic cell remains executable by
-`mix sigil.livebook_check` with network access disabled.
+`mix sigil_guard.livebook_check` with network access disabled.
 
 ### 2026-08-19 Hex Advisory Refresh
 

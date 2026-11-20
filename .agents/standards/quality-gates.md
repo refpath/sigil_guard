@@ -8,10 +8,10 @@ continue independent validation.
 | Affected surface | Validation |
 |------------------|------------|
 | Agent contract, standards, skills, discovery links | Parse frontmatter; check name/directory agreement, distinct triggers, relative references, implicit invocation, tracked/ignored boundaries, and symlink targets. Read the final instructions against realistic tasks; metadata checks alone do not prove selection behavior. |
-| Project Markdown, terminology, spec/task references | `mix sigil.docs_lint`; inspect changed links and claims. This is a static documentation check, not proof of runtime semantics. |
-| Elixir docs or public guides/notebooks | Formatting and compilation, relevant doctests/consumer assertions, `mix doctor`, and `mix docs --warnings-as-errors`; `mix sigil.livebook_check` when notebook execution or tutorial dependencies change. |
+| Project Markdown, terminology, spec/task references | `mix sigil_guard.docs_lint`; inspect changed links and claims. This is a static documentation check, not proof of runtime semantics. |
+| Elixir docs or public guides/notebooks | Formatting and compilation, relevant doctests/consumer assertions, `mix doctor`, and `mix docs --warnings-as-errors`; `mix sigil_guard.livebook_check` when notebook execution or tutorial dependencies change. |
 | Runtime behavior or application configuration | Focused regression tests first, then the complete application gate. Include security cases for the changed mechanism. |
-| Public contracts or package/release preparation | Complete application gate, `mix sigil.migration_gate`, package contents and generic consumer checks. Release-specific provenance requirements live in `guides/release-and-anchoring.md`. |
+| Public contracts or package/release preparation | Complete application gate, `mix sigil_guard.migration_gate`, package contents and generic consumer checks. Release-specific provenance requirements live in `guides/release-and-anchoring.md`. |
 
 `./bin/check` is the complete application gate and clean-clone entry point used
 by CI. It fetches locked dependencies and runs ExCheck without retries. The exact

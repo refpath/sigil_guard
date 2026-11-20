@@ -1,10 +1,10 @@
-defmodule Mix.Tasks.Sigil.DocsLint do
+defmodule Mix.Tasks.SigilGuard.DocsLint do
   @shortdoc "Validate SigilGuard docs catalogue rules"
 
   @moduledoc """
   Consolidates the documentation checks required before release work.
 
-      mix sigil.docs_lint
+      mix sigil_guard.docs_lint
 
   The task checks spec/task drift, test modules that a spec table cites but
   `test/` does not define, stale three-digit research/spec identifiers, local
@@ -35,7 +35,7 @@ defmodule Mix.Tasks.Sigil.DocsLint do
   @spec run([String.t()]) :: :ok
   def run(args) do
     if args != [] do
-      Mix.raise("sigil.docs_lint does not accept options")
+      Mix.raise("sigil_guard.docs_lint does not accept options")
     end
 
     case lint() do

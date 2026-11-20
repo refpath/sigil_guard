@@ -190,9 +190,9 @@ defmodule SigilGuard.MixProject do
       ],
       groups_for_modules: [
         "Mix Tasks": [
-          Mix.Tasks.Sigil.DocsLint,
-          Mix.Tasks.Sigil.LivebookCheck,
-          Mix.Tasks.Sigil.MigrationGate,
+          Mix.Tasks.SigilGuard.DocsLint,
+          Mix.Tasks.SigilGuard.LivebookCheck,
+          Mix.Tasks.SigilGuard.MigrationGate,
           Mix.Tasks.SigilGuard.ReleaseStatement,
           Mix.Tasks.SigilGuard.Sbom,
           Mix.Tasks.SigilGuard.VerifyReleaseRef

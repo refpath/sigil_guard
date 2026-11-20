@@ -138,7 +138,7 @@ enables the optional live proposal without giving the model authority to run
 the callback.
 
 ```bash
-mix sigil.livebook_check
+mix sigil_guard.livebook_check
 ```
 
 Start with [An AI Agent Under Attack](notebooks/ai-agent-under-attack.livemd)

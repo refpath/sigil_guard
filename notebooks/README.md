@@ -11,7 +11,7 @@ a changed result fails the run instead of leaving the prose stale.
 The repository validates the whole track offline with:
 
 ```bash
-mix sigil.livebook_check
+mix sigil_guard.livebook_check
 ```
 
 ## Choose A Route
@@ -151,7 +151,7 @@ the normal offline validation never installs it or performs provider requests.
 
 ## Rehearsal Checklist
 
-- Run `mix sigil.livebook_check` from a clean checkout.
+- Run `mix sigil_guard.livebook_check` from a clean checkout.
 - Open the exact Git revision you will present and evaluate the talk path once
   from top to bottom.
 - If using live AI, verify the Livebook secret and model access, then keep the

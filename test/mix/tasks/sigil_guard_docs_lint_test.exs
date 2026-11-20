@@ -1,11 +1,11 @@
-defmodule Mix.Tasks.Sigil.DocsLintTest do
+defmodule Mix.Tasks.SigilGuard.DocsLintTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
 
-  alias Mix.Tasks.Sigil.DocsLint
+  alias Mix.Tasks.SigilGuard.DocsLint
 
   describe "run/1" do
     test "prints success for a clean docs tree" do

@@ -247,7 +247,7 @@ Each livebook MUST execute top-to-bottom via `Mix.install` with zero network
 access from a repository checkout. Local execution reuses the repository
 configuration and lockfile; a Run in Livebook import falls back to the
 published `sigil_guard` Hex package. The M7 validation script,
-`mix sigil.livebook_check`, runs the Elixir code cells of every notebook in a
+`mix sigil_guard.livebook_check`, runs the Elixir code cells of every notebook in a
 child `elixir` process with `HEX_OFFLINE=1` and `REBAR_OFFLINE=1` and fails on
 any error. It forces the AI notebook into its scripted mode. It does not block
 other network access, so the zero-network rule is otherwise a review item.
@@ -338,7 +338,7 @@ runtime errors. N/A rows are intentional.
 
 | Test | Module | What It Verifies |
 |------|--------|------------------|
-| livebook execution | `mix sigil.livebook_check` | every notebook's Elixir cells run top-to-bottom via local-path `Mix.install` with Hex and Rebar offline. |
+| livebook execution | `mix sigil_guard.livebook_check` | every notebook's Elixir cells run top-to-bottom via local-path `Mix.install` with Hex and Rebar offline. |
 | guide compile | pinned-version procedure | every Tier 1 guide compiles with warnings as errors at its pin. |
 | anubis variant | pinned-version procedure | the hermes guide compiles against `anubis_mcp` (test-only). |
 | docs render | `mix docs` | cheatsheet, guides, and threat-model guide render without warnings. |
@@ -352,7 +352,7 @@ runtime errors. N/A rows are intentional.
 - [x] `guides/cheatsheet.cheatmd` covers gate verdicts, policy grammar,
       attestation calls, and the confirmation flow.
 - [x] All eleven livebooks execute top-to-bottom offline in the validation
-      run (`mix sigil.livebook_check`).
+      run (`mix sigil_guard.livebook_check`).
 - [x] `SECURITY.md` contains supported versions, channel, SLO, and the SP.02
       runbook pointer.
 - [x] `guides/threat-model.md` matches R.06 claim levels exactly.

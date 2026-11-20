@@ -1,12 +1,12 @@
-defmodule Mix.Tasks.Sigil.LivebookCheck do
+defmodule Mix.Tasks.SigilGuard.LivebookCheck do
   @shortdoc "Validate Livebook Elixir cells offline"
 
   @moduledoc """
   Executes Elixir code cells from repository Livebooks in child `elixir`
   processes with Hex and Rebar offline mode enabled.
 
-      mix sigil.livebook_check
-      mix sigil.livebook_check notebooks/quick-start.livemd
+      mix sigil_guard.livebook_check
+      mix sigil_guard.livebook_check notebooks/quick-start.livemd
 
   With no arguments, all `notebooks/*.livemd` files are validated.
   """

@@ -1,10 +1,10 @@
-defmodule Mix.Tasks.Sigil.MigrationGate do
+defmodule Mix.Tasks.SigilGuard.MigrationGate do
   @shortdoc "Validate 1.0 migration coverage"
 
   @moduledoc """
   Validates that deleted legacy surfaces have explicit `MIGRATING-1.0.md` coverage.
 
-      mix sigil.migration_gate
+      mix sigil_guard.migration_gate
 
   The gate is intentionally static: M6 owns the deletion list, and future
   deletion work must extend this required mapping list in the same commit as the
@@ -65,7 +65,7 @@ defmodule Mix.Tasks.Sigil.MigrationGate do
   @spec run([String.t()]) :: :ok
   def run(args) do
     if args != [] do
-      Mix.raise("sigil.migration_gate does not accept options")
+      Mix.raise("sigil_guard.migration_gate does not accept options")
     end
 
     case validate() do

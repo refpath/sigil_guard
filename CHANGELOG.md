@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The repository tasks `mix sigil.docs_lint`, `mix sigil.livebook_check` and
+  `mix sigil.migration_gate` are now `mix sigil_guard.docs_lint`,
+  `mix sigil_guard.livebook_check` and `mix sigil_guard.migration_gate`, in
+  the package's own namespace, so they cannot clash with a package named
+  `sigil` in a host project.
 - Switch options are read one way everywhere. A boolean is taken as
   given; any other value, `nil` included, is the strict setting: on for a
   requirement or protection (`:require_manifest`, `:require_worm`,

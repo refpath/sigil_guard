@@ -256,7 +256,7 @@ order; maintenance work should follow its current affected spec and contracts.
 - [x] M0.20 Root README status/roadmap block (0.2.x current, v1.0 planned
       breaking release) plus legacy trust-bundle bullet disambiguation.
 - [x] M0.21 Rewrite `docs/tasks/sigil-tasks.md` as this v3 checklist.
-- [x] M0.22 Add `mix sigil.docs_lint` dev task.
+- [x] M0.22 Add `mix sigil_guard.docs_lint` dev task.
   - Spec: `docs/specs/README.md` (catalogue rules); this file, Mandatory
     Gates.
   - AC: one mix task consolidates the doc checks: spec-drift check (every
@@ -2006,7 +2006,7 @@ order; maintenance work should follow its current affected spec and contracts.
     doc; wired into CI for the M6 branch onward.
   - Tests: fixture-driven script test (unmapped removal fails; mapped
     passes).
-  - Done: added `mix sigil.migration_gate`, which statically checks required
+  - Done: added `mix sigil_guard.migration_gate`, which statically checks required
     M6 removed modules, functions, config keys, and policy filenames against
     `MIGRATING-1.0.md`, validates local migration-doc links and anchors, and is
     wired into the CI docs job. Added focused tests for a clean guide, missing
@@ -2111,7 +2111,7 @@ order; maintenance work should follow its current affected spec and contracts.
     (`_agent_trust`, `_agent_confirmation`, statements, trust bundles,
     manifests, and boundary decisions), removed Registry-era architecture
     wording, and expanded the architecture topology in `docs/README.md` with
-    current v3 modules. Verified `mix sigil.docs_lint`, `git diff --check`,
+    current v3 modules. Verified `mix sigil_guard.docs_lint`, `git diff --check`,
     and a focused vocabulary scan.
 
 ## M7 - Integrations And Adoption
@@ -2131,7 +2131,7 @@ order; maintenance work should follow its current affected spec and contracts.
     covered gate verdict dispatch, the implemented v3 policy-file grammar,
     attestation sign/verify attachment, and action-bound confirmation. Verified
     `git diff --check`, `mix format --check-formatted mix.exs`,
-    `mix sigil.docs_lint`, and `mix docs`.
+    `mix sigil_guard.docs_lint`, and `mix docs`.
 - [x] M7.02 Threat-model guide rendered from R.06.
   - Spec: `SP.14` - ExDoc Artifacts; `R.06` - Control Mapping.
   - AC: `guides/threat-model.md` reproduces the control-mapping table,
@@ -2142,7 +2142,7 @@ order; maintenance work should follow its current affected spec and contracts.
     reproduced the control-mapping table, claim levels, host-owned exclusions,
     and test-family mapping from R.06 in operator-facing form. Verified
     `git diff --check`, `mix format --check-formatted mix.exs`,
-    `mix sigil.docs_lint`, `mix docs`, and a claim-column cross-check against
+    `mix sigil_guard.docs_lint`, `mix docs`, and a claim-column cross-check against
     R.06.
 - [x] M7.03 hermes_mcp integration guide.
   - Spec: `SP.14` - Tier 1: hermes_mcp; Per-Target Acceptance.
@@ -2155,7 +2155,7 @@ order; maintenance work should follow its current affected spec and contracts.
     registration, Plug/Phoenix placement, JSON-RPC denial mapping, and the
     Anubis component variant. Verified `mix compile --warnings-as-errors` in
     scratch Hermes and Anubis projects plus `git diff --check`,
-    `mix format --check-formatted mix.exs`, `mix sigil.docs_lint`, and
+    `mix format --check-formatted mix.exs`, `mix sigil_guard.docs_lint`, and
     `mix docs`.
 - [x] M7.04 Jido integration guide.
   - Spec: `SP.14` - Tier 1: Jido; Per-Target Acceptance.
@@ -2168,7 +2168,7 @@ order; maintenance work should follow its current affected spec and contracts.
     guidance, and validation procedure. Verified the guarded action in a
     scratch project with `mix compile --warnings-as-errors`, plus
     `git diff --check`, `mix format --check-formatted mix.exs`,
-    `mix sigil.docs_lint`, and `mix docs`.
+    `mix sigil_guard.docs_lint`, and `mix docs`.
 - [x] M7.05 LangChain/ReqLLM integration guide.
   - Spec: `SP.14` - Tier 1: LangChain Elixir And ReqLLM.
   - AC: request and result sides both gated; the ReqLLM pipeline-step
@@ -2180,7 +2180,7 @@ order; maintenance work should follow its current affected spec and contracts.
     ReqLLM `Tool` execution, pipeline-step placement, and denial handling.
     Verified the shared examples in a scratch project with
     `mix compile --warnings-as-errors`, plus `git diff --check`,
-    `mix format --check-formatted mix.exs`, `mix sigil.docs_lint`, and
+    `mix format --check-formatted mix.exs`, `mix sigil_guard.docs_lint`, and
     `mix docs`.
 - [x] M7.06 Tidewave gating guide with shipped example policy.
   - Spec: `SP.14` - Tier 1: Tidewave; Per-Target Acceptance.
@@ -2199,7 +2199,7 @@ order; maintenance work should follow its current affected spec and contracts.
     `MIX_ENV=dev mix compile --warnings-as-errors`; verified the policy parses
     and evaluates eval-class tools to `:block`, repo writes to `:confirm`, and
     docs/schema reads to `:allow`; also ran `git diff --check`,
-    `mix format --check-formatted mix.exs`, `mix sigil.docs_lint`, and
+    `mix format --check-formatted mix.exs`, `mix sigil_guard.docs_lint`, and
     `mix docs`.
 - [x] M7.07 Livebook: quick start.
   - Spec: `SP.14` - Livebooks.
@@ -2262,13 +2262,13 @@ order; maintenance work should follow its current affected spec and contracts.
     local repository path in a network-denied environment and fails on any
     error; wired into CI or the release checklist.
   - Tests: script test (a failing cell fails the run; clean run passes).
-  - Done: added `mix sigil.livebook_check`, which extracts Elixir cells from
+  - Done: added `mix sigil_guard.livebook_check`, which extracts Elixir cells from
     `notebooks/*.livemd`, executes each notebook in an offline child `elixir`
     process beside the source file so `__DIR__` matches Livebook, and fails on
     the first non-zero notebook execution. Added fixture-driven task tests for
     clean notebooks, failing cells, selected paths, missing files, and cell
     extraction. Verified `mix test test/mix/tasks/sigil_livebook_check_test.exs`
-    and `mix sigil.livebook_check`.
+    and `mix sigil_guard.livebook_check`.
 - [x] M7.13 Benchmark corpus and harness matrix (BM.01-BM.08).
   - Spec: `docs/specs/SP.15-benchmark-methodology-and-baselines.md` -
     Scenario Matrix.
@@ -2345,7 +2345,7 @@ order; maintenance work should follow its current affected spec and contracts.
     and six months of final `0.2.x` fixes after `1.0.0` GA, GitHub private
     vulnerability reporting instructions, 72 h / 7 d / 90 d response targets,
     scope boundaries, and the SP.02 signer-compromise rotation pointer.
-    Verified `git diff --check` and `mix sigil.docs_lint`.
+    Verified `git diff --check` and `mix sigil_guard.docs_lint`.
 - [x] M7.18 Conference-ready Livebook tutorial track.
   - Spec: `SP.14` - Livebooks; `R.07` - 2026-08-19 Livebook Delivery
     Refresh.
@@ -2357,7 +2357,7 @@ order; maintenance work should follow its current affected spec and contracts.
     chapter offers a deterministic offline replay and an optional ReqLLM 1.20
     tool proposal using a Livebook secret, with both paths crossing the same
     gate before any callback runs.
-  - Validation: `mix sigil.livebook_check`; Run in Livebook links and local
+  - Validation: `mix sigil_guard.livebook_check`; Run in Livebook links and local
     setup paths checked; AI offline mode passes without provider dependencies
     or network; `mix docs` renders the tutorial catalog.
   - Done: expanded `notebooks/` into an eleven-chapter self-study, workshop,
@@ -2673,7 +2673,7 @@ order; maintenance work should follow its current affected spec and contracts.
   - AC: `./bin/check` executes every Elixir cell from every packaged Livebook
     offline, so a broken conference tutorial fails the same gate as broken API
     documentation.
-  - Validation: `mix sigil.livebook_check` and `./bin/check` exit zero.
+  - Validation: `mix sigil_guard.livebook_check` and `./bin/check` exit zero.
   - Done: added the existing offline Livebook validator to ExCheck and every
     documented full-gate command list.
 - [x] M7A.22 Revalidate public research and specification links.
@@ -3440,7 +3440,7 @@ traced every line no test executed.
 - [x] M15.07 Notebooks.
   - Resolved: each tutorial shows the API added since it was written;
     Tutorial 12 covers physical-effect requests; stale statements corrected;
-    `mix sigil.livebook_check` passes.
+    `mix sigil_guard.livebook_check` passes.
 - [x] M15.08 Published prose.
   - Resolved: marketing language, filler and decorative formatting removed
     from the README, guides, notebooks and configuration comments.

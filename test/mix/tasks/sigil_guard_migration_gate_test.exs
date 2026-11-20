@@ -1,11 +1,11 @@
-defmodule Mix.Tasks.Sigil.MigrationGateTest do
+defmodule Mix.Tasks.SigilGuard.MigrationGateTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
 
-  alias Mix.Tasks.Sigil.MigrationGate
+  alias Mix.Tasks.SigilGuard.MigrationGate
 
   describe "run/1" do
     test "prints success for the repository migration guide" do

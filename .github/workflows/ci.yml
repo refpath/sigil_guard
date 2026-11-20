@@ -225,7 +225,7 @@ jobs:
         run: mix docs
 
       - name: Check migration guide
-        run: mix sigil.migration_gate
+        run: mix sigil_guard.migration_gate
 
       - name: Check doc coverage
         run: mix doctor

@@ -235,7 +235,7 @@ The adapter's own test modules (`RegistryTest`, `Registry.BundleTest`,
 | removed configuration | `ConfigTest`, `ConfigErrorTest` | Removed keys and `scanner_patterns: :registry` raise `SigilGuard.ConfigError`. |
 | dependency set | `RuntimeDependencySetTest` | The runtime dependency set stays pinned. |
 | no network | `TrustBundle.NoNetworkTest`, `ReleaseNoNetworkSweepTest` | Bundle loading and the release decision paths open no port. |
-| migration guide | `Mix.Tasks.Sigil.MigrationGateTest`, `mix sigil.migration_gate` | Every required removal has a row in `MIGRATING-1.0.md`, and its local links resolve. |
+| migration guide | `Mix.Tasks.SigilGuard.MigrationGateTest`, `mix sigil_guard.migration_gate` | Every required removal has a row in `MIGRATING-1.0.md`, and its local links resolve. |
 
 ## Acceptance Criteria
 
