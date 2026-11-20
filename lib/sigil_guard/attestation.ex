@@ -37,7 +37,6 @@ defmodule SigilGuard.Attestation do
   @confirmation_atom_key :_agent_confirmation
   @confirmation_token_key "confirmation_token"
   @confirmation_token_atom_key :confirmation_token
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
 
   @strip_keys [
     @trust_key,
@@ -645,7 +644,7 @@ defmodule SigilGuard.Attestation do
   defp required_digest(opts, key) do
     case Keyword.fetch(opts, key) do
       {:ok, digest} when is_binary(digest) ->
-        if Regex.match?(@sha256_regex, digest),
+        if SigilGuard.Crypto.sha256_hex?(digest),
           do: {:ok, digest},
           else: {:error, :invalid_payload}
 
@@ -657,7 +656,7 @@ defmodule SigilGuard.Attestation do
   defp optional_digest(opts, key) do
     case Keyword.fetch(opts, key) do
       {:ok, digest} when is_binary(digest) ->
-        if Regex.match?(@sha256_regex, digest),
+        if SigilGuard.Crypto.sha256_hex?(digest),
           do: {:ok, digest},
           else: {:error, :invalid_payload}
 

@@ -45,7 +45,6 @@ defmodule SigilGuard.MCP.AppResource do
 
   @mime_type "text/html;profile=mcp-app"
   @default_max_bytes 1_048_576
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @control_regex ~r/[\x00-\x1f\x7f]/
   @domain_fields ~w(connectDomains resourceDomains frameDomains baseUriDomains)
   @permission_fields ~w(camera microphone geolocation clipboardWrite)
@@ -371,7 +370,7 @@ defmodule SigilGuard.MCP.AppResource do
   defp valid_expected_digest?(nil), do: true
 
   defp valid_expected_digest?(digest) when is_binary(digest),
-    do: Regex.match?(@sha256_regex, digest)
+    do: SigilGuard.Crypto.sha256_hex?(digest)
 
   defp valid_expected_digest?(_), do: false
 

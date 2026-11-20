@@ -469,7 +469,7 @@ defmodule SigilGuard.ToolGateway do
   defp request_action_digest(opts) do
     case Keyword.fetch(opts, :request_action_digest) do
       {:ok, digest} when is_binary(digest) ->
-        if digest =~ ~r/\A[0-9a-f]{64}\z/, do: :ok, else: {:error, :invalid_payload}
+        if SigilGuard.Crypto.sha256_hex?(digest), do: :ok, else: {:error, :invalid_payload}
 
       {:ok, _} ->
         {:error, :invalid_payload}

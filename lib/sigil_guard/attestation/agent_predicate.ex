@@ -11,7 +11,6 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
 
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @trust_levels ~w(low medium high)
   @response_statuses ~w(ok error)
 
@@ -322,7 +321,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   defp validate_non_empty_string(_), do: {:error, :invalid_payload}
 
   defp validate_sha256(value) when is_binary(value) do
-    if Regex.match?(@sha256_regex, value) do
+    if SigilGuard.Crypto.sha256_hex?(value) do
       {:ok, value}
     else
       {:error, :invalid_payload}

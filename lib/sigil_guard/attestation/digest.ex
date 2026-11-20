@@ -12,7 +12,6 @@ defmodule SigilGuard.Attestation.Digest do
   alias SigilGuard.Context
   alias SigilGuard.Crypto
 
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @statement_types ~w(
     tool_request
     tool_result
@@ -622,7 +621,9 @@ defmodule SigilGuard.Attestation.Digest do
   defp artifact_sha256(artifact) do
     case Map.get(artifact, "sha256") do
       value when is_binary(value) ->
-        if Regex.match?(@sha256_regex, value), do: {:ok, value}, else: {:error, :invalid_payload}
+        if SigilGuard.Crypto.sha256_hex?(value),
+          do: {:ok, value},
+          else: {:error, :invalid_payload}
 
       _ ->
         {:error, :invalid_payload}
@@ -632,7 +633,9 @@ defmodule SigilGuard.Attestation.Digest do
   defp request_action_digest(opts) do
     case Keyword.fetch(opts, :request_action_digest) do
       {:ok, value} when is_binary(value) ->
-        if Regex.match?(@sha256_regex, value), do: {:ok, value}, else: {:error, :invalid_payload}
+        if SigilGuard.Crypto.sha256_hex?(value),
+          do: {:ok, value},
+          else: {:error, :invalid_payload}
 
       _ ->
         {:error, :invalid_payload}
@@ -667,7 +670,7 @@ defmodule SigilGuard.Attestation.Digest do
   end
 
   defp validate_digest(value) when is_binary(value) do
-    if Regex.match?(@sha256_regex, value), do: {:ok, value}, else: {:error, :invalid_payload}
+    if SigilGuard.Crypto.sha256_hex?(value), do: {:ok, value}, else: {:error, :invalid_payload}
   end
 
   defp validate_digest(_), do: {:error, :invalid_payload}

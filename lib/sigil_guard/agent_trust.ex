@@ -42,7 +42,6 @@ defmodule SigilGuard.AgentTrust do
   alias SigilGuard.Telemetry
   alias SigilGuard.TrustBundle
 
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @default_max_delegation_depth 8
   @unknown_peer_rule %{
     "id" => "agent.unknown_peer.quarantine",
@@ -707,7 +706,7 @@ defmodule SigilGuard.AgentTrust do
   defp required_digest(opts, key) do
     case Keyword.keyword?(opts) and Keyword.fetch(opts, key) do
       {:ok, digest} when is_binary(digest) ->
-        if Regex.match?(@sha256_regex, digest),
+        if SigilGuard.Crypto.sha256_hex?(digest),
           do: {:ok, digest},
           else: {:error, :invalid_payload}
 

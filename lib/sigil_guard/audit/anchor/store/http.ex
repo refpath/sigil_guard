@@ -61,7 +61,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     "version" => :version,
     "worm" => :worm
   }
-  @hex_digest ~r/\A[0-9a-f]{64}\z/
 
   @doc """
   Persist an anchor record to the HTTP service and return its receipt.
@@ -606,7 +605,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   end
 
   defp digest_from_ref(digest) when is_binary(digest) do
-    if Regex.match?(@hex_digest, digest), do: {:ok, digest}, else: {:error, :missing_digest}
+    if SigilGuard.Crypto.sha256_hex?(digest), do: {:ok, digest}, else: {:error, :missing_digest}
   end
 
   defp digest_from_ref(%{} = receipt) do
@@ -634,7 +633,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     case digest_from_uri(receipt_uri(receipt)) do
       uri_digest when is_binary(uri_digest) ->
         cond do
-          not Regex.match?(@hex_digest, uri_digest) -> :ok
+          not SigilGuard.Crypto.sha256_hex?(uri_digest) -> :ok
           uri_digest == digest -> :ok
           true -> {:error, :digest_mismatch}
         end

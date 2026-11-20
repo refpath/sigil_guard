@@ -21,7 +21,6 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
   @version 1
   @default_max_line_bytes 1_048_576
   @read_chunk_bytes 65_536
-  @hex_digest ~r/\A[0-9a-f]{64}\z/
   @atom_fields %{
     "anchor_digest" => :anchor_digest,
     "kind" => :kind,
@@ -321,7 +320,7 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
   end
 
   defp digest_from_ref(digest) when is_binary(digest) do
-    if Regex.match?(@hex_digest, digest), do: {:ok, digest}, else: {:error, :missing_digest}
+    if SigilGuard.Crypto.sha256_hex?(digest), do: {:ok, digest}, else: {:error, :missing_digest}
   end
 
   defp digest_from_ref(%{} = receipt) do
@@ -349,7 +348,7 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
     case digest_from_uri(field(receipt, "uri")) do
       uri_digest when is_binary(uri_digest) ->
         cond do
-          not Regex.match?(@hex_digest, uri_digest) -> :ok
+          not SigilGuard.Crypto.sha256_hex?(uri_digest) -> :ok
           uri_digest == digest -> :ok
           true -> {:error, :digest_mismatch}
         end

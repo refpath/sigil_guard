@@ -299,7 +299,7 @@ defmodule SigilGuard.Audit.Checkpoint do
 
   def statement_state(_), do: {:error, :invalid_proof}
 
-  defp hex_digest?(value) when is_binary(value), do: Regex.match?(~r/\A[0-9a-f]{64}\z/, value)
+  defp hex_digest?(value) when is_binary(value), do: Crypto.sha256_hex?(value)
   defp hex_digest?(_), do: false
 
   @doc """

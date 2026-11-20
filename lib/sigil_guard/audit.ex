@@ -175,7 +175,7 @@ defmodule SigilGuard.Audit do
   def classify_field(@redacted_placeholder, _), do: @redacted_placeholder
 
   def classify_field(@field_hash_prefix <> digest = value, field_hash_key) do
-    if digest =~ ~r/\A[0-9a-f]{64}\z/, do: value, else: hash_field(value, field_hash_key)
+    if SigilGuard.Crypto.sha256_hex?(digest), do: value, else: hash_field(value, field_hash_key)
   end
 
   def classify_field(value, field_hash_key) when is_binary(value),

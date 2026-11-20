@@ -11,7 +11,6 @@ defmodule SigilGuard.Attestation.Statement do
   @required_subjects ~w(action payload context)
   @manifest_subject "manifest"
   @subject_order ~w(action payload context manifest)
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
 
   @typedoc "A subject name: `:action`, `:payload`, `:context`, `:manifest`, or a string."
   @type digest_name :: :action | :payload | :context | :manifest | String.t()
@@ -171,7 +170,7 @@ defmodule SigilGuard.Attestation.Statement do
   end
 
   defp validate_digest(digest) do
-    if Regex.match?(@sha256_regex, digest) do
+    if SigilGuard.Crypto.sha256_hex?(digest) do
       {:ok, digest}
     else
       {:error, :invalid_profile}

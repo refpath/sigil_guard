@@ -42,7 +42,6 @@ defmodule SigilGuard.Confirmation do
   @token_type "sigil_guard.confirmation.v2"
   @default_ttl_ms 300_000
   @min_key_bytes 16
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @nonce_regex ~r/\A[0-9a-f]{32}\z/
 
   @typedoc "The decoded claims of a confirmation token."
@@ -327,7 +326,7 @@ defmodule SigilGuard.Confirmation do
     if valid_nonce_claim?(nonce), do: :ok, else: {:error, :invalid_token}
   end
 
-  defp valid_sha256?(value), do: value =~ @sha256_regex
+  defp valid_sha256?(value), do: SigilGuard.Crypto.sha256_hex?(value)
   defp valid_nonce_claim?(nonce), do: nonce =~ @nonce_regex
 
   defp validate_expiry(%{"expires_at" => expires_at}, opts) do
@@ -465,7 +464,7 @@ defmodule SigilGuard.Confirmation do
   end
 
   defp validate_manifest_digest_value(digest) do
-    if digest =~ @sha256_regex do
+    if SigilGuard.Crypto.sha256_hex?(digest) do
       {:ok, digest}
     else
       {:error, :invalid_payload}

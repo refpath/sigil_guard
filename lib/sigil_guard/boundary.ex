@@ -15,7 +15,6 @@ defmodule SigilGuard.Boundary do
 
   alias SigilGuard.Lifecycle
 
-  @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @source_sensitivities [:public, :internal, :private]
   @isolation_levels [:none, :container, :vm, :remote_attested]
   @trust_levels [:low, :medium, :high]
@@ -159,7 +158,7 @@ defmodule SigilGuard.Boundary do
   end
 
   defp valid_digest(value) when is_binary(value) do
-    if Regex.match?(@sha256_regex, value), do: :ok, else: {:error, :invalid_boundary}
+    if SigilGuard.Crypto.sha256_hex?(value), do: :ok, else: {:error, :invalid_boundary}
   end
 
   defp valid_digest(_), do: {:error, :invalid_boundary}

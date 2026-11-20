@@ -30,7 +30,6 @@ defmodule SigilGuard.Audit.Proof do
   @max_size 9_007_199_254_740_992
   @inclusion_keys ~w(kind version leaf_index tree_size audit_path)
   @consistency_keys ~w(kind version first_size second_size proof_nodes)
-  @hex_64 ~r/\A[0-9a-f]{64}\z/
 
   @typedoc "A closed, JSON-serializable inclusion proof."
   @type inclusion_proof :: %{
@@ -434,7 +433,7 @@ defmodule SigilGuard.Audit.Proof do
   defp decode_hex_list(list) do
     result =
       Enum.reduce_while(list, {:ok, []}, fn entry, {:ok, acc} ->
-        if is_binary(entry) and Regex.match?(@hex_64, entry) do
+        if is_binary(entry) and SigilGuard.Crypto.sha256_hex?(entry) do
           {:cont, {:ok, [Base.decode16!(entry, case: :lower) | acc]}}
         else
           {:halt, :error}

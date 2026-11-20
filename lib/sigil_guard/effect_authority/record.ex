@@ -11,7 +11,6 @@ defmodule SigilGuard.EffectAuthority.Record do
   @max_artifacts 16
   @max_identifier_bytes 256
   @timestamp ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
-  @sha256 ~r/\A[0-9a-f]{64}\z/
 
   @type error :: :effect_binding_required | :invalid_effect_binding
 
@@ -62,7 +61,7 @@ defmodule SigilGuard.EffectAuthority.Record do
 
   @doc false
   @spec sha256?(term()) :: boolean()
-  def sha256?(value), do: is_binary(value) and Regex.match?(@sha256, value)
+  def sha256?(value), do: is_binary(value) and SigilGuard.Crypto.sha256_hex?(value)
 
   @doc false
   @spec timestamp(term()) :: {:ok, DateTime.t()} | :error

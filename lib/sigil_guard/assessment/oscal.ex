@@ -70,7 +70,6 @@ defmodule SigilGuard.Assessment.OSCAL do
   }
 
   @uuid_regex ~r/\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[45][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\z/
-  @digest_regex ~r/\A[0-9a-f]{64}\z/
   @token_regex ~r/\A[\p{L}_][\p{L}\p{N}._-]*\z/u
   @uri_reference_regex ~r/\A(?:[A-Za-z0-9._~!$&'()*+,;=:@\/?#\[\]-]|%[0-9A-Fa-f]{2})+\z/
 
@@ -648,7 +647,7 @@ defmodule SigilGuard.Assessment.OSCAL do
   defp nonempty?(value), do: is_binary(value) and value != ""
 
   defp validate_digest(value) when is_binary(value) do
-    if String.valid?(value) and Regex.match?(@digest_regex, value) do
+    if String.valid?(value) and SigilGuard.Crypto.sha256_hex?(value) do
       :ok
     else
       {:error, :invalid_digest}
