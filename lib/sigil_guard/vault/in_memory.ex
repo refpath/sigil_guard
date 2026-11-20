@@ -224,7 +224,7 @@ defmodule SigilGuard.Vault.InMemory do
   end
 
   defp generate_vault_id do
-    "vault_" <> Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
+    "vault_" <> SigilGuard.Crypto.random_hex(16)
   end
 
   defp validate_start_options(opts) when is_list(opts) do

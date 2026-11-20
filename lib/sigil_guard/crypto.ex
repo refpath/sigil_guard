@@ -27,6 +27,10 @@ defmodule SigilGuard.Crypto do
 
   def decode_base64(_), do: :error
 
+  @doc false
+  @spec random_hex(pos_integer()) :: String.t()
+  def random_hex(bytes), do: Base.encode16(:crypto.strong_rand_bytes(bytes), case: :lower)
+
   # A SHA-256 digest as the library writes it: 64 lowercase hex digits.
   @doc false
   @spec sha256_hex?(term()) :: boolean()

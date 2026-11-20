@@ -796,8 +796,7 @@ defmodule SigilGuard.RepoPolicy do
   defp normalize_max_bytes(_), do: {:error, :invalid_max_bytes}
 
   defp validate_loader_options(opts) when is_list(opts) do
-    if Keyword.keyword?(opts) and
-         Enum.all?(Keyword.keys(opts), &(&1 in @loader_option_keys)) do
+    if SigilGuard.Options.only?(opts, @loader_option_keys) do
       :ok
     else
       {:error, :invalid_options}

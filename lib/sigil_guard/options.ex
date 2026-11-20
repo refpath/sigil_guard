@@ -13,4 +13,10 @@ defmodule SigilGuard.Options do
       _ -> strict
     end
   end
+
+  # A keyword list whose every key is one of `keys`.
+  @doc false
+  @spec only?(term(), [atom()]) :: boolean()
+  def only?(opts, keys),
+    do: Keyword.keyword?(opts) and Enum.all?(Keyword.keys(opts), &(&1 in keys))
 end

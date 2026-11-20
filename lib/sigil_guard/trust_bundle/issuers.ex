@@ -68,12 +68,7 @@ defmodule SigilGuard.TrustBundle.Issuers do
   defp current_document(bundle), do: bundle.document
 
   defp revoked_keyids(document, id) do
-    listed =
-      document
-      |> Map.get("revocations", [])
-      |> Enum.filter(&(is_map(&1) and Map.get(&1, "kind") == "key"))
-      |> Enum.map(&Map.get(&1, "id"))
-      |> MapSet.new()
+    listed = Cache.document_revoked_keyids(document)
 
     if is_binary(id), do: MapSet.union(listed, Cache.revoked_keyids(id)), else: listed
   end

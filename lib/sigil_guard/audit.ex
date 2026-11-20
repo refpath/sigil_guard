@@ -418,7 +418,7 @@ defmodule SigilGuard.Audit do
   def checkpoint_boundaries(_, _), do: {:error, :invalid_query}
 
   defp validate_query_keys(opts) do
-    if Keyword.keyword?(opts) and Enum.all?(Keyword.keys(opts), &(&1 in @query_keys)),
+    if SigilGuard.Options.only?(opts, @query_keys),
       do: :ok,
       else: {:error, :invalid_query}
   end
@@ -593,7 +593,5 @@ defmodule SigilGuard.Audit do
   defp chain_input(prev_hmac) when is_binary(prev_hmac), do: {:ok, prev_hmac}
   defp chain_input(_), do: :error
 
-  defp generate_event_id do
-    Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
-  end
+  defp generate_event_id, do: SigilGuard.Crypto.random_hex(16)
 end

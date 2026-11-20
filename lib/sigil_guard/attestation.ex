@@ -440,7 +440,7 @@ defmodule SigilGuard.Attestation do
   # `nonce: false`. Without a nonce a statement cannot be replay-consumed.
   defp predicate_nonce(opts) do
     case Keyword.fetch(opts, :nonce) do
-      :error -> Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
+      :error -> SigilGuard.Crypto.random_hex(16)
       {:ok, nonce} when is_binary(nonce) -> nonce
       {:ok, _} -> nil
     end

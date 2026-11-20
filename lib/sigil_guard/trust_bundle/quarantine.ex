@@ -154,18 +154,11 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   defp bundle_digest(_), do: nil
 
   defp sequence(%{sequence: sequence}) when is_integer(sequence) and sequence > 0, do: sequence
-  defp sequence(%{document: %{"sequence" => sequence}}), do: positive_integer(sequence)
+
+  defp sequence(%{document: %{"sequence" => sequence}}),
+    do: SigilGuard.TrustBundle.Schema.positive_integer(sequence)
 
   defp sequence(_), do: nil
-
-  defp positive_integer(value) when is_binary(value) do
-    case Integer.parse(value) do
-      {integer, ""} when integer > 0 -> integer
-      _ -> nil
-    end
-  end
-
-  defp positive_integer(_), do: nil
 
   defp quarantined_at(%{now: %DateTime{} = now}), do: DateTime.to_iso8601(now)
   defp quarantined_at(_), do: SigilGuard.Clock.timestamp()

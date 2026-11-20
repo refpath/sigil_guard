@@ -138,6 +138,19 @@ defmodule SigilGuard.TrustBundle.Schema do
     end
   end
 
+  # A positive integer written as a decimal string, as bundle documents carry
+  # sequence and root version; anything else is nil.
+  @doc false
+  @spec positive_integer(term()) :: pos_integer() | nil
+  def positive_integer(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {integer, ""} when integer > 0 -> integer
+      _ -> nil
+    end
+  end
+
+  def positive_integer(_), do: nil
+
   defp positive_integer_field(map, key) do
     case Map.get(map, key) do
       value when is_binary(value) ->

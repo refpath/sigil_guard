@@ -487,8 +487,8 @@ defmodule SigilGuard.TrustBundle do
   defp verify_document_metadata(%{"bundle_id" => bundle_id} = document) do
     %{
       bundle_id: bundle_id,
-      sequence: positive_integer(Map.get(document, "sequence")),
-      root_version: positive_integer(root_version(document))
+      sequence: SigilGuard.TrustBundle.Schema.positive_integer(Map.get(document, "sequence")),
+      root_version: SigilGuard.TrustBundle.Schema.positive_integer(root_version(document))
     }
   end
 
@@ -511,15 +511,6 @@ defmodule SigilGuard.TrustBundle do
   end
 
   defp envelope_document(_), do: nil
-
-  defp positive_integer(value) when is_binary(value) do
-    case Integer.parse(value) do
-      {integer, ""} when integer > 0 -> integer
-      _ -> nil
-    end
-  end
-
-  defp positive_integer(_), do: nil
 
   defp source_kind(:dev), do: :dev
   defp source_kind({:file, _}), do: :file

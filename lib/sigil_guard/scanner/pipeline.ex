@@ -140,7 +140,7 @@ defmodule SigilGuard.Scanner.Pipeline do
     assignment_boundary?(candidate) and
       secret_like?(
         value,
-        positive_integer_option(opts, :generic_secret_min_length, 10),
+        positive_integer_or_default(opts, :generic_secret_min_length, 10),
         entropy_option(opts, :generic_secret_min_entropy, 2.8),
         candidate
       )
@@ -402,7 +402,7 @@ defmodule SigilGuard.Scanner.Pipeline do
     end
   end
 
-  defp positive_integer_option(opts, key, default) do
+  defp positive_integer_or_default(opts, key, default) do
     case Keyword.get(opts, key, default) do
       value when is_integer(value) and value > 0 -> value
       _ -> default

@@ -87,6 +87,16 @@ defmodule SigilGuard.TrustBundle.Cache do
     end
   end
 
+  # The key ids a bundle document itself revokes.
+  @doc false
+  @spec document_revoked_keyids(map()) :: MapSet.t(String.t())
+  def document_revoked_keyids(document) do
+    document
+    |> Map.get("revocations", [])
+    |> Enum.filter(&(is_map(&1) and Map.get(&1, "kind") == "key"))
+    |> MapSet.new(&Map.get(&1, "id"))
+  end
+
   @doc """
   Return the key ids revoked for a bundle id. Revocations accumulate and are
   never lifted by a later bundle.
@@ -198,7 +208,7 @@ defmodule SigilGuard.TrustBundle.Cache do
       :ets.insert_new(
         @table,
         {bundle.bundle_id, bundle, floor, build_root_pin(bundle), rotation_digests(bundle),
-         collect_revoked_keyids(bundle)}
+         document_revoked_keyids(bundle.document)}
       )
 
     if inserted?, do: {:ok, bundle}, else: put(bundle)
@@ -229,7 +239,7 @@ defmodule SigilGuard.TrustBundle.Cache do
     replacement =
       {bundle.bundle_id, bundle, accepted_floor(floor, bundle), pin,
        Map.merge(digests, rotation_digests(bundle)),
-       MapSet.union(revoked, collect_revoked_keyids(bundle))}
+       MapSet.union(revoked, document_revoked_keyids(bundle.document))}
 
     match = [
       {{bundle.bundle_id, :"$2", :"$3", :"$4", :"$5", :"$6"}, [{:"=:=", :"$_", {:const, row}}],
@@ -316,13 +326,5 @@ defmodule SigilGuard.TrustBundle.Cache do
       {:ok, public_key} = Base.url_decode64(encoded, padding: false)
       {keyid, public_key}
     end)
-  end
-
-  defp collect_revoked_keyids(%TrustBundle{document: document}) do
-    document
-    |> Map.get("revocations", [])
-    |> Enum.filter(&(Map.get(&1, "kind") == "key"))
-    |> Enum.map(&Map.fetch!(&1, "id"))
-    |> MapSet.new()
   end
 end

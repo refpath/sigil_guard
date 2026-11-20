@@ -164,8 +164,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   def load(_, _), do: {:error, :invalid_options}
 
   defp validate_load_options(opts) when is_list(opts) do
-    if Keyword.keyword?(opts) and
-         Enum.all?(Keyword.keys(opts), &(&1 in @load_option_keys)) and
+    if SigilGuard.Options.only?(opts, @load_option_keys) and
          valid_candidates?(Keyword.get(opts, :candidates, @default_candidates)) and
          opts
          |> Keyword.get(:legacy_replacements, @legacy_replacements)

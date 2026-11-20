@@ -384,13 +384,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp revoked_keyids(document) do
-    revoked =
-      document
-      |> Map.get("revocations", [])
-      |> Enum.filter(&(Map.get(&1, "kind") == "key"))
-      |> Enum.map(&Map.fetch!(&1, "id"))
-      |> MapSet.new()
-
+    revoked = Cache.document_revoked_keyids(document)
     {:ok, MapSet.union(Cache.revoked_keyids(Map.fetch!(document, "bundle_id")), revoked)}
   end
 
