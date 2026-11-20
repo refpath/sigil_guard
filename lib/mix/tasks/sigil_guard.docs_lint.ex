@@ -15,12 +15,9 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
 
   use Mix.Task
 
-  @type finding :: %{
-          required(:check) => atom(),
-          required(:path) => String.t(),
-          required(:line) => pos_integer() | nil,
-          required(:message) => String.t()
-        }
+  alias Mix.SigilGuard.Findings
+
+  @type finding :: Findings.t()
 
   @type lint_opts :: [
           root: Path.t(),
@@ -43,9 +40,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
         Mix.shell().info("Docs lint passed")
 
       {:error, findings} ->
-        findings
-        |> format_findings()
-        |> Mix.raise()
+        Mix.raise(Findings.format("docs lint failed", findings))
     end
   end
 
@@ -75,10 +70,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
       ]
       |> List.flatten()
 
-    case findings do
-      [] -> :ok
-      [_ | _] -> {:error, Enum.sort_by(findings, &{&1.path, &1.line || 0, &1.check})}
-    end
+    Findings.result(findings)
   end
 
   defp spec_drift_findings(root, task_file, spec_files) do
@@ -98,9 +90,9 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
       spec_ids
       |> MapSet.difference(task_ids)
       |> Enum.map(fn id ->
-        finding(
+        Findings.new(
           :spec_drift,
-          relative_path(root, task_file),
+          Path.relative_to(task_file, root),
           nil,
           "SP.#{id} has no task reference"
         )
@@ -110,7 +102,12 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
       task_ids
       |> MapSet.difference(spec_ids)
       |> Enum.map(fn id ->
-        finding(:spec_drift, relative_path(root, task_file), nil, "SP.#{id} has no spec file")
+        Findings.new(
+          :spec_drift,
+          Path.relative_to(task_file, root),
+          nil,
+          "SP.#{id} has no spec file"
+        )
       end)
 
     missing_task_findings ++ unknown_spec_findings
@@ -124,9 +121,9 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
         {"|" <> _ = line, line_no} <- lines(file),
         [_, module] <- Regex.scan(~r/`([A-Z][A-Za-z0-9.]*Test)`/, line),
         not MapSet.member?(defined, module) do
-      finding(
+      Findings.new(
         :missing_test_module,
-        relative_path(root, file),
+        Path.relative_to(file, root),
         line_no,
         "cited test module #{module} is not defined under test/"
       )
@@ -152,7 +149,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
         {line, line_no} <- lines(file),
         pattern <- patterns,
         String.contains?(line, pattern) do
-      finding(check, relative_path(root, file), line_no, message_for(check))
+      Findings.new(check, Path.relative_to(file, root), line_no, message_for(check))
     end
   end
 
@@ -160,7 +157,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
     for file <- files,
         {line, line_no} <- lines(file),
         [id] <- Regex.scan(~r/\b(?:SP|R)\.\d{3,}\b/, line) do
-      finding(:stale_id, relative_path(root, file), line_no, "stale three-digit id #{id}")
+      Findings.new(:stale_id, Path.relative_to(file, root), line_no, "stale three-digit id #{id}")
     end
   end
 
@@ -168,7 +165,12 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
     for file <- files,
         {line, line_no} <- lines(file),
         Regex.match?(~r/(?:file:\/\/|\/Users\/|\/home\/|[A-Za-z]:\\)/, line) do
-      finding(:local_filesystem_link, relative_path(root, file), line_no, "local filesystem link")
+      Findings.new(
+        :local_filesystem_link,
+        Path.relative_to(file, root),
+        line_no,
+        "local filesystem link"
+      )
     end
   end
 
@@ -226,12 +228,6 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
     end
   end
 
-  defp finding(check, path, line, message) do
-    %{check: check, path: path, line: line, message: message}
-  end
-
-  defp relative_path(root, path), do: Path.relative_to(path, root)
-
   defp message_for(:forbidden_term), do: "forbidden inspiration-project term"
   defp message_for(:dead_url), do: "dead public protocol/registry URL"
   defp message_for(:old_vocabulary), do: "old public wire/config vocabulary"
@@ -257,20 +253,5 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
 
   defp private_dead_urls do
     []
-  end
-
-  defp format_findings(findings) do
-    lines =
-      Enum.map(findings, fn finding ->
-        location =
-          case finding.line do
-            nil -> finding.path
-            line -> "#{finding.path}:#{line}"
-          end
-
-        "#{location}: #{finding.check}: #{finding.message}"
-      end)
-
-    "docs lint failed:\n" <> Enum.join(lines, "\n")
   end
 end

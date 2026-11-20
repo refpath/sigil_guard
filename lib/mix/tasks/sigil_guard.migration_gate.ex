@@ -13,12 +13,9 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
 
   use Mix.Task
 
-  @type finding :: %{
-          required(:check) => atom(),
-          required(:path) => String.t(),
-          required(:line) => pos_integer() | nil,
-          required(:message) => String.t()
-        }
+  alias Mix.SigilGuard.Findings
+
+  @type finding :: Findings.t()
 
   @type gate_opts :: [root: Path.t(), required_mappings: [{atom(), String.t()}]]
 
@@ -73,9 +70,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
         Mix.shell().info("Migration gate passed")
 
       {:error, findings} ->
-        findings
-        |> format_findings()
-        |> Mix.raise()
+        Mix.raise(Findings.format("migration gate failed", findings))
     end
   end
 
@@ -97,10 +92,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
       mapping_findings(root, path, body, required_mappings) ++
         link_findings(root, path, body)
 
-    case findings do
-      [] -> :ok
-      [_ | _] -> {:error, Enum.sort_by(findings, &{&1.path, &1.line || 0, &1.check})}
-    end
+    Findings.result(findings)
   end
 
   defp mapping_findings(root, path, body, required_mappings) do
@@ -109,9 +101,9 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
         []
       else
         [
-          finding(
+          Findings.new(
             :missing_mapping,
-            relative_path(root, path),
+            Path.relative_to(path, root),
             nil,
             "#{kind} #{token} is not mapped"
           )
@@ -195,7 +187,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
   end
 
   defp invalid_link(args, message) do
-    [finding(:invalid_link, relative_path(args.root, args.path), args.line_no, message)]
+    [Findings.new(:invalid_link, Path.relative_to(args.path, args.root), args.line_no, message)]
   end
 
   defp split_anchor(target) do
@@ -243,26 +235,5 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
       {:ok, body} -> body
       {:error, _} -> ""
     end
-  end
-
-  defp finding(check, path, line, message) do
-    %{check: check, path: path, line: line, message: message}
-  end
-
-  defp relative_path(root, path), do: Path.relative_to(path, root)
-
-  defp format_findings(findings) do
-    lines =
-      Enum.map(findings, fn finding ->
-        location =
-          case finding.line do
-            nil -> finding.path
-            line -> "#{finding.path}:#{line}"
-          end
-
-        "#{location}: #{finding.check}: #{finding.message}"
-      end)
-
-    "migration gate failed:\n" <> Enum.join(lines, "\n")
   end
 end
