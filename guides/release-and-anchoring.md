@@ -1,11 +1,11 @@
-# Release Verification and WORM Anchoring
+# Release Verification And WORM Anchoring
 
 Verifying a release's SBOM and provenance, and running a write-once/read-many
 (WORM) or append-only audit anchor store, are host operations. SigilGuard ships
 the primitives; the host owns transport, storage, and CI. The library performs
 no network calls of its own in any decision path.
 
-## Verifying a release SBOM
+## Verifying A Release SBOM
 
 SigilGuard generates an SPDX 2.3 SBOM with the built-in Mix task. Generation
 reads the Mix project, `mix.lock`, the `hex_metadata.config` of each locked
@@ -58,7 +58,7 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
   --predicate-type https://sigilguard.dev/attestation/release/v1
 ```
 
-### Consumer-side verification in CI
+### Consumer-Side Verification In CI
 
 A downstream consumer gates its own build on the signed evidence before
 trusting the release. `gh attestation verify` hashes the downloaded file and
@@ -96,7 +96,7 @@ GitHub reports the exact version tag as protected by a tag ruleset. The publish
 job requires a fresh Hex build and the downloaded registry tar to match the
 attested package byte for byte.
 
-### Required GitHub release settings
+### Required GitHub Release Settings
 
 Workflow YAML cannot create or prove owner-managed repository protections.
 Before releasing, an administrator must:
@@ -115,7 +115,7 @@ Without the protected tag the workflow fails during release-identity
 verification. Without the environment protections, the workflow declaration
 alone is not a protected publication boundary and the release must not proceed.
 
-## Implementing a WORM / append-only anchor store
+## Implementing A WORM / Append-Only Anchor Store
 
 Audit checkpoints and exports are the tamper-evidence layer; anchoring writes a
 compact receipt to external storage, so removing events that an anchored
@@ -126,7 +126,7 @@ transparency logs, WORM appliances) a host provides an HTTP endpoint and reaches
 it through the `SigilGuard.Audit.Anchor.Store.HTTP` adapter plus a
 `SigilGuard.HTTPClient`.
 
-### The HTTP client seam
+### The HTTP Client Seam
 
 The anchor HTTP store makes no network calls itself. It routes every request
 through a host-provided `SigilGuard.HTTPClient`, the library's only sanctioned
@@ -154,7 +154,7 @@ end
 With no resolvable client, the store fails closed with
 `:http_client_not_configured` at first use.
 
-### Requiring WORM semantics
+### Requiring WORM Semantics
 
 A WORM store MUST prove the object cannot be overwritten. Pass `require_worm:
 true` so the store rejects any receipt unless the remote service explicitly

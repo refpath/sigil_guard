@@ -1,22 +1,10 @@
 # Tidewave Integration
 
-Validation record:
-
-- Compatibility targets: `tidewave` `0.6.1`, `bandit` `1.12.0`.
-- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
-  unpacked SigilGuard Hex artifact in an isolated consumer.
-- The authorization helper compiles with `mix compile --warnings-as-errors`.
-  Three consumer tests pass, including the actual Tidewave parsed-body
-  rejection. Core tests cover policy/scanner composition and identity binding.
-- No drop-in transport adapter is validated for Tidewave 0.6.1.
-- Hex reports Bandit 1.12.0 advisories CVE-2026-74836, CVE-2026-65623 and
-  CVE-2026-75484. This pin records compatibility testing, not a deployment
-  recommendation. SigilGuard does not add Bandit or Tidewave as dependencies.
-
 Tidewave is dev-only tooling. SigilGuard does not make Tidewave safe for
 production exposure and must not be used as a reason to expose Tidewave outside
-a trusted development environment. The policy helper below supports host-owned authorization for local
-development. It does not intercept Tidewave calls by itself.
+a trusted development environment. The policy helper below supports host-owned
+authorization for local development. It does not intercept Tidewave calls by
+itself.
 
 ## Dependencies
 
@@ -126,21 +114,20 @@ The helper neither authenticates a caller nor dispatches a Tidewave tool. The
 host owns those steps and must not derive trusted boundary facts from model
 arguments. Pass only host-configured gate options.
 
-## Validation Procedure
+## Compatibility
 
-1. Create a scratch project outside this repo with the pinned `tidewave` and
-   `bandit` versions and the unpacked SigilGuard package.
-2. Compile the helper with `mix compile --warnings-as-errors`.
-3. Exercise the shipped policy's read, write and eval decisions, scanner
-   denials after a policy allow, mismatched tool identities and exact native
-   value preservation.
-4. Confirm that Tidewave's public Plug rejects parsed bodies. This documents
-   the unsupported insertion point; it does not claim transport integration.
-5. Record dependency versions, runtime, date and results above.
+- Target packages: `tidewave` `0.6.1`, `bandit` `1.12.0`.
+- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
+  unpacked SigilGuard Hex artifact in an isolated consumer.
+- The authorization helper compiles with `mix compile --warnings-as-errors`.
+  Three consumer tests pass, including the actual Tidewave parsed-body
+  rejection. Core tests cover policy/scanner composition and identity binding.
+- No drop-in transport adapter is validated for Tidewave 0.6.1.
+- Hex reports Bandit 1.12.0 advisories CVE-2026-74836, CVE-2026-65623 and
+  CVE-2026-75484. This pin records compatibility testing, not a deployment
+  recommendation. SigilGuard does not add Bandit or Tidewave as dependencies.
 
-For executable consumer checks, run the repository script from that scratch
-project after compiling the complete guide modules:
-
-```bash
-SIGIL_GUIDE_TARGET=tidewave mix run /path/to/sigil_guard/bin/guide_consumer.exs
-```
+Revalidate with
+`SIGIL_GUIDE_TARGET=tidewave mix run /path/to/sigil_guard/bin/guide_consumer.exs`
+(see [Library
+Maintenance](../library-maintenance.md#revalidating-integration-guides)).

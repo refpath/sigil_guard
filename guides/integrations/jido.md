@@ -1,17 +1,5 @@
 # Jido Integration
 
-Validation record:
-
-- Target package: `jido` `2.3.2`.
-- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
-  unpacked SigilGuard Hex artifact in an isolated consumer.
-- `mix compile --warnings-as-errors` and three consumer tests passed, including
-  `Jido.Exec.run/3`, allowed action output and structured redaction refusal.
-- Dependency compilation reported upstream optional Lua/Phoenix modules and
-  `:public_key` warnings. The consumer compilation passed; those dependency
-  warnings were not suppressed or treated as proof of compatibility for the
-  unused optional facilities.
-
 In a Jido action, guard the input inside `run/2` before side effects, put the
 agent identity into the boundary context, and return a normal Jido action error
 when SigilGuard denies the operation. Do not raise for policy denials.
@@ -83,6 +71,17 @@ defmodule MyApp.Actions.GuardedEcho do
 end
 ```
 
+A denial reaches the agent runtime as an ordinary Jido action error:
+
+```elixir
+{:error, {:sigil_guard_denied, :block, "untrusted zone may not request tools"}}
+```
+
+The runtime then decides whether to retry, ask for approval, or halt, and the
+action process does not crash. Hosts that expose Jido actions as MCP tools can
+convert the same decision to JSON-RPC with
+`SigilGuard.ToolGateway.response_for_decision/3`.
+
 ## Actor Context
 
 Populate `:actor` from the Jido agent identity or runtime context. The value
@@ -139,33 +138,19 @@ defmodule MyApp.Actions.ResultGate do
 end
 ```
 
-## Denial Handling
+## Compatibility
 
-Map SigilGuard denials to ordinary Jido action errors:
+- Target package: `jido` `2.3.2`.
+- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
+  unpacked SigilGuard Hex artifact in an isolated consumer.
+- `mix compile --warnings-as-errors` and three consumer tests passed, including
+  `Jido.Exec.run/3`, allowed action output and structured redaction refusal.
+- Dependency compilation reported upstream optional Lua/Phoenix modules and
+  `:public_key` warnings. The consumer compilation passed; those dependency
+  warnings were not suppressed or treated as proof of compatibility for the
+  unused optional facilities.
 
-```elixir
-{:error, {:sigil_guard_denied, :block, "untrusted zone may not request tools"}}
-```
-
-This lets the agent runtime decide whether to retry, ask for approval, or halt
-without crashing the action process. Hosts that expose Jido actions as MCP tools
-can convert the same decision to JSON-RPC with
-`SigilGuard.ToolGateway.response_for_decision/3`.
-
-## Validation Procedure
-
-To revalidate the guide against a new Jido release:
-
-1. Create a scratch project outside this repo.
-2. Add `{:jido, "~> 2.3.2"}` and the SigilGuard path dependency.
-3. Copy the guarded action example into the scratch project.
-4. Run `mix compile --warnings-as-errors`.
-5. Record the Elixir/OTP versions, Jido version, and result in the validation
-   record above.
-
-For executable consumer checks, run the repository script from that scratch
-project after compiling the complete guide modules:
-
-```bash
-SIGIL_GUIDE_TARGET=jido mix run /path/to/sigil_guard/bin/guide_consumer.exs
-```
+Revalidate with
+`SIGIL_GUIDE_TARGET=jido mix run /path/to/sigil_guard/bin/guide_consumer.exs`
+(see [Library
+Maintenance](../library-maintenance.md#revalidating-integration-guides)).

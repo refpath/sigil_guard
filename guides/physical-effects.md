@@ -1,4 +1,4 @@
-# Physical-effect requests
+# Physical-Effect Requests
 
 A tool request that moves a robot arm, opens a valve, or starts a machine has
 an effect that cannot be rolled back. `SigilGuard.EffectAuthority` and the
@@ -7,11 +7,11 @@ conditions, check those conditions again immediately before dispatch, and keep
 a signed report apart from an observed result.
 
 The contract is [SP.19](https://github.com/refpath/sigil_guard/blob/main/docs/specs/SP.19-physical-effect-authority.md).
-The library decides nothing about motion, is not part of a stop function, and
-keeps no durable state. The host owns the effect ledger, the current facts,
-and the target protocol.
+The library keeps no durable state. The host owns the effect ledger, the
+current facts, and the target protocol; [Limits](#limits) lists what the
+library does not cover.
 
-## 1. Carry a binding record
+## 1. Carry A Binding Record
 
 The request names what it will act on in a closed record under
 `params._meta["dev.sigilguard/effect"]`. Every leaf value is a string. An
@@ -46,7 +46,7 @@ never admits against the other. Express quantities in integer base units: an
 effect envelope bounds integers only, and `120` and `120.0` are different values
 to a confirmation token.
 
-## 2. Guard with `effect_binding: :required`
+## 2. Guard With `effect_binding: :required`
 
 ```elixir
 decision =
@@ -70,7 +70,7 @@ attestation nonce is consumed once, on the pass that allows execution.
 The option only refuses. A valid record never replaces a confirmation the
 policy requires.
 
-## 3. Claim, admit, dispatch
+## 3. Claim, Admit, Dispatch
 
 The receiving boundary is the last host component that can refuse before I/O
 reaches the target. It claims the operation in durable storage, checks current
@@ -150,7 +150,7 @@ as `:target_mismatch`, `:policy_epoch_mismatch`, `:stale_current_facts`, or
 `:effect_deadline_passed`. The result is not a credential. It applies to the
 dispatch that follows immediately.
 
-## 4. Record the outcome
+## 4. Record The Outcome
 
 A verified signature on a report shows which key endorsed it. It does not show
 that the work succeeded. Classify the report and the host's own observations
@@ -185,7 +185,7 @@ result. A signed success claim with no observation leaves it `nil`. The audit
 chain covers `result`, the ledger state; `result_info` and `metadata` are
 outside the chain preimage.
 
-## Effect envelopes
+## Effect Envelopes
 
 An exact request is approved once. A generated program that chooses among a
 finite set of operations and values can instead act under an effect envelope:
@@ -199,7 +199,7 @@ and the host passes the approved document as the `:envelope` option of
 `admit/5`. Changing anything in an envelope changes its digest and needs a
 new approval. The library keeps no record of which envelopes are approved.
 
-## Host obligations
+## Host Obligations
 
 - **Durable ledger.** Write the claim before any I/O, with create-if-absent
   semantics, in storage that survives restart and is visible to every host
@@ -235,6 +235,7 @@ acknowledgement lost, and only the target can close that gap.
 
 Admission narrows the interval between check and use. It does not close it:
 after `admit/5` returns `:ok` a person can enter the workspace. Controller
-state checks and the equipment's protective functions own that interval. No
+state checks and the equipment's protective functions own that interval. The
+library plans no motion and is not part of an emergency or protective stop. No
 output of this library is a safety function, a certification, or a claim of
 conformity with a machinery or cybersecurity standard.

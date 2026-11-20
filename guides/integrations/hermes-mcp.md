@@ -1,17 +1,5 @@
 # Hermes MCP Integration
 
-Validation record:
-
-- Target package: `hermes_mcp` `0.14.1`; variant: `anubis_mcp` `1.6.2`.
-- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
-  unpacked SigilGuard Hex artifact in separate consumers.
-- `mix compile --warnings-as-errors` passed for both complete component variants,
-  the interceptor, Hermes server registration and Plug. Three consumer tests
-  per framework passed, including real callbacks and error response shapes.
-- Core conformance tests execute the guide's interceptor and Plug with allowed
-  structured values and redaction denials. No Hermes or Anubis runtime
-  dependency is added to SigilGuard.
-
 Hermes MCP exposes MCP servers through supervised server modules and
 Streamable HTTP Plug/Phoenix routing. SigilGuard should sit at the host-owned
 boundary immediately before tool execution and immediately before a tool result
@@ -244,11 +232,11 @@ payload content.
 
 ## MCP v2 (`2026-07-28`) Adapter Contract
 
-The validation record covers only the named Hermes and Anubis versions.
-SigilGuard's MCP v2 support does not mean Hermes or Anubis supports MCP v2. The
-adapter remains responsible for protocol negotiation, `server/discover`,
-subscription delivery, and constructing and validating the standard request
-`_meta`, including `protocolVersion` and `clientCapabilities`.
+The [compatibility record](#compatibility) covers only the named Hermes and
+Anubis versions. SigilGuard's MCP v2 support does not mean Hermes or Anubis
+supports MCP v2. The adapter remains responsible for protocol negotiation,
+`server/discover`, subscription delivery, and constructing and validating the
+standard request `_meta`, including `protocolVersion` and `clientCapabilities`.
 
 When the adapter has negotiated `2026-07-28`, pass it explicitly while guarding
 successful results:
@@ -312,25 +300,19 @@ defmodule MyApp.GuardedEcho do
 end
 ```
 
-## Validation Procedure
+## Compatibility
 
-To revalidate the guide against a new Hermes or Anubis release:
+- Target package: `hermes_mcp` `0.14.1`; variant: `anubis_mcp` `1.6.2`.
+- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
+  unpacked SigilGuard Hex artifact in separate consumers.
+- `mix compile --warnings-as-errors` passed for both complete component variants,
+  the interceptor, Hermes server registration and Plug. Three consumer tests
+  per framework passed, including real callbacks and error response shapes.
+- Core conformance tests execute the guide's interceptor and Plug with allowed
+  structured values and redaction denials. No Hermes or Anubis runtime
+  dependency is added to SigilGuard.
 
-1. Create a scratch project outside this repo.
-2. Add the pinned `hermes_mcp` dependency and SigilGuard path dependency.
-3. Add `plug` when validating the Plug placement snippet.
-4. Copy the interceptor, server callback, and Plug snippets into the scratch
-   project. Exercise allowed structured values and all denial paths.
-5. Run `mix compile --warnings-as-errors`.
-6. Repeat with `anubis_mcp` and the Anubis component snippet.
-7. Record the date, Elixir/OTP versions, target package versions, and result in
-   the validation record above.
-
-For executable consumer checks, run the repository script from that scratch
-project after compiling the complete guide modules:
-
-```bash
-SIGIL_GUIDE_TARGET=hermes mix run /path/to/sigil_guard/bin/guide_consumer.exs
-```
-
-Use `SIGIL_GUIDE_TARGET=anubis` in the Anubis consumer.
+Revalidate with
+`SIGIL_GUIDE_TARGET=hermes mix run /path/to/sigil_guard/bin/guide_consumer.exs`,
+and with `SIGIL_GUIDE_TARGET=anubis` in the Anubis consumer (see [Library
+Maintenance](../library-maintenance.md#revalidating-integration-guides)).

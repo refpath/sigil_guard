@@ -1,14 +1,5 @@
 # LangChain And ReqLLM Integration
 
-Validation record:
-
-- Target packages: `langchain` `0.8.14`, `req_llm` `1.17.1`.
-- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
-  unpacked SigilGuard Hex artifact in an isolated consumer.
-- `mix compile --warnings-as-errors` and three consumer tests passed, including
-  actual tool construction, both frameworks' execution APIs, native result
-  maps and redaction refusal. No provider or remote model call was made.
-
 LangChain and ReqLLM both expose tool/function callbacks that execute host
 code on behalf of a model. SigilGuard belongs inside those callbacks: guard the
 request arguments before side effects, then guard the tool result before it is
@@ -116,6 +107,16 @@ defmodule MyApp.LLM.GuardedTools do
 end
 ```
 
+A denial comes back as an ordinary `{:error, reason}` tuple, which both
+LangChain and ReqLLM callbacks can return:
+
+```elixir
+{:error, {:sigil_guard_denied, :quarantine, "prompt injection indicators found"}}
+```
+
+Hosts that surface the denial over MCP can convert the same decision with
+`SigilGuard.ToolGateway.response_for_decision/3`.
+
 ## LangChain Placement
 
 Register the guarded function on the chain the same way you register any other
@@ -173,33 +174,16 @@ defmodule MyApp.LLM.SigilGuardPipelineStep do
 end
 ```
 
-## Denial Handling
+## Compatibility
 
-Both LangChain and ReqLLM callbacks can return ordinary `{:error, reason}`
-tuples:
+- Target packages: `langchain` `0.8.14`, `req_llm` `1.17.1`.
+- Validated 2026-09-11 with Elixir 1.19.6 / Erlang/OTP 28.5.0.6 against an
+  unpacked SigilGuard Hex artifact in an isolated consumer.
+- `mix compile --warnings-as-errors` and three consumer tests passed, including
+  actual tool construction, both frameworks' execution APIs, native result
+  maps and redaction refusal. No provider or remote model call was made.
 
-```elixir
-{:error, {:sigil_guard_denied, :quarantine, "prompt injection indicators found"}}
-```
-
-Hosts that surface the denial over MCP can convert the same decision with
-`SigilGuard.ToolGateway.response_for_decision/3`.
-
-## Validation Procedure
-
-To revalidate the guide against new LangChain or ReqLLM releases:
-
-1. Create a scratch project outside this repo.
-2. Add `{:langchain, "~> 0.8"}`, `{:req_llm, "~> 1.17"}`, and the SigilGuard
-   path dependency.
-3. Copy the shared gate module into the scratch project.
-4. Run `mix compile --warnings-as-errors`.
-5. Record resolved package versions, Elixir/OTP versions, and result in the
-   validation record above.
-
-For executable consumer checks, run the repository script from that scratch
-project after compiling the complete guide modules:
-
-```bash
-SIGIL_GUIDE_TARGET=llm mix run /path/to/sigil_guard/bin/guide_consumer.exs
-```
+Revalidate with
+`SIGIL_GUIDE_TARGET=llm mix run /path/to/sigil_guard/bin/guide_consumer.exs`
+(see [Library
+Maintenance](../library-maintenance.md#revalidating-integration-guides)).

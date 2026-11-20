@@ -41,20 +41,20 @@ detect drift, but they do not claim prevention.
 
 ## Claim Levels
 
-- **mitigates** — SigilGuard prevents the attack from producing its intended
+- **mitigates**: SigilGuard prevents the attack from producing its intended
   effect at the boundary it controls, deterministically and without model
   cooperation. The malicious input must be blocked, quarantined, or forced
   through confirmation.
-- **detects** — SigilGuard cannot prevent the root cause because it lives in a
+- **detects**: SigilGuard cannot prevent the root cause because it lives in a
   host-owned surface, but it emits a deterministic, tamper-evident signal such
   as digest drift, quarantine indication, replay rejection, or audit evidence.
-- **partial** — SigilGuard covers one facet, such as replay, drift, or
+- **partial**: SigilGuard covers one facet, such as replay, drift, or
   propagation evidence, but a host-owned surface is required for complete
   coverage. The partial boundary must be explicit.
-- **out-of-scope** — The vulnerability lives entirely outside SigilGuard's
+- **out-of-scope**: The vulnerability lives entirely outside SigilGuard's
   ownership, such as ecosystem tooling, IDEs, transport clients, or human
   judgment. SigilGuard may record evidence, but it must not claim prevention.
-- **detects-at-boundary** — SigilGuard detects and rejects the condition at the
+- **detects-at-boundary**: SigilGuard detects and rejects the condition at the
   boundary it observes, while behavior fully outside that boundary remains
   host-owned.
 
@@ -63,30 +63,15 @@ detect drift, but they do not claim prevention.
 SigilGuard is a library. These surfaces remain the host application's
 responsibility:
 
-- **OAuth flows and token issuance** — SigilGuard consumes an already-issued
-  identity or audience and binds it into attestations. It does not run the
-  authorization server, mint tokens, or manage consent cookies.
-- **Session and transport security** — TLS, stream resumption, WebSocket auth,
-  subscription delivery, and request routing belong to the host transport. MCP
-  v2 (`2026-07-28`) removes protocol sessions; SigilGuard adds per-action
-  nonce/replay checks and manifest-list invalidation on top of the host
-  transport.
-- **MCP Apps rendering** — iframe origin isolation, sandbox attributes, CSP
-  headers, and browser permission enforcement are host-owned. SigilGuard
-  verifies pinned resource bytes and declared domain/permission subsets and
-  enforces model/app visibility plus same-server app calls before execution.
-- **Sandbox execution** — SigilGuard requires sandbox identity and isolation
-  level as attested inputs and can fail closed on unsafe boundaries. It does
-  not create, run, or harden the sandbox itself.
-- **Memory-store implementations** — SigilGuard gates content at model ingress
-  and can bind provenance digests. The vector store, RAG index, and eviction
-  policy are host-owned.
-- **Model behavior** — SigilGuard is deterministic and never relies on the
-  model to refuse an attack. Model alignment and refusal behavior are out of
-  scope.
-- **Ecosystem tooling and IDEs** — SigilGuard cannot patch vulnerable tools,
-  IDE extensions, or transport clients. It assumes compromised tooling is
-  possible and records boundary evidence around the affected operations.
+| Host-owned surface | What SigilGuard does at the boundary |
+|--------------------|--------------------------------------|
+| OAuth flows and token issuance: the authorization server, token minting, consent cookies | Consumes an already-issued identity or audience and binds it into attestations. |
+| Session and transport security: TLS, stream resumption, WebSocket auth, subscription delivery, request routing | Adds per-action nonce/replay checks and manifest-list invalidation on top of the host transport. MCP v2 (`2026-07-28`) itself removes protocol sessions. |
+| MCP Apps rendering: iframe origin isolation, sandbox attributes, CSP headers, browser permission enforcement | Verifies pinned resource bytes and declared domain/permission subsets, and enforces model/app visibility plus same-server app calls before execution. |
+| Sandbox execution: creating, running, and hardening the sandbox | Requires sandbox identity and isolation level as attested inputs and can fail closed on unsafe boundaries. |
+| Memory stores: the vector store, RAG index, and eviction policy | Gates content at model ingress and can bind provenance digests. |
+| Model behavior: alignment and refusal | Decides deterministically and never relies on the model to refuse an attack. |
+| Ecosystem tooling and IDEs: vulnerable tools, IDE extensions, transport clients | Cannot patch them. Assumes compromised tooling is possible and records boundary evidence around the affected operations. |
 
 ## Test Families
 
