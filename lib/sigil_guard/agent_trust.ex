@@ -107,7 +107,7 @@ defmodule SigilGuard.AgentTrust do
   @doc """
   Attest an `agent_response` and return a signed DSSE envelope.
 
-  Mirrors `attest_agent_request/3` for the response boundary. Additionally
+  Mirrors `attest_agent_request/3` for the response boundary. It also
   requires `:request_action_digest`; reads `status` from the payload; derives
   `quarantined` from the decision. No delegation chain is accepted.
 

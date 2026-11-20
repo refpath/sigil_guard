@@ -1,7 +1,5 @@
 # SigilGuard
 
-**In-process. OTP-supervised. Deterministic. No sidecar. Signed evidence.**
-
 [![Hex.pm](https://img.shields.io/hexpm/v/sigil_guard.svg)](https://hex.pm/packages/sigil_guard)
 [![Docs](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/sigil_guard)
 [![CI](https://github.com/refpath/sigil_guard/actions/workflows/ci.yml/badge.svg)](https://github.com/refpath/sigil_guard/actions/workflows/ci.yml)
@@ -36,35 +34,32 @@ and human-in-the-loop confirmation bound to the exact action.
 
 ## Why embedded
 
-The common answer to MCP security is a proxy, a gateway, or a cloud scanner: a
-separate service in the request path. That buys latency, an extra operational
-surface, and a trust boundary of its own. For a team already on Elixir, an
-in-process library is a better fit.
-
-- **Deterministic core.** Policy decisions are code, not a model call. Same
-  inputs, same verdict, every time.
-- **Signed evidence, locally.** A tamper-evident HMAC and Merkle audit chain,
-  with signed checkpoints, inclusion and consistency proofs, and portable
-  exports, held in your app rather than a vendor's log.
-- **No sidecar.** OTP-supervised, sub-millisecond on the decision path, and
-  offline by default. Trust material ships with your release.
+MCP security is often a proxy, a gateway, or a cloud scanner in the request
+path: a separate service with its own latency, operations, and trust boundary.
+SigilGuard is a library instead. Policy decisions are code rather than a model
+call, so the same inputs give the same verdict. The audit chain (HMAC links,
+Merkle checkpoints, inclusion and consistency proofs, signed exports) stays in
+the host application. Trust material ships with the release and nothing on the
+decision path uses the network. Measured costs per call are in the Performance
+section of the documentation; a tool request through the gateway takes tens of
+microseconds on a workstation.
 
 ## Capabilities
 
 | Capability | What it does |
 |------------|--------------|
-| **Sensitivity scanner** | Staged detection and redaction of secrets and credentials, with confidence scoring and boundary-aware enrichment. |
-| **Boundary policy kernel** | Deterministic source-to-sink decisions over phase, origin, sink, actor, trust zone, and sandbox identity. |
-| **MCP v2 / tool gateway** | Transport-agnostic guards for MCP `2026-07-28` structured requests, MRTR results, and manifests pinned by digest. |
-| **Signed attestations** | Canonical, DSSE-enveloped statements binding an actor, tool, action, payload, and context to a verdict. |
-| **Trust bundles** | Signed, local trust material — roots, keys, policies, patterns, tool manifests, and revocations — verified offline. |
-| **Confirmation tokens** | Short-lived human-approval grants bound to the exact action, payload, and context, never a fuzzy intent. |
-| **Streaming sanitizer** | Chunk-safe holdback so a secret split across output chunks is never emitted early. |
-| **Tamper-evident audit** | HMAC-linked event chains, Merkle checkpoints with inclusion and consistency proofs, signed exports, and external anchoring. |
-| **Agent-to-agent trust** | Signed agent cards and delegation-chain validation for inter-agent calls. |
-| **Physical-effect authority** | A closed binding record, a deny-only admission check against host-supplied current facts, and effect envelopes for tool requests that change the physical world. |
-| **Vault** | AES-256-GCM secret storage behind a swappable behaviour (KMS, HSM, external vault). |
-| **Telemetry** | `:telemetry` events plus OpenTelemetry-style attribute mapping for every decision. |
+| Sensitivity scanner | Staged detection and redaction of secrets and credentials, with confidence scoring and boundary-aware enrichment. |
+| Boundary policy kernel | Deterministic source-to-sink decisions over phase, origin, sink, actor, trust zone, and sandbox identity. |
+| MCP v2 / tool gateway | Transport-agnostic guards for MCP `2026-07-28` structured requests, MRTR results, and manifests pinned by digest. |
+| Signed attestations | Canonical, DSSE-enveloped statements binding an actor, tool, action, payload, and context to a verdict. |
+| Trust bundles | Signed, local trust material (roots, keys, policies, patterns, tool manifests, and revocations), verified offline. |
+| Confirmation tokens | Short-lived human-approval grants bound to the exact action, payload, and context. |
+| Streaming sanitizer | Chunk-safe holdback so a secret split across output chunks is never emitted early. |
+| Tamper-evident audit | HMAC-linked event chains, Merkle checkpoints with inclusion and consistency proofs, signed exports, and external anchoring. |
+| Agent-to-agent trust | Signed agent cards and delegation-chain validation for inter-agent calls. |
+| Physical-effect authority | A closed binding record, a deny-only admission check against host-supplied current facts, and effect envelopes for tool requests that change the physical world. |
+| Vault | AES-256-GCM secret storage behind a swappable behaviour (KMS, HSM, external vault). |
+| Telemetry | `:telemetry` events plus OpenTelemetry-style attribute mapping for every decision. |
 
 ## Installation
 
@@ -420,8 +415,8 @@ SigilGuard plugs into them through behaviours:
 
 SigilGuard emits `:telemetry` events for scanning, gate decisions, MCP
 requests, policy verdicts, trust-bundle verification, and audit logging. Each
-decision event carries the sanitized boundary metadata — phase, actor, origin,
-sink, tool, trust zone, verdict, and digests — with raw payloads kept out by
+decision event carries the sanitized boundary metadata (phase, actor, origin,
+sink, tool, trust zone, verdict, and digests); raw payloads are kept out by
 default. Use `SigilGuard.Telemetry.otel_attributes/4` to map them into
 OpenTelemetry-style attributes under the `sigilguard.*` namespace. The mapper
 never exports an actor or identity in clear: pass `field_hash_key:` to get the

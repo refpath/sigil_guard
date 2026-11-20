@@ -217,7 +217,7 @@ defmodule SigilGuard.ToolGateway.BaseTest do
            ]
   end
 
-  test "request and signed request edge cases fail closed with safe shapes" do
+  test "unusual request and signed-request shapes get a decision, not a raise" do
     assert %Decision{verdict: :allowed} =
              Base.guard_request(
                %{"params" => %{"name" => nil, "server" => "srv"}, "method" => "tools/list"},

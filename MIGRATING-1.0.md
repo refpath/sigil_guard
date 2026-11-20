@@ -719,7 +719,7 @@ MCP `-32021` for a required capability the client did not declare and `-32022`
 for an unsupported protocol revision. These are protocol errors, not SigilGuard
 policy denials.
 Successful v2 responses add `resultType: "complete"` when absent and preserve
-any existing discriminator—including malformed or extension values—for the
+any existing discriminator, including malformed or extension values, for the
 host validator to reject or interpret. Earlier responses retain their prior
 shape, and unknown future revisions are not silently treated as v2.
 
@@ -799,8 +799,9 @@ The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
   decide what to execute after a confirmation must read `decision.effect`. In
   particular, a `tool_result` prompt-injection decision that used to report
   `action: :quarantine` now reports `action: :confirm, effect: :quarantine`.
-- **`:verdict` (legacy dual vocabulary)** — `:allowed | :blocked | {:confirm, reason}`
-  — is still populated for compatibility.
+- **`:verdict`**, the legacy dual vocabulary
+  (`:allowed | :blocked | {:confirm, reason}`), is still populated for
+  compatibility.
 - **New fields**: `matched_rules` (`[%{rule_id, explanation}]`), `evidence_refs`,
   `effect`, and the boundary labels `source`, `sink`, `trust_zone`, `actor`,
   `resource`. The `:require_approval` repo action is closed to `:confirm`.

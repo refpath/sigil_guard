@@ -32,7 +32,7 @@ and the Git revision bound into the document namespace. Run it in the
 mix sigil_guard.sbom --verify dist/sigil_guard.spdx.json
 ```
 
-**Digest** verification additionally binds the file to the exact bytes attested
+**Digest** verification also binds the file to the exact bytes attested
 in the release provenance (the SLSA build-provenance subject and the `artifacts`
 list under the signed predicate's `release` object). Pass the digest recorded
 in the provenance, not one computed from the file being checked; `shasum`

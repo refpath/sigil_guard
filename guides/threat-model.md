@@ -2,7 +2,7 @@
 
 This guide is the operator- and integrator-facing rendering of SigilGuard's
 threat model. Every claim is scoped to what the library controls: SigilGuard is
-an embedded runtime that mediates MCP and agent-tool boundaries — not host
+an embedded runtime that mediates MCP and agent-tool boundaries. It is not host
 authentication, transport security, sandbox execution, model behavior, or
 ecosystem tooling. The underlying research note, with sources and derivations,
 lives in `docs/research/` in the source repository.

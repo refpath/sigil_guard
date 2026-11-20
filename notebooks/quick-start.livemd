@@ -198,8 +198,8 @@ end
 
 ## A Small Policy Check
 
-The high-level policy API is useful when there is no payload to scan yet — for
-example, while deciding whether a low-trust actor may request a destructive
+The high-level policy API is useful when there is no payload to scan yet, for
+example while deciding whether a low-trust actor may request a destructive
 action.
 
 ```elixir
@@ -222,8 +222,8 @@ policy_matrix
 ## Takeaway
 
 The scanner found a fact. The boundary supplied meaning. The gate retained
-authority. Everything else in the tutorial track — manifests, confirmations,
-attestations, trust bundles, streams, agent cards, and audit proofs — makes
+authority. The rest of the tutorial track (manifests, confirmations,
+attestations, trust bundles, streams, agent cards, and audit proofs) makes
 that same decision harder to confuse, replay, repudiate, or bypass.
 
 Next: [Policy And The Lethal Trifecta](policy-and-lethal-trifecta.livemd).

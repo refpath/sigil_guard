@@ -313,12 +313,12 @@ defmodule SigilGuard.AuditTest do
     end
   end
 
-  describe "secure_compare edge cases" do
+  describe "HMAC comparison" do
     test "detects tampered HMAC with different length" do
       events = [Audit.new_event("test", "alice", "action", "ok")]
       signed = Audit.build_chain(events, @secret_key)
 
-      # Replace HMAC with a shorter string to trigger different-length branch
+      # An HMAC of another length must not match or raise.
       short_hmac = List.update_at(signed, 0, fn e -> %{e | hmac: "short"} end)
       assert {:broken, 0} = Audit.verify_chain(short_hmac, @secret_key)
     end
