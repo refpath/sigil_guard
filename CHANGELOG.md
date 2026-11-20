@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Security.** A tool whose manifest pins `ui.visibility: ["app"]` was
+  reachable by any caller origin except `:model`: `:user`, `:tool`,
+  `:resource`, `:repo`, `:registry` and an explicit `:unknown` skipped the
+  visibility check. Every origin other than `:app` is now held to the tool's
+  model visibility and gets `:app_visibility_denied` (SP.16).
 - **Security.** `SigilGuard.RepoPolicy.evaluate/2` returned `:require_approval`
   for a change that touched an unmatched path under `default block` whenever
   another path matched a `require_approval` rule. The default now competes by

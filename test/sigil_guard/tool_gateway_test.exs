@@ -1178,6 +1178,34 @@ defmodule SigilGuard.ToolGatewayTest do
       assert bad_visibility.audit_metadata.deny_reason == :app_visibility_denied
     end
 
+    test "an App-only tool admits the App origin and no other" do
+      app_only =
+        Map.put(manifest(), "ui", %{"resource_uri" => "ui://repo/review", "visibility" => ["app"]})
+
+      guard = fn context ->
+        ToolGateway.guard_request(request(), high_context("container") ++ context,
+          manifests: %{"repo_file_write" => app_only}
+        )
+      end
+
+      assert guard.(origin: :app, mcp_server: "repo-mcp").verdict == :allowed
+
+      for origin <- [:unknown, :user, :model, :tool, :resource, :repo, :registry] do
+        decision = guard.(origin: origin)
+
+        assert decision.verdict == :blocked
+        assert decision.audit_metadata.deny_reason == :app_visibility_denied
+      end
+
+      shared = put_in(app_only, ["ui", "visibility"], ["app", "model"])
+
+      for origin <- [:user, :model, :tool] do
+        assert ToolGateway.guard_request(request(), high_context("container") ++ [origin: origin],
+                 manifests: %{"repo_file_write" => shared}
+               ).verdict == :allowed
+      end
+    end
+
     test "an App caller is denied a tool whose manifest pins no App resource" do
       context = high_context("container") ++ [origin: :app, mcp_server: "repo-mcp"]
 

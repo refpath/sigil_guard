@@ -868,11 +868,11 @@ defmodule SigilGuard.ToolGateway do
   defp verify_caller_visibility(%CapabilityManifest{}, %Context{origin: :app}),
     do: {:error, :app_server_mismatch}
 
-  defp verify_caller_visibility(%CapabilityManifest{ui: ui}, %Context{origin: :model}) do
+  # Every caller that is not the App is held to the tool's model visibility:
+  # an App-only tool has exactly one permitted origin.
+  defp verify_caller_visibility(%CapabilityManifest{ui: ui}, %Context{}) do
     if visible_to?(ui, "model"), do: :ok, else: {:error, :app_visibility_denied}
   end
-
-  defp verify_caller_visibility(_, _), do: :ok
 
   defp visible_to?(nil, "model"), do: true
   defp visible_to?(nil, "app"), do: false
