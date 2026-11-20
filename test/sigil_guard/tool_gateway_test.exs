@@ -657,6 +657,24 @@ defmodule SigilGuard.ToolGatewayTest do
         )
 
       assert token_passthrough.audit_metadata.deny_reason == :token_passthrough_denied
+
+      for opts <- [[], [require_manifest: false], [manifests: %{}, require_manifest: false]] do
+        unpinned =
+          ToolGateway.guard_request(
+            request(),
+            sandbox_context(),
+            opts ++ [audience: ["upstream", "host-app"], self_resource: "host-app"]
+          )
+
+        assert unpinned.verdict == :blocked
+        assert unpinned.audit_metadata.deny_reason == :token_passthrough_denied
+      end
+
+      assert ToolGateway.guard_request(request(), sandbox_context(),
+               audience: "upstream",
+               self_resource: "host-app"
+             ).audit_metadata[:deny_reason] != :token_passthrough_denied
+
       assert resource.audit_metadata.deny_reason == :resource_mismatch
       assert audience.audit_metadata.deny_reason == :audience_mismatch
 
@@ -1200,7 +1218,9 @@ defmodule SigilGuard.ToolGatewayTest do
       shared = put_in(app_only, ["ui", "visibility"], ["app", "model"])
 
       for origin <- [:user, :model, :tool] do
-        assert ToolGateway.guard_request(request(), high_context("container") ++ [origin: origin],
+        assert ToolGateway.guard_request(
+                 request(),
+                 Keyword.put(high_context("container"), :origin, origin),
                  manifests: %{"repo_file_write" => shared}
                ).verdict == :allowed
       end

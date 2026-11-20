@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Security.** The token-passthrough check (`:token_passthrough_denied`, an
+  `:audience` that names `:self_resource`) ran only when a capability manifest
+  resolved. `SigilGuard.ToolGateway.guard_request/3` now applies it to every
+  request, with or without a manifest.
 - **Security.** A tool whose manifest pins `ui.visibility: ["app"]` was
   reachable by any caller origin except `:model`: `:user`, `:tool`,
   `:resource`, `:repo`, `:registry` and an explicit `:unknown` skipped the

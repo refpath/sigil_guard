@@ -794,7 +794,8 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
-  defp passthrough_resource_audience(nil, _), do: :ok
+  # Passthrough compares two host options and needs no manifest.
+  defp passthrough_resource_audience(nil, opts), do: token_passthrough(opts)
 
   defp passthrough_resource_audience(%CapabilityManifest{} = capability, opts) do
     with :ok <- token_passthrough(opts),
