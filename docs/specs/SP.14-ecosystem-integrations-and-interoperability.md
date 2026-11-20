@@ -226,7 +226,7 @@ guide under the same contract.
 ### Livebooks
 
 The conference-ready tutorial track ships under `notebooks/`. Every `.livemd`
-has a Run in Livebook badge and the reader-facing `notebooks/README.md`
+has a Run in Livebook badge and the reader-facing `notebooks/tutorials.md`
 provides self-study, 45-minute talk, and 90-minute workshop paths.
 
 | Notebook | Demonstrates |
@@ -292,7 +292,7 @@ documentation and release artifacts are the files listed in the module map.
 | `guides/integrations/*.md` | Four Tier 1 guides (hermes_mcp, jido, langchain, tidewave). |
 | `examples/tidewave/SIGILGUARD_POLICY` | The Tidewave boundary policy. No module ships under `examples/`. |
 | `test/support/guide_fixture.ex`, `bin/guide_consumer.exs` | Compile and run the guide code blocks in the test suite and in an isolated pinned consumer. |
-| `notebooks/README.md` | Tutorial catalog, capability coverage, talk plans, and AI-demo operating notes. |
+| `notebooks/tutorials.md` | Tutorial catalog, capability coverage, talk plans, and AI-demo operating notes. |
 | `notebooks/*.livemd` | The executable tutorial track. |
 | `SECURITY.md` | Disclosure policy and runbook pointer. |
 

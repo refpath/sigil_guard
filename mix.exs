@@ -89,7 +89,7 @@ defmodule SigilGuard.MixProject do
         lib
         guides
         notebooks
-        docs/README.md
+        docs/architecture.md
         bench/output/*.md
         .formatter.exs
         mix.exs
@@ -106,51 +106,51 @@ defmodule SigilGuard.MixProject do
 
   defp docs do
     [
-      main: "readme-1",
+      main: "readme",
       extras: [
         "README.md": [title: "Overview"],
-        "docs/README.md": [title: "Architecture"],
-        "notebooks/README.md": [title: "Livebook Tutorials"],
-        "notebooks/quick-start.livemd": [title: "Tutorial 1 — Quick Start"],
+        "docs/architecture.md": [title: "Architecture"],
+        "notebooks/tutorials.md": [title: "Livebook Tutorials"],
+        "notebooks/quick-start.livemd": [title: "Tutorial 1: Quick Start"],
         "notebooks/policy-and-lethal-trifecta.livemd": [
-          title: "Tutorial 2 — Policy And The Lethal Trifecta"
+          title: "Tutorial 2: Policy And The Lethal Trifecta"
         ],
         "notebooks/ai-agent-under-attack.livemd": [
-          title: "Tutorial 3 — An AI Agent Under Attack"
+          title: "Tutorial 3: An AI Agent Under Attack"
         ],
         "notebooks/agent-trust-gateway.livemd": [
-          title: "Tutorial 4 — The Agent Trust Gateway"
+          title: "Tutorial 4: The Agent Trust Gateway"
         ],
-        "notebooks/threat-scenarios.livemd": [title: "Tutorial 5 — Threat Lab"],
-        "notebooks/mcp-v2-and-apps.livemd": [title: "Tutorial 6 — MCP v2 And Apps"],
+        "notebooks/threat-scenarios.livemd": [title: "Tutorial 5: Threat Scenarios"],
+        "notebooks/mcp-v2-and-apps.livemd": [title: "Tutorial 6: MCP v2 And MCP Apps"],
         "notebooks/runtime-streaming-and-telemetry.livemd": [
-          title: "Tutorial 7 — Runtime, Streaming, And Telemetry"
+          title: "Tutorial 7: Runtime, Streaming, And Telemetry"
         ],
         "notebooks/trust-bundles-identity-and-vault.livemd": [
-          title: "Tutorial 8 — Trust Bundles, Identity, And Vault"
+          title: "Tutorial 8: Trust Bundles, Identity, And Vault"
         ],
         "notebooks/agent-to-agent-trust.livemd": [
-          title: "Tutorial 9 — Agent-To-Agent Trust"
+          title: "Tutorial 9: Agent-To-Agent Trust"
         ],
         "notebooks/audit-export-and-proofs.livemd": [
-          title: "Tutorial 10 — Audit Evidence And Proofs"
+          title: "Tutorial 10: Audit Export And Proofs"
         ],
         "notebooks/hermes-integration.livemd": [
-          title: "Tutorial 11 — Hermes Integration"
+          title: "Tutorial 11: Hermes Integration Stub"
         ],
         "notebooks/physical-effect-requests.livemd": [
-          title: "Tutorial 12 — Physical-Effect Requests"
+          title: "Tutorial 12: Physical-Effect Requests"
         ],
         "guides/cheatsheet.cheatmd": [title: "Cheatsheet"],
         "guides/threat-model.md": [title: "Threat Model"],
         "guides/integrations/hermes-mcp.md": [title: "Hermes MCP Integration"],
         "guides/integrations/jido.md": [title: "Jido Integration"],
-        "guides/integrations/langchain-reqllm.md": [title: "LangChain and ReqLLM Integration"],
+        "guides/integrations/langchain-reqllm.md": [title: "LangChain And ReqLLM Integration"],
         "guides/integrations/tidewave.md": [title: "Tidewave Integration"],
-        "guides/release-and-anchoring.md": [title: "Release and Anchoring"],
+        "guides/release-and-anchoring.md": [title: "Release Verification And WORM Anchoring"],
         "bench/output/benchmarks.md": [title: "Benchmarks"],
         "bench/output/scanner.md": [title: "Scanner Benchmarks"],
-        "bench/output/gate.md": [title: "Runtime Gate and Policy Benchmarks"],
+        "bench/output/gate.md": [title: "Runtime Gate And Policy Benchmarks"],
         "bench/output/stream.md": [title: "Streaming Benchmarks"],
         "bench/output/gateway.md": [title: "Tool Gateway Benchmarks"],
         "bench/output/confirmation.md": [title: "Confirmation Token Benchmarks"],
@@ -159,18 +159,18 @@ defmodule SigilGuard.MixProject do
         "bench/output/agent_trust.md": [title: "Agent-To-Agent Trust Benchmarks"],
         "bench/output/audit.md": [title: "Audit Evidence Benchmarks"],
         "bench/output/primitives.md": [title: "Primitive Benchmarks"],
-        "MIGRATING-1.0.md": [title: "Migrating to 1.0"],
+        "MIGRATING-1.0.md": [title: "Migrating To 1.0"],
         "CHANGELOG.md": [title: "Changelog"],
         "SECURITY.md": [title: "Security"],
         "CONTRIBUTING.md": [title: "Contributing"],
-        "guides/strict-deployment.md": [title: "Strict Deployment"],
+        "guides/strict-deployment.md": [title: "Strict Embedded Deployment"],
         "guides/physical-effects.md": [title: "Physical-Effect Requests"],
         "guides/library-maintenance.md": [title: "Library Maintenance"],
         LICENSE: [title: "License"]
       ],
       groups_for_extras: [
         Tutorials: ~r/notebooks/,
-        "Getting Started": ~r/README/,
+        "Getting Started": ~r{README|docs/architecture},
         Guides: ~r/guides/,
         Performance: ~r{bench/output/},
         Reference: ~r/MIGRATING|CHANGELOG|SECURITY|CONTRIBUTING|LICENSE/

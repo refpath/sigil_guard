@@ -52,7 +52,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLintTest do
         fixture_root(%{
           "README.md" => "Public docs\n",
           "CONTRIBUTING.md" => "Contributing\n",
-          "docs/README.md" => "Architecture\n",
+          "docs/architecture.md" => "Architecture\n",
           "docs/specs/README.md" => "[`SP.01`](SP.01-example.md)\n",
           "docs/specs/SP.01-example.md" => front_matter("SP.01"),
           "docs/tasks/sigil-tasks.md" => "- [ ] M1.01 Uses `SP.01`.\n"

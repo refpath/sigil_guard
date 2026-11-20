@@ -430,6 +430,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Repository
 
+- The architecture page and the tutorial index are `docs/architecture.md` and
+  `notebooks/tutorials.md`. ExDoc keys pages by file name, so three
+  `README.md` files sent every HexDocs README link to the architecture page.
 - Credo runs 102 checks over `lib/`, `test/`, `bench/`, `bin/`, `config/`,
   `mix.exs` and the tool configuration files.
 - Benchmarks are ten suites, one per area, each with a report in the

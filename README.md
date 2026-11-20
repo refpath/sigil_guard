@@ -13,7 +13,7 @@
 [Agent Trust Gateway](#agent-trust-gateway) ·
 [Configuration](#configuration) ·
 [Capabilities](#capabilities) ·
-[Architecture](docs/README.md)
+[Architecture](docs/architecture.md)
 
 ---
 
@@ -124,7 +124,7 @@ confirmation flow, trust bundles, and audit chain build on this same decision.
 
 ## Livebook Tutorials
 
-The executable [Livebook tutorial track](notebooks/README.md) starts with
+The executable [Livebook tutorial track](notebooks/tutorials.md) starts with
 scanner and boundary fundamentals, puts an optional live ReqLLM proposal behind
 a host-owned tool callback, and continues through manifests, confirmations,
 attestations, MCP v2/Apps, streaming, trust bundles, agent-to-agent trust,
@@ -443,7 +443,7 @@ tests for every mitigation and detection claim live in
 
 ## Architecture
 
-The [architecture overview](docs/README.md) maps the component layers, the
+The [architecture overview](docs/architecture.md) maps the component layers, the
 module topology, and the runtime, MCP, and audit-evidence flows, with diagrams.
 
 ## References

@@ -201,7 +201,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
     [
       Path.join(root, "README.md"),
       Path.join(root, "CONTRIBUTING.md"),
-      Path.join(root, "docs/README.md"),
+      Path.join(root, "docs/architecture.md"),
       Path.join(root, "docs/specs/README.md")
       | Path.wildcard(Path.join(root, "docs/templates/*.md"))
     ]
