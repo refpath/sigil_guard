@@ -9,6 +9,8 @@ verifies the peer's card envelope first, so it carries two Ed25519
 operations.
 
 Mode: measured. Values are measured for this environment, not ratified SLO bounds.
+Scenarios that take less than 10 µs run in batches of calls;
+every value is per call.
 
 
 ## Environment
@@ -16,7 +18,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (3471773)
+- SigilGuard: 1.0.5 (39a9315)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -81,65 +83,65 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.25 verify delegation chain</td>
-    <td style="white-space: nowrap; text-align: right">277.66 K</td>
-    <td style="white-space: nowrap; text-align: right">3.60 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;200.89%</td>
-    <td style="white-space: nowrap; text-align: right">3.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">8.17 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">284.10 K</td>
+    <td style="white-space: nowrap; text-align: right">3.52 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;58.06%</td>
+    <td style="white-space: nowrap; text-align: right">3.17 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">9.83 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card digest</td>
-    <td style="white-space: nowrap; text-align: right">54.93 K</td>
-    <td style="white-space: nowrap; text-align: right">18.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;27.33%</td>
-    <td style="white-space: nowrap; text-align: right">17.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">39.54 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">50.27 K</td>
+    <td style="white-space: nowrap; text-align: right">19.89 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;162.20%</td>
+    <td style="white-space: nowrap; text-align: right">16.25 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">64.46 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card verify</td>
-    <td style="white-space: nowrap; text-align: right">14.57 K</td>
-    <td style="white-space: nowrap; text-align: right">68.62 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;11.26%</td>
-    <td style="white-space: nowrap; text-align: right">67.42 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">85.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">15.17 K</td>
+    <td style="white-space: nowrap; text-align: right">65.91 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.38%</td>
+    <td style="white-space: nowrap; text-align: right">65.38 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">77.92 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card sign</td>
-    <td style="white-space: nowrap; text-align: right">10.64 K</td>
-    <td style="white-space: nowrap; text-align: right">94.01 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.71%</td>
-    <td style="white-space: nowrap; text-align: right">92.92 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">116.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">10.95 K</td>
+    <td style="white-space: nowrap; text-align: right">91.32 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;7.94%</td>
+    <td style="white-space: nowrap; text-align: right">88.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">112.91 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.25 verify agent response</td>
-    <td style="white-space: nowrap; text-align: right">5.94 K</td>
-    <td style="white-space: nowrap; text-align: right">168.48 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;8.45%</td>
-    <td style="white-space: nowrap; text-align: right">166.79 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">212.46 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.25 attest agent request</td>
-    <td style="white-space: nowrap; text-align: right">4.70 K</td>
-    <td style="white-space: nowrap; text-align: right">212.81 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;5.65%</td>
-    <td style="white-space: nowrap; text-align: right">211.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">245.96 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">6.02 K</td>
+    <td style="white-space: nowrap; text-align: right">165.99 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;5.42%</td>
+    <td style="white-space: nowrap; text-align: right">166.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">191.48 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.25 attest agent response</td>
-    <td style="white-space: nowrap; text-align: right">4.18 K</td>
-    <td style="white-space: nowrap; text-align: right">239.49 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;7.17%</td>
-    <td style="white-space: nowrap; text-align: right">238.17 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">285.94 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">4.57 K</td>
+    <td style="white-space: nowrap; text-align: right">218.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;5.82%</td>
+    <td style="white-space: nowrap; text-align: right">218.00 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">255.46 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.25 attest agent request</td>
+    <td style="white-space: nowrap; text-align: right">4.50 K</td>
+    <td style="white-space: nowrap; text-align: right">222.02 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.02%</td>
+    <td style="white-space: nowrap; text-align: right">221.58 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">256.68 &micro;s</td>
   </tr>
 
 </table>
@@ -154,44 +156,44 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.25 verify delegation chain</td>
-    <td style="white-space: nowrap;text-align: right">277.66 K</td>
+    <td style="white-space: nowrap;text-align: right">284.10 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card digest</td>
-    <td style="white-space: nowrap; text-align: right">54.93 K</td>
-    <td style="white-space: nowrap; text-align: right">5.06x</td>
+    <td style="white-space: nowrap; text-align: right">50.27 K</td>
+    <td style="white-space: nowrap; text-align: right">5.65x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card verify</td>
-    <td style="white-space: nowrap; text-align: right">14.57 K</td>
-    <td style="white-space: nowrap; text-align: right">19.05x</td>
+    <td style="white-space: nowrap; text-align: right">15.17 K</td>
+    <td style="white-space: nowrap; text-align: right">18.73x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.24 agent card sign</td>
-    <td style="white-space: nowrap; text-align: right">10.64 K</td>
-    <td style="white-space: nowrap; text-align: right">26.1x</td>
+    <td style="white-space: nowrap; text-align: right">10.95 K</td>
+    <td style="white-space: nowrap; text-align: right">25.94x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.25 verify agent response</td>
-    <td style="white-space: nowrap; text-align: right">5.94 K</td>
-    <td style="white-space: nowrap; text-align: right">46.78x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.25 attest agent request</td>
-    <td style="white-space: nowrap; text-align: right">4.70 K</td>
-    <td style="white-space: nowrap; text-align: right">59.09x</td>
+    <td style="white-space: nowrap; text-align: right">6.02 K</td>
+    <td style="white-space: nowrap; text-align: right">47.16x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.25 attest agent response</td>
-    <td style="white-space: nowrap; text-align: right">4.18 K</td>
-    <td style="white-space: nowrap; text-align: right">66.5x</td>
+    <td style="white-space: nowrap; text-align: right">4.57 K</td>
+    <td style="white-space: nowrap; text-align: right">62.17x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.25 attest agent request</td>
+    <td style="white-space: nowrap; text-align: right">4.50 K</td>
+    <td style="white-space: nowrap; text-align: right">63.08x</td>
   </tr>
 
 </table>
@@ -208,37 +210,37 @@ Memory Usage
   </tr>
   <tr>
     <td style="white-space: nowrap">BM.25 verify delegation chain</td>
-    <td style="white-space: nowrap">9.91 KB</td>
+    <td style="white-space: nowrap">9.96 KB</td>
     <td>&nbsp;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.24 agent card digest</td>
     <td style="white-space: nowrap">36.82 KB</td>
-    <td>3.71x</td>
+    <td>3.7x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.24 agent card verify</td>
     <td style="white-space: nowrap">48.66 KB</td>
-    <td>4.91x</td>
+    <td>4.89x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.24 agent card sign</td>
     <td style="white-space: nowrap">39.58 KB</td>
-    <td>3.99x</td>
+    <td>3.98x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.25 verify agent response</td>
     <td style="white-space: nowrap">160.69 KB</td>
-    <td>16.21x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.25 attest agent request</td>
-    <td style="white-space: nowrap">227.02 KB</td>
-    <td>22.9x</td>
+    <td>16.14x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.25 attest agent response</td>
     <td style="white-space: nowrap">209.53 KB</td>
-    <td>21.13x</td>
+    <td>21.05x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.25 attest agent request</td>
+    <td style="white-space: nowrap">226.95 KB</td>
+    <td>22.8x</td>
   </tr>
 </table>

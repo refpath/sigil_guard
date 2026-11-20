@@ -9,6 +9,8 @@ are redacted and every chunk is evaluated. At low trust the first secret
 asks for confirmation and halts the stream.
 
 Mode: measured. Values are measured for this environment, not ratified SLO bounds.
+Scenarios that take less than 10 µs run in batches of calls;
+every value is per call.
 
 
 ## Environment
@@ -16,7 +18,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (3471773)
+- SigilGuard: 1.0.5 (39a9315)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -24,8 +26,8 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 
 | Figure | Median (us) | Percent |
 |--------|------------:|--------:|
-| BM.04 stream median per chunk | 129.751 |  |
-| BM.04 stream overhead versus single pass | 12687.883 | 323.6 |
+| BM.04 stream median per chunk | 119.259 |  |
+| BM.04 stream overhead versus single pass | 11601.335 | 316.6 |
 
 ## System
 
@@ -88,29 +90,29 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.04 single pass gate 64k</td>
-    <td style="white-space: nowrap; text-align: right">254.77</td>
-    <td style="white-space: nowrap; text-align: right">3.93 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.27%</td>
-    <td style="white-space: nowrap; text-align: right">3.92 ms</td>
-    <td style="white-space: nowrap; text-align: right">4.75 ms</td>
+    <td style="white-space: nowrap; text-align: right">278.00</td>
+    <td style="white-space: nowrap; text-align: right">3.60 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;7.30%</td>
+    <td style="white-space: nowrap; text-align: right">3.66 ms</td>
+    <td style="white-space: nowrap; text-align: right">4.20 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap; text-align: right">60.30</td>
-    <td style="white-space: nowrap; text-align: right">16.58 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;7.44%</td>
-    <td style="white-space: nowrap; text-align: right">16.61 ms</td>
-    <td style="white-space: nowrap; text-align: right">20.03 ms</td>
+    <td style="white-space: nowrap; text-align: right">65.51</td>
+    <td style="white-space: nowrap; text-align: right">15.27 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;1.89%</td>
+    <td style="white-space: nowrap; text-align: right">15.27 ms</td>
+    <td style="white-space: nowrap; text-align: right">16.36 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k clean</td>
-    <td style="white-space: nowrap; text-align: right">58.76</td>
-    <td style="white-space: nowrap; text-align: right">17.02 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.63%</td>
-    <td style="white-space: nowrap; text-align: right">16.96 ms</td>
-    <td style="white-space: nowrap; text-align: right">23.00 ms</td>
+    <td style="white-space: nowrap; text-align: right">64.15</td>
+    <td style="white-space: nowrap; text-align: right">15.59 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;2.46%</td>
+    <td style="white-space: nowrap; text-align: right">15.58 ms</td>
+    <td style="white-space: nowrap; text-align: right">17.12 ms</td>
   </tr>
 
 </table>
@@ -125,20 +127,20 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.04 single pass gate 64k</td>
-    <td style="white-space: nowrap;text-align: right">254.77</td>
+    <td style="white-space: nowrap;text-align: right">278.00</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap; text-align: right">60.30</td>
-    <td style="white-space: nowrap; text-align: right">4.23x</td>
+    <td style="white-space: nowrap; text-align: right">65.51</td>
+    <td style="white-space: nowrap; text-align: right">4.24x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k clean</td>
-    <td style="white-space: nowrap; text-align: right">58.76</td>
-    <td style="white-space: nowrap; text-align: right">4.34x</td>
+    <td style="white-space: nowrap; text-align: right">64.15</td>
+    <td style="white-space: nowrap; text-align: right">4.33x</td>
   </tr>
 
 </table>
@@ -160,12 +162,12 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap">5.90 MB</td>
+    <td style="white-space: nowrap">5.91 MB</td>
     <td>3.27x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.04 runtime stream 64k clean</td>
-    <td style="white-space: nowrap">5.84 MB</td>
-    <td>3.24x</td>
+    <td style="white-space: nowrap">5.83 MB</td>
+    <td>3.23x</td>
   </tr>
 </table>

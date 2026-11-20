@@ -8,6 +8,8 @@ verifying against a key map and against a trust bundle role. Signing and
 verification are dominated by Ed25519.
 
 Mode: measured. Values are measured for this environment, not ratified SLO bounds.
+Scenarios that take less than 10 µs run in batches of calls;
+every value is per call.
 
 
 ## Environment
@@ -15,7 +17,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (3471773)
+- SigilGuard: 1.0.5 (39a9315)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -80,65 +82,65 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.21 trust profile validate</td>
-    <td style="white-space: nowrap; text-align: right">347.65 K</td>
-    <td style="white-space: nowrap; text-align: right">2.88 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;268.83%</td>
-    <td style="white-space: nowrap; text-align: right">2.38 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">5.29 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">284.41 K</td>
+    <td style="white-space: nowrap; text-align: right">3.52 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;399.26%</td>
+    <td style="white-space: nowrap; text-align: right">2.36 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">16.08 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.21 attestation digests</td>
-    <td style="white-space: nowrap; text-align: right">59.00 K</td>
-    <td style="white-space: nowrap; text-align: right">16.95 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;31.25%</td>
-    <td style="white-space: nowrap; text-align: right">15.71 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">31.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">58.27 K</td>
+    <td style="white-space: nowrap; text-align: right">17.16 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;58.89%</td>
+    <td style="white-space: nowrap; text-align: right">15.92 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">32.54 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.21 attestation from_decision</td>
-    <td style="white-space: nowrap; text-align: right">37.47 K</td>
-    <td style="white-space: nowrap; text-align: right">26.69 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;20.39%</td>
-    <td style="white-space: nowrap; text-align: right">25.08 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">44.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">35.29 K</td>
+    <td style="white-space: nowrap; text-align: right">28.34 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;34.44%</td>
+    <td style="white-space: nowrap; text-align: right">25.88 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">48.75 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.22 attestation verify signature only</td>
-    <td style="white-space: nowrap; text-align: right">16.39 K</td>
-    <td style="white-space: nowrap; text-align: right">61.01 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;11.90%</td>
-    <td style="white-space: nowrap; text-align: right">60.02 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">76.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">16.48 K</td>
+    <td style="white-space: nowrap; text-align: right">60.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;44.27%</td>
+    <td style="white-space: nowrap; text-align: right">58.79 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">82.69 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.05 attestation verify</td>
-    <td style="white-space: nowrap; text-align: right">12.46 K</td>
-    <td style="white-space: nowrap; text-align: right">80.26 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.58%</td>
-    <td style="white-space: nowrap; text-align: right">78.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">100.21 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
-    <td style="white-space: nowrap; text-align: right">11.95 K</td>
-    <td style="white-space: nowrap; text-align: right">83.69 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.80%</td>
-    <td style="white-space: nowrap; text-align: right">82.46 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">104.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">13.74 K</td>
+    <td style="white-space: nowrap; text-align: right">72.79 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.84%</td>
+    <td style="white-space: nowrap; text-align: right">73.00 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">86.25 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.05 attestation sign</td>
-    <td style="white-space: nowrap; text-align: right">10.71 K</td>
-    <td style="white-space: nowrap; text-align: right">93.35 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.05%</td>
-    <td style="white-space: nowrap; text-align: right">91.48 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">115.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">11.72 K</td>
+    <td style="white-space: nowrap; text-align: right">85.35 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.22%</td>
+    <td style="white-space: nowrap; text-align: right">85.29 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">99.52 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
+    <td style="white-space: nowrap; text-align: right">11.51 K</td>
+    <td style="white-space: nowrap; text-align: right">86.89 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;75.95%</td>
+    <td style="white-space: nowrap; text-align: right">82.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">242.17 &micro;s</td>
   </tr>
 
 </table>
@@ -153,44 +155,44 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.21 trust profile validate</td>
-    <td style="white-space: nowrap;text-align: right">347.65 K</td>
+    <td style="white-space: nowrap;text-align: right">284.41 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.21 attestation digests</td>
-    <td style="white-space: nowrap; text-align: right">59.00 K</td>
-    <td style="white-space: nowrap; text-align: right">5.89x</td>
+    <td style="white-space: nowrap; text-align: right">58.27 K</td>
+    <td style="white-space: nowrap; text-align: right">4.88x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.21 attestation from_decision</td>
-    <td style="white-space: nowrap; text-align: right">37.47 K</td>
-    <td style="white-space: nowrap; text-align: right">9.28x</td>
+    <td style="white-space: nowrap; text-align: right">35.29 K</td>
+    <td style="white-space: nowrap; text-align: right">8.06x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.22 attestation verify signature only</td>
-    <td style="white-space: nowrap; text-align: right">16.39 K</td>
-    <td style="white-space: nowrap; text-align: right">21.21x</td>
+    <td style="white-space: nowrap; text-align: right">16.48 K</td>
+    <td style="white-space: nowrap; text-align: right">17.25x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.05 attestation verify</td>
-    <td style="white-space: nowrap; text-align: right">12.46 K</td>
-    <td style="white-space: nowrap; text-align: right">27.9x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
-    <td style="white-space: nowrap; text-align: right">11.95 K</td>
-    <td style="white-space: nowrap; text-align: right">29.1x</td>
+    <td style="white-space: nowrap; text-align: right">13.74 K</td>
+    <td style="white-space: nowrap; text-align: right">20.7x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.05 attestation sign</td>
-    <td style="white-space: nowrap; text-align: right">10.71 K</td>
-    <td style="white-space: nowrap; text-align: right">32.45x</td>
+    <td style="white-space: nowrap; text-align: right">11.72 K</td>
+    <td style="white-space: nowrap; text-align: right">24.27x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
+    <td style="white-space: nowrap; text-align: right">11.51 K</td>
+    <td style="white-space: nowrap; text-align: right">24.71x</td>
   </tr>
 
 </table>
@@ -207,37 +209,37 @@ Memory Usage
   </tr>
   <tr>
     <td style="white-space: nowrap">BM.21 trust profile validate</td>
-    <td style="white-space: nowrap">3.40 KB</td>
+    <td style="white-space: nowrap">3.41 KB</td>
     <td>&nbsp;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.21 attestation digests</td>
     <td style="white-space: nowrap">50.46 KB</td>
-    <td>14.85x</td>
+    <td>14.81x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.21 attestation from_decision</td>
     <td style="white-space: nowrap">65.47 KB</td>
-    <td>19.26x</td>
+    <td>19.22x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.22 attestation verify signature only</td>
     <td style="white-space: nowrap">27.83 KB</td>
-    <td>8.19x</td>
+    <td>8.17x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.05 attestation verify</td>
     <td style="white-space: nowrap">79.36 KB</td>
-    <td>23.35x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
-    <td style="white-space: nowrap">84.75 KB</td>
-    <td>24.94x</td>
+    <td>23.3x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.05 attestation sign</td>
     <td style="white-space: nowrap">49.94 KB</td>
-    <td>14.69x</td>
+    <td>14.66x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.22 attestation verify with trust bundle</td>
+    <td style="white-space: nowrap">84.75 KB</td>
+    <td>24.88x</td>
   </tr>
 </table>
