@@ -1438,14 +1438,18 @@ defmodule SigilGuard.MCP.GatewayTest do
       gateway_stream = Gateway.stream_result(context)
       tool_stream = ToolGateway.stream_result(context)
 
-      assert Gateway.guarded_result_chunk(gateway_stream, "safe", opts) ==
-               ToolGateway.guarded_result_chunk(tool_stream, "safe", opts)
+      # A stream holds two running hash states, which are references, so two
+      # streams are compared without them.
+      comparable = fn {stream, result} -> {%{stream | input: nil, emitted: nil}, result} end
+
+      assert comparable.(Gateway.guarded_result_chunk(gateway_stream, "safe", opts)) ==
+               comparable.(ToolGateway.guarded_result_chunk(tool_stream, "safe", opts))
 
       gateway_finished = Gateway.stream_result(context)
       tool_finished = ToolGateway.stream_result(context)
 
-      assert Gateway.finish_guarded_result_stream(gateway_finished, opts) ==
-               ToolGateway.finish_guarded_result_stream(tool_finished, opts)
+      assert comparable.(Gateway.finish_guarded_result_stream(gateway_finished, opts)) ==
+               comparable.(ToolGateway.finish_guarded_result_stream(tool_finished, opts))
 
       decision = Gateway.guard_request(confirmable_request(), trust_level: :medium)
 

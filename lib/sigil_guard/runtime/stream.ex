@@ -13,6 +13,18 @@ defmodule SigilGuard.Runtime.Stream do
   If the gate blocks or requires confirmation, no new content is emitted and
   the stream is marked halted. Callers can inspect the returned decision to
   decide whether to drop, quarantine, or request approval.
+
+  The decision that ends a stream, from `finish/1` or from the push that
+  halts it, carries what crossed in its audit metadata:
+  `stream_input_bytes` and `stream_input_sha256` over every chunk pushed, and
+  `stream_emitted_bytes` and `stream_emitted_sha256` over every chunk
+  released, in order. A halt the stream itself decides also sets
+  `deny_reason` to `:stream_holdback_overflow`, `:invalid_utf8`, or
+  `:incomplete_utf8`.
+
+  The struct holds the two running hash states. They are references, so two
+  streams that saw the same chunks do not compare equal and a stream does not
+  survive serialization.
   """
 
   alias SigilGuard.Context
@@ -31,7 +43,9 @@ defmodule SigilGuard.Runtime.Stream do
           pending: String.t(),
           window_bytes: pos_integer(),
           halted?: boolean(),
-          decision: Decision.t() | nil
+          decision: Decision.t() | nil,
+          input: {non_neg_integer(), :crypto.hash_state() | nil},
+          emitted: {non_neg_integer(), :crypto.hash_state() | nil}
         }
 
   defstruct context: %Context{},
@@ -39,7 +53,9 @@ defmodule SigilGuard.Runtime.Stream do
             pending: "",
             window_bytes: @default_window_bytes,
             halted?: false,
-            decision: nil
+            decision: nil,
+            input: {0, nil},
+            emitted: {0, nil}
 
   @doc """
   Start a stream sanitizer for a labeled boundary.
@@ -76,17 +92,19 @@ defmodule SigilGuard.Runtime.Stream do
   end
 
   def push(%__MODULE__{} = stream, chunk) when is_binary(chunk) do
+    stream = %{stream | input: absorb(stream.input, chunk)}
     combined = stream.pending <> chunk
     limit = Keyword.get(stream.opts, :max_stream_bytes, @default_max_pending_bytes)
 
     if not is_integer(limit) or limit <= 0 or byte_size(combined) > limit do
-      halt(stream, "stream capacity exceeded")
+      halt(stream, "stream capacity exceeded", :stream_holdback_overflow)
     else
       push_validated(stream, combined, :unicode.characters_to_binary(combined))
     end
   end
 
-  defp push_validated(stream, _, {:error, _, _}), do: halt(stream, "invalid UTF-8")
+  defp push_validated(stream, _, {:error, _, _}),
+    do: halt(stream, "invalid UTF-8", :invalid_utf8)
 
   defp push_validated(stream, combined, {:incomplete, valid, _}),
     do: evaluate_chunk(stream, combined, valid)
@@ -94,7 +112,7 @@ defmodule SigilGuard.Runtime.Stream do
   defp push_validated(stream, combined, valid), do: evaluate_chunk(stream, combined, valid)
 
   defp evaluate_chunk(stream, combined, valid) do
-    decision = Gate.evaluate(valid, stream.context, stream.opts)
+    decision = Gate.evaluate(valid, stream.context, window_opts(stream))
 
     if Decision.allowed?(decision) do
       {emittable, pending} = split_emittable(combined, decision.hits, stream, valid)
@@ -102,23 +120,55 @@ defmodule SigilGuard.Runtime.Stream do
       emitted =
         sanitize_allowed(emittable, decision.hits, byte_size(emittable), decision, stream.opts)
 
-      {%{stream | pending: pending, decision: decision}, decision, emitted}
+      emitted_state = absorb(stream.emitted, emitted)
+
+      {%{stream | pending: pending, decision: decision, emitted: emitted_state}, decision,
+       emitted}
     else
-      {%{stream | pending: "", halted?: true, decision: decision}, decision, ""}
+      halted(stream, decision)
     end
   end
 
-  defp halt(stream, reason) do
-    decision = %Decision{
+  defp halt(stream, reason, deny_reason) do
+    halted(stream, %Decision{
       verdict: :blocked,
       action: :block,
       phase: stream.context.phase,
       risk_level: :high,
       trust_level: stream.context.trust_level,
-      reason: reason
-    }
+      reason: reason,
+      audit_metadata: %{verdict: :blocked, action: :block, deny_reason: deny_reason}
+    })
+  end
+
+  defp halted(stream, decision) do
+    decision = with_evidence(decision, stream)
 
     {%{stream | pending: "", halted?: true, decision: decision}, decision, ""}
+  end
+
+  defp absorb({bytes, state}, chunk) do
+    {bytes + byte_size(chunk), :crypto.hash_update(state || :crypto.hash_init(:sha256), chunk)}
+  end
+
+  defp with_evidence(%Decision{} = decision, stream) do
+    {input_bytes, input_sha256} = digest(stream.input)
+    {emitted_bytes, emitted_sha256} = digest(stream.emitted)
+
+    evidence = %{
+      stream_input_bytes: input_bytes,
+      stream_input_sha256: input_sha256,
+      stream_emitted_bytes: emitted_bytes,
+      stream_emitted_sha256: emitted_sha256
+    }
+
+    %{decision | audit_metadata: Map.merge(decision.audit_metadata, evidence)}
+  end
+
+  defp digest({bytes, state}) do
+    final = :crypto.hash_final(state || :crypto.hash_init(:sha256))
+
+    {bytes, Base.encode16(final, case: :lower)}
   end
 
   @doc """
@@ -135,14 +185,16 @@ defmodule SigilGuard.Runtime.Stream do
   def finish(%__MODULE__{} = stream) do
     if String.valid?(stream.pending),
       do: finish_valid(stream),
-      else: halt(stream, "incomplete UTF-8")
+      else: halt(stream, "incomplete UTF-8", :incomplete_utf8)
   end
 
   defp finish_valid(stream) do
-    decision = Gate.evaluate(stream.pending, stream.context, stream.opts)
+    decision = Gate.evaluate(stream.pending, stream.context, window_opts(stream))
     emitted = if Decision.allowed?(decision), do: decision.sanitized_text || "", else: ""
+    stream = %{stream | pending: "", emitted: absorb(stream.emitted, emitted)}
+    decision = with_evidence(decision, stream)
 
-    {%{stream | pending: "", decision: decision}, decision, emitted}
+    {%{stream | decision: decision}, decision, emitted}
   end
 
   defp split_emittable(text, hits, stream, valid) do
@@ -208,6 +260,11 @@ defmodule SigilGuard.Runtime.Stream do
   defp sanitize_allowed(emittable, _, _, _, _), do: emittable
 
   defp contained?(hit, emit_size), do: hit.offset + hit.length <= emit_size
+
+  # A window is part of a message. A per-sink output contract, with its size
+  # cap and class check, is a property of the whole message, so the host
+  # applies it to the assembled output.
+  defp window_opts(%__MODULE__{opts: opts}), do: Keyword.put(opts, :output_contracts, false)
 
   # Width hints set a minimum; candidate_start/2 handles expressions for which
   # a finite holdback cannot prove a safe emission boundary.

@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.04"
   title: "Boundary Scanner And Policy Kernel"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: critical
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -50,13 +50,14 @@ property-test specification. It realizes R.06 rows 1, 9, 10, and 11
    zone. The struct has no tenant or transport field.
 2. **Extract candidates:** secret regex patterns in `SigilGuard.Scanner`, and
    prompt-injection and tool-poisoning indicator regexes in
-   `SigilGuard.Quarantine`. Structured parsers, known-secret-value matching,
-   and URL or path extraction are not implemented.
+   `SigilGuard.Quarantine`.
 3. **Validate candidates:** structural format checks, token and label
    boundaries, placeholder and repeated-value rejection, and entropy floors
-   for the built-in patterns. Checksums, allowlists, baseline suppressions,
-   and bundle-supplied validators are not implemented; a host that needs them
-   passes its own `:pipeline` module to the scanner.
+   for the built-in patterns. The built-in pipeline stops there by design:
+   structured parsers, known-secret-value matching, URL or path extraction,
+   checksums, allowlists, baseline suppressions, and bundle-supplied
+   validators belong to a host `:pipeline` module, which the scanner calls in
+   place of its own.
 4. **Enrich signals:** scanner hits gain confidence, signals, span, and
    validation stage; quarantine indicators gain a category; hooks and the
    adaptive detector add indicators and may raise risk on the kernel
@@ -65,9 +66,9 @@ property-test specification. It realizes R.06 rows 1, 9, 10, and 11
 5. **Evaluate policy:** deterministic deny precedence over kernel invariants,
    the sandbox matrix, policy-file rules, host-supplied repo facts, and hook
    verdicts.
-6. **Apply output contracts:** not wired into the kernel or the gate.
-   `BoundaryPolicy.Contract.enforce/4` transforms content only when the host
-   calls it (see Sink-Aware Output Contracts).
+6. **Apply output contracts:** `Runtime.Gate` applies the contract its
+   `:boundary_policy` file declares for the sink to content the verdict lets
+   cross (see Sink-Aware Output Contracts). The kernel does not.
 7. **Emit evidence:** the kernel returns a `SigilGuard.Decision` with matched
    rules and audit metadata and emits the `[:sigil_guard, :policy, :decision]`
    telemetry event. The host builds attestations, audit events, and OTel
@@ -136,9 +137,9 @@ three steps. The kernel applies the map at whatever phase the boundary
 names, and reads neither `%File{repo: ...}` nor `Boundary.repo_changes`.
 
 Allow-side contributions take effect only where no stronger contribution
-exists. Output contracts are not part of the combination, and no kernel or
-gate code runs them. The host applies them to content the final verdict
-permits to cross (see Sink-Aware Output Contracts).
+exists. Output contracts are not part of the combination. The gate applies
+them afterwards, to content the final verdict permits to cross (see
+Sink-Aware Output Contracts).
 
 This list is the kernel's own combination. When the runtime gate (SP.07)
 evaluates through `BoundaryPolicy`, it treats the kernel verdict as one
@@ -500,28 +501,49 @@ permits to cross. They are designed as the backstop for R.06 rows 1, 10, 11,
 and 14: an allowed flow should not carry raw credentials or oversized
 payloads into an external sink.
 
-The library parses contracts and provides the transform; it does not apply
-them. `File.parse/1` compiles `[contracts]` into `%File{contracts: ...}`, a
-map keyed by sink string, and no kernel, gate, or gateway code reads that map
-or calls `Contract.enforce/4`. A host that wants the backstop looks up
-`policy.contracts[sink]` and calls
-`Contract.enforce(contract, sink, content, opts)` on outbound content after
-the decision. Until the host does, an allowed flow crosses untransformed.
+`File.parse/1` compiles `[contracts]` into `%File{contracts: ...}`, a map
+keyed by sink string. `Runtime.Gate` applies the contract for the context
+sink when the file is its `:boundary_policy` option and the verdict lets the
+content cross (`allow`, `redact`, or `confirm`). A blocked or quarantined
+decision is left alone.
 
-`enforce/4` does not scan. The host runs the outbound scan and passes the
-matched substrings as `:credentials` and `:pii`; `enforce/4` replaces each
-occurrence of those literal strings. Its options are `:verdict` (default
-`:allow`), `:credentials` (default `[]`), and `:pii` (default `[]`). It
-returns `{:ok, content}` or `{:block, "contract.<sink>.class"}`.
+The payload decides the content class: a binary payload is `text`, a map or
+list is `structured`. A class the contract does not list blocks the crossing
+with matched rule `contract.<sink>.class`. For a `text` payload the gate then
+runs the transforms on the text it would release, after scanner redaction and
+quarantine sanitization:
+
+- `no_raw_credentials` re-scans that text with the built-in secret patterns,
+  whatever pattern set the host scanned with, and replaces each match.
+- `digest_only_pii` re-scans with the host's `:patterns` and `:pipeline`
+  options and replaces each hit whose category is `pii` with its digest.
+- `max_size` truncates.
+
+A re-scan that cannot run blocks with `contract.<sink>.scan`. When a transform
+changes the text, the decision releases the transformed text: an `allow`
+becomes `redact`, and a `confirm` gets `effect: :redact`. The decision's audit
+metadata lists what ran in `output_contract_transforms` (`:credentials`,
+`:pii`, `:truncate`; `[]` when the contract left the text unchanged). A
+`structured` payload that passes the class check crosses unchanged.
+
+Three callers get no contract: a `Runtime.Stream` window, because a size cap
+and a class are properties of the whole message; a direct
+`BoundaryPolicy.evaluate/2` call; and a gate call with
+`output_contracts: false`. Each can call
+`Contract.enforce(contract, sink, content, opts)` itself. `enforce/4` does not
+scan: it replaces the literal strings passed as `:credentials` and `:pii`.
+Its options are `:verdict` (default `:allow`), `:credentials` (default `[]`),
+and `:pii` (default `[]`), and it returns `{:ok, content}` or
+`{:block, "contract.<sink>.class"}`.
 
 ### Contract Vocabulary
 
 | Field | Type | Default | Meaning |
 |-------|------|---------|---------|
 | `max_size` | positive integer (bytes), minimum 64 | unlimited | Cap on outbound byte size of `text` content; violations apply `truncate`. `structured` content is not truncated. |
-| `no_raw_credentials` | boolean | `false` | Each string in the caller's `:credentials` list is replaced per `credential_transform`. `enforce/4` runs no secret scan of its own; with an empty list the text is unchanged. |
-| `digest_only_pii` | boolean | `false` | Each string in the caller's `:pii` list is replaced with `hash`. No pattern, built-in or bundle-supplied, carries a `pii` flag; the host identifies PII spans. |
-| `classes` | CSV of `text`, `structured` | all classes | Allowed content classes from the SP.01 payload class: UTF-8 binary is `text`; map or list is `structured`. A disallowed class is not transformable: `enforce/4` returns `{:block, "contract.<sink>.class"}` and the host must treat the crossing as blocked. No `Decision` is changed. |
+| `no_raw_credentials` | boolean | `false` | The gate re-scans the released text with the built-in secret patterns and replaces each match per `credential_transform`. `enforce/4` called directly replaces the strings in its `:credentials` list. |
+| `digest_only_pii` | boolean | `false` | The gate re-scans the released text with the host's pattern set and replaces each hit of category `pii` with `hash`. No built-in pattern has that category, so the host supplies PII patterns. `enforce/4` called directly replaces the strings in its `:pii` list. |
+| `classes` | CSV of `text`, `structured` | all classes | Allowed content classes from the SP.01 payload class: UTF-8 binary is `text`; map or list is `structured`. A disallowed class is not transformable: the gate blocks the decision with matched rule `contract.<sink>.class`, and `enforce/4` returns `{:block, "contract.<sink>.class"}`. |
 | `credential_transform` | `mask` \| `hash` | `mask` | Transform for `no_raw_credentials` replacements; any other value fails with `:unknown_transform`. |
 
 Each sink may appear in at most one contract; duplicates, unknown fields,
@@ -555,8 +577,8 @@ Outbound content is to be processed in exactly this order:
    replacements, then `max_size` truncation, in that order.
 
 `Runtime.Gate` performs steps 1 and 2 when it builds
-`Decision.sanitized_text`. Step 3 is not wired: the host calls `enforce/4`
-on that text, and `enforce/4` applies the four sub-steps in the order given.
+`Decision.sanitized_text`, then step 3 on that text for a `text` payload.
+`enforce/4` applies the four sub-steps in the order given.
 
 No contract runs on `block` or `quarantine` verdicts. Called with
 `verdict: :block` or `verdict: :quarantine`, `enforce/4` skips the contract
@@ -769,9 +791,8 @@ end
   verdict is unchanged. (All-or-nothing, so a detector cannot smuggle a
   partial result past validation.)
 - The indicators, the raised risk level, and `adaptive_error` appear on the
-  decision that `BoundaryPolicy.evaluate/2` returns. Through `Runtime.Gate`
-  the detector runs and emits its telemetry event, but the gate decision
-  carries none of the three.
+  decision that `BoundaryPolicy.evaluate/2` returns, and `Runtime.Gate`
+  copies all three onto its own decision.
 - The reference implementation (Ortex/ONNX classifier) is an optional
   post-GA package (R.07) and is not specified here.
 
@@ -784,8 +805,7 @@ end
 only load-bearing key for consumers (D17). The set `Scanner.scan/2` requires
 of every pipeline, custom ones included, is `name`, `category`, `severity`,
 `match`, `offset`, and `length`; a hit missing one of them, or whose `offset`
-and `length` fall outside the text, raises `ArgumentError`. The narrower
-required set `name`, `match`, `offset`, `length` is not implemented. The
+and `length` fall outside the text, raises `ArgumentError`. The
 default `:staged` pipeline emits every field below plus `signals`, `stage`,
 and `validated`; the `:regex` pipeline emits no `confidence` or `span`.
 
@@ -796,7 +816,7 @@ and `validated`; the `:regex` pipeline emits no `confidence` or `span`.
 | `offset` | `non_neg_integer()` | required | Byte offset. |
 | `length` | `non_neg_integer()` | required | Byte length. |
 | `replacement_hint` | `String.t() \| nil` | optional | Redaction replacement. |
-| `category` | `atom() \| String.t()` | required | Built-in patterns and bundle `secret`-set entries emit `:secret`. `Patterns.compile/1` keeps the entry's own string and defaults to `"unknown"`; it does not map `"credential"` to `:secret`. The gate's scanner-failure hit carries `"scanner"`. The closed atom set `:secret \| :injection \| :poisoning` is not enforced: the scanner accepts any atom or string. Only `:secret` and `"secret"` count as secret for the kernel's external-sink invariant and for `hits:secret`. |
+| `category` | `atom() \| String.t()` | required | Built-in patterns and bundle `secret`-set entries emit `:secret`. `Patterns.compile/1` keeps the entry's own string and defaults to `"unknown"`. The gate's scanner-failure hit carries `"scanner"`. The vocabulary is open: the scanner accepts any atom or string, because a hit map may only grow (D17). `SigilGuard.Patterns.secret_category?/1` defines which categories count as a secret for the kernel's external-sink rule and the output contract re-scan: `:secret`, `:credential`, and their string forms. A hit of category `pii` is what `digest_only_pii` digests. |
 | `confidence` | `float()` in `0.0..1.0` | optional | Staged-pipeline score. |
 | `severity` | `:low \| :medium \| :high` | required | Pattern severity. |
 | `span` | `{offset, length}` tuple | optional | The staged pipeline sets it to the flat `offset`/`length` byte values. `Scanner.scan/2` does not check it on a custom pipeline's hits. |
@@ -895,9 +915,13 @@ stream stays pending until `finish/1`.
 The pending buffer is bounded by `:max_stream_bytes` (default 1 MiB). A push
 that would exceed the cap, or a cap that is not a positive integer, halts the
 stream with a `block` decision whose reason is the string
-`"stream capacity exceeded"`; no error atom is attached. `finish/1` MUST
-flush all withheld bytes after the final gate evaluation (nothing is withheld
-forever), and a halted stream emits nothing further.
+`"stream capacity exceeded"` and whose audit metadata has
+`deny_reason: :stream_holdback_overflow`. Invalid UTF-8 in a push halts with
+`:invalid_utf8`, and an incomplete sequence left at `finish/1` with
+`:incomplete_utf8`. `finish/1` MUST flush all withheld bytes after the final
+gate evaluation (nothing is withheld forever), and a halted stream emits
+nothing further. The decision that ends a stream carries digests of the bytes
+pushed and released (SP.07).
 
 ### Curated Vector File
 
@@ -995,16 +1019,16 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
 | `:sandbox_required` | decision reason | supply sandbox identity or add an explicit `isolation:` rule | quarantine/block per the matrix |
 | `:invalid_isolation_level` | context validation | use a closed-enum value | request blocked |
 | `:scanner_failed` | gate audit metadata `scanner_error` | fix the scanner pipeline or its options | gate blocks; the hit list holds one `scanner_error` hit |
-| `:scanner_timeout` | not implemented | none | no code or test produces it; the scanner has no time bound, and a scanner that raises is reported as `:scanner_failed` |
-| `:stream_holdback_overflow` | not implemented | none | no code or test produces it; a stream over `:max_stream_bytes` halts with a `block` decision whose reason is the string `"stream capacity exceeded"` |
+| `:stream_holdback_overflow` | `audit_metadata.deny_reason` of the halting stream decision | raise `:max_stream_bytes` or shorten the message | the stream halts with a `block` decision and emits nothing further. `:invalid_utf8` and `:incomplete_utf8` are the other two stream halt reasons. |
 | invalid scanner options | `ArgumentError` | pass a keyword list | direct scan rejected; runtime gate catches and blocks |
 | invalid policy options | blocked verdict | pass a keyword list | action blocked at highest risk |
 
 ## Security Considerations
 
 - Regex is a candidate extractor, not the decision engine. Contracts are a
-  backstop on allowed flows only where the host calls `Contract.enforce/4`;
-  the library does not apply them.
+  backstop on allowed flows: the gate applies them to a text payload and
+  checks the content class of a structured one. A stream window and a direct
+  `BoundaryPolicy.evaluate/2` call apply none.
 - Output headed toward a model or external sink must carry source and sink;
   the trifecta rules depend on honest boundary labels, including the
   `source_sensitivity` the host states in context metadata.
@@ -1057,12 +1081,12 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
       truncation UTF-8 property and the 64-byte `max_size` floor, and
       `enforce/4` applies class check, credential, PII, and truncation in
       that order.
-- [ ] Outbound content passes through redaction, quarantine, and the sink
-      contract in that order (not implemented: no library code calls
-      `Contract.enforce/4` or reads `%File{}.contracts`; the host must).
-- [ ] `no_raw_credentials` re-scans outbound text with the secret pattern
-      set (not implemented: `enforce/4` replaces only the strings the caller
-      passes as `:credentials`).
+- [x] Outbound content passes through redaction, quarantine, and the sink
+      contract in that order: `Runtime.Gate` applies the contract to the text
+      it would release (`Runtime.OutputContractTest`).
+- [x] `no_raw_credentials` re-scans outbound text with the built-in secret
+      pattern set and replaces each match with the contract transform
+      (`Runtime.OutputContractTest`).
 - [x] The `[repo]` section of a loaded policy file contributes a verdict at
       `:file_changed`: the runtime gate evaluates it at `:repo_change` and
       passes the facts to the kernel (`Runtime.GateTest`).
@@ -1081,9 +1105,10 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
       active `max_match_bytes`.
 - [x] `split_secret_vectors.json` exists with the required vector classes,
       including confusable negatives, and executes green.
-- [ ] Every spec-local error atom is produced by at least one test
-      (`:scanner_timeout` and `:stream_holdback_overflow` are produced by no
-      code or test; the other atoms in the Error Handling table are).
+- [x] Every spec-local error atom is produced by at least one test.
+      `:stream_holdback_overflow` is asserted in `Runtime.StreamTest`. The
+      scanner has no time bound of its own: a host bounds scan time, and a
+      scanner that raises is `:scanner_failed`.
 
 ## Implementation Roadmap
 
@@ -1100,8 +1125,8 @@ modules land in M5 on top of this work.
       `isolation:` override rule.
 - [x] M4: output contracts with the three transforms and the host-invoked
       `Contract.enforce/4`.
-- [ ] M4: evaluation-order wiring of contracts into the gate (not
-      implemented: `Contract.enforce/4` has no caller in `lib/`).
+- [x] M4: evaluation-order wiring of contracts into the gate
+      (`SigilGuard.Runtime.OutputContract`).
 - [x] M4: `SigilGuard.Hooks` behaviour, dispatcher, timeout, fail-closed
       matrix.
 - [x] M4: `SigilGuard.AdaptiveDetector` behaviour with nil-path equality

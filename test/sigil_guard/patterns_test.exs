@@ -3,6 +3,8 @@ defmodule SigilGuard.PatternsTest do
 
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Patterns
+
   alias SigilGuard.Patterns
 
   describe "max_match_bytes (boundary policy holdback)" do

@@ -80,7 +80,6 @@ defmodule SigilGuard.BoundaryPolicy do
   alias SigilGuard.Verdict
 
   @external_sinks [:external, :network, "external", "network"]
-  @secret_categories [:secret, "secret"]
   @risk_rank %{low: 0, medium: 1, high: 2}
   @max_timeout_ms 4_294_967_295
 
@@ -416,7 +415,7 @@ defmodule SigilGuard.BoundaryPolicy do
   end
 
   defp secret_hit?(hit) when is_map(hit) do
-    category(hit) in @secret_categories
+    SigilGuard.Patterns.secret_category?(category(hit))
   end
 
   defp secret_hit?(_), do: false

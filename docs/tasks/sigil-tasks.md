@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 300 / 312 tasks done (96.2%).** Milestones: 16 complete, 1 open.
+**Overall: 303 / 312 tasks done (97.1%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 5 | 17 | 29% | Open |
-| — | **Total** | **300** | **312** | **96.2%** | 16 done |
+| M14 | Spec conformance backlog | 8 | 17 | 47% | Open |
+| — | **Total** | **303** | **312** | **97.1%** | 16 done |
 
 ### Release Handoff
 
@@ -3136,16 +3136,30 @@ needs its design confirmed against the consumer contracts before work begins.
     metadata carries `repo_policy_digest` and `repo_policy_default`. Tests:
     `Runtime.GateTest`.
 
-- [ ] M14.02 Output contract enforcement (`SP.04`).
+- [x] M14.02 Output contract enforcement (`SP.04`).
   - AC: `BoundaryPolicy.Contract.enforce/4` runs in the evaluation order for
     outbound content; `no_raw_credentials` re-scans with the secret pattern
     set; `digest_only_pii` has a pattern flag to act on; a class violation
     escalates the decision to block.
-- [ ] M14.03 Scanner hit vocabulary (`SP.04`).
+  - Resolved: `SigilGuard.Runtime.OutputContract` applies the contract a
+    `:boundary_policy` file declares for the sink, after redaction and
+    quarantine sanitization: class check, credential re-scan with the built-
+    in secret patterns, PII digesting for hits of category `pii`, then
+    truncation. A disallowed class or a re-scan that cannot run blocks.
+    Stream windows and direct kernel calls get no contract. Tests:
+    `Runtime.OutputContractTest`.
+
+- [x] M14.03 Scanner hit vocabulary (`SP.04`).
   - AC: hit `category` is a closed atom set with the `"credential"` to
     `:secret` mapping, or the spec's kernel invariant names the string
     categories it accepts; the required hit keys for a custom pipeline match
     what `Scanner.scan/2` enforces.
+  - Resolved: the hit `category` vocabulary stays open because a hit map may
+    only grow (D17). `SigilGuard.Patterns.secret_category?/1` defines the
+    secret categories, now including `credential`, for the kernel rule and
+    the contract re-scan. SP.04 states the six hit keys `Scanner.scan/2`
+    enforces as the contract.
+
 - [x] M14.04 Hook and adaptive signals on gate decisions (`SP.04`, `SP.07`).
   - AC: hook signals, adaptive indicators, raised risk, and `adaptive_error`
     appear on the decision the gate returns; a notify-form return on a
@@ -3165,10 +3179,18 @@ needs its design confirmed against the consumer contracts before work begins.
     resolves the manifest so a result uses its declared classes.
   - Note: the first item changes decisions for hosts that declare no
     isolation level.
-- [ ] M14.06 Scanner time bound and stream binding (`SP.04`, `SP.07`).
+- [x] M14.06 Scanner time bound and stream binding (`SP.04`, `SP.07`).
   - AC: `:scanner_timeout` and `:stream_holdback_overflow` are produced and
     tested, or removed from the error tables; stream chunks bind to payload
     and context digests.
+  - Resolved: a stream halt sets `deny_reason` to
+    `:stream_holdback_overflow`, `:invalid_utf8` or `:incomplete_utf8`, and
+    the decision that ends a stream carries SHA-256 digests and byte counts
+    of what was pushed and released. `:scanner_timeout` is dropped: the
+    scanner has no time bound of its own, and bounding scan time is the host
+    obligation the deployment guide already states. Tests:
+    `Runtime.StreamTest`.
+
 - [ ] M14.07 Attestation predicate completeness (`SP.01`, `SP.03`, `SP.07`).
   - AC: `Attestation.from_decision/3` emits the `boundary` mirror,
     `matched_rules`, evidence references, a generated nonce, and millisecond

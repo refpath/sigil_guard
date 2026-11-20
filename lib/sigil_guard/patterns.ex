@@ -114,6 +114,32 @@ defmodule SigilGuard.Patterns do
     }
   ]
 
+  @secret_categories [:secret, "secret", :credential, "credential"]
+
+  @doc """
+  Returns whether a hit `category` names a secret.
+
+  The built-in patterns use `:secret`. A compiled custom pattern keeps its
+  category as a string, so `"secret"` and `"credential"` count too, as do the
+  atoms `:secret` and `:credential`. The policy kernel's rule for a secret
+  headed to an external sink and the output contract re-scan use this.
+
+  ## Examples
+
+      iex> SigilGuard.Patterns.secret_category?(:secret)
+      true
+
+      iex> SigilGuard.Patterns.secret_category?("credential")
+      true
+
+      iex> SigilGuard.Patterns.secret_category?("pii")
+      false
+
+  """
+  @doc since: "1.1.0"
+  @spec secret_category?(term()) :: boolean()
+  def secret_category?(category), do: category in @secret_categories
+
   @doc "Return compiled built-in patterns."
   @spec built_in() :: [compiled_pattern()]
   def built_in do

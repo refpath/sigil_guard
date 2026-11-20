@@ -29,6 +29,7 @@ defmodule SigilGuard.Runtime.Gate do
   alias SigilGuard.Quarantine
   alias SigilGuard.RepoPolicy
   alias SigilGuard.RepoPolicy.Decision, as: RepoDecision
+  alias SigilGuard.Runtime.OutputContract
   alias SigilGuard.Scanner
   alias SigilGuard.Telemetry
   alias SigilGuard.Verdict
@@ -439,28 +440,98 @@ defmodule SigilGuard.Runtime.Gate do
     sanitized_text =
       sanitized_text(state.text, state.hits, state.quarantine, sanitize_action, state.opts)
 
+    crossing =
+      output_contract(state, %{
+        verdict: verdict,
+        action: action,
+        effect: effect,
+        reason: reason,
+        sanitized_text: sanitized_text,
+        rules: [],
+        transforms: nil
+      })
+
     %Decision{
-      verdict: verdict,
-      action: action,
-      effect: effect,
-      reason: reason,
+      verdict: crossing.verdict,
+      action: crossing.action,
+      effect: crossing.effect,
+      reason: crossing.reason,
       phase: state.context.phase,
       risk_level: state.risk,
       trust_level: state.context.trust_level,
       hits: state.hits,
       indicators: state.quarantine.indicators ++ state.advisory_indicators,
-      matched_rules: matched_rules(gate_reason) ++ boundary_matched_rules(boundary_decision),
+      matched_rules:
+        matched_rules(gate_reason) ++
+          boundary_matched_rules(boundary_decision) ++ crossing.rules,
       evidence_refs: [],
       source: state.context.origin,
       sink: state.context.sink,
       trust_zone: state.context.trust_zone,
       actor: audit_binary(state.context.actor),
       resource: audit_binary(state.context.resource_uri),
-      sanitized_text: sanitized_text,
+      sanitized_text: crossing.sanitized_text,
       content_hash: state.quarantine.content_hash,
-      audit_metadata: audit_metadata(state, verdict, action, action_digest, action_digest_error)
+      audit_metadata:
+        state
+        |> audit_metadata(crossing.verdict, crossing.action, action_digest, action_digest_error)
+        |> put_present(:output_contract_transforms, crossing.transforms)
     }
   end
+
+  # SP.04 evaluation order step 3: the per-sink contract of the policy file,
+  # for content the verdict lets cross. A stream evaluates windows of a
+  # message and turns this step off.
+  defp output_contract(state, %{action: action} = crossing)
+       when action in [:allow, :redact, :confirm] do
+    if Keyword.get(state.opts, :output_contracts, true) do
+      state.opts
+      |> Keyword.get(:boundary_policy)
+      |> OutputContract.apply(
+        state.context.sink,
+        state.payload,
+        crossing.sanitized_text,
+        state.opts
+      )
+      |> contract_outcome(crossing, state.context.sink)
+    else
+      crossing
+    end
+  end
+
+  defp output_contract(_, crossing), do: crossing
+
+  defp contract_outcome(:none, crossing, _), do: crossing
+
+  defp contract_outcome({:block, rule_id}, crossing, sink) do
+    reason = "Output contract for sink #{sink} does not permit this content"
+
+    %{
+      crossing
+      | verdict: :blocked,
+        action: :block,
+        effect: nil,
+        reason: reason,
+        rules: [%{rule_id: rule_id, explanation: reason}]
+    }
+  end
+
+  defp contract_outcome({:crossed, _, []}, crossing, _), do: %{crossing | transforms: []}
+
+  # Transformed content is released in place of the original, so an allow
+  # becomes a redact, and a confirm releases the transformed text.
+  defp contract_outcome({:crossed, text, transforms}, crossing, _) do
+    %{crossing | sanitized_text: text, transforms: transforms}
+    |> released_as_redact()
+  end
+
+  defp released_as_redact(%{action: :allow} = crossing),
+    do: %{crossing | action: :redact, effect: :redact}
+
+  defp released_as_redact(%{action: :confirm, effect: :allow} = crossing),
+    do: %{crossing | effect: :redact}
+
+  defp released_as_redact(crossing), do: crossing
 
   # Hooks and the adaptive detector run inside the kernel. Their indicators
   # join the decision, and a risk they raise goes back through the risk and

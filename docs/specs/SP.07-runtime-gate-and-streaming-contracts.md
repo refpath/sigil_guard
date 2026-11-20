@@ -99,7 +99,7 @@ sequenceDiagram
 | `SigilGuard.Context` | Replace or wrap with `SigilGuard.Boundary` normalized context. |
 | `SigilGuard.Decision` | Unify verdict vocabulary and add typed fields per the V3 Decision Contract below. |
 | `SigilGuard.Runtime.Gate` | Evaluate the boundary policy through `BoundaryPolicy.evaluate/2` (SP.04) as a decision contribution; the gate keeps extraction, scanning, quarantine inspection, output sanitization, confirmation, and decision assembly. See *Gate ↔ Kernel Delegation* below. |
-| `SigilGuard.Runtime.Stream` | Keep holdback logic; bind stream chunks to payload/context digests. The digest binding is not implemented: each push is a separate `Runtime.Gate.evaluate/3` call over the buffered text, and a host that needs a digest for the whole stream computes it over the assembled output. Property-test obligations live in SP.04's Streaming Property-Test Specification. |
+| `SigilGuard.Runtime.Stream` | Keep holdback logic; bind what crossed. Each push is a separate `Runtime.Gate.evaluate/3` call over the buffered text. The decision that ends a stream carries `stream_input_bytes`, `stream_input_sha256`, `stream_emitted_bytes`, and `stream_emitted_sha256` in its audit metadata: SHA-256 over every chunk pushed and over every chunk released, in order. A stream window gets no output contract (SP.04). Property-test obligations live in SP.04's Streaming Property-Test Specification. |
 | `SigilGuard.Quarantine` indicators | Become bundle-provided and pluggable; the current seven ship as built-in defaults. Contract owned by SP.04. |
 | Runtime telemetry | Emit SP.05 decision attributes and no raw payloads. |
 

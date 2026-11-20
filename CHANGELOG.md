@@ -5,6 +5,20 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Behaviour change.** `SigilGuard.Runtime.Gate` applies the `[contracts]`
+  section of a boundary policy file passed as `:boundary_policy`. For the
+  context sink it checks the content class and, on a text payload, re-scans
+  the released text for secrets, digests PII hits and truncates to
+  `max_size`. Transformed text is released as a `redact`; a disallowed class
+  blocks. The section was parsed and ignored. `output_contracts: false`
+  restores the old behaviour, and stream windows are exempt.
+- Add `SigilGuard.Patterns.secret_category?/1`. A hit of category
+  `credential` now counts as a secret for the kernel's external-sink rule.
+- The decision that ends a `SigilGuard.Runtime.Stream` carries
+  `stream_input_sha256`, `stream_emitted_sha256` and their byte counts in its
+  audit metadata, and a halt the stream decides sets `deny_reason`
+  (`:stream_holdback_overflow`, `:invalid_utf8`, `:incomplete_utf8`). The
+  struct now holds two hash states, so two streams no longer compare equal.
 - Advisory signals from `:hooks` and `:adaptive_detector` reach the decision
   `SigilGuard.Runtime.Gate` returns. Their indicators follow the quarantine
   indicators in `decision.indicators`, a risk they raise above the gate's own
