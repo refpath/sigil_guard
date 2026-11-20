@@ -21,49 +21,34 @@ defmodule SigilGuard.BackendTest do
   end
 
   describe "impl/0" do
-    test "returns Elixir backend by default" do
+    test "is the native Elixir backend when the removed key is absent" do
+      Application.delete_env(:sigil_guard, :backend)
+
+      assert Backend.impl() == SigilGuard.Backend.Elixir
+    end
+
+    test "raises the removed-key error for any configured value" do
+      for value <- [:elixir, :nif, SigilGuard.Backend.Elixir, String, "elixir", nil] do
+        Application.put_env(:sigil_guard, :backend, value)
+
+        error = assert_raise SigilGuard.ConfigError, fn -> Backend.impl() end
+
+        assert error.key == :backend
+        assert error.reason == :legacy_contract_removed
+        assert error.message =~ "MIGRATING-1.0.md"
+      end
+    end
+
+    test "agrees with runtime configuration validation" do
+      config_error =
+        assert_raise SigilGuard.ConfigError, fn ->
+          SigilGuard.Config.validate!(backend: :elixir)
+        end
+
       Application.put_env(:sigil_guard, :backend, :elixir)
-      assert Backend.impl() == SigilGuard.Backend.Elixir
-    end
+      facade_error = assert_raise SigilGuard.ConfigError, fn -> SigilGuard.scan("safe") end
 
-    test "raises when removed NIF backend is configured" do
-      Application.put_env(:sigil_guard, :backend, :nif)
-
-      assert_raise ArgumentError, ~r/backend :nif has been removed/, fn -> Backend.impl() end
-    end
-
-    test "accepts custom module" do
-      Application.put_env(:sigil_guard, :backend, SigilGuard.Backend.Elixir)
-      assert Backend.impl() == SigilGuard.Backend.Elixir
-    end
-
-    test "memoized backend follows configuration changes" do
-      Application.put_env(:sigil_guard, :backend, :elixir)
-      assert Backend.impl() == SigilGuard.Backend.Elixir
-
-      Application.put_env(:sigil_guard, :backend, SigilGuard.Backend.Elixir)
-      assert Backend.impl() == SigilGuard.Backend.Elixir
-
-      Application.put_env(:sigil_guard, :backend, :nif)
-      assert_raise ArgumentError, ~r/backend :nif has been removed/, fn -> Backend.impl() end
-    end
-
-    test "raises for an atom that is not a backend module" do
-      Application.put_env(:sigil_guard, :backend, :bogus)
-
-      assert_raise ArgumentError, ~r/not a module implementing/, fn -> Backend.impl() end
-    end
-
-    test "raises for a module without the behaviour functions" do
-      Application.put_env(:sigil_guard, :backend, String)
-
-      assert_raise ArgumentError, ~r/not a module implementing/, fn -> Backend.impl() end
-    end
-
-    test "raises for non-atom values" do
-      Application.put_env(:sigil_guard, :backend, "elixir")
-
-      assert_raise ArgumentError, ~r/invalid :sigil_guard backend/, fn -> Backend.impl() end
+      assert {facade_error.key, facade_error.reason} == {config_error.key, config_error.reason}
     end
   end
 
@@ -84,6 +69,10 @@ defmodule SigilGuard.BackendTest do
   end
 
   describe "facade dispatch" do
+    setup do
+      Application.delete_env(:sigil_guard, :backend)
+    end
+
     test "scan dispatches through backend" do
       assert {:ok, "safe"} = SigilGuard.scan("safe")
     end

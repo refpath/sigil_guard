@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 295 / 312 tasks done (94.6%).** Milestones: 16 complete, 1 open.
+**Overall: 296 / 312 tasks done (94.9%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 0 | 17 | 0% | Open |
-| — | **Total** | **295** | **312** | **94.6%** | 16 done |
+| M14 | Spec conformance backlog | 1 | 17 | 6% | Open |
+| — | **Total** | **296** | **312** | **94.9%** | 16 done |
 
 ### Release Handoff
 
@@ -3202,10 +3202,16 @@ needs its design confirmed against the consumer contracts before work begins.
 - [ ] M14.14 Repo policy error atoms (`SP.11`).
   - AC: `:invalid_path` is produced or removed; a malformed loader option
     value returns `:invalid_options` before any filesystem access.
-- [ ] M14.15 Backend selection (`SP.06`).
+- [x] M14.15 Backend selection (`SP.06`).
   - AC: `SigilGuard.Backend.impl/0` and `SigilGuard.Config` agree. Today the
     first accepts a module named by the `:backend` application key and the
     second rejects that key as removed.
+  - Resolved: the migration guide already states that the native Elixir
+    backend is the only backend, and `SigilGuard.Config` rejects the
+    `:backend` key. `Backend.impl/0` now returns `SigilGuard.Backend.Elixir`
+    and raises the same `SigilGuard.ConfigError` when the key is set. Tests:
+    `BackendTest`.
+
 - [ ] M14.16 Benchmark fixtures (`SP.15`).
   - AC: BM.02 has a 1 KiB corpus that contains a hit; BM.04 splits a secret
     across a chunk boundary; BM.06 uses a bundle with two delegations and ten

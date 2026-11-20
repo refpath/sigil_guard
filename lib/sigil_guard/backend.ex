@@ -1,10 +1,11 @@
 defmodule SigilGuard.Backend do
   @moduledoc """
-  Behaviour for SigilGuard processing backends.
+  Behaviour of the SigilGuard processing backend.
 
-  SigilGuard ships one built-in implementation, `SigilGuard.Backend.Elixir`. A
-  custom module can replace scanning and policy evaluation behind the public
-  facade.
+  `SigilGuard.Backend.Elixir` is the only backend. The `:backend` application
+  key was removed in 1.0: `impl/0` raises `SigilGuard.ConfigError` when it is
+  set, as `SigilGuard.Config` does at runtime start. To change how text is
+  scanned, pass a `:pipeline` module to `SigilGuard.Scanner.scan/2`.
 
   ## Example
 
@@ -18,10 +19,8 @@ defmodule SigilGuard.Backend do
   alias SigilGuard.Patterns
   alias SigilGuard.Policy
 
-  @impl_cache_key {__MODULE__, :impl_cache}
-
-  @typedoc "Backend module types"
-  @type backend_module :: SigilGuard.Backend.Elixir | module()
+  @typedoc "The backend module"
+  @type backend_module :: SigilGuard.Backend.Elixir
 
   @typedoc "Backend configuration atoms"
   @type backend_type :: :elixir
@@ -56,12 +55,10 @@ defmodule SigilGuard.Backend do
               :ok | {:broken, non_neg_integer()}
 
   @doc """
-  Returns the backend implementation module based on configuration.
+  Returns the backend module, `SigilGuard.Backend.Elixir`.
 
-  Accepts `:elixir` or a custom module implementing this behaviour. The
-  previous `:nif` backend has been removed from the native Elixir line.
-  Any other value raises `ArgumentError` immediately, rather
-  than failing later with `UndefinedFunctionError` mid-operation.
+  Raises `SigilGuard.ConfigError` when the removed `:backend` application key
+  is set, whatever its value.
 
   ## Examples
 
@@ -71,43 +68,16 @@ defmodule SigilGuard.Backend do
   """
   @spec impl() :: backend_module()
   def impl do
-    configured = Application.get_env(:sigil_guard, :backend, :elixir)
-
-    case :persistent_term.get(@impl_cache_key, :none) do
-      {^configured, module} -> module
-      _ -> cache_impl(configured, resolve_impl(configured))
-    end
-  end
-
-  defp cache_impl(configured, module) do
-    :persistent_term.put(@impl_cache_key, {configured, module})
-    module
-  end
-
-  defp resolve_impl(configured) do
-    case configured do
-      :elixir ->
+    case Application.fetch_env(:sigil_guard, :backend) do
+      :error ->
         SigilGuard.Backend.Elixir
 
-      :nif ->
-        raise ArgumentError,
-              "configured :sigil_guard backend :nif has been removed; " <>
-                "SigilGuard now runs on the native Elixir backend"
-
-      module when is_atom(module) ->
-        if Code.ensure_loaded?(module) and function_exported?(module, :scan, 2) do
-          module
-        else
-          raise ArgumentError,
-                "configured :sigil_guard backend #{inspect(module)} is not a module " <>
-                  "implementing the SigilGuard.Backend behaviour; " <>
-                  "expected :elixir or a backend module"
-        end
-
-      other ->
-        raise ArgumentError,
-              "invalid :sigil_guard backend #{inspect(other)}; " <>
-                "expected :elixir or a module implementing SigilGuard.Backend"
+      {:ok, _} ->
+        raise SigilGuard.ConfigError.new(
+                :backend,
+                :legacy_contract_removed,
+                "legacy config key removed"
+              )
     end
   end
 

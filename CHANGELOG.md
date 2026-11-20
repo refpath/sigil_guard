@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Backend.impl/0` returns the native backend and raises
+  `SigilGuard.ConfigError` when the removed `:backend` application key is set.
+  It still read that key and dispatched `scan/2`, `redact/3`,
+  `scan_and_redact/2` and `policy_verdict/3` to a configured module, which
+  `SigilGuard.Config` and the migration guide treat as removed in 1.0.
 - **Security.** In `SigilGuard.Runtime.Gate`, a repo policy `require_approval`
   verdict was checked before quarantine and scanner hits and returned first.
   A repo change that carried a detected secret or a high-severity injection

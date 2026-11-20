@@ -43,61 +43,17 @@ through the backend. The facade has no attestation functions; hosts call
 `SigilGuard.Attestation` directly. The native backend composes scanner,
 redaction, and policy operations without Rust or NIF dependency.
 
-`Backend.impl/0` does not always return the native backend. It reads the
-`:backend` application env on each call, with `:elixir` as the default:
-
-- `:elixir` returns `SigilGuard.Backend.Elixir`.
-- `:nif` raises `ArgumentError`.
-- Any other atom is returned as the backend when it names a loadable module
-  that exports `scan/2`, and raises `ArgumentError` otherwise.
-- A value that is not an atom raises `ArgumentError`.
-
-A second path disagrees with it. `SigilGuard.Config.validate!/0`, which
-`SigilGuard.Runtime` runs when it starts, rejects any `:backend` key,
-`:elixir` included, with a `SigilGuard.ConfigError` whose reason is
-`:legacy_contract_removed`. The custom-module path of `impl/0` is therefore
-reachable only when nothing validates the application env: with
-`runtime: false` and no runtime started, with a host-supervised runtime that
-is given an explicit `:config`, or when the key is set after startup.
-
-Historical envelope signing used deterministic canonical bytes, compact JSON,
-Ed25519 signatures, ISO 8601 millisecond timestamps, and nonces. V3 reuses the
-crypto, signer, replay, and adversarial-input lessons through
-`SigilGuard.Attestation`, not through a public `SigilGuard.Envelope` module.
-
-V3 keeps the native crypto, signing behaviour, replay lessons, and
-adversarial-input handling. It does not keep verdict-only envelopes as a public
-proof object.
-
-### Data Flow
-
-```mermaid
-sequenceDiagram
-    participant Host
-    participant API as SigilGuard
-    participant Backend as Backend.impl/0 module
-    participant Attestation
-    participant Replay as ReplayStore
-
-    Host->>API: scan, redact, scan_and_redact, or policy_verdict
-    API->>Backend: dispatch
-    Backend-->>API: result
-    API-->>Host: result
-    Host->>Attestation: sign/3 or verify/3
-    Attestation->>Replay: nonce check when consume or replay is set
-    Attestation-->>Host: {:ok, result} or {:error, reason}
-```
-
-The two flows are separate. The facade and the backend behaviour have no
-attestation functions, and the backend never calls `SigilGuard.Attestation`.
-`Attestation.verify/3` consults `ReplayStore` only when the caller passes
-`consume: true` or `replay: true`.
-
-## Implemented Contracts
+`Backend.impl/0` returns `SigilGuard.Backend.Elixir`. The `:backend`
+application key is a removed setting on both paths that can see it:
+`SigilGuard.Config.validate!/0`, which `SigilGuard.Runtime` runs when it
+starts, and `Backend.impl/0`, which the facade calls, each raise
+`SigilGuard.ConfigError` with reason `:legacy_contract_removed` when the key
+is set, whatever its value. A host that wants different scanning passes a
+`:pipeline` module to `SigilGuard.Scanner.scan/2`.
 
 | Contract | Implemented By | Notes |
 |----------|----------------|-------|
-| Native built-in backend | `SigilGuard.Backend`, `SigilGuard.Backend.Elixir` | Native Elixir is the only built-in backend; `available_backends/0` returns `[:elixir]`. `impl/0` raises `ArgumentError` for `:nif`, for an atom that is not a loadable module exporting `scan/2`, and for a non-atom. It accepts a module that exports `scan/2`. |
+| Native built-in backend | `SigilGuard.Backend`, `SigilGuard.Backend.Elixir` | Native Elixir is the only backend; `available_backends/0` returns `[:elixir]`. `impl/0` returns `SigilGuard.Backend.Elixir` and raises `SigilGuard.ConfigError` when the removed `:backend` key is set. |
 | Attestation envelope | `SigilGuard.Attestation.Envelope` | DSSE envelope over JCS Statement payloads. |
 | Signature algorithm | `SigilGuard.Signer.Ed25519`, `SigilGuard.Attestation` | Ed25519, base64url without padding. |
 | Legacy envelope/profile removal | `RegistryRemovalTest`, `MIGRATING-1.0.md` | `SigilGuard.Envelope` and `SigilGuard.Profile` are not loadable in v3. |
@@ -108,8 +64,8 @@ attestation functions, and the backend never calls `SigilGuard.Attestation`.
 
 | Current Surface | V3 Action |
 |-----------------|-----------|
-| `SigilGuard.Backend` selection | Native Elixir remains the only available built-in backend. `Config.validate!/0` rejects the removed `:backend` key when the runtime starts. `Backend.impl/0` does not: it still reads the key and accepts `:elixir` or a module exporting `scan/2`. |
-| `SigilGuard.Backend.Elixir` | Keep native implementation as the only built-in runtime path. A custom module is reachable through `impl/0` only where the application env is not validated (see Overview). |
+| `SigilGuard.Backend` selection | Removed. Native Elixir is the only backend; `Config.validate!/0` and `Backend.impl/0` both reject the `:backend` key. |
+| `SigilGuard.Backend.Elixir` | Keep native implementation as the only runtime path. |
 | `SigilGuard.Envelope` | Deleted; replace with `SigilGuard.Attestation` per SP.01. |
 | `SigilGuard.Profile` compatibility matrix | Deleted; migration and historical fixtures document old forms. |
 | `_sigil` metadata | Replace with `_agent_trust` (namespace rules in SP.08). |
@@ -199,18 +155,15 @@ evidence. Current attestation error semantics are owned by SP.01.
 - Trust Profile attestations reuse the historical lesson with typed payloads,
   canonical bytes, explicit expiry, and replay metadata.
 - The NIF backend must not return as a hidden fallback.
-- V3 was meant to carry no backend selection config because native Elixir is
-  the only built-in backend. That removal is incomplete: `Backend.impl/0`
-  still reads `:backend` and dispatches scanning and policy evaluation to a
-  configured module wherever the application env is not validated. The
-  application env is host-controlled, so a host that runs without the runtime
-  owns that key.
+- V3 carries no backend selection config. A `:backend` key raises on the
+  facade and at runtime start, so a stale setting cannot redirect scanning or
+  policy evaluation to another module.
 
 ## Testing Strategy
 
 | Test | Module | What It Verifies |
 |------|--------|------------------|
-| backend selection | `BackendTest` | `:nif`, an atom that is not a backend module, a module without `scan/2`, and a non-atom raise `ArgumentError`; a module exporting `scan/2` is accepted. |
+| backend selection | `BackendTest` | `impl/0` returns the native backend when the key is absent and raises `SigilGuard.ConfigError` for any configured value, with the same key and reason as `Config.validate!/1`. |
 | removal assertions | `RegistryRemovalTest` | `SigilGuard.Envelope` and `SigilGuard.Profile` are deleted. |
 | attestation vectors | `Attestation.GoldenVectorsTest` | Agent Trust fixtures supersede envelope vectors. |
 | replay | `ReplayStoreTest` | Duplicate identity/nonce rejects when enabled. |
@@ -243,10 +196,8 @@ evidence. Current attestation error semantics are owned by SP.01.
 - [x] Move legacy envelope and rust-crate vectors to
       `test/fixtures/historical/` (M6).
 - [x] Remove public backend config and NIF references from v3 docs (M6). The
-      README, guides, and migration guide document no backend setting; the
-      `SigilGuard.Backend` moduledoc still describes selecting a custom
-      module, and `Backend.impl/0` still reads the `:backend` application
-      env (see Overview).
+      README, guides, migration guide, and the `SigilGuard.Backend` moduledoc
+      document no backend setting, and `Backend.impl/0` rejects the key.
 
 ## Success Metrics
 
