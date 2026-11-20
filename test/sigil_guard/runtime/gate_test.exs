@@ -5,6 +5,15 @@ defmodule SigilGuard.Runtime.BadScannerPipelineTestStub do
   def scan(_, _, _), do: :not_hits
 end
 
+defmodule SigilGuard.Runtime.ThrowingScannerPipelineTestStub do
+  @moduledoc false
+
+  @spec scan(String.t(), [map()], keyword()) :: no_return()
+  def scan(text, _, _) do
+    if text =~ "exit", do: exit(:scanner_down), else: throw(:scanner_down)
+  end
+end
+
 defmodule SigilGuard.Runtime.GateTest do
   use ExUnit.Case, async: true
 
@@ -377,6 +386,67 @@ defmodule SigilGuard.Runtime.GateTest do
       assert decision.reason =~ "invalid_action"
       assert decision.audit_metadata.runtime_input_error == :invalid_action
       assert decision.audit_metadata.tool == nil
+    end
+
+    test "a scanner pipeline that throws or exits fails closed" do
+      for text <- ["build output", "exit code 0"] do
+        decision =
+          Gate.evaluate(text, [phase: :tool_result, sink: :model, trust_level: :high],
+            pipeline: SigilGuard.Runtime.ThrowingScannerPipelineTestStub
+          )
+
+        assert decision.action == :block
+        assert decision.audit_metadata.scanner_error == :scanner_failed
+        assert decision.sanitized_text == "[SCANNER_ERROR]"
+      end
+    end
+
+    test "a risk mapping table that is not a map blocks" do
+      context = [phase: :tool_request, sink: :tool, action: "read_file", trust_level: :high]
+
+      for mappings <- [[{"read_file", :low}], "read_file=low", nil] do
+        decision = Gate.evaluate("safe", context, risk_mappings: mappings)
+
+        assert decision.verdict == :blocked
+        assert decision.action == :block
+      end
+
+      assert Gate.evaluate("safe", context, risk_mappings: %{"read_file" => :low}).verdict ==
+               :allowed
+    end
+
+    test "repo policy takes the action from the payload when the context names none" do
+      {:ok, repo_policy} =
+        SigilGuard.RepoPolicy.compile(%{
+          rules: [
+            %{
+              id: "docs",
+              decision: :allow,
+              agents: ["*"],
+              actions: ["modify"],
+              paths: ["docs/**"]
+            }
+          ]
+        })
+
+      context = [phase: :repo_change, sink: :repo, identity: "did:web:codex", trust_level: :high]
+      evaluate = &Gate.evaluate(&1, context, repo_policy: repo_policy)
+
+      for payload <- [
+            %{"action" => "modify", "changed_paths" => ["docs/a.md"]},
+            %{action: "modify", changed_paths: ["docs/a.md"]},
+            %{"name" => "modify", "changed_paths" => ["docs/a.md"]}
+          ] do
+        assert evaluate.(payload).audit_metadata.repo_policy_verdict == :allow
+      end
+
+      for payload <- [
+            %{"action" => "delete", "changed_paths" => ["docs/a.md"]},
+            %{"action" => nil, "changed_paths" => ["docs/a.md"]},
+            %{"changed_paths" => ["docs/a.md"]}
+          ] do
+        refute evaluate.(payload).audit_metadata.repo_policy_verdict == :allow
+      end
     end
 
     test "applies repo policy to repo-change contexts" do

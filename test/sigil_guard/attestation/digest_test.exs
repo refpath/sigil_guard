@@ -537,4 +537,77 @@ defmodule SigilGuard.Attestation.DigestTest do
 
     assert preimage["tool"] == "authoritative"
   end
+
+  describe "null and absence at the gateway wrapper boundary" do
+    @projection %{
+      "kind" => "request",
+      "method" => "tools/call",
+      "protocol_version" => nil,
+      "payload" => %{"name" => "cell.move"}
+    }
+
+    test "a projection may carry null only in its fixed wrapper fields" do
+      assert {:ok, digest} = Digest.payload_digest(@projection)
+      assert {:ok, ^digest} = Digest.payload_digest(Map.delete(@projection, "protocol_version"))
+
+      assert Digest.payload_digest(put_in(@projection, ["payload", "speed"], nil)) ==
+               {:error, :invalid_payload}
+
+      assert Digest.payload_digest(%{@projection | "payload" => nil}) ==
+               {:error, :invalid_payload}
+    end
+
+    test "an extra key makes the whole map application data" do
+      assert Digest.payload_digest(Map.put(@projection, "extra", 1)) == {:error, :invalid_payload}
+
+      assert {:ok, _} =
+               @projection
+               |> Map.delete("protocol_version")
+               |> Map.put("extra", 1)
+               |> Digest.payload_digest()
+    end
+
+    test "the gate wrapper follows the same rule for its binding" do
+      wrapper = %{
+        action: "cell.move",
+        tool: nil,
+        text: "move",
+        binding: %{@projection | "method" => nil}
+      }
+
+      assert {:ok, _} = Digest.payload_digest(wrapper)
+
+      assert Digest.payload_digest(put_in(wrapper, [:binding, "other"], nil)) ==
+               {:error, :invalid_payload}
+
+      assert Digest.payload_digest(put_in(wrapper, [:binding, "payload", "speed"], nil)) ==
+               {:error, :invalid_payload}
+
+      look_alike = %{a: 1, b: 2, c: 3, binding: %{"payload" => %{}, "kind" => nil}}
+
+      assert Digest.payload_digest(look_alike) == {:error, :invalid_payload}
+    end
+  end
+
+  describe "values with no JSON form" do
+    test "normalize/1 refuses a struct, a tuple, a pid, and a function" do
+      for value <- [~D[2026-11-19], {1, 2}, self(), &is_atom/1] do
+        assert Digest.normalize(value) == {:error, :invalid_payload}
+        assert Digest.normalize(%{"value" => value}) == {:error, :invalid_payload}
+        assert Digest.normalize([value]) == {:error, :invalid_payload}
+        assert Digest.payload_digest(%{"value" => value}) == {:error, :invalid_payload}
+      end
+    end
+
+    test "a repo change needs a list of path strings" do
+      payload = %{"repository" => "example/repo", "operation" => "push"}
+      preimage = &Digest.action_preimage(:repo_change, Map.put(payload, "paths", &1), [], [])
+
+      assert {:ok, %{"paths" => ["lib/a.ex", "lib/b.ex"]}} = preimage.(["lib/b.ex", "lib/a.ex"])
+
+      for paths <- ["lib/a.ex", %{"lib/a.ex" => true}, [1], ["lib/a.ex", 2]] do
+        assert preimage.(paths) == {:error, :invalid_payload}
+      end
+    end
+  end
 end

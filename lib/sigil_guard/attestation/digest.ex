@@ -286,8 +286,7 @@ defmodule SigilGuard.Attestation.Digest do
       end
 
     case result do
-      {:ok, map} when is_map(map) -> {:ok, map}
-      {:ok, _} -> {:error, :invalid_payload}
+      {:ok, map} -> {:ok, map}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -614,19 +613,13 @@ defmodule SigilGuard.Attestation.Digest do
 
   defp ok(value), do: {:ok, value}
 
-  defp atom_key("actor"), do: :actor
-  defp atom_key("identity"), do: :identity
-  defp atom_key("trust_level"), do: :trust_level
-  defp atom_key("phase"), do: :phase
+  # The context fields a preimage reads by name.
   defp atom_key("origin"), do: :origin
   defp atom_key("source"), do: :source
   defp atom_key("sink"), do: :sink
-  defp atom_key("trust_zone"), do: :trust_zone
-  defp atom_key("mcp_server"), do: :mcp_server
   defp atom_key("tool"), do: :tool
   defp atom_key("resource_uri"), do: :resource_uri
   defp atom_key("intended_audience"), do: :intended_audience
   defp atom_key("sandbox_id"), do: :sandbox_id
   defp atom_key("isolation_level"), do: :isolation_level
-  defp atom_key(_), do: :__unknown__
 end

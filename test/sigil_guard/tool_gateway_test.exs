@@ -1067,6 +1067,129 @@ defmodule SigilGuard.ToolGatewayTest do
       end
     end
 
+    test "rejects malformed optional tools/list fields" do
+      malformed = [
+        Map.put(tools_list_entry(), "title", 5),
+        Map.put(tools_list_entry(), "title", ""),
+        Map.put(tools_list_entry(), "icons", "bad"),
+        Map.put(tools_list_entry(), "outputSchema", "bad"),
+        Map.put(tools_list_entry(), "_meta", "bad"),
+        Map.put(tools_list_entry(), "_meta", %{"ui" => "bad"}),
+        Map.put(tools_list_entry(), "_meta", %{"ui" => %{"visibility" => "app"}}),
+        Map.put(tools_list_entry(), "_meta", %{"ui" => %{"resourceUri" => 5}})
+      ]
+
+      for observed <- malformed do
+        assert ToolGateway.verify_manifest(observed,
+                 server: "repo-mcp",
+                 manifests: %{"repo_file_write" => manifest()},
+                 now: @now
+               ) == {:error, :invalid_manifest}
+      end
+    end
+
+    test "a pinned App resource must appear unchanged in tools/list" do
+      ui = %{"resource_uri" => "ui://repo/review", "visibility" => ["app", "model"]}
+      pinned = Map.put(manifest(), "ui", ui)
+      entry = fn meta -> Map.put(tools_list_entry(pinned), "_meta", meta) end
+
+      verify =
+        &ToolGateway.verify_manifest(&1,
+          server: "repo-mcp",
+          manifests: %{"repo_file_write" => pinned},
+          now: @now
+        )
+
+      listed = %{"resourceUri" => "ui://repo/review", "visibility" => ["model", "app"]}
+
+      assert {:ok, %CapabilityManifest{ui: ^ui}} = verify.(entry.(%{"ui" => listed}))
+      assert {:ok, _} = verify.(entry.(%{"ui" => Map.delete(listed, "visibility")}))
+
+      assert verify.(tools_list_entry(pinned)) == {:error, :invalid_manifest}
+      assert verify.(entry.(%{})) == {:error, :invalid_manifest}
+
+      assert verify.(entry.(%{"ui" => %{listed | "resourceUri" => "ui://repo/other"}})) ==
+               {:error, :manifest_digest_mismatch}
+
+      assert verify.(entry.(%{"ui" => %{listed | "visibility" => ["app"]}})) ==
+               {:error, :manifest_digest_mismatch}
+    end
+
+    test "a pinned title and icon set must appear unchanged in tools/list" do
+      icons = [%{"src" => "https://repo.example.test/icon.png", "mimeType" => "image/png"}]
+      pinned = Map.merge(manifest(), %{"title" => "Write a file", "icons" => icons})
+
+      verify =
+        &ToolGateway.verify_manifest(&1,
+          server: "repo-mcp",
+          manifests: %{"repo_file_write" => pinned},
+          now: @now
+        )
+
+      listed = Map.put(tools_list_entry(pinned), "title", "Write a file")
+
+      assert {:ok, %CapabilityManifest{title: "Write a file"}} =
+               verify.(Map.put(listed, "icons", icons))
+
+      assert verify.(listed) == {:error, :invalid_manifest}
+
+      assert verify.(Map.put(tools_list_entry(pinned), "icons", icons)) ==
+               {:error, :invalid_manifest}
+
+      assert verify.(Map.merge(listed, %{"icons" => icons, "title" => "Delete a file"})) ==
+               {:error, :manifest_digest_mismatch}
+    end
+
+    test "a carried manifest may use the tools/list schema key names" do
+      carried =
+        manifest()
+        |> Map.put("inputSchema", manifest()["input_schema"])
+        |> Map.delete("input_schema")
+
+      atom_keyed =
+        carried
+        |> Map.delete("inputSchema")
+        |> Map.new(fn {key, value} -> {String.to_existing_atom(key), value} end)
+        |> Map.put(:inputSchema, carried["inputSchema"])
+
+      for observed <- [carried, atom_keyed] do
+        assert {:ok, %CapabilityManifest{name: "repo_file_write"}} =
+                 ToolGateway.verify_manifest(observed,
+                   server: "repo-mcp",
+                   manifests: %{"repo_file_write" => manifest()},
+                   now: @now
+                 )
+      end
+    end
+
+    test "a host-built manifest struct without sandbox or with malformed visibility fails closed" do
+      assert {:ok, capability} = CapabilityManifest.new(manifest())
+      guard = &ToolGateway.guard_request(request(), high_context("container"), manifests: &1)
+
+      no_sandbox = guard.(%{"repo_file_write" => %{capability | sandbox: nil}})
+
+      assert no_sandbox.verdict == :blocked
+      assert no_sandbox.audit_metadata.deny_reason == :sandbox_required
+
+      bad_visibility =
+        guard.(%{"repo_file_write" => %{capability | ui: %{"visibility" => "model"}}})
+
+      assert bad_visibility.verdict == :blocked
+      assert bad_visibility.audit_metadata.deny_reason == :app_visibility_denied
+    end
+
+    test "an App caller is denied a tool whose manifest pins no App resource" do
+      context = high_context("container") ++ [origin: :app, mcp_server: "repo-mcp"]
+
+      decision =
+        ToolGateway.guard_request(request(), context,
+          manifests: %{"repo_file_write" => manifest()}
+        )
+
+      assert decision.verdict == :blocked
+      assert decision.audit_metadata.deny_reason == :app_visibility_denied
+    end
+
     test "detects poisoned tools/list descriptions before invocation" do
       observed = Map.put(tools_list_entry(), "description", "Write anywhere on disk.")
 
@@ -1309,6 +1432,26 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "attest_request/3 and attest_result/3" do
+    test "refuse a non-decision, a missing payload, and a signer that is not a module" do
+      context = attestation_request_context()
+      decision = ToolGateway.guard_request(request(), context, [])
+      opts = [payload: request(), signer: TrustedSigner, now: @now]
+
+      for attest <- [&ToolGateway.attest_request/3, &ToolGateway.attest_result/3] do
+        assert attest.(%{verdict: :allowed}, context, opts) == {:error, :invalid_payload}
+        assert attest.(decision, context, :not_options) == {:error, :invalid_payload}
+
+        assert attest.(decision, context, Keyword.delete(opts, :payload)) ==
+                 {:error, :invalid_payload}
+
+        assert attest.(decision, context, Keyword.put(opts, :payload, "text")) ==
+                 {:error, :invalid_payload}
+
+        assert attest.(decision, context, Keyword.put(opts, :signer, "Signer")) ==
+                 {:error, :invalid_signer}
+      end
+    end
+
     test "signs request attestations bound to payload, context, manifest, resource, and scopes" do
       context = attestation_request_context()
       assert {:ok, capability} = CapabilityManifest.new(manifest())
