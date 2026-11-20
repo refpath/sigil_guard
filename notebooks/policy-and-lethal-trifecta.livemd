@@ -258,3 +258,121 @@ constraining the bytes that leave after an allow. Keeping those jobs explicit
 is what makes the result deterministic and auditable.
 
 Next: [An AI Agent Under Attack](ai-agent-under-attack.livemd).
+
+## The Gate Applies The Policy File
+
+A `sensitivity:` rule through Runtime.Gate (host states `source_sensitivity` in context.metadata).
+
+```elixir
+gate_egress = fn metadata ->
+  SigilGuard.Runtime.Gate.evaluate(
+    "Q3 revenue draft",
+    [
+      phase: :outbound_model,
+      origin: :tool,
+      sink: :external,
+      trust_zone: :untrusted,
+      trust_level: :medium,
+      metadata: metadata
+    ],
+    boundary_policy: policy
+  )
+end
+
+private_through_gate = gate_egress.(%{source_sensitivity: :private})
+unlabelled_through_gate = gate_egress.(%{})
+
+:block = private_through_gate.action
+["line_5"] = private_through_gate.audit_metadata.matched_rule_ids
+:allow = unlabelled_through_gate.action
+
+%{
+  labelled_private: private_through_gate.action,
+  rule: private_through_gate.audit_metadata.matched_rule_ids,
+  unlabelled: unlabelled_through_gate.action
+}
+```
+
+The gate evaluates the file's [repo] section at a repo change and reports the repo policy facts.
+
+```elixir
+gate_change = fn paths ->
+  SigilGuard.Runtime.Gate.evaluate(
+    %{"changed_paths" => paths},
+    [
+      phase: :repo_change,
+      origin: :model,
+      sink: :repo,
+      actor: "spiffe://demo.example/agents/docs",
+      action: "modify",
+      trust_zone: :trusted,
+      trust_level: :high
+    ],
+    boundary_policy: policy
+  )
+end
+
+docs_through_gate = gate_change.(["docs/architecture.md", "README.md"])
+unmatched_through_gate = gate_change.(["lib/payment.ex"])
+secret_through_gate = gate_change.(["priv/secrets/provider.key"])
+
+:allow = docs_through_gate.action
+:confirm = unmatched_through_gate.action
+:block = secret_through_gate.action
+["repo.default"] = unmatched_through_gate.audit_metadata.matched_rule_ids
+["repo.line_3"] = secret_through_gate.audit_metadata.matched_rule_ids
+:require_approval = secret_through_gate.audit_metadata.repo_policy_default
+
+true =
+  secret_through_gate.audit_metadata.repo_policy_digest ==
+    SigilGuard.RepoPolicy.digest(policy.repo)
+
+%{
+  docs: docs_through_gate.action,
+  unmatched: {unmatched_through_gate.action, unmatched_through_gate.audit_metadata.matched_rule_ids},
+  secrets: {secret_through_gate.action, secret_through_gate.audit_metadata.matched_rule_ids},
+  repo_policy_digest: secret_through_gate.audit_metadata.repo_policy_digest
+}
+```
+
+Runtime.Gate applies the [contracts] section of a :boundary_policy file; `output_contracts: false`.
+
+```elixir
+egress_context = [
+  phase: :outbound_model,
+  origin: :model,
+  sink: :external,
+  actor: "spiffe://demo.example/agents/release-assistant",
+  trust_zone: :trusted,
+  trust_level: :high
+]
+
+status_line = "Deploy finished. " <> String.duplicate("diagnostic ", 12)
+
+constrained_by_gate =
+  SigilGuard.Runtime.Gate.evaluate(status_line, egress_context, boundary_policy: policy)
+
+contract_off =
+  SigilGuard.Runtime.Gate.evaluate(status_line, egress_context,
+    boundary_policy: policy,
+    output_contracts: false
+  )
+
+structured_through_gate =
+  SigilGuard.Runtime.Gate.evaluate(%{"status" => "ok"}, egress_context, boundary_policy: policy)
+
+:redact = constrained_by_gate.action
+[:truncate] = constrained_by_gate.audit_metadata.output_contract_transforms
+true = byte_size(constrained_by_gate.sanitized_text) <= 96
+true = String.ends_with?(constrained_by_gate.sanitized_text, "[TRUNCATED]")
+:allow = contract_off.action
+:block = structured_through_gate.action
+true = "contract.external.class" in structured_through_gate.audit_metadata.matched_rule_ids
+
+%{
+  text: {constrained_by_gate.action, constrained_by_gate.audit_metadata.output_contract_transforms},
+  released: constrained_by_gate.sanitized_text,
+  contract_off: contract_off.action,
+  structured: structured_through_gate.reason
+}
+```

@@ -235,6 +235,87 @@ redaction_error
 }
 ```
 
+## The Adapter-Shaped Entry Points
+
+SigilGuard.MCP.Gateway.guarded_request/3 and guarded_result/3 (tuple shapes for an adapter).
+
+```elixir
+alias SigilGuard.MCP.Gateway
+
+adapter_context = [
+  phase: :tool_request,
+  origin: :model,
+  sink: :tool,
+  actor: "did:web:alice",
+  trust_level: :medium,
+  tool: "echo"
+]
+
+echo_call = %{
+  "jsonrpc" => "2.0",
+  "id" => "stub-call-2",
+  "method" => "tools/call",
+  "params" => %{"name" => "echo", "arguments" => %{"text" => "hello"}}
+}
+
+{:ok, call_decision} = Gateway.guarded_request(echo_call, adapter_context)
+
+{:error, unknown_tool_error, unknown_tool_decision} =
+  Gateway.guarded_request(echo_call, adapter_context, manifests: %{}, require_manifest: true)
+
+:allow = call_decision.action
+"stub-call-2" = unknown_tool_error["id"]
+:unknown_manifest = unknown_tool_decision.audit_metadata.deny_reason
+
+echo_result = %{
+  "jsonrpc" => "2.0",
+  "id" => "stub-call-2",
+  "result" => %{"content" => [%{"type" => "text", "text" => "hello"}]}
+}
+
+result_side = Keyword.merge(adapter_context, phase: :tool_result, origin: :tool, sink: :model)
+
+{:ok, released, result_decision} = Gateway.guarded_result(echo_result, result_side)
+
+:allow = result_decision.action
+"hello" = get_in(released, ["result", "content", Access.at(0), "text"])
+
+%{
+  request: call_decision.action,
+  unknown_tool: unknown_tool_error["error"]["data"]["status"],
+  released: released
+}
+```
+
+Gateway.stream_result/2, guarded_result_chunk/3, finish_guarded_result_stream/2.
+
+```elixir
+guarded_stream = Gateway.stream_result(result_side, stream_window_bytes: 64)
+filler = String.duplicate("log line ", 40)
+
+{guarded_stream, {:ok, first_frame, _}} =
+  Gateway.guarded_result_chunk(guarded_stream, filler <> "AKIAIOS")
+
+{guarded_stream, {:ok, second_frame, _}} =
+  Gateway.guarded_result_chunk(guarded_stream, "FODNN7EXAMPLE done")
+
+{_guarded_stream, {:ok, last_frame, final_stream_decision}} =
+  Gateway.finish_guarded_result_stream(guarded_stream)
+
+frame_text = fn
+  nil -> ""
+  frame -> get_in(frame, ["result", "content", Access.at(0), "text"])
+end
+
+streamed = Enum.map_join([first_frame, second_frame, last_frame], frame_text)
+
+:allowed = final_stream_decision.verdict
+false = String.contains?(streamed, "AKIAIOSFODNN7EXAMPLE")
+true = String.ends_with?(streamed, "[AWS_KEY] done")
+
+%{frames: 3, final: final_stream_decision.verdict, tail: String.slice(streamed, -24, 24)}
+```
+
 ## Summary
 
 ```elixir

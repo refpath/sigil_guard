@@ -288,3 +288,147 @@ Trust bundles bring reviewed policy material to the process without giving core
 a network client. Identity comes from the host, not the prompt. Secrets remain
 opaque until a narrow callback needs them. Together those choices prevent the
 security plane from becoming another source of ambient authority.
+
+## Bundle Roles, Identity Helpers, And Vault Failure
+
+Attestation.verify/3 with a verified %TrustBundle{} (the `attestation` delegate role), :untrusted_issuer, TrustBundle.verify/2, Attestation.sign/3, Envelope.sign_many/2.
+
+```elixir
+alias SigilGuard.Attestation
+alias SigilGuard.Attestation.Envelope
+alias SigilGuard.Canonical.JCS
+
+for {name, seed} <- [Root: 0x11, BundleKey: 0x12, Issuer: 0x13, Stranger: 0x14] do
+  defmodule Module.concat(BundleTalk, name) do
+    @behaviour SigilGuard.Signer
+    @keypair :crypto.generate_key(:eddsa, :ed25519, :binary.copy(<<seed>>, 32))
+
+    @impl true
+    def sign(message), do: :crypto.sign(:eddsa, :none, message, [elem(@keypair, 1), :ed25519])
+
+    @impl true
+    def public_key, do: elem(@keypair, 0)
+  end
+end
+
+keyid = fn signer -> Envelope.keyid(signer.public_key()) end
+
+key_entry = fn signer ->
+  {keyid.(signer),
+   %{"alg" => "ed25519", "public_key" => Base.url_encode64(signer.public_key(), padding: false)}}
+end
+
+delegate = fn name, signer ->
+  %{
+    "name" => name,
+    "keyids" => [keyid.(signer)],
+    "threshold" => 1,
+    "expires_at" => "2026-08-19T11:00:00.000Z"
+  }
+end
+
+issuer_document = %{
+  "profile" => "sigil_guard_trust_bundle/v1",
+  "bundle_id" => "conference-issuers",
+  "sequence" => "1",
+  "issued_at" => "2026-08-19T10:00:00.000Z",
+  "expires_at" => "2026-08-19T11:00:00.000Z",
+  "rollback_floor" => "1",
+  "roles" => %{
+    "root" => %{
+      "keyids" => [keyid.(BundleTalk.Root)],
+      "threshold" => 1,
+      "version" => "1",
+      "expires_at" => "2026-08-19T11:00:00.000Z"
+    },
+    "delegates" => [
+      delegate.("bundle", BundleTalk.BundleKey),
+      delegate.("attestation", BundleTalk.Issuer)
+    ]
+  },
+  "keys" => Map.new([BundleTalk.Root, BundleTalk.BundleKey, BundleTalk.Issuer], key_entry)
+}
+
+{:ok, issuer_bundle_bytes} = JCS.encode(issuer_document)
+{:ok, issuer_bundle_envelope} = Envelope.sign_many(issuer_bundle_bytes, [BundleTalk.BundleKey])
+{:ok, issuer_bundle} = TrustBundle.verify(issuer_bundle_envelope, now: bundle_now)
+
+attested_payload = %{"method" => "tools/call", "params" => %{"name" => "deployment_status"}}
+
+attested_context = [
+  phase: :tool_request,
+  origin: :model,
+  sink: :tool,
+  actor: "spiffe://conference/agents/demo",
+  trust_level: :high,
+  tool: "deployment_status"
+]
+
+attested_decision = SigilGuard.Runtime.Gate.evaluate(attested_payload, attested_context)
+
+{:ok, attested_statement} =
+  Attestation.from_decision(attested_decision, attested_context,
+    payload: attested_payload,
+    now: bundle_now,
+    nonce: "conference-bundle-attestation"
+  )
+
+verify_signed_by = fn signer ->
+  {:ok, envelope} = Attestation.sign(attested_statement, signer)
+
+  Attestation.verify(envelope, issuer_bundle,
+    payload: attested_payload,
+    context: attested_context,
+    now: bundle_now
+  )
+end
+
+{:ok, bundle_verified} = verify_signed_by.(BundleTalk.Issuer)
+{:error, :untrusted_issuer} = verify_signed_by.(BundleTalk.BundleKey)
+{:error, :untrusted_issuer} = verify_signed_by.(BundleTalk.Root)
+{:error, :unknown_key_id} = verify_signed_by.(BundleTalk.Stranger)
+
+%{
+  attestation_role_key: bundle_verified["predicate"]["statement_type"],
+  bundle_signing_key: :untrusted_issuer,
+  root_key: :untrusted_issuer,
+  key_outside_the_bundle: :unknown_key_id
+}
+```
+
+Identity.spiffe_id?/1 and Identity.did_key_public_key/1.
+
+```elixir
+true = Identity.spiffe_id?("spiffe://conference/operators/alice")
+false = Identity.spiffe_id?("spiffe://Conference/operators/alice")
+false = Identity.spiffe_id?("spiffe://conference/operators/")
+false = Identity.spiffe_id?("user:bob")
+
+did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+{:ok, did_public_key} = Identity.did_key_public_key(did)
+32 = byte_size(did_public_key)
+{:error, :invalid_did_key} = Identity.did_key_public_key("did:web:conference.example")
+
+# Syntax is not trust. A well-formed identifier still resolves through the host's table.
+:low = Static.trust_level(did)
+
+%{
+  spiffe_syntax: Identity.spiffe_id?("spiffe://conference/operators/alice"),
+  did_key_bytes: byte_size(did_public_key),
+  trust_from_syntax_alone: Static.trust_level(did)
+}
+```
+
+Vault.InMemory answering {:error, :vault_unavailable} when its process is not running.
+
+```elixir
+:ok = GenServer.stop(vault_pid)
+
+{:error, :vault_unavailable} = Vault.encrypt("late secret", "after shutdown", InMemory)
+{:error, :vault_unavailable} = Vault.decrypt(vault_id, InMemory)
+{:error, :vault_unavailable} = InMemory.delete(vault_id)
+false = Vault.exists?(vault_id, InMemory)
+[] = InMemory.list_entries()
+
+%{vault_running?: Process.whereis(InMemory) != nil, encrypt: :vault_unavailable}
+```

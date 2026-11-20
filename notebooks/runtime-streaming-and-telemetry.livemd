@@ -238,9 +238,11 @@ true = Enum.any?(adaptive.indicators, &(&1.source == :adaptive))
 %{action: adaptive.action, risk: adaptive.risk_level, indicators: adaptive.indicators}
 ```
 
-The action remains `:allow` because this demonstration has no policy rule for
-the advisory signal. A host that wants a denial makes that relationship
-explicit in policy; the detector does not secretly acquire final authority.
+`BoundaryPolicy.evaluate/2` keeps the action `:allow` here because no policy
+rule names the advisory signal. Through `Runtime.Gate.evaluate/3`, which every
+gateway uses, the raised risk goes back through the risk and trust ladder: a
+medium-trust caller now needs confirmation and a low-trust caller is blocked.
+The last section of this notebook shows that path.
 
 ## Observe Decisions Without Leaking Payloads
 
@@ -333,3 +335,174 @@ Streaming safety requires state across chunks. Extensions stay deny-side or
 advisory. Telemetry describes the decision without becoming a second copy of
 sensitive content. Those three constraints let a host add sophistication
 without weakening the small deterministic kernel underneath it.
+
+## Evidence Digests, Decision Ids, And Advisory Risk
+
+Runtime.Stream evidence digests and a stream-decided deny reason.
+
+```elixir
+sha256 = fn bytes -> Base.encode16(:crypto.hash(:sha256, bytes), case: :lower) end
+
+stream_evidence = final_decision.audit_metadata
+pushed = prefix <> "AKIAIOS" <> "FODNN7EXAMPLE tail"
+
+true = stream_evidence.stream_input_bytes == byte_size(pushed)
+true = stream_evidence.stream_input_sha256 == sha256.(pushed)
+true = stream_evidence.stream_emitted_bytes == byte_size(complete_output)
+true = stream_evidence.stream_emitted_sha256 == sha256.(complete_output)
+
+{broken_stream, broken_decision, ""} =
+  stream_context
+  |> Stream.new(stream_window_bytes: 64)
+  |> Stream.push(<<"status ok ", 0xFF>>)
+
+true = broken_stream.halted?
+:blocked = broken_decision.verdict
+:invalid_utf8 = broken_decision.audit_metadata.deny_reason
+0 = broken_decision.audit_metadata.stream_emitted_bytes
+
+%{
+  pushed: {stream_evidence.stream_input_bytes, stream_evidence.stream_input_sha256},
+  released: {stream_evidence.stream_emitted_bytes, stream_evidence.stream_emitted_sha256},
+  invalid_bytes_halt_with: broken_decision.audit_metadata.deny_reason
+}
+```
+
+Gate.evaluate/3 `:decision_id`; the gate event's `sandbox_id` and `matched_rule_ids`; the attributes `sigilguard.rules.matched`, `sigilguard.decision.id`, `sigilguard.sandbox.id`.
+
+```elixir
+capture = fn event, fun ->
+  owner = self()
+  id = "sigil-livebook-capture-#{System.unique_integer([:positive])}"
+
+  :ok =
+    :telemetry.attach(
+      id,
+      event,
+      fn name, measurements, metadata, _config ->
+        send(owner, {id, name, measurements, metadata})
+      end,
+      nil
+    )
+
+  result = fun.()
+  :ok = :telemetry.detach(id)
+
+  receive do
+    {^id, name, measurements, metadata} -> {result, name, measurements, metadata}
+  after
+    1_000 -> raise "expected #{inspect(event)}"
+  end
+end
+
+{:ok, egress_policy} =
+  SigilGuard.BoundaryPolicy.File.parse("""
+  version 3
+
+  [rules]
+  default allow
+  block sink:external
+  """)
+
+{correlated, gate_event, gate_measurements, gate_metadata} =
+  capture.([:sigil_guard, :runtime, :gate], fn ->
+    SigilGuard.Runtime.Gate.evaluate(
+      "clean deployment result",
+      [
+        phase: :outbound_model,
+        origin: :model,
+        sink: :external,
+        actor: "spiffe://conference/agents/demo",
+        trust_level: :high,
+        sandbox_id: "talk-sandbox-7"
+      ],
+      boundary_policy: egress_policy,
+      decision_id: "talk-call-0007"
+    )
+  end)
+
+:blocked = correlated.verdict
+"talk-call-0007" = correlated.audit_metadata.decision_id
+"talk-call-0007" = gate_metadata.decision_id
+"talk-sandbox-7" = gate_metadata.sandbox_id
+["line_5"] = gate_metadata.matched_rule_ids
+
+metric_attributes = Telemetry.otel_attributes(gate_event, gate_measurements, gate_metadata)
+
+call_attributes =
+  Telemetry.otel_attributes(gate_event, gate_measurements, gate_metadata,
+    include_high_cardinality: true
+  )
+
+["line_5"] = metric_attributes["sigilguard.rules.matched"]
+false = Map.has_key?(metric_attributes, "sigilguard.decision.id")
+false = Map.has_key?(metric_attributes, "sigilguard.sandbox.id")
+"talk-call-0007" = call_attributes["sigilguard.decision.id"]
+"talk-sandbox-7" = call_attributes["sigilguard.sandbox.id"]
+
+%{
+  metric_dimension: metric_attributes["sigilguard.rules.matched"],
+  span_only: Map.take(call_attributes, ["sigilguard.decision.id", "sigilguard.sandbox.id"])
+}
+```
+
+The MCP request event's `deny_reason` and `decision_id`, and `sigilguard.deny_reason`.
+
+```elixir
+{denied_call, mcp_event, mcp_measurements, mcp_metadata} =
+  capture.([:sigil_guard, :mcp, :request], fn ->
+    SigilGuard.ToolGateway.guard_request(
+      %{
+        "method" => "tools/call",
+        "params" => %{"name" => "unlisted_tool", "arguments" => %{}}
+      },
+      [phase: :tool_request, origin: :model, sink: :tool, trust_level: :high],
+      manifests: %{},
+      require_manifest: true,
+      decision_id: "talk-call-0008"
+    )
+  end)
+
+:blocked = denied_call.verdict
+:unknown_manifest = mcp_metadata.deny_reason
+
+mcp_attributes =
+  Telemetry.otel_attributes(mcp_event, mcp_measurements, mcp_metadata,
+    include_high_cardinality: true
+  )
+
+"unknown_manifest" = mcp_attributes["sigilguard.deny_reason"]
+"talk-call-0008" = mcp_attributes["sigilguard.decision.id"]
+
+Map.take(mcp_attributes, [
+  "sigilguard.deny_reason",
+  "sigilguard.decision.id",
+  "sigilguard.tool.name",
+  "sigilguard.verdict"
+])
+```
+
+An advisory signal through Runtime.Gate re-enters the risk and trust ladder.
+
+```elixir
+gate_with_detector = fn trust_level, opts ->
+  SigilGuard.Runtime.Gate.evaluate(
+    "possible encoded instruction",
+    [phase: :tool_result, origin: :tool, sink: :model, trust_level: trust_level, tool: "notes"],
+    opts
+  )
+end
+
+detector = [adaptive_detector: RuntimeTalk.AdaptiveDetector]
+
+:allow = gate_with_detector.(:medium, []).action
+:confirm = gate_with_detector.(:medium, detector).action
+:allow = gate_with_detector.(:high, detector).action
+1 = gate_with_detector.(:medium, detector).audit_metadata.advisory_indicator_count
+
+%{
+  medium_trust_without_detector: gate_with_detector.(:medium, []).action,
+  medium_trust_with_detector: gate_with_detector.(:medium, detector).action,
+  high_trust_with_detector: gate_with_detector.(:high, detector).action
+}
+```

@@ -151,6 +151,9 @@ defmodule SigilGuard.MixProject do
         "notebooks/hermes-integration.livemd": [
           title: "Tutorial 11 — Hermes Integration"
         ],
+        "notebooks/physical-effect-requests.livemd": [
+          title: "Tutorial 12 — Physical-Effect Requests"
+        ],
         "guides/cheatsheet.cheatmd": [title: "Cheatsheet"],
         "guides/threat-model.md": [title: "Threat Model"],
         "guides/integrations/hermes-mcp.md": [title: "Hermes MCP Integration"],

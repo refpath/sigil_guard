@@ -6,8 +6,8 @@ content, proposes tool calls, and occasionally tries to move data somewhere it
 should not. We start with one deterministic decision and finish with signed,
 portable evidence for the complete tool and agent lifecycle.
 
-Every chapter is executable. Code cells assert the important outcomes so a
-change in the library cannot quietly turn a security lesson into stale prose.
+Every chapter is executable. Most code cells match the outcome they teach, so
+a changed result fails the run instead of leaving the prose stale.
 The repository validates the whole track offline with:
 
 ```bash
@@ -40,6 +40,9 @@ For self-study, follow the chapters in this order:
     evidence chain, proofs, anchor record, and OSCAL observation.
 11. [Hermes Integration Stub](hermes-integration.livemd) — place the same gate
     in an MCP framework seam without adding a framework dependency.
+12. [Physical-Effect Requests](physical-effect-requests.livemd) — bind an
+    actuator command to a record, admit it against current facts, and treat
+    the device report as a claim.
 
 The chapters are deliberately small enough to run independently. Each one
 reintroduces the context it needs rather than relying on hidden notebook state.
@@ -58,7 +61,8 @@ authorize itself.
 | 35–42 min | Audit Export And Proofs | Verify one event without replaying the whole log and project a bounded assessment observation. |
 | 42–45 min | Quick Start summary | Return to the claim: useful AI, deterministic authority, signed evidence. |
 
-The code cells marked **On stage** are the reveal points. Evaluate the setup
+The code cells marked **On stage** are the reveal points; the audit chapter
+has none and is shown as a whole. Evaluate the setup
 cells before the room arrives, collapse implementation-heavy sections, and
 keep the deterministic AI replay ready even when you intend to use a provider.
 

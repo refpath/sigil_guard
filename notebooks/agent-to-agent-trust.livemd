@@ -366,3 +366,125 @@ Verify the card through issuer trust, verify the response through the key in
 that card, bind it to the request, and then treat the result as untrusted
 content. Agent-to-agent authentication closes an identity gap; it does not
 abolish prompt injection.
+
+## Audience, Capability, And Peer Trust Zone
+
+`audience:` on attest and verify; `capability:` and `context:` on verify_agent_response/3.
+
+```elixir
+requester_id = request_context.identity
+
+{:ok, bound_response} =
+  AgentTrust.attest_agent_response(response_payload, response_context,
+    signer: A2ATalk.Peer,
+    decision: response_decision,
+    peer_card: card_envelope,
+    trust_material: issuer_material,
+    request_action_digest: request_action_digest,
+    audience: requester_id,
+    now: now,
+    nonce: "conference-a2a-bound-response",
+    resolve: resolve_trust
+  )
+
+verify_bound = fn overrides ->
+  AgentTrust.verify_agent_response(
+    bound_response,
+    issuer_material,
+    Keyword.merge(
+      [
+        peer_card: card_envelope,
+        request_action_digest: request_action_digest,
+        payload: response_payload,
+        capability: "summarize",
+        audience: requester_id,
+        context: response_context,
+        now: now
+      ],
+      overrides
+    )
+  )
+end
+
+{:ok, bound_statement} = verify_bound.([])
+^requester_id = bound_statement["predicate"]["resource"]["audience"]
+
+{:error, :unknown_capability} = verify_bound.(capability: "deploy")
+
+{:error, :invalid_audience} =
+  verify_bound.(audience: "spiffe://conference.example/agents/other")
+
+{:error, :digest_mismatch} = verify_bound.(context: %{response_context | sink: :external})
+
+# The first response named no audience, so a verifier that asks for one refuses it.
+{:error, :invalid_audience} =
+  AgentTrust.verify_agent_response(response_envelope, issuer_material,
+    peer_card: card_envelope,
+    request_action_digest: request_action_digest,
+    audience: requester_id,
+    now: now
+  )
+
+%{
+  addressed_to: bound_statement["predicate"]["resource"]["audience"],
+  other_capability: :unknown_capability,
+  other_requester: :invalid_audience,
+  other_context: :digest_mismatch
+}
+```
+
+AgentTrust.peer_trust_zone/1 and the `quarantined` flag of an agent_response statement.
+
+```elixir
+peer_zone = AgentTrust.peer_trust_zone(verified_card)
+
+:semi_trusted = peer_zone
+:untrusted = AgentTrust.peer_trust_zone(nil)
+
+result_gate =
+  SigilGuard.Runtime.Gate.evaluate(response_payload["result"],
+    phase: :tool_result,
+    origin: :external,
+    sink: :model,
+    actor: peer_id,
+    trust_level: :medium,
+    trust_zone: peer_zone
+  )
+
+true = result_gate.verdict == :blocked or match?({:confirm, _}, result_gate.verdict)
+true = result_gate.action in [:block, :confirm, :quarantine]
+
+# A responder that gates its own output attests what the gate found.
+{:ok, flagged_response} =
+  AgentTrust.attest_agent_response(response_payload, response_context,
+    signer: A2ATalk.Peer,
+    decision: result_gate,
+    peer_card: card_envelope,
+    trust_material: issuer_material,
+    request_action_digest: request_action_digest,
+    now: now,
+    nonce: "conference-a2a-flagged-response",
+    resolve: resolve_trust
+  )
+
+{:ok, flagged_statement} =
+  AgentTrust.verify_agent_response(flagged_response, issuer_material,
+    peer_card: card_envelope,
+    request_action_digest: request_action_digest,
+    payload: response_payload,
+    now: now
+  )
+
+true = flagged_statement["predicate"]["quarantined"]
+false = response_statement["predicate"]["quarantined"]
+
+%{
+  signature: :valid,
+  zone_from_card: peer_zone,
+  zone_without_card: AgentTrust.peer_trust_zone(nil),
+  content_verdict: result_gate.verdict,
+  effect: result_gate.effect,
+  indicator_ids: result_gate.audit_metadata.indicator_ids,
+  attested_quarantined: flagged_statement["predicate"]["quarantined"]
+}
+```

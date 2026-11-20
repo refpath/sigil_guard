@@ -1,0 +1,186 @@
+# Physical-Effect Requests: Bind, Admit, Then Record
+
+[![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fphysical-effect-requests.livemd)
+
+A tool call that moves an actuator needs more than an allow decision. The
+host carries a binding record in the request metadata, the gateway digests it
+into the decision, and `SigilGuard.EffectAuthority` checks the record against
+current facts before the host releases the command. The cells use a fixed
+clock and no hardware.
+
+## Setup
+
+```elixir
+repo_root = Path.expand("..", __DIR__)
+local_checkout? = File.regular?(Path.join(repo_root, "mix.exs"))
+
+{sigil_guard_dep, install_opts} =
+  if local_checkout? do
+    {
+      {:sigil_guard, path: repo_root, env: :prod},
+      [
+        config_path: Path.join(repo_root, "config/config.exs"),
+        lockfile: Path.join(repo_root, "mix.lock")
+      ]
+    }
+  else
+    {{:sigil_guard, "~> 1.0"}, []}
+  end
+
+Mix.install([sigil_guard_dep], install_opts)
+```
+
+## Carry A Binding Record
+
+The host puts the binding record under `_meta` of the tool call. With `effect_binding: :required`, `ToolGateway.guard_request/3` refuses a request without one and records the record's digest, `EffectAuthority.binding_digest/1`, in the decision.
+
+```elixir
+alias SigilGuard.{EffectAuthority, ToolGateway}
+
+program_sha256 = Base.encode16(:crypto.hash(:sha256, "pick-and-place v7"), case: :lower)
+
+effect_record = %{
+  "binding_format" => "sigil_guard_effect_binding/v1",
+  "operation_id" => "op-0001",
+  "target" => %{"id" => "urn:example:cell-a:arm-1", "environment" => "physical"},
+  "artifacts" => [%{"name" => "program", "sha256" => program_sha256}],
+  "frame_revision" => "cal-r3",
+  "policy_epoch" => "example-bundle:42",
+  "not_before" => "2026-11-19T12:00:00.000Z",
+  "not_after" => "2026-11-19T12:05:00.000Z"
+}
+
+move_request = %{
+  "jsonrpc" => "2.0",
+  "id" => "move-1",
+  "method" => "tools/call",
+  "params" => %{
+    "name" => "cell.move",
+    "arguments" => %{"x_mm" => 250, "y_mm" => 100, "speed_mm_s" => 120},
+    "_meta" => %{"dev.sigilguard/effect" => effect_record}
+  }
+}
+
+cell_context = [
+  phase: :tool_request,
+  origin: :model,
+  sink: :tool,
+  actor: "spiffe://example.test/agent/planner",
+  trust_level: :high,
+  tool: "cell.move",
+  action: "cell.move"
+]
+
+effect_decision = ToolGateway.guard_request(move_request, cell_context, effect_binding: :required)
+
+without_record =
+  move_request
+  |> update_in(["params"], &Map.delete(&1, "_meta"))
+  |> ToolGateway.guard_request(cell_context, effect_binding: :required)
+
+:allowed = effect_decision.verdict
+:effect_binding_required = without_record.audit_metadata.deny_reason
+{:ok, binding_digest} = EffectAuthority.binding_digest(effect_record)
+^binding_digest = effect_decision.audit_metadata.effect_binding_digest
+64 = byte_size(effect_decision.audit_metadata.effect_operation_key)
+
+%{
+  bound: effect_decision.verdict,
+  without_record: without_record.audit_metadata.deny_reason,
+  ledger_key: effect_decision.audit_metadata.effect_operation_key,
+  ledger_digests:
+    Map.take(effect_decision.audit_metadata, [:action_digest, :payload_digest, :context_digest])
+}
+```
+
+## Admit Against Current Facts
+
+An allowed request is not yet a command. `EffectAuthority.admit/5` compares the binding record with facts the host observes now and names the first fact that does not hold.
+
+```elixir
+dispatch_time = ~U[2026-11-19 12:01:00.000Z]
+
+current_facts = %{
+  principal: "spiffe://example.test/agent/planner",
+  target: %{id: "urn:example:cell-a:arm-1", environment: :physical},
+  artifacts: [%{name: "program", sha256: program_sha256}],
+  frame_revision: "cal-r3",
+  policy_epoch: "example-bundle:42",
+  observed_at: DateTime.add(dispatch_time, -100, :millisecond),
+  now: dispatch_time
+}
+
+admit = fn facts ->
+  EffectAuthority.admit(effect_decision, move_request, cell_context, facts, max_fact_age_ms: 500)
+end
+
+:ok = admit.(current_facts)
+
+refusals = %{
+  simulated_target: admit.(put_in(current_facts, [:target, :environment], :simulated)),
+  recalibrated_frame: admit.(%{current_facts | frame_revision: "cal-r4"}),
+  new_policy_epoch: admit.(%{current_facts | policy_epoch: "example-bundle:43"}),
+  stale_facts: admit.(%{current_facts | observed_at: DateTime.add(dispatch_time, -5, :second)}),
+  after_deadline:
+    admit.(%{
+      current_facts
+      | now: ~U[2026-11-19 12:06:00.000Z],
+        observed_at: ~U[2026-11-19 12:05:59.900Z]
+    })
+}
+
+%{
+  simulated_target: {:error, :target_environment_mismatch},
+  recalibrated_frame: {:error, :frame_revision_mismatch},
+  new_policy_epoch: {:error, :policy_epoch_mismatch},
+  stale_facts: {:error, :stale_current_facts},
+  after_deadline: {:error, :effect_deadline_passed}
+} = refusals
+
+refusals
+```
+
+## A Signed Report Is A Claim
+
+A device report says what it did; it does not prove it. `EffectAuthority.classify_outcome/1` sorts the report and `audit_fields/1` gives the values to record.
+
+```elixir
+report = %{
+  authentication: :verified,
+  claimed: :success,
+  issuer: "urn:example:cell-a:gateway",
+  required_observations: 1
+}
+
+{:ok, claimed_only} = EffectAuthority.classify_outcome(Map.put(report, :observations, []))
+
+{:ok, observed} =
+  EffectAuthority.classify_outcome(
+    Map.put(report, :observations, [
+      %{source: "urn:example:cell-a:camera-1", result: :confirms}
+    ])
+  )
+
+audit_fields = fn outcome ->
+  {:ok, fields} =
+    EffectAuthority.audit_fields(%{
+      state: :finished,
+      binding_digest: binding_digest,
+      operation_key: effect_decision.audit_metadata.effect_operation_key,
+      outcome: outcome
+    })
+
+  fields
+end
+
+:undetermined = claimed_only.acceptance
+:accepted = observed.acceptance
+nil = audit_fields.(claimed_only).result_info.success
+true = audit_fields.(observed).result_info.success
+
+%{
+  signed_claim_alone: claimed_only.acceptance,
+  with_an_observation: observed.acceptance,
+  audit_result: audit_fields.(observed).result
+}
+```

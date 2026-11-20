@@ -237,20 +237,78 @@ tampered_html = Map.put(app_resource, "text", html <> "<!-- changed -->")
 ## Constrain Which Caller May See The App Tool
 
 The capability manifest can bind a `ui://` resource and distinguish model and
-app callers. This final example shows the gateway enforcing same-server,
-app-visible access. The full carried manifest is covered in the preceding
-gateway chapter; here we adapt it only to make the UI relationship visible.
+app callers. For a manifest whose `ui.visibility` is `["app"]`, the gateway
+refuses a call from another origin with `:app_visibility_denied`, and a call
+from an App on another MCP server with `:app_server_mismatch`. Manifest
+pinning itself is covered in the Agent Trust Gateway chapter.
 
 ```elixir
-app_visibility = %{
-  "resource_uri" => "ui://repo/review",
-  "visibility" => ["app"]
+app_tool_manifest = %{
+  "allowed_sink_zones" => ["semi_trusted", "trusted"],
+  "allowed_source_zones" => ["semi_trusted", "trusted"],
+  "annotations" => %{"readOnlyHint" => true, "title" => "Submit Review"},
+  "description" => "Record the reviewer's decision from the review UI.",
+  "expires_at" => "2027-01-01T00:00:00.000Z",
+  "input_schema" => %{
+    "$schema" => "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties" => false,
+    "properties" => %{"decision" => %{"type" => "string"}},
+    "required" => ["decision"],
+    "type" => "object"
+  },
+  "input_sensitivity" => "internal",
+  "issuer_keyid" =>
+    "sha256:65b60673d6ed884bf01c2c222d82ada0740f29ac3355d6a925c81f17f47a27b8",
+  "manifest_format" => "sigil_guard_capability_manifest/v2",
+  "name" => "review_submit",
+  "network_access" => "none",
+  "output_sensitivity" => "internal",
+  "reversibility" => "reversible",
+  "sandbox" => %{"required" => false},
+  "scopes" => ["repo:review"],
+  "server" => "repo-mcp",
+  "side_effects" => ["read"],
+  "suspicious_params" => [],
+  "ui" => %{"resource_uri" => "ui://repo/review", "visibility" => ["app"]},
+  "version" => "1.0.0"
 }
 
+app_call = %{
+  "jsonrpc" => "2.0",
+  "id" => "app-call-1",
+  "method" => "tools/call",
+  "params" => %{"name" => "review_submit", "arguments" => %{"decision" => "approve"}}
+}
+
+guard_as = fn origin, server ->
+  SigilGuard.ToolGateway.guard_request(
+    app_call,
+    [
+      phase: :tool_request,
+      origin: origin,
+      sink: :tool,
+      trust_level: :high,
+      mcp_server: server,
+      tool: "review_submit"
+    ],
+    manifests: %{"review_submit" => app_tool_manifest},
+    require_manifest: true,
+    now: ~U[2026-08-19 10:00:00.000Z]
+  )
+end
+
+from_app = guard_as.(:app, "repo-mcp")
+from_model = guard_as.(:model, "repo-mcp")
+from_other_server = guard_as.(:app, "other-mcp")
+
+:allowed = from_app.verdict
+:app_visibility_denied = from_model.audit_metadata.deny_reason
+:app_server_mismatch = from_other_server.audit_metadata.deny_reason
+
 %{
-  caller_origin: :app,
-  server_binding: "same MCP server required",
-  reviewed_ui: app_visibility,
+  app_on_its_server: from_app.verdict,
+  model_caller: from_model.audit_metadata.deny_reason,
+  app_from_another_server: from_other_server.audit_metadata.deny_reason,
   browser_enforcement: "host-owned"
 }
 ```

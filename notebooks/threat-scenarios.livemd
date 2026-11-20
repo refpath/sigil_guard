@@ -279,6 +279,51 @@ matching_authority =
 }
 ```
 
+## Manifest Binding On A Stale Approval
+
+Confirmation.verify/5 `manifest_binding: :when_claimed`.
+
+```elixir
+{:ok, unbound_token} =
+  Confirmation.issue(payload, context, decision, confirmation_key,
+    now: now,
+    nonce: String.duplicate("b", 32),
+    ttl_ms: 60_000
+  )
+
+verify_unbound = fn opts ->
+  Confirmation.verify(
+    unbound_token,
+    payload,
+    context,
+    confirmation_key,
+    [now: now, consume: false] ++ opts
+  )
+end
+
+exact_binding = verify_unbound.(manifest: benign_digest)
+
+{:ok, _claims} =
+  verify_unbound.(manifest: benign_digest, manifest_binding: :when_claimed)
+
+claimed_other_manifest =
+  Confirmation.verify(token, payload, context, confirmation_key,
+    now: now,
+    manifest: rugged_digest,
+    manifest_binding: :when_claimed,
+    consume: false
+  )
+
+{:error, :manifest_digest_mismatch} = exact_binding
+{:error, :manifest_digest_mismatch} = claimed_other_manifest
+
+%{
+  token_without_claim_exact: exact_binding,
+  token_without_claim_when_claimed: :ok,
+  token_with_claim_other_manifest: claimed_other_manifest
+}
+```
+
 ## Summary
 
 ```elixir

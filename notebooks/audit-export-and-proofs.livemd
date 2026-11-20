@@ -68,8 +68,9 @@ events = Audit.build_chain(unsigned_events, chain_key)
 
 Actor classification happens before signing, so the chain covers the
 privacy-preserving actor value. Destroying the separate field-hash key later is
-a crypto-erasure strategy; reusing the chain key for that purpose is rejected
-by design.
+a crypto-erasure strategy. `Audit.classify/2` does not use the chain key as
+the field-hash key: given the same key for both, it writes the fixed value
+`"redacted-v1"` instead of a hash.
 
 ## Create And Verify A Checkpoint
 
@@ -391,5 +392,34 @@ tampered =
 %{
   chain_check: Audit.verify_chain(tampered, chain_key),
   checkpoint_check: Checkpoint.verify(checkpoint, tampered)
+}
+```
+
+## Reading The Log
+
+Audit.tip/1, Audit.query/2, Audit.hash_field/2.
+
+```elixir
+{:ok, chain_tip} = Audit.tip(events)
+{:ok, tool_calls} = Audit.query(events, type: "mcp.tool_call")
+{:ok, middle} = Audit.query(events, from_index: 1, to_index: 3)
+{:ok, []} = Audit.query(events, type: "no.such.type")
+{:error, :out_of_range} = Audit.query(events, from_index: 9)
+{:error, :invalid_query} = Audit.query(events, actor: "did:web:alice")
+
+4 = chain_tip.index
+true = chain_tip.hmac == List.last(events).hmac
+2 = length(tool_calls)
+3 = length(middle)
+
+classified_actor = Audit.hash_field("did:web:alice", field_hash_key)
+true = Enum.all?(events, &(&1.actor == classified_actor))
+"redacted-v1" = Audit.hash_field("did:web:alice", nil)
+
+%{
+  tip_index: chain_tip.index,
+  tool_calls: Enum.map(tool_calls, & &1.action),
+  index_range: length(middle),
+  actor_without_key: Audit.hash_field("did:web:alice", nil)
 }
 ```
