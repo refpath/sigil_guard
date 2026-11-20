@@ -6,9 +6,10 @@ defmodule Mix.Tasks.Sigil.DocsLint do
 
       mix sigil.docs_lint
 
-  The task checks spec/task drift, stale three-digit research/spec
-  identifiers, local filesystem links, and old public wire/config vocabulary
-  in public documentation. Forbidden terms and known-dead URLs are checked
+  The task checks spec/task drift, test modules that a spec table cites but
+  `test/` does not define, stale three-digit research/spec identifiers, local
+  filesystem links, and old public wire/config vocabulary in public
+  documentation. Forbidden terms and known-dead URLs are checked
   only when a caller passes them to `lint/1`; the built-in lists are empty.
   """
 
@@ -65,6 +66,7 @@ defmodule Mix.Tasks.Sigil.DocsLint do
     findings =
       [
         spec_drift_findings(root, task_file, spec_files),
+        cited_test_findings(root, spec_files),
         pattern_findings(root, files, :forbidden_term, forbidden_terms(opts)),
         pattern_findings(root, files, :dead_url, dead_urls(opts)),
         stale_id_findings(root, files),
@@ -113,6 +115,37 @@ defmodule Mix.Tasks.Sigil.DocsLint do
 
     missing_task_findings ++ unknown_spec_findings
   end
+
+  # A table row is evidence; prose may name a module that was deleted.
+  defp cited_test_findings(root, spec_files) do
+    defined = defined_test_modules(root)
+
+    for file <- spec_files,
+        {"|" <> _ = line, line_no} <- lines(file),
+        [_, module] <- Regex.scan(~r/`([A-Z][A-Za-z0-9.]*Test)`/, line),
+        not MapSet.member?(defined, module) do
+      finding(
+        :missing_test_module,
+        relative_path(root, file),
+        line_no,
+        "cited test module #{module} is not defined under test/"
+      )
+    end
+  end
+
+  # Every dotted suffix of each test module, so `Audit.ProofTest` matches
+  # `SigilGuard.Audit.ProofTest`.
+  defp defined_test_modules(root) do
+    for file <- Path.wildcard(Path.join(root, "test/**/*.{ex,exs}")),
+        {:ok, body} <- [read_file(file)],
+        [_, module] <- Regex.scan(~r/^\s*defmodule\s+([A-Za-z0-9_.]+Test)\s+do/m, body),
+        suffix <- module_suffixes(String.split(module, ".")),
+        into: MapSet.new(),
+        do: suffix
+  end
+
+  defp module_suffixes([]), do: []
+  defp module_suffixes([_ | rest] = parts), do: [Enum.join(parts, ".") | module_suffixes(rest)]
 
   defp pattern_findings(root, files, check, patterns) do
     for file <- files,

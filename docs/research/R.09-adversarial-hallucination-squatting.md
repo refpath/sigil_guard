@@ -110,7 +110,7 @@ evidence library. It does not know the current contents of public registries,
 does not establish which repository a natural-language label denotes, does not
 fetch artifacts, and does not enforce kernel-level isolation. Treating the
 library as though it owned the complete path would create a control that looks
-comprehensive in isolation while leaving the real transitions unenforced.
+complete in isolation while leaving the real transitions unenforced.
 
 The current architecture already carries the facts most relevant after
 retrieval:

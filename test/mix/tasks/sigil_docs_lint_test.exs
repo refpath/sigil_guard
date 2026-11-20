@@ -95,6 +95,35 @@ defmodule Mix.Tasks.Sigil.DocsLintTest do
       assert finding.message == "SP.99 has no spec file"
     end
 
+    test "reports a test module that a spec table cites and test/ does not define" do
+      spec = """
+      #{front_matter("SP.01")}
+      | Test | Module | What It Verifies |
+      |------|--------|------------------|
+      | replay | `ReplayStoreTest` | Duplicate nonce rejects. |
+      | proofs | `Audit.ProofTest`, `Audit.MissingTest` | Inclusion verifies. |
+      | full name | `SigilGuard.Audit.ProofTest` | Same module. |
+
+      The deleted `RemovedAdapterTest` is prose, not evidence.
+      """
+
+      root =
+        fixture_root(%{
+          "docs/specs/SP.01-example.md" => spec,
+          "docs/tasks/sigil-tasks.md" => "- [ ] M1.01 Uses `SP.01`.\n",
+          "test/sigil_guard/replay_store_test.exs" =>
+            "defmodule SigilGuard.ReplayStoreTest do\nend\n",
+          "test/sigil_guard/audit/proof_test.exs" =>
+            "defmodule SigilGuard.Audit.ProofTest do\nend\n"
+        })
+
+      assert {:error, [finding]} = DocsLint.lint(root: root)
+      assert finding.check == :missing_test_module
+      assert finding.path == "docs/specs/SP.01-example.md"
+      assert finding.message =~ "Audit.MissingTest"
+      assert Enum.at(String.split(spec, "\n"), finding.line - 1) =~ "Audit.MissingTest"
+    end
+
     test "reports forbidden inspiration-project terms from the private list" do
       root =
         fixture_root(%{

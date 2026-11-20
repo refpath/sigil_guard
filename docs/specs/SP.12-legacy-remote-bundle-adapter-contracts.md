@@ -224,14 +224,18 @@ go/no-go gate.
 
 ## Testing Strategy
 
+The adapter's own test modules (`RegistryTest`, `Registry.BundleTest`,
+`Registry.CacheTest`) were deleted with it. The removal is tested instead:
+
 | Test | Module | What It Verifies |
 |------|--------|------------------|
-| missing URL | `RegistryTest` | No implicit remote dependency. |
-| fetch errors | `RegistryTest` | HTTP, JSON, timeout failures. |
-| key normalization | `RegistryTest` | Supported DID/key response shapes. |
-| provenance | `Registry.BundleTest` | Signature/digest/age/skew checks. |
-| quarantine | `Registry.CacheTest` | Invalid signed bundles do not load. |
-| migration guide | docs/migration tests | Every removed registry API has a v3 replacement. |
+| adapter removal | `RegistryRemovalTest` ("v3 registry adapter removal") | `SigilGuard.Registry` is not loadable; a removed call raises `UndefinedFunctionError`. |
+| bundle removal | `RegistryRemovalTest` ("v3 registry bundle removal") | `SigilGuard.Registry.Bundle` is not loadable; the legacy bundle fixture parses as historical data only. |
+| cache removal | `RegistryRemovalTest` ("v3 registry cache removal") | No registry cache or Finch child starts; runtime source has no Finch dependency or call site. |
+| removed configuration | `ConfigTest`, `ConfigErrorTest` | Removed keys and `scanner_patterns: :registry` raise `SigilGuard.ConfigError`. |
+| dependency set | `RuntimeDependencySetTest` | The runtime dependency set stays pinned. |
+| no network | `TrustBundle.NoNetworkTest`, `ReleaseNoNetworkSweepTest` | Bundle loading and the release decision paths open no port. |
+| migration guide | `Mix.Tasks.Sigil.MigrationGateTest`, `mix sigil.migration_gate` | Every required removal has a row in `MIGRATING-1.0.md`, and its local links resolve. |
 
 ## Acceptance Criteria
 

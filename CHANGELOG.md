@@ -32,6 +32,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - `SigilGuard.Audit.classify/2` treats an actor as already hashed only when it
   is `fh1:` plus 64 lowercase hexadecimal characters. A value that merely
   starts with `fh1:` was stored unchanged and is now hashed.
+- `mix sigil.docs_lint` reports a test module that a spec table cites and
+  `test/` does not define.
 - Answer malformed input without raising across the public entry points. A
   context that is not a map or keyword list, a foreign struct or an improper
   list in a request, result, boundary or payload, a non-map `metadata`, a

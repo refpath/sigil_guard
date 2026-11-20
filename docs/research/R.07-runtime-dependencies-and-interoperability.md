@@ -281,7 +281,7 @@ Notes per target:
 - **LangChain Elixir and ReqLLM** have the largest reach; a composable
   gating step covers tool execution and prompt/response scanning in both
   without SigilGuard taking either as a dependency.
-- **Tidewave** is the highest-leverage showcase: its runtime-introspection
+- **Tidewave** is the strongest showcase: its runtime-introspection
   MCP tools (code evaluation, SQL, logs against a live app) are precisely
   the tool class that most needs gating, and Phoenix 1.8 generating
   AGENTS.md by default marks the era in which Phoenix apps are
