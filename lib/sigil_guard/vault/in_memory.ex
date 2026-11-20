@@ -36,7 +36,7 @@ defmodule SigilGuard.Vault.InMemory do
   ## Process Model
 
   `start_link/1` registers a singleton GenServer under
-  `#{inspect(__MODULE__)}` — one vault per node. Supervise it in your
+  `#{inspect(__MODULE__)}`, one vault per node. Supervise it in your
   application's tree. When it is not running, or does not answer within the
   call timeout, `encrypt/2`, `decrypt/1` and `delete/1` return
   `{:error, :vault_unavailable}`, `exists?/1` returns `false`, and

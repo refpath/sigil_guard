@@ -21,7 +21,7 @@ defmodule SigilGuard.Signer.Ed25519 do
   ## Process Model
 
   `start_link/1` registers a singleton Agent under `#{inspect(__MODULE__)}`
-  holding the keypair — one keypair per node. Supervise it in your
+  holding the keypair, one keypair per node. Supervise it in your
   application's tree; `sign/1` and `public_key/0` exit if it is not
   running. For multiple keypairs in one node, use `new/1` + `sign_with/2`
   or implement `SigilGuard.Signer` in your own module.

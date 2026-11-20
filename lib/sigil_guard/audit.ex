@@ -260,7 +260,7 @@ defmodule SigilGuard.Audit do
   actual predecessor's `hmac` (or to the `:prev_hmac` anchor/genesis for
   the first event), or if its recomputed HMAC does not match. This
   detects tampered, deleted, inserted, and reordered events. Truncation
-  of the chain tail cannot be detected — see the module documentation.
+  of the chain tail cannot be detected; see the module documentation.
 
   ## Options
 
@@ -564,8 +564,8 @@ defmodule SigilGuard.Audit do
     canonical = canonical_iodata(event)
     expected_hmac = compute_hmac(key, [canonical, chain_input!(expected_prev)])
 
-    # Contiguity uses plain == — prev_hmac values are public chain
-    # data, not secrets; only the HMAC comparison needs constant time.
+    # Contiguity uses plain ==. A prev_hmac value is public chain data, not a
+    # secret; only the HMAC comparison needs constant time.
     if event.prev_hmac == expected_prev and Crypto.secure_compare(expected_hmac, event.hmac) do
       {:cont, {:ok, event.hmac}}
     else

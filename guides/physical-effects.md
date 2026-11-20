@@ -201,24 +201,14 @@ new approval. The library keeps no record of which envelopes are approved.
 
 ## Host Obligations
 
-- **Durable ledger.** Write the claim before any I/O, with create-if-absent
-  semantics, in storage that survives restart and is visible to every host
-  instance that can reach the target.
-- **Existing claims.** Equal digests: do not dispatch; read the recorded state
-  and reconcile. Different digests for the same key: refuse as a binding
-  conflict.
-- **Restart.** A record left in `claimed` saw no I/O and may resume at
-  admission with fresh facts. A record in `dispatched`, `acknowledged`, or
-  `cancel_requested` becomes `unknown` and is reconciled against the target.
-  It is never dispatched again automatically.
-- **Command identity.** Where the target protocol has an order or goal
-  identity, carry `operation_id` in it so the target can suppress a duplicate
-  the ledger could not.
-- **Argument schemas.** The library pins a tool's `input_schema` digest and
-  does not evaluate arguments against it. Validate `minimum`, `maximum`, and
-  `enum` in the host.
-- **Acceptance criterion.** Which observations count, how many are required,
-  and whether their sources are independent is the host's decision.
+| Concern | What the host does |
+|---------|--------------------|
+| Durable ledger | Writes the claim before any I/O, with create-if-absent semantics, in storage that survives restart and is visible to every host instance that can reach the target. |
+| Existing claims | On equal digests, does not dispatch; reads the recorded state and reconciles. On different digests for the same key, refuses as a binding conflict. |
+| Restart | Lets a record left in `claimed`, which saw no I/O, resume at admission with fresh facts. Marks a record in `dispatched`, `acknowledged`, or `cancel_requested` as `unknown` and reconciles it against the target; it is never dispatched again automatically. |
+| Command identity | Carries `operation_id` in the target protocol's order or goal identity, where it has one, so the target can suppress a duplicate the ledger could not. |
+| Argument schemas | Validates `minimum`, `maximum`, and `enum`. The library pins a tool's `input_schema` digest and does not evaluate arguments against it. |
+| Acceptance criterion | Decides which observations count, how many are required, and whether their sources are independent. |
 
 `EffectAuthority.valid_transition?/2` answers whether a ledger record may move
 from one state to another. A cancel request moves a record to
