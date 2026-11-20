@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 324 / 325 tasks done (99.7%).** Milestones: 17 complete.
+**Overall: 324 / 326 tasks done (99.4%).** Milestones: 17 complete.
 **Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -84,8 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 12 | 13 | 92% | In progress |
-| — | **Total** | **324** | **325** | **99.7%** | 17 done |
+| M15 | Benchmarks and library conformance | 12 | 14 | 86% | In progress |
+| — | **Total** | **324** | **326** | **99.4%** | 17 done |
 
 ### Release Handoff
 
@@ -120,7 +120,8 @@ unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
 library guidelines and anti-pattern guides. The baseline refresh needs a
-quiet benchmark runner.
+quiet benchmark runner, and the two confirmed-result release paths need
+one owner (M15.14).
 
 The table counts every milestone task (F through M15, including M7A) exactly
 once. The
@@ -3479,6 +3480,16 @@ traced every line no test executed.
     keeps its signature and the required `:max_fact_age_ms` (SP.19 PE.33);
     `tool:*` matches no boundary without a tool name (SP.04); an empty
     `:server` string counts as no server (SP.03).
+- [ ] M15.14 One confirmed-result release path.
+  - AC: `ToolGateway` and `ToolGateway.Base` release an accepted confirmed
+    result through one function, with tests that pin the outcome for a
+    quarantine effect through both entry points.
+  - Open: each module has its own `release_confirmed_result/1`. The
+    `ToolGateway` copy releases when `audit_metadata.quarantine_status` is
+    `:quarantined`; the `Base` copy when `action` is `:quarantine`. Whether
+    the two conditions can disagree for a decision the gate produces is not
+    established. The same split holds for the confirmation failure decision
+    (only the `ToolGateway` copy sets `deny_reason`).
 - [x] M15.13 Redacted results released in their original shape.
   - AC: a result the gateway releases with `action: :redact` keeps its
     content items and `structuredContent` with each string redacted.
