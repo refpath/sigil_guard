@@ -157,7 +157,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
       local_anchor?(args.target) ->
         local_anchor_finding(args)
 
-      not inside_root?(args.root, args.target_path) ->
+      not SigilGuard.PolicyPath.inside_root?(args.root, args.target_path) ->
         invalid_link(args, "link escapes repo: #{args.target}")
 
       not File.exists?(args.target_path) ->
@@ -243,12 +243,6 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
       {:ok, body} -> body
       {:error, _} -> ""
     end
-  end
-
-  defp inside_root?(root, path) do
-    root = Path.expand(root)
-    path = Path.expand(path)
-    path == root or String.starts_with?(path, root <> "/")
   end
 
   defp finding(check, path, line, message) do

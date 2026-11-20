@@ -154,7 +154,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
          :ok <- reject_legacy(root, opts) do
       candidates = normalize_candidates(Keyword.get(opts, :candidates, @default_candidates))
 
-      case first_existing(root, candidates) do
+      case SigilGuard.PolicyPath.first_existing(root, candidates) do
         nil -> {:error, :not_found}
         path -> read_and_parse(path, opts)
       end
@@ -206,18 +206,12 @@ defmodule SigilGuard.BoundaryPolicy.File do
     Enum.reduce_while(legacy, :ok, fn {found_name, use_name}, :ok ->
       path = Path.expand(found_name, root)
 
-      if inside_root?(root, path) and safe_regular_candidate?(root, path) do
+      if SigilGuard.PolicyPath.inside_root?(root, path) and
+           SigilGuard.PolicyPath.safe_regular_candidate?(root, path) do
         {:halt, {:error, {:legacy_policy_filename, path, use_name}}}
       else
         {:cont, :ok}
       end
-    end)
-  end
-
-  defp first_existing(root, candidates) do
-    Enum.find_value(candidates, fn relative ->
-      path = Path.expand(relative, root)
-      if inside_root?(root, path) and safe_regular_candidate?(root, path), do: path
     end)
   end
 
@@ -241,26 +235,6 @@ defmodule SigilGuard.BoundaryPolicy.File do
 
   defp within_size(size, max_bytes) when size <= max_bytes, do: :ok
   defp within_size(_, _), do: {:error, :policy_too_large}
-
-  defp inside_root?(root, path) do
-    path == root or String.starts_with?(path, root <> "/")
-  end
-
-  defp safe_regular_candidate?(root, path) do
-    path
-    |> Path.relative_to(root)
-    |> Path.split()
-    |> Enum.reduce_while(root, fn segment, current ->
-      candidate = Path.join(current, segment)
-
-      case File.lstat(candidate) do
-        {:ok, %{type: :symlink}} -> {:halt, false}
-        {:ok, _} -> {:cont, candidate}
-        {:error, _} -> {:halt, false}
-      end
-    end)
-    |> then(&(&1 == path and File.regular?(path)))
-  end
 
   defp parse_lines(numbered) do
     with {:ok, rest} <- expect_version(numbered),

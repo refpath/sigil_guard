@@ -210,7 +210,7 @@ defmodule SigilGuard.RepoPolicy do
          {:ok, candidates} <-
            normalize_policy_paths(Keyword.get(opts, :candidates, @default_policy_paths)),
          :ok <- reject_legacy_policy_paths(root) do
-      case first_existing_policy_path(root, candidates) do
+      case SigilGuard.PolicyPath.first_existing(root, candidates) do
         nil -> {:error, :not_found}
         path -> {:ok, path}
       end
@@ -706,7 +706,7 @@ defmodule SigilGuard.RepoPolicy do
     Enum.reduce_while(@legacy_policy_replacements, :ok, fn {legacy, replacement}, :ok ->
       path = Path.expand(legacy, root)
 
-      if inside_root?(root, path) and File.regular?(path) do
+      if SigilGuard.PolicyPath.inside_root?(root, path) and File.regular?(path) do
         {:halt, {:error, {:legacy_policy_filename, path, replacement}}}
       else
         {:cont, :ok}
@@ -778,40 +778,6 @@ defmodule SigilGuard.RepoPolicy do
       [] -> "."
       segments -> Enum.join(segments, "/")
     end
-  end
-
-  defp first_existing_policy_path(root, candidates) do
-    Enum.find_value(candidates, fn relative ->
-      path = Path.expand(relative, root)
-
-      if inside_root?(root, path) and safe_regular_candidate?(root, path) do
-        path
-      end
-    end)
-  end
-
-  defp inside_root?(root, path) do
-    root = Path.expand(root)
-    path = Path.expand(path)
-    root_prefix = root <> "/"
-
-    path == root or String.starts_with?(path, root_prefix)
-  end
-
-  defp safe_regular_candidate?(root, path) do
-    path
-    |> Path.relative_to(root)
-    |> Path.split()
-    |> Enum.reduce_while(root, fn segment, current ->
-      candidate = Path.join(current, segment)
-
-      case File.lstat(candidate) do
-        {:ok, %{type: :symlink}} -> {:halt, false}
-        {:ok, _} -> {:cont, candidate}
-        {:error, _} -> {:halt, false}
-      end
-    end)
-    |> then(&(&1 == path and File.regular?(path)))
   end
 
   defp ensure_policy_file(path, max_bytes) do
