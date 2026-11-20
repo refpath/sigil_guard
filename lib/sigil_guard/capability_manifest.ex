@@ -246,7 +246,7 @@ defmodule SigilGuard.CapabilityManifest do
          {:ok, computed} <- computed_fields(manifest),
          :ok <- validate_carried_digests(manifest, computed),
          :ok <- validate_suspicious_params(manifest, computed),
-         preimage <- preimage(manifest, computed),
+         preimage = preimage(manifest, computed),
          {:ok, digest} <- sha256_jcs(preimage) do
       {:ok, struct!(__MODULE__, struct_fields(manifest, computed, preimage, digest))}
     end
@@ -640,8 +640,9 @@ defmodule SigilGuard.CapabilityManifest do
          {:ok, output_schema_sha256} <- optional_sha256_jcs(manifest, "output_schema"),
          {:ok, title_sha256} <- optional_sha256_bytes(manifest, "title"),
          {:ok, icons_sha256} <- optional_sha256_jcs(manifest, "icons"),
-         {:ok, ui_sha256} <- optional_sha256_jcs(manifest, "ui"),
-         suspicious_params <- suspicious_params(Map.fetch!(manifest, "input_schema")) do
+         {:ok, ui_sha256} <- optional_sha256_jcs(manifest, "ui") do
+      suspicious_params = suspicious_params(Map.fetch!(manifest, "input_schema"))
+
       {:ok,
        %{
          "annotations_sha256" => annotations_sha256,

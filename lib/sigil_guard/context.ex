@@ -146,7 +146,7 @@ defmodule SigilGuard.Context do
   Known string keys become their existing struct-field atoms. Unknown keys are
   retained as strings and no atoms are created from external input.
   """
-  @spec overrides(t() | map() | keyword() | term()) :: map()
+  @spec overrides(term()) :: map()
   def overrides(%__MODULE__{} = context), do: Map.from_struct(context)
   def overrides(%_{}), do: %{}
 

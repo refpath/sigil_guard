@@ -117,7 +117,7 @@ defmodule SigilGuard.Attestation.Envelope do
   the envelope (or produced by `signer`) fails `:duplicate_keyid`; a signer that
   cannot produce an Ed25519 signature fails `:invalid_signer`.
   """
-  @spec add_signature(envelope() | term(), signer(), keyword()) ::
+  @spec add_signature(term(), signer(), keyword()) ::
           {:ok, envelope()}
           | {:error,
              :invalid_envelope
@@ -157,7 +157,7 @@ defmodule SigilGuard.Attestation.Envelope do
   base64url encoded public keys. Unresolved key ids are tolerated as witness
   signatures, but at least one signature must resolve.
   """
-  @spec verify(envelope() | term(), map()) :: {:ok, binary()} | {:error, verify_error()}
+  @spec verify(term(), map()) :: {:ok, binary()} | {:error, verify_error()}
   def verify(envelope, public_keys) when is_map(public_keys) do
     with {:ok, decoded} <- decode(envelope) do
       verify_signatures(

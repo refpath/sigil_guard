@@ -300,7 +300,7 @@ defmodule SigilGuard.AgentTrust do
   defp build_verified(statement_type, card, card_digest, params) do
     with :ok <- match_agent_id(card, params.peer_agent_id),
          :ok <- capability_declared(card, params.capability),
-         peer_trust <- derive_peer_trust(card, params.payload, params.opts),
+         peer_trust = derive_peer_trust(card, params.payload, params.opts),
          fd_opts <-
            from_decision_opts(statement_type, params, peer_trust, card_digest: card_digest),
          {:ok, statement} <-
@@ -318,7 +318,7 @@ defmodule SigilGuard.AgentTrust do
 
       with {:ok, statement} <-
              Attestation.from_decision(decision, params.context, fd_opts),
-           statement <- attach_unknown_peer_rule(statement),
+           statement = attach_unknown_peer_rule(statement),
            {:ok, envelope} <- sign_statement(statement, params.signer, params.opts) do
         emit_quarantine()
         {:ok, envelope}

@@ -180,7 +180,7 @@ defmodule SigilGuard.AgentCard do
   normative order: envelope structure, issuer resolution, Ed25519 over PAE,
   schema validation, JCS byte-equality, and freshness (`:now`/`:max_skew_ms`).
   """
-  @spec verify(Envelope.envelope() | term(), trust_material(), keyword()) ::
+  @spec verify(term(), trust_material(), keyword()) ::
           {:ok, card()} | {:error, verify_error()}
   def verify(envelope, trust_material, opts \\ []) do
     Telemetry.span([:sigil_guard, :agent_trust, :card_verify], %{}, fn ->
@@ -303,7 +303,7 @@ defmodule SigilGuard.AgentCard do
   defp validate_capabilities(card) do
     with {:ok, capabilities} <- fetch_non_empty_list(card, "capabilities"),
          :ok <- each_ok(capabilities, &valid_capability?/1),
-         names <- Enum.map(capabilities, &Map.fetch!(&1, "name")),
+         names = Enum.map(capabilities, &Map.fetch!(&1, "name")),
          true <- sorted_unique?(names) do
       :ok
     else
@@ -332,7 +332,7 @@ defmodule SigilGuard.AgentCard do
   defp validate_public_keys(card) do
     with {:ok, public_keys} <- fetch_non_empty_list(card, "public_keys"),
          :ok <- each_ok(public_keys, &valid_public_key?/1),
-         keyids <- Enum.map(public_keys, &Map.fetch!(&1, "keyid")),
+         keyids = Enum.map(public_keys, &Map.fetch!(&1, "keyid")),
          true <- sorted_unique?(keyids) do
       :ok
     else

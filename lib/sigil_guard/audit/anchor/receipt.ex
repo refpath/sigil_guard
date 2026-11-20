@@ -103,7 +103,7 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   @doc """
   Return top-level signature metadata from a string-keyed or atom-keyed receipt.
   """
-  @spec signature(map()) :: map() | term() | nil
+  @spec signature(map()) :: term()
   def signature(receipt) when is_map(receipt) do
     case Map.fetch(receipt, "signature") do
       {:ok, signature} -> signature
