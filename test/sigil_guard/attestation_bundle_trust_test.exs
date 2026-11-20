@@ -69,7 +69,7 @@ defmodule SigilGuard.AttestationBundleTrustTest do
     bundle
   end
 
-  defp statement(digest_opts \\ []) do
+  defp statement(digest_opts) do
     {:ok, predicate_type} = TrustProfile.predicate_type(:tool_request)
     {:ok, digests} = Digest.digests(:tool_request, @payload, @context, digest_opts)
 

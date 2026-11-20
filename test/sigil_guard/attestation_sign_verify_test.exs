@@ -331,6 +331,19 @@ defmodule SigilGuard.AttestationSignVerifyTest do
   end
 
   describe "negative paths" do
+    test "sign/3 refuses a predicate member that has no JSON form" do
+      assert {:ok, statement} = valid_statement()
+      assert {:ok, _} = Attestation.sign(statement, TrustedSigner)
+
+      for value <- [{:tuple, 1}, self(), %{1 => "integer key"}, <<255>>] do
+        assert {:ok, statement} = valid_statement(%{"extension" => value})
+        assert Attestation.sign(statement, TrustedSigner) == {:error, :invalid_payload}
+      end
+
+      assert {:ok, statement} = valid_statement(%{"extension" => 9_007_199_254_740_992})
+      assert Attestation.sign(statement, TrustedSigner) == {:error, :unsupported_number_range}
+    end
+
     test "rejects invalid signing inputs" do
       assert Attestation.sign("bad", TrustedSigner) == {:error, :invalid_payload}
       assert {:ok, statement} = valid_statement()
