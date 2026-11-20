@@ -174,7 +174,7 @@ defmodule SigilGuard.MCP.AppResource do
       valid_expected_uri?(Keyword.get(opts, :expected_uri)),
       valid_expected_digest?(Keyword.get(opts, :expected_sha256)),
       is_boolean(Keyword.get(opts, :require_digest, true)),
-      valid_max_bytes?(Keyword.get(opts, :max_bytes, @default_max_bytes)),
+      positive_max_bytes?(Keyword.get(opts, :max_bytes, @default_max_bytes)),
       valid_app_domain_allowlist?(Keyword.get(opts, :allowed_app_domains, [])),
       valid_domain_allowlist?(
         Keyword.get(opts, :allowed_base_uri_domains, []),
@@ -374,7 +374,7 @@ defmodule SigilGuard.MCP.AppResource do
 
   defp valid_expected_digest?(_), do: false
 
-  defp valid_max_bytes?(value), do: is_integer(value) and value > 0
+  defp positive_max_bytes?(value), do: is_integer(value) and value > 0
 
   defp present_host?(host), do: is_binary(host) and host != ""
 

@@ -91,7 +91,7 @@ defmodule Mix.Tasks.SigilGuard.VerifyReleaseRef do
 
       {github_ref, github_sha} when is_binary(github_ref) and is_binary(github_sha) ->
         with :ok <- validate_protected_ref(Map.get(environment, "GITHUB_REF_PROTECTED")) do
-          verify_git_identity(repository, expected_ref, github_ref, github_sha)
+          verify_tag_and_head(repository, expected_ref, github_ref, github_sha)
         end
 
       _ ->
@@ -99,7 +99,7 @@ defmodule Mix.Tasks.SigilGuard.VerifyReleaseRef do
     end
   end
 
-  defp verify_git_identity(repository, expected_ref, github_ref, github_sha) do
+  defp verify_tag_and_head(repository, expected_ref, github_ref, github_sha) do
     with :ok <- require_equal(github_ref, expected_ref, :ref),
          :ok <- validate_sha(github_sha),
          {:ok, tag_sha} <- resolve_commit(repository, expected_ref),

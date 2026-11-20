@@ -364,7 +364,7 @@ defmodule SigilGuard.Audit.Proof do
          %{"kind" => @inclusion_kind, "version" => @version} <- proof,
          {:ok, leaf_index} <- fetch_size(proof, "leaf_index", 0),
          {:ok, tree_size} <- fetch_size(proof, "tree_size", 1),
-         {:ok, path} <- fetch_path(proof, tree_size) do
+         {:ok, path} <- fetch_audit_path(proof, tree_size) do
       {:ok, leaf_index, tree_size, path}
     else
       _ -> {:error, :invalid_proof}
@@ -414,7 +414,7 @@ defmodule SigilGuard.Audit.Proof do
     end
   end
 
-  defp fetch_path(proof, tree_size) do
+  defp fetch_audit_path(proof, tree_size) do
     with list when is_list(list) <- Map.get(proof, "audit_path"),
          true <- length(list) <= max_path_length(tree_size),
          {:ok, decoded} <- decode_hex_list(list) do
