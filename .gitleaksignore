@@ -31,3 +31,8 @@ f91c3b7a2d03b2054ee1b6b2b3ac0e0941878c80:test/sigil_guard/scanner/pipeline_test.
 351c7a4ea28ee6c7431d03fed40f423b7848e713:test/sigil_guard/tool_gateway_test.exs:generic-api-key:1639
 0943d895f2d31b96dae82d3e94c62f48c459a657:test/sigil_guard/tool_gateway_test.exs:generic-api-key:1817
 2db1b40dc5d6a03964b2faf9f5ad0d09ce2568d4:test/sigil_guard/runtime/gate_test.exs:generic-api-key:471
+d01ac8813443058b30844ce9a3b3d6e44b3648da:test/sigil_guard/runtime/gate_test.exs:generic-api-key:1144
+# The example identifier of the did:key specification. It encodes a public
+# key.
+7e15150de0e57861b5aba9af0b01b313c4bc4fd5:lib/sigil_guard/identity.ex:generic-api-key:186
+7e15150de0e57861b5aba9af0b01b313c4bc4fd5:test/sigil_guard/identity_test.exs:generic-api-key:142
