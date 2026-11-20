@@ -4,6 +4,7 @@ defmodule SigilGuard.ContextTest do
   use ExUnit.Case, async: true
 
   alias SigilGuard.Context
+  alias SigilGuard.Runtime.Gate
 
   describe "new/1" do
     test "normalizes keyword context" do
@@ -98,6 +99,32 @@ defmodule SigilGuard.ContextTest do
       assert {:error, :invalid_metadata} = Context.validate(%{metadata: "bad"})
       assert {:error, :invalid_context} = Context.validate("bad")
     end
+
+    test "the three network postures validate and reach the gate" do
+      for posture <- [:none, :outbound, :bidirectional, "outbound"] do
+        assert Context.validate(network_posture: posture) == :ok
+      end
+
+      context = [
+        phase: :tool_request,
+        origin: :model,
+        sink: :tool,
+        trust_level: :high,
+        action: "read_file"
+      ]
+
+      assert Gate.evaluate("hello", Keyword.put(context, :network_posture, "outbound")).verdict ==
+               :allowed
+
+      refused = Gate.evaluate("hello", Keyword.put(context, :network_posture, "airgap"))
+      assert refused.verdict == :blocked
+      assert refused.audit_metadata.runtime_input_error == :invalid_network_posture
+    end
+
+    test "validate/1 refuses a list that is not a keyword list instead of raising" do
+      assert SigilGuard.Context.validate([1, 2]) == {:error, :invalid_context}
+      assert SigilGuard.Context.validate(phase: :tool_result) == :ok
+    end
   end
 
   describe "overrides/1" do
@@ -159,6 +186,14 @@ defmodule SigilGuard.ContextTest do
 
       assert Context.action_name(Context.new(%{}), payload) == "tool_call"
       assert Context.fetch_action_name(Context.new(%{}), payload) == {:error, :invalid_action}
+    end
+
+    test "action_name/2 reads only the payload when the context is not a struct" do
+      assert Context.action_name(:not_a_context, %{"tool" => "read_file"}) == "read_file"
+      assert Context.action_name(nil, "text") == "tool_call"
+      # A map or keyword context is not normalized here: its action is not used.
+      assert Context.action_name(%{action: "send_email"}, %{}) == "tool_call"
+      assert Context.action_name([action: "send_email"], %{"name" => "x"}) == "x"
     end
   end
 

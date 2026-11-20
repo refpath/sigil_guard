@@ -95,6 +95,19 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
       assert ReleaseStatement.statement(tarball: tarball, sbom: sbom, package: "") ==
                {:error, {:invalid_option, :package}}
     end
+
+    test "a version that is not a string is refused" do
+      directory = SigilGuard.CaseFixtures.Tmp.dir("release_statement")
+      tarball = Path.join(directory, "pkg.tar")
+      sbom = Path.join(directory, "pkg.spdx.json")
+      File.write!(tarball, "tarball bytes")
+      File.write!(sbom, "{}")
+
+      for version <- [100, nil, :"1.0.0", ~c"1.0.0"] do
+        assert ReleaseStatement.statement(tarball: tarball, sbom: sbom, version: version) ==
+                 {:error, {:invalid_option, :version}}
+      end
+    end
   end
 
   describe "run/1" do

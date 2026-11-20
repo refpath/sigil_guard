@@ -169,6 +169,18 @@ defmodule SigilGuard.BoundaryPolicy.ContractTest do
         assert byte_size(result) <= max_size
       end
     end
+
+    test "truncate/2 returns the bare marker when max_size leaves no room for content" do
+      content = "abcdefghijklmnopqrstuvwxyz"
+
+      assert Contract.truncate(content, 12) == "a[TRUNCATED]"
+      assert Contract.truncate(content, 11) == "[TRUNCATED]"
+      # Below the marker size the result exceeds max_size. The parser refuses such a contract.
+      assert Contract.truncate(content, 5) == "[TRUNCATED]"
+
+      assert Contract.parse(["contract sink:external max_size:5"]) ==
+               {:error, :invalid_output_contract}
+    end
   end
 
   describe "hash/1 and mask/1" do

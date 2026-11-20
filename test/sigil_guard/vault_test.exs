@@ -188,6 +188,36 @@ defmodule SigilGuard.VaultTest do
       assert docs =~ ":master_key"
       assert docs =~ "AES-256-GCM"
     end
+
+    test "an unknown vault start option is refused before the vault starts" do
+      stop_supervised!(InMemory)
+      Process.flag(:trap_exit, true)
+
+      assert InMemory.start_link(master_key: :crypto.hash(:sha256, "k"), ttl: 5) ==
+               {:error, :invalid_options}
+
+      assert Process.whereis(InMemory) == nil
+    end
+
+    test "start_link/0 takes the master key from the application environment" do
+      stop_supervised!(InMemory)
+      Process.flag(:trap_exit, true)
+
+      Application.put_env(:sigil_guard, :vault_master_key, "not base64 !!")
+      assert InMemory.start_link() == {:error, {:invalid_master_key, :invalid_base64}}
+
+      Application.put_env(
+        :sigil_guard,
+        :vault_master_key,
+        Base.encode64(:crypto.hash(:sha256, "configured"))
+      )
+
+      assert {:ok, pid} = InMemory.start_link()
+      assert :sys.get_state(pid).master_key == :crypto.hash(:sha256, "configured")
+      assert {:ok, id} = InMemory.encrypt("secret", "configured key")
+      assert InMemory.decrypt(id) == {:ok, "secret"}
+      GenServer.stop(pid)
+    end
   end
 
   describe "format_status/1" do

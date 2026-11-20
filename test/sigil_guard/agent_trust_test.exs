@@ -946,6 +946,42 @@ defmodule SigilGuard.AgentTrustTest do
                now: @now
              ) == {:error, :untrusted_issuer}
     end
+
+    test "a response that names the card but carries no manifest subject fails :manifest_digest_mismatch" do
+      {:ok, digest} = AgentCard.digest(card())
+      rad = request_action_digest(request_payload())
+      payload = %{"peer_agent" => @peer_id, "capability" => "summarize", "status" => "ok"}
+
+      build = fn extra ->
+        {:ok, statement} =
+          SigilGuard.Attestation.from_decision(
+            %{decision() | phase: :tool_result},
+            response_context(),
+            [
+              statement_type: :agent_response,
+              payload: payload,
+              request_action_digest: rad,
+              peer_trust: :medium,
+              card_digest: digest,
+              now: @now
+            ] ++ extra
+          )
+
+        {:ok, envelope} = SigilGuard.Attestation.sign(statement, Agent)
+        {statement, envelope}
+      end
+
+      {statement, envelope} = build.([])
+
+      assert statement["predicate"]["peer_agent"]["card_digest"] == digest
+      assert Enum.map(statement["subject"], & &1["name"]) == ["action", "payload", "context"]
+
+      assert verify_response(envelope, rad, payload: payload) ==
+               {:error, :manifest_digest_mismatch}
+
+      {_, bound} = build.(manifest_digest: digest)
+      assert {:ok, _} = verify_response(bound, rad, payload: payload)
+    end
   end
 
   describe "a responder verifies an inbound request by composition" do

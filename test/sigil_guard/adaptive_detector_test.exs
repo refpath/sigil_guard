@@ -5,6 +5,20 @@ defmodule SigilGuard.AdaptiveDetectorTest do
 
   alias SigilGuard.AdaptiveDetector
   alias SigilGuard.Boundary
+  alias SigilGuard.BoundaryPolicy
+
+  @digest String.duplicate("a", 64)
+  @fields %{
+    phase: :tool_request,
+    source: :model,
+    origin: :model,
+    sink: :tool,
+    action_digest: @digest,
+    payload_digest: @digest,
+    context_digest: @digest,
+    trust_level: :high,
+    sandbox: %{"isolation_level" => :vm}
+  }
 
   # Returns whatever `:return` opt is given, so one detector exercises every
   # result shape; crash/slow detectors are separate.
@@ -132,6 +146,23 @@ defmodule SigilGuard.AdaptiveDetectorTest do
             [adaptive_detector: EchoDetector, hook_timeout_ms: 4_294_967_296]
           ] do
         assert run(opts) == @degraded
+      end
+    end
+
+    test "a detector that is killed, throws or exits degrades to no indicators" do
+      boundary = Boundary.new(@fields)
+
+      for detector <- [
+            SigilGuard.CaseFixtures.SelfKillDetector,
+            SigilGuard.CaseFixtures.ThrowDetector,
+            SigilGuard.CaseFixtures.ExitDetector
+          ] do
+        assert AdaptiveDetector.run(boundary, adaptive_detector: detector, text: "x") ==
+                 %{indicators: [], risk_level: nil, error: :adaptive_error}
+
+        decision = BoundaryPolicy.evaluate(@fields, adaptive_detector: detector, text: "x")
+        assert decision.action == :allow
+        assert decision.audit_metadata.adaptive_error == :adaptive_error
       end
     end
   end

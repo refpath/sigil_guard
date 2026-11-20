@@ -4,7 +4,22 @@ defmodule SigilGuard.HooksTest do
   use ExUnit.Case, async: true
 
   alias SigilGuard.Boundary
+  alias SigilGuard.BoundaryPolicy
   alias SigilGuard.Hooks
+
+  @digest String.duplicate("a", 64)
+  @fields %{
+    phase: :tool_request,
+    source: :model,
+    origin: :model,
+    sink: :tool,
+    action_digest: @digest,
+    payload_digest: @digest,
+    context_digest: @digest,
+    trust_level: :high,
+    sandbox: %{"isolation_level" => :vm}
+  }
+  @empty %{contributions: [], risk_level: nil, indicators: []}
 
   defmodule BlockHook do
     @spec on_tool_request(term(), term()) :: term()
@@ -225,6 +240,36 @@ defmodule SigilGuard.HooksTest do
         assert rule["explanation"] == "invalid_hook_options"
       end
     end
+
+    test "a signal whose indicators are not a list fails closed on a blockable phase" do
+      decision =
+        BoundaryPolicy.evaluate(@fields, hooks: [SigilGuard.CaseFixtures.BadIndicatorsHook])
+
+      assert decision.action == :block
+
+      assert decision.matched_rules == [
+               %{
+                 rule_id: "hook.SigilGuard.CaseFixtures.BadIndicatorsHook.tool_request",
+                 explanation: "invalid_hook_result"
+               }
+             ]
+
+      notify = Boundary.new(%{@fields | phase: :session_start})
+      assert Hooks.dispatch(notify, hooks: [SigilGuard.CaseFixtures.BadIndicatorsHook]) == @empty
+    end
+
+    test "a hook whose process is killed fails closed to :hook_crash" do
+      decision = BoundaryPolicy.evaluate(@fields, hooks: [SigilGuard.CaseFixtures.SelfKillHook])
+
+      assert decision.action == :block
+
+      assert decision.matched_rules == [
+               %{
+                 rule_id: "hook.SigilGuard.CaseFixtures.SelfKillHook.tool_request",
+                 explanation: "hook_crash"
+               }
+             ]
+    end
   end
 
   describe "fail-closed matrix (notification-only phase)" do
@@ -275,6 +320,23 @@ defmodule SigilGuard.HooksTest do
                        %{module: ^module, phase: :tool_request, hook_result: :continue}}
 
       assert is_integer(duration) and duration >= 0
+    end
+
+    test "a notification callback that returns :ok continues, and another return is invalid" do
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :boundary, :hook]])
+      on_exit(fn -> :telemetry.detach(ref) end)
+      boundary = Boundary.new(%{@fields | phase: :session_start})
+
+      for {hook, result} <- [
+            {SigilGuard.CaseFixtures.NotifyOkHook, :continue},
+            {SigilGuard.CaseFixtures.BadIndicatorsHook, :invalid_hook_result}
+          ] do
+        assert Hooks.dispatch(boundary, hooks: [hook]) == @empty
+        module = inspect(hook)
+
+        assert_receive {[:sigil_guard, :boundary, :hook], ^ref, _,
+                        %{module: ^module, hook_result: ^result}}
+      end
     end
   end
 

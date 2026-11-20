@@ -160,6 +160,21 @@ defmodule SigilGuard.ConfigTest do
       assert docs =~ ":attestation_ttl_ms"
       assert docs =~ ":scanner_patterns"
     end
+
+    test "binary and priv trust bundle sources are accepted in their exact shape only" do
+      for source <- [{:binary, "{}"}, {:priv, :sigil_guard, "trust/bundle.json"}] do
+        assert Keyword.fetch!(Config.validate!(trust_bundle: source), :trust_bundle) == source
+      end
+
+      for source <- [
+            {:binary, 123},
+            {:priv, "sigil_guard", "p"},
+            {:priv, :sigil_guard, 1},
+            {:priv, :sigil_guard}
+          ] do
+        assert_raise SigilGuard.ConfigError, fn -> Config.validate!(trust_bundle: source) end
+      end
+    end
   end
 
   describe "validate!/0" do

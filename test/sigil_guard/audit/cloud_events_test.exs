@@ -111,5 +111,30 @@ defmodule SigilGuard.Audit.CloudEventsTest do
       refute Map.has_key?(CloudEvents.project(trace_only), "traceparent")
       refute Map.has_key?(CloudEvents.project(span_only), "traceparent")
     end
+
+    test "an event's traceparent is written only from well-formed W3C ids" do
+      event = SigilGuard.Audit.new_event("tool_call", "agent-1", "read_file", "allowed")
+      trace = String.duplicate("a", 32)
+      span = String.duplicate("b", 16)
+
+      with_ids = fn trace_id, span_id ->
+        %{event | metadata: %{"trace_id" => trace_id, "span_id" => span_id}}
+        |> SigilGuard.Audit.CloudEvents.project()
+        |> Map.get("traceparent")
+      end
+
+      assert with_ids.(trace, span) == "00-#{trace}-#{span}-01"
+
+      for {trace_id, span_id} <- [
+            {"short", span},
+            {trace, "short"},
+            {String.duplicate("A", 32), span},
+            {String.duplicate("0", 32), span},
+            {trace, String.duplicate("0", 16)},
+            {trace <> "\r\n", span}
+          ] do
+        assert with_ids.(trace_id, span_id) == nil
+      end
+    end
   end
 end

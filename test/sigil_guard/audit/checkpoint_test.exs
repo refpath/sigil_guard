@@ -177,6 +177,47 @@ defmodule SigilGuard.Audit.CheckpointTest do
       assert {:error, :invalid_metadata} = Checkpoint.create(events, metadata: "bad")
       assert {:error, :invalid_anchor_metadata} = Checkpoint.create(events, anchor: "bad")
     end
+
+    test "verifies a continuation checkpoint only against its own predecessor and segment" do
+      [first, second, third] = build_signed_chain(3)
+
+      {:ok, checkpoint} =
+        Checkpoint.create([second, third], prev_hmac: first.hmac, generated_at: @generated_at)
+
+      assert {:ok, %{status: :unsigned}} = Checkpoint.verify(checkpoint, [second, third])
+
+      assert Checkpoint.verify(%{checkpoint | "prev_hmac" => String.duplicate("0", 64)}, [
+               second,
+               third
+             ]) ==
+               {:error, :broken_chain}
+
+      assert Checkpoint.verify(checkpoint, [first, second]) == {:error, :broken_chain}
+
+      assert Checkpoint.verify(Map.put(checkpoint, "prev_hmac", 7), [second, third]) ==
+               {:error, :invalid_prev_hmac}
+    end
+
+    test "an empty continuation segment keeps its predecessor anchor" do
+      [first] = build_signed_chain(1)
+
+      assert {:ok, checkpoint} =
+               Checkpoint.create([], prev_hmac: first.hmac, generated_at: @generated_at)
+
+      assert checkpoint["event_count"] == 0
+      assert checkpoint["prev_hmac"] == first.hmac
+      assert {:ok, _} = Checkpoint.verify(checkpoint, [])
+      assert Checkpoint.verify(checkpoint, [first]) == {:error, :broken_chain}
+    end
+
+    test "an unsigned event breaks the chain at any position" do
+      [first, second] = build_signed_chain(2)
+      unsigned = Audit.new_event("test", "alice", "action", "ok")
+
+      assert Checkpoint.create([unsigned]) == {:error, :broken_chain}
+      assert Checkpoint.create([%{first | hmac: ""}]) == {:error, :broken_chain}
+      assert Checkpoint.create([first, %{second | hmac: nil}]) == {:error, :broken_chain}
+    end
   end
 
   describe "canonical_bytes/1 and digest/1" do

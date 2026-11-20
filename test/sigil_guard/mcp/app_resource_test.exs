@@ -301,6 +301,28 @@ defmodule SigilGuard.MCP.AppResourceTest do
            ) == {:error, :invalid_app_resource}
   end
 
+  test "a blob that is not standard base64 is refused" do
+    sha = :crypto.hash(:sha256, @html) |> Base.encode16(case: :lower)
+    opts = [expected_uri: "ui://repo/review", expected_sha256: sha]
+
+    resource = %{
+      "uri" => "ui://repo/review",
+      "mimeType" => "text/html;profile=mcp-app",
+      "blob" => Base.encode64(@html)
+    }
+
+    assert {:ok, _} = AppResource.verify(resource, opts)
+
+    for blob <- [
+          "not base64!!",
+          Base.encode64(@html) <> "=",
+          Base.url_encode64("<<>>??~~" <> @html)
+        ] do
+      assert AppResource.verify(Map.put(resource, "blob", blob), opts) ==
+               {:error, :invalid_app_resource}
+    end
+  end
+
   defp resource do
     %{
       "uri" => "ui://repo/review",

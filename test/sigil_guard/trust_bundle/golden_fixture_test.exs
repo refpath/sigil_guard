@@ -25,6 +25,8 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
   alias SigilGuard.TrustBundleFixtureGenerator
   alias SigilGuard.TrustBundleFixtureGenerator.BundleSigner
   alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
+  alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
+  alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
 
   @fixtures SigilGuard.FixturePath.path("trust_bundle")
   @now ~U[2026-07-03 12:00:00.000Z]
@@ -268,8 +270,6 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
 
   describe "rotation rollback floors" do
     alias SigilGuard.TrustBundleFixtureGenerator.ForkedRootSigner
-    alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
-    alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
 
     # The committed successor with its rotation document re-issued at `floor`.
     defp successor_with_rotation_floor(floor, sequence) do
@@ -356,6 +356,137 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
     end
   end
 
+  describe "root and delegate authority" do
+    test "a malformed :genesis_root is refused" do
+      genesis = read_json(["rotation", "genesis.json"])
+      successor = signed_successor(envelope_document(read_json(["rotation", "successor.json"])))
+      pin = root_pin(envelope_document(genesis))
+
+      assert {:ok, _} = TrustBundle.verify(successor, now: @now, genesis_root: pin)
+
+      for bad <- [
+            :not_a_pin,
+            %{},
+            %{pin | version: 0},
+            %{pin | threshold: "1"},
+            Map.delete(pin, :keys)
+          ] do
+        assert TrustBundle.verify(successor, now: @now, genesis_root: bad) ==
+                 {:error, :invalid_bundle_format}
+      end
+    end
+
+    test "a successor under a new root version needs a rotation chain" do
+      genesis = read_json(["rotation", "genesis.json"])
+      successor = envelope_document(read_json(["rotation", "successor.json"]))
+      pin = root_pin(envelope_document(genesis))
+
+      for chainless <- [
+            Map.delete(successor, "rotation_chain"),
+            Map.put(successor, "rotation_chain", [])
+          ] do
+        assert TrustBundle.verify(signed_successor(chainless), now: @now, genesis_root: pin) ==
+                 {:error, :invalid_bundle_format}
+      end
+
+      assert {:ok, _} = TrustBundle.load({:map, genesis}, now: @now)
+
+      assert TrustBundle.load({:map, signed_successor(Map.delete(successor, "rotation_chain"))},
+               now: @now
+             ) ==
+               {:error, :invalid_bundle_format}
+
+      assert Cache.floor("example-org-trust") == 1
+    end
+
+    test "a rotation issued for another bundle id does not extend the chain" do
+      genesis = read_json(["rotation", "genesis.json"])
+      successor = read_json(["rotation", "successor.json"])
+      pin = root_pin(envelope_document(genesis))
+
+      rechained = fn bundle_id ->
+        rotation =
+          successor
+          |> rotation()
+          |> envelope_document()
+          |> Map.put("bundle_id", bundle_id)
+          |> sign_with([RootSigner, NewRootSigner])
+
+        successor
+        |> envelope_document()
+        |> Map.put("rotation_chain", [rotation])
+        |> signed_successor()
+      end
+
+      assert {:ok, %TrustBundle{}} =
+               TrustBundle.verify(rechained.("example-org-trust"), now: @now, genesis_root: pin)
+
+      assert TrustBundle.verify(rechained.("other-org-trust"), now: @now, genesis_root: pin) ==
+               {:error, :invalid_bundle_format}
+    end
+
+    test "a pinned root key that is not an Ed25519 key fails closed" do
+      genesis = read_json(["rotation", "genesis.json"])
+
+      successor = signed_successor(envelope_document(read_json(["rotation", "successor.json"])))
+
+      pin = root_pin(envelope_document(genesis))
+      [root_keyid] = pin.keyids
+
+      assert {:ok, _} = TrustBundle.verify(successor, now: @now, genesis_root: pin)
+
+      assert TrustBundle.verify(successor,
+               now: @now,
+               genesis_root: %{pin | keys: Map.put(pin.keys, root_keyid, <<1, 2, 3>>)}
+             ) == {:error, :invalid_signature}
+    end
+
+    test "a cached root cannot be replaced by a self-authorized signing key" do
+      original = read_json(["minimal", "envelope.json"])
+      assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
+      key = Envelope.keyid(NewBundleSigner.public_key())
+
+      descriptor = %{
+        "alg" => "ed25519",
+        "public_key" => Base.url_encode64(NewBundleSigner.public_key(), padding: false)
+      }
+
+      document =
+        original
+        |> envelope_document()
+        |> Map.put("sequence", "2")
+        |> Map.put("keys", %{key => descriptor})
+        |> put_in(["roles", "root", "keyids"], [key])
+        |> put_in(["roles", "delegates", Access.at(0), "keyids"], [key])
+
+      malicious = sign_with(document, [NewBundleSigner])
+      assert TrustBundle.load({:map, malicious}, now: @now) == {:error, :invalid_bundle_format}
+      assert Cache.floor("example-org-trust") == 1
+    end
+
+    test "rotation alone does not authorize a successor's newly declared delegates" do
+      original = read_json(["rotation", "genesis.json"])
+      incomplete = read_json(["rotation", "successor.json"])
+      assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
+      assert TrustBundle.verify(incomplete, now: @now) == {:error, :threshold_not_met}
+      assert {:ok, _} = TrustBundle.load({:map, authorize_successor(incomplete)}, now: @now)
+    end
+
+    test "a bundle delegate cannot change its own role under the pinned root version" do
+      original = read_json(["minimal", "envelope.json"])
+      assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
+
+      changed =
+        original
+        |> envelope_document()
+        |> Map.put("sequence", "2")
+        |> put_in(["roles", "delegates", Access.at(0), "expires_at"], "2027-10-01T12:00:00.000Z")
+        |> signed_old_bundle()
+
+      assert TrustBundle.verify(changed, now: @now) == {:error, :invalid_bundle_format}
+    end
+  end
+
   defp envelope_payload(envelope) do
     envelope
     |> Map.fetch!("payload")
@@ -398,49 +529,4 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
   end
 
   defp signatures(envelope), do: Map.new(envelope["signatures"], &{&1["keyid"], &1["sig"]})
-
-  test "a cached root cannot be replaced by a self-authorized signing key" do
-    original = read_json(["minimal", "envelope.json"])
-    assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
-    key = Envelope.keyid(NewBundleSigner.public_key())
-
-    descriptor = %{
-      "alg" => "ed25519",
-      "public_key" => Base.url_encode64(NewBundleSigner.public_key(), padding: false)
-    }
-
-    document =
-      original
-      |> envelope_document()
-      |> Map.put("sequence", "2")
-      |> Map.put("keys", %{key => descriptor})
-      |> put_in(["roles", "root", "keyids"], [key])
-      |> put_in(["roles", "delegates", Access.at(0), "keyids"], [key])
-
-    malicious = sign_with(document, [NewBundleSigner])
-    assert TrustBundle.load({:map, malicious}, now: @now) == {:error, :invalid_bundle_format}
-    assert Cache.floor("example-org-trust") == 1
-  end
-
-  test "rotation alone does not authorize a successor's newly declared delegates" do
-    original = read_json(["rotation", "genesis.json"])
-    incomplete = read_json(["rotation", "successor.json"])
-    assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
-    assert TrustBundle.verify(incomplete, now: @now) == {:error, :threshold_not_met}
-    assert {:ok, _} = TrustBundle.load({:map, authorize_successor(incomplete)}, now: @now)
-  end
-
-  test "a bundle delegate cannot change its own role under the pinned root version" do
-    original = read_json(["minimal", "envelope.json"])
-    assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
-
-    changed =
-      original
-      |> envelope_document()
-      |> Map.put("sequence", "2")
-      |> put_in(["roles", "delegates", Access.at(0), "expires_at"], "2027-10-01T12:00:00.000Z")
-      |> signed_old_bundle()
-
-    assert TrustBundle.verify(changed, now: @now) == {:error, :invalid_bundle_format}
-  end
 end

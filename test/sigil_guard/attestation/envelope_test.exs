@@ -250,6 +250,17 @@ defmodule SigilGuard.Attestation.EnvelopeTest do
       assert Envelope.sign("payload", ShortSignatureSigner) == {:error, :invalid_signer}
       assert Envelope.sign("payload", RaisingSignatureSigner) == {:error, :invalid_signer}
     end
+
+    test "cosigning refuses a term that is not an envelope map" do
+      signer = SigilGuard.TestSigner
+
+      for term <- [nil, "envelope", [%{"payload" => ""}], 7] do
+        assert Envelope.add_signature(term, signer) == {:error, :invalid_envelope}
+
+        assert Envelope.add_signature(term, signer, keyid: "second") ==
+                 {:error, :invalid_envelope}
+      end
+    end
   end
 
   defmodule SignerA do

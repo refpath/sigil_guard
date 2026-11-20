@@ -142,5 +142,12 @@ defmodule SigilGuard.SignerTest do
       assert docs =~ ":private_key"
       assert docs =~ "Ed25519"
     end
+
+    test "an unknown signer start option is refused before the agent starts" do
+      assert Ed25519.start_link(private_key: :binary.copy(<<7>>, 32), key_id: "extra") ==
+               {:error, :invalid_options}
+
+      assert Process.whereis(Ed25519) == nil
+    end
   end
 end

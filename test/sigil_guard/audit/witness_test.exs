@@ -150,6 +150,35 @@ defmodule SigilGuard.Audit.WitnessTest do
       broken = Map.put(ctx.envelope, "payload", "not*base64*url")
       assert Witness.cosign(broken, Witness1, previous: previous) == {:error, :invalid_envelope}
     end
+
+    test "a previous statement whose root or subject digest is not a string fails :invalid_proof" do
+      {:ok, payload} = JCS.encode(Fixture.statement())
+      {:ok, envelope} = Envelope.sign(payload, Fixture.signer())
+      events = Fixture.signed_events()
+
+      {:ok, cp3} =
+        Checkpoint.create(Enum.take(events, 3), generated_at: "2026-07-02T12:00:03.000Z")
+
+      {:ok, statement3} = Checkpoint.to_statement(cp3)
+      {:ok, proof} = Proof.consistency(events, 3)
+
+      assert {:ok, _} =
+               Witness.cosign(envelope, Fixture.signer(),
+                 keyid: "witness-1",
+                 previous: %{statement: statement3, consistency_proof: proof}
+               )
+
+      for statement <- [
+            put_in(statement3, ["predicate", "merkle_root"], 123),
+            put_in(statement3, ["predicate", "merkle_root"], nil),
+            put_in(statement3, ["subject", Access.at(0), "digest", "sha256"], ["ab"])
+          ] do
+        previous = %{statement: statement, consistency_proof: proof}
+
+        assert Witness.cosign(envelope, Fixture.signer(), keyid: "witness-1", previous: previous) ==
+                 {:error, :invalid_proof}
+      end
+    end
   end
 
   test "cosigning requires a valid current checkpoint state even without a previous state" do

@@ -209,6 +209,27 @@ defmodule SigilGuard.Audit.ExportTest do
         )
       end
     end
+
+    test "an anchor option map keeps the known keys and drops the rest" do
+      events = build_signed_chain(3)
+
+      assert {:ok, export} =
+               Export.create(events,
+                 generated_at: @generated_at,
+                 anchor: %{
+                   "storage" => "s3-object-lock",
+                   "anchored_at" => "2026-01-01T00:00:05.000Z",
+                   "bucket" => "ignored",
+                   retention: 1
+                 }
+               )
+
+      assert export["anchor"]["storage"] == "s3-object-lock"
+      assert export["anchor"]["anchored_at"] == "2026-01-01T00:00:05.000Z"
+      refute Map.has_key?(export["anchor"], "bucket")
+      refute Map.has_key?(export["anchor"], "retention")
+      assert {:ok, _} = Export.verify(export, events)
+    end
   end
 
   describe "verify/3" do

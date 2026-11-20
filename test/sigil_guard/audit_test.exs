@@ -575,6 +575,18 @@ defmodule SigilGuard.AuditTest do
       assert Audit.query(events, to_index: 5) == {:error, :out_of_range}
       assert Audit.query(events, from_index: 3, to_index: 1) == {:error, :out_of_range}
     end
+
+    test "query/1 returns the whole chain and a time window may be open at either end" do
+      events = query_events()
+
+      assert Audit.query(events) == {:ok, events}
+
+      assert {:ok, until} = Audit.query(events, to_time: "2026-07-02T12:00:01.000Z")
+      assert Enum.map(until, & &1.id) == ["id0", "id1"]
+
+      assert {:ok, since} = Audit.query(events, from_time: "2026-07-02T12:00:03.000Z")
+      assert Enum.map(since, & &1.id) == ["id3", "id4"]
+    end
   end
 
   describe "checkpoint_boundaries/2" do

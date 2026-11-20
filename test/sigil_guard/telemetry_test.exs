@@ -650,6 +650,47 @@ defmodule SigilGuard.TelemetryTest do
       assert {:error, :not_found} =
                Telemetry.detach("sigil-otel-missing-test-#{System.unique_integer()}")
     end
+
+    test "attach_otel_forwarder/2 forwards policy and gate events without actor or hash attributes" do
+      parent = self()
+      handler_id = "sigil-otel-default-test-#{System.unique_integer()}"
+
+      assert :ok =
+               Telemetry.attach_otel_forwarder(handler_id, fn event, _, _, attributes ->
+                 send(parent, {:forwarded, event, attributes})
+               end)
+
+      on_exit(fn -> Telemetry.detach(handler_id) end)
+
+      Telemetry.emit([:sigil_guard, :policy, :decision], %{}, %{
+        actor: "did:web:alice",
+        action: "cell.move",
+        content_hash: String.duplicate("a", 64)
+      })
+
+      Telemetry.emit([:sigil_guard, :runtime, :gate], %{}, %{
+        verdict: :allowed,
+        content_hash: String.duplicate("b", 64)
+      })
+
+      assert_receive {:forwarded, [:sigil_guard, :policy, :decision], policy_attributes}
+
+      assert policy_attributes == %{
+               "sigilguard.action" => "cell.move",
+               "sigilguard.component" => "policy",
+               "sigilguard.event" => "sigil_guard.policy.decision",
+               "sigilguard.operation" => "decision"
+             }
+
+      assert_receive {:forwarded, [:sigil_guard, :runtime, :gate], gate_attributes}
+
+      assert gate_attributes == %{
+               "sigilguard.component" => "runtime",
+               "sigilguard.event" => "sigil_guard.runtime.gate",
+               "sigilguard.operation" => "gate",
+               "sigilguard.verdict" => "allowed"
+             }
+    end
   end
 
   describe "scan telemetry" do

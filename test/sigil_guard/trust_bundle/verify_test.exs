@@ -247,6 +247,26 @@ defmodule SigilGuard.TrustBundle.VerifyTest do
              ) ==
                {:error, :invalid_bundle_format}
     end
+
+    test "a signature in padded or standard base64 verifies like its unpadded url form" do
+      envelope = sign_with(bundle_document(), [BundleSigner])
+      [%{"sig" => sig} = signature] = envelope["signatures"]
+      raw = Base.url_decode64!(sig, padding: false)
+
+      # The url alphabet differs from the standard one here, so each encoding
+      # takes its own decoding branch.
+      assert String.contains?(sig, ["-", "_"])
+
+      for encode <- [
+            &Base.url_encode64(&1, padding: true),
+            &Base.encode64(&1, padding: false),
+            &Base.encode64(&1)
+          ] do
+        reencoded = %{envelope | "signatures" => [%{signature | "sig" => encode.(raw)}]}
+
+        assert {:ok, %TrustBundle{sequence: 1}} = Verify.verify(reencoded, now: @now)
+      end
+    end
   end
 
   defp bundle_document do

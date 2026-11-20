@@ -7,6 +7,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
   alias __MODULE__.TrustedSigner
   alias SigilGuard.Attestation
+  alias SigilGuard.Attestation.Digest
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.Context
   alias SigilGuard.Decision
@@ -14,6 +15,10 @@ defmodule SigilGuard.ToolGatewayTest do
   alias SigilGuard.ReplayStore
   alias SigilGuard.ToolGateway
   alias SigilGuard.TrustBundle
+
+  defmodule TrustedSigner do
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-tool-gateway-attestation")
+  end
 
   @confirmation_key :crypto.hash(:sha256, "tool-gateway-confirmation-test-key")
   @request_action_digest String.duplicate("a", 64)
@@ -858,6 +863,60 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert decision.verdict == :allowed
     end
+
+    test "a bundle manifest resolves without a host server, and an empty server is no pin" do
+      guard =
+        &ToolGateway.guard_request(
+          request(),
+          sandbox_context(),
+          [trust_bundle: [manifest()], require_manifest: true, now: @now] ++ &1
+        )
+
+      unpinned = guard.([])
+      assert unpinned.verdict == :allowed
+      assert unpinned.audit_metadata.manifest_name == "repo_file_write"
+
+      empty = guard.(server: "")
+      assert empty.verdict == :allowed
+      assert empty.audit_metadata.manifest_name == "repo_file_write"
+
+      other = guard.(server: "other-mcp")
+      assert other.verdict == :blocked
+      assert other.audit_metadata.deny_reason == :unknown_manifest
+    end
+
+    test "a struct passed as :manifests blocks as unknown_manifest instead of raising" do
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => "repo_file_write", "arguments" => %{}}
+      }
+
+      for manifests <- [~U[2026-11-19 12:01:00.000Z], MapSet.new(["repo_file_write"])] do
+        decision =
+          ToolGateway.guard_request(request, [trust_level: :high], manifests: manifests)
+
+        assert decision.verdict == :blocked
+        assert decision.audit_metadata.deny_reason == :unknown_manifest
+      end
+    end
+
+    test "a suspicious-parameter request whose arguments cannot be digested is blocked, not confirmed" do
+      request = put_in(request(), ["params", "arguments", "apiKey"], <<255, 254>>)
+
+      opts = [
+        manifests: %{"repo_file_write" => suspicious_manifest()},
+        require_manifest: true,
+        now: @now
+      ]
+
+      decision = ToolGateway.guard_request(request, sandbox_context(), opts)
+
+      assert decision.verdict == :blocked
+      assert decision.audit_metadata.deny_reason == :suspicious_required_param
+      assert decision.audit_metadata.action_digest_error == :invalid_payload
+    end
   end
 
   describe "action digest recording" do
@@ -1560,6 +1619,30 @@ defmodule SigilGuard.ToolGatewayTest do
                now: @now
              ) == {:error, :invalid_manifest}
     end
+
+    test "an atom-keyed carried manifest is held to the pinned output schema" do
+      schema = %{"type" => "object", "properties" => %{"ok" => %{"type" => "boolean"}}}
+      pinned = Map.put(manifest(), "output_schema", schema)
+
+      carried =
+        manifest()
+        |> Map.delete("input_schema")
+        |> Map.new(fn {key, value} -> {String.to_existing_atom(key), value} end)
+        |> Map.put(:inputSchema, manifest()["input_schema"])
+        |> Map.put(:outputSchema, schema)
+
+      verify =
+        &ToolGateway.verify_manifest(&1,
+          server: "repo-mcp",
+          manifests: %{"repo_file_write" => pinned},
+          now: @now
+        )
+
+      assert {:ok, %CapabilityManifest{output_schema: ^schema}} = verify.(carried)
+
+      assert verify.(Map.put(carried, :outputSchema, %{"type" => "string"})) ==
+               {:error, :schema_digest_mismatch}
+    end
   end
 
   describe "attest_request/3 and attest_result/3" do
@@ -2139,6 +2222,87 @@ defmodule SigilGuard.ToolGatewayTest do
              }
 
       assert statement["predicate"]["scanner"] == %{"hit_count" => 1, "redacted" => true}
+    end
+
+    test "an attestation is not compared with an actor the host context does not name" do
+      anonymous = [
+        trust_level: :high,
+        origin: :model,
+        sink: :tool,
+        mcp_server: "repo-mcp",
+        tool: "repo_file_write",
+        resource_uri: "mcp://repo-mcp"
+      ]
+
+      named = Keyword.put(anonymous, :actor, "spiffe://agents/requester")
+      other = Keyword.put(anonymous, :actor, "spiffe://agents/other")
+      trust = %{"k1" => SigilGuard.CaseFixtures.Signer.public_key()}
+
+      guard_under = fn context, envelope ->
+        ToolGateway.guard_request(Attestation.attach(request(), envelope), context,
+          attestation: :required,
+          trust_material: trust,
+          now: @now
+        )
+      end
+
+      guard = &guard_under.(anonymous, &1)
+
+      decision = ToolGateway.guard_request(request(), named)
+
+      {:ok, statement} =
+        Attestation.from_decision(decision, named,
+          statement_type: :tool_request,
+          payload: SecurityPayload.for_gate(request(), :request),
+          now: @now,
+          nonce: "n-1"
+        )
+
+      # The statement binds its actor in the context digest, so it does not
+      # verify under a host context that names no actor.
+      {:ok, envelope} =
+        Attestation.sign(statement, SigilGuard.CaseFixtures.Signer, keyid: "k1", now: @now)
+
+      refused = guard.(envelope)
+      assert refused.verdict == :blocked
+      assert refused.audit_metadata.attestation_error == :digest_mismatch
+
+      rebound_to = fn context ->
+        {:ok, digest} =
+          Digest.context_digest(
+            :tool_request,
+            SecurityPayload.context(request(), :request, context)
+          )
+
+        rebound =
+          update_in(statement, ["subject"], fn subjects ->
+            Enum.map(subjects, fn
+              %{"name" => "context"} = subject -> put_in(subject, ["digest", "sha256"], digest)
+              subject -> subject
+            end)
+          end)
+
+        {:ok, envelope} =
+          Attestation.sign(rebound, SigilGuard.CaseFixtures.Signer, keyid: "k1", now: @now)
+
+        envelope
+      end
+
+      # A trusted key that binds the actor-less context is accepted whatever
+      # actor the statement names: there is no host actor to compare it with.
+      assert statement["predicate"]["actor"]["id"] == "spiffe://agents/requester"
+      assert guard.(rebound_to.(anonymous)).verdict == :allowed
+
+      mismatched = guard_under.(other, rebound_to.(other))
+      assert mismatched.verdict == :blocked
+      assert mismatched.audit_metadata.attestation_error == :actor_mismatch
+    end
+
+    test "attest_request/2 and attest_result/2 without a payload sign nothing" do
+      decision = ToolGateway.guard_request(request(), sandbox_context())
+
+      assert ToolGateway.attest_request(decision, sandbox_context()) == {:error, :invalid_payload}
+      assert ToolGateway.attest_result(decision, sandbox_context()) == {:error, :invalid_payload}
     end
   end
 
@@ -2728,6 +2892,108 @@ defmodule SigilGuard.ToolGatewayTest do
       assert ToolGateway.response_for_decision(hook_only, 1, [])["error"]["data"]["indicator_ids"] ==
                []
     end
+
+    test "a result the policy file quarantines is reported quarantined and never released" do
+      {:ok, policy} =
+        SigilGuard.BoundaryPolicy.File.parse("""
+        version 3
+
+        [rules]
+        default allow
+        quarantine origin:tool sink:model zone:untrusted
+        """)
+
+      context = [
+        phase: :tool_result,
+        origin: :tool,
+        sink: :model,
+        tool: "fetch_url",
+        actor: "agent:1",
+        trust_level: :high,
+        trust_zone: :untrusted
+      ]
+
+      result = %{"content" => [%{"type" => "text", "text" => "clean tool output"}]}
+
+      decision = ToolGateway.guard_result(result, context, boundary_policy: policy)
+      assert decision.verdict == :blocked
+      assert decision.action == :quarantine
+      assert decision.audit_metadata.quarantine_status == :quarantined
+
+      assert {:error, response, _} =
+               ToolGateway.guarded_result(result, context, boundary_policy: policy)
+
+      assert response["error"]["code"] == -31_988
+      assert Map.keys(response) == ["error", "id", "jsonrpc"]
+    end
+
+    test "a hook's advisory indicator on a confirm-verdict result sets quarantine status confirm and reports its string id" do
+      context = [
+        phase: :tool_result,
+        origin: :tool,
+        sink: :model,
+        tool: "delete_database",
+        trust_level: :medium,
+        actor: "agent:1"
+      ]
+
+      result = %{"content" => [%{"type" => "text", "text" => "plain output"}]}
+
+      decision =
+        ToolGateway.guard_result(result, context, hooks: [SigilGuard.CaseFixtures.AdvisoryHook])
+
+      assert {:confirm, _} = decision.verdict
+      assert decision.effect == :allow
+      assert decision.audit_metadata.quarantine_status == :confirm
+      assert decision.audit_metadata.scanner_summary.indicator_ids == ["hook-string-id"]
+
+      assert {:error, response, _} =
+               ToolGateway.guarded_result(result, context,
+                 hooks: [SigilGuard.CaseFixtures.AdvisoryHook]
+               )
+
+      assert response["error"]["data"]["indicator_ids"] == ["hook-string-id"]
+    end
+  end
+
+  describe "a released redacted result" do
+    test "keeps the original shape with each string redacted" do
+      body = %{
+        "content" => [
+          %{"type" => "text", "text" => "first token AKIAIOSFODNN7EXAMPLE"},
+          %{"type" => "text", "text" => "no secret here"}
+        ],
+        "structuredContent" => %{"key" => "AKIAIOSFODNN7EXAMPLE", "count" => 2}
+      }
+
+      assert {:ok, response, decision} =
+               ToolGateway.guarded_result(rpc_result(body), trust_level: :high)
+
+      assert decision.action == :redact
+
+      assert response ==
+               rpc_result(%{
+                 "content" => [
+                   %{"type" => "text", "text" => "first token [AWS_KEY]"},
+                   %{"type" => "text", "text" => "no secret here"}
+                 ],
+                 "structuredContent" => %{"key" => "[AWS_KEY]", "count" => 2}
+               })
+    end
+
+    test "falls back to the gate's sanitized text when the scan cannot run on the original" do
+      body = %{"content" => [%{"type" => "text", "text" => "token AKIAIOSFODNN7EXAMPLE"}]}
+      decision = ToolGateway.guard_result(rpc_result(body), trust_level: :high)
+
+      response =
+        SigilGuard.ToolGateway.Base.sanitized_result(rpc_result(body), decision, 7,
+          pipeline: :not_a_pipeline
+        )
+
+      assert [%{"type" => "text", "text" => text}] = response["result"]["content"]
+      assert text == decision.sanitized_text
+      refute text =~ "AKIAIOSFODNN7EXAMPLE"
+    end
   end
 
   defp request do
@@ -2869,23 +3135,5 @@ defmodule SigilGuard.ToolGatewayTest do
     ref
   end
 
-  defmodule TrustedSigner do
-    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-tool-gateway-attestation")
-  end
-
-  test "a suspicious-parameter request whose arguments cannot be digested is blocked, not confirmed" do
-    request = put_in(request(), ["params", "arguments", "apiKey"], <<255, 254>>)
-
-    opts = [
-      manifests: %{"repo_file_write" => suspicious_manifest()},
-      require_manifest: true,
-      now: @now
-    ]
-
-    decision = ToolGateway.guard_request(request, sandbox_context(), opts)
-
-    assert decision.verdict == :blocked
-    assert decision.audit_metadata.deny_reason == :suspicious_required_param
-    assert decision.audit_metadata.action_digest_error == :invalid_payload
-  end
+  defp rpc_result(body), do: %{"jsonrpc" => "2.0", "id" => 7, "result" => body}
 end

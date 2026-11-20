@@ -23,6 +23,12 @@ defmodule SigilGuardTest do
       assert String.contains?(result, "[AWS_KEY]")
       refute String.contains?(result, "AKIAIOSFODNN7EXAMPLE")
     end
+
+    test "redact/2 uses each hit's replacement hint" do
+      {:hit, hits} = SigilGuard.scan("key=AKIAIOSFODNN7EXAMPLE")
+
+      assert SigilGuard.redact("key=AKIAIOSFODNN7EXAMPLE", hits) == "key=[AWS_KEY]"
+    end
   end
 
   describe "guard/3" do

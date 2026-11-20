@@ -1,9 +1,11 @@
 defmodule Mix.Tasks.SigilGuard.DocsLintTest do
   @moduledoc false
 
+  # File.cd!/2 changes the working directory of the whole VM.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
+  import SigilGuard.CaseFixtures.Tmp, only: [fixture_root: 1]
 
   alias Mix.Tasks.SigilGuard.DocsLint
 
@@ -43,6 +45,23 @@ defmodule Mix.Tasks.SigilGuard.DocsLintTest do
       assert_raise Mix.Error, ~r/README\.md:1: old_vocabulary/, fn ->
         File.cd!(root, fn -> DocsLint.run([]) end)
       end
+    end
+
+    test "a finding without a line number prints as path: kind: message" do
+      root =
+        fixture_root(%{
+          "README.md" => "Public docs\n",
+          "docs/specs/SP.07-example.md" => front_matter("SP.07"),
+          "docs/tasks/sigil-tasks.md" => "# Tasks\n"
+        })
+
+      error =
+        assert_raise Mix.Error, fn ->
+          File.cd!(root, fn -> DocsLint.run([]) end)
+        end
+
+      assert error.message ==
+               "docs lint failed:\ndocs/tasks/sigil-tasks.md: spec_drift: SP.07 has no task reference"
     end
   end
 
@@ -202,19 +221,18 @@ defmodule Mix.Tasks.SigilGuard.DocsLintTest do
 
       assert :ok = DocsLint.lint(root: root)
     end
-  end
 
-  defp fixture_root(files) do
-    root = Path.join(System.tmp_dir!(), "sigil_docs_lint_#{System.unique_integer([:positive])}")
-    File.rm_rf!(root)
+    test "a directory whose name ends in .md is skipped" do
+      root =
+        fixture_root(%{
+          "README.md" => "Public docs\n",
+          "docs/specs/SP.01-example.md" => front_matter("SP.01"),
+          "docs/tasks/sigil-tasks.md" => "- [ ] M1.01 Uses `SP.01`.\n",
+          "docs/archive.md/note.txt" => "not markdown\n"
+        })
 
-    Enum.each(files, fn {relative_path, content} ->
-      path = Path.join(root, relative_path)
-      File.mkdir_p!(Path.dirname(path))
-      File.write!(path, content)
-    end)
-
-    root
+      assert DocsLint.lint(root: root) == :ok
+    end
   end
 
   defp front_matter(id) do
