@@ -22,8 +22,6 @@ defmodule SigilGuard.AdaptiveDetector do
   alias SigilGuard.Telemetry
 
   @severities [:low, :medium, :high]
-  @risk_rank %{low: 0, medium: 1, high: 2}
-
   @typedoc "A validated advisory indicator returned by a detector."
   @type indicator :: %{
           required(:id) => String.t(),
@@ -96,7 +94,7 @@ defmodule SigilGuard.AdaptiveDetector do
   defp interpret(_, detector), do: degraded(detector)
 
   defp success(validated, detector) do
-    risk = strongest_risk(Enum.map(validated, & &1.severity))
+    risk = SigilGuard.Level.strongest(Enum.map(validated, & &1.severity))
     emit(detector, length(validated), nil)
     tagged = Enum.map(validated, &Map.put(&1, :source, :adaptive))
     %{indicators: tagged, risk_level: risk, error: nil}
@@ -126,12 +124,6 @@ defmodule SigilGuard.AdaptiveDetector do
 
   defp valid_note?(nil), do: true
   defp valid_note?(note), do: is_binary(note)
-
-  defp strongest_risk([]), do: nil
-
-  defp strongest_risk(severities) do
-    Enum.max_by(severities, &Map.fetch!(@risk_rank, &1))
-  end
 
   defp emit(detector, indicator_count, error) do
     Telemetry.emit([:sigil_guard, :boundary, :adaptive], %{}, %{

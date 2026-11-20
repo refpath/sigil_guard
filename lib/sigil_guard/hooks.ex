@@ -265,16 +265,9 @@ defmodule SigilGuard.Hooks do
   defp apply_signal(acc, signal) do
     %{
       acc
-      | risk_level: max_risk(acc.risk_level, signal.risk_level),
+      | risk_level: SigilGuard.Level.max(acc.risk_level, signal.risk_level),
         indicators: acc.indicators ++ signal.indicators
     }
-  end
-
-  defp max_risk(nil, other), do: other
-  defp max_risk(current, nil), do: current
-
-  defp max_risk(current, other) do
-    if Map.fetch!(@risk_rank, other) > Map.fetch!(@risk_rank, current), do: other, else: current
   end
 
   defp invoke(module, callback, boundary, opts, timeout) do

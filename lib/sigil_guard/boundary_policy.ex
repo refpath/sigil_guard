@@ -78,8 +78,6 @@ defmodule SigilGuard.BoundaryPolicy do
   alias SigilGuard.Verdict
 
   @external_sinks [:external, :network, "external", "network"]
-  @risk_rank %{low: 0, medium: 1, high: 2}
-
   @sandbox_phases [:tool_request, :tool_result]
 
   # Side-effect class and isolation level determine the mismatch verdict.
@@ -217,28 +215,18 @@ defmodule SigilGuard.BoundaryPolicy do
       |> Verdict.strongest()
 
     matched = matched_rules(contributions, verdict)
-    base_risk = raise_risk(risk_level(verdict), hook.risk_level)
+    base_risk = SigilGuard.Level.max(risk_level(verdict), hook.risk_level)
 
     build_decision(boundary, verdict, matched,
-      risk_level: raise_risk(base_risk, adaptive.risk_level),
+      risk_level: SigilGuard.Level.max(base_risk, adaptive.risk_level),
       indicators: boundary.indicators ++ hook.indicators ++ adaptive.indicators,
       adaptive_error: adaptive.error,
-      advisory_risk_level: advisory_risk(hook.risk_level, adaptive.risk_level)
+      advisory_risk_level: SigilGuard.Level.max(hook.risk_level, adaptive.risk_level)
     )
   end
 
   # The risk hooks and the adaptive detector asked for, apart from the risk
   # the verdict implies. A caller that keeps its own risk raises it by this.
-  defp advisory_risk(nil, nil), do: nil
-  defp advisory_risk(hook_risk, nil), do: hook_risk
-  defp advisory_risk(nil, adaptive_risk), do: adaptive_risk
-  defp advisory_risk(hook_risk, adaptive_risk), do: raise_risk(hook_risk, adaptive_risk)
-
-  defp raise_risk(base, nil), do: base
-
-  defp raise_risk(base, hook_risk) do
-    if Map.fetch!(@risk_rank, hook_risk) > Map.fetch!(@risk_rank, base), do: hook_risk, else: base
-  end
 
   defp policy_matching_rules(boundary, opts) do
     case Keyword.get(opts, :policy) do
@@ -466,7 +454,7 @@ defmodule SigilGuard.BoundaryPolicy do
       reason: reason && to_string(reason),
       phase: boundary.phase,
       risk_level: Keyword.get(extra, :risk_level, risk_level(verdict)),
-      trust_level: normalize_trust(boundary.trust_level),
+      trust_level: SigilGuard.Level.clamp(boundary.trust_level),
       hits: boundary.hits,
       indicators: Keyword.get(extra, :indicators, boundary.indicators),
       matched_rules: typed_matched_rules(matched),
@@ -498,9 +486,6 @@ defmodule SigilGuard.BoundaryPolicy do
   defp risk_level(verdict) when verdict in [:block, :quarantine], do: :high
   defp risk_level(verdict) when verdict in [:confirm, :redact], do: :medium
   defp risk_level(:allow), do: :low
-
-  defp normalize_trust(level) when level in [:low, :medium, :high], do: level
-  defp normalize_trust(_), do: :low
 
   defp audit_metadata(boundary, verdict, matched, advisory) do
     base = %{

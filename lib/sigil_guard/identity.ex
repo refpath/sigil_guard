@@ -48,12 +48,6 @@ defmodule SigilGuard.Identity do
   @doc "Return a list of binding identifiers (session, device, etc.) for the given context."
   @callback bindings(context :: term()) :: [String.t()]
 
-  @trust_order %{
-    low: 0,
-    medium: 1,
-    high: 2
-  }
-
   @doc """
   Compare two trust levels.
 
@@ -72,16 +66,7 @@ defmodule SigilGuard.Identity do
 
   """
   @spec compare_trust(trust_level(), trust_level()) :: :lt | :eq | :gt
-  def compare_trust(a, b) do
-    ord_a = Map.fetch!(@trust_order, a)
-    ord_b = Map.fetch!(@trust_order, b)
-
-    cond do
-      ord_a < ord_b -> :lt
-      ord_a > ord_b -> :gt
-      true -> :eq
-    end
-  end
+  def compare_trust(a, b), do: SigilGuard.Level.compare(a, b)
 
   @doc """
   Check if `actual` trust level meets or exceeds the `required` trust level.

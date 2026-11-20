@@ -69,12 +69,6 @@ defmodule SigilGuard.Policy do
   @rate_count {__MODULE__, :entries}
   @rate_prune {__MODULE__, :last_prune}
 
-  @risk_order %{
-    low: 0,
-    medium: 1,
-    high: 2
-  }
-
   @doc """
   Evaluate an action against a trust level.
 
@@ -255,16 +249,7 @@ defmodule SigilGuard.Policy do
 
   """
   @spec compare_risk(risk_level(), risk_level()) :: :lt | :eq | :gt
-  def compare_risk(a, b) do
-    ord_a = Map.fetch!(@risk_order, a)
-    ord_b = Map.fetch!(@risk_order, b)
-
-    cond do
-      ord_a < ord_b -> :lt
-      ord_a > ord_b -> :gt
-      true -> :eq
-    end
-  end
+  def compare_risk(a, b), do: SigilGuard.Level.compare(a, b)
 
   @prefix_risk_mappings [
     {"delete_", :high},

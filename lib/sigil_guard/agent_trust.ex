@@ -449,7 +449,7 @@ defmodule SigilGuard.AgentTrust do
     actor_ids = [Map.get(card, "agent_id") | delegation_actors(payload)]
 
     actor_ids
-    |> Enum.map(&normalize_level(resolver.(&1)))
+    |> Enum.map(&SigilGuard.Level.clamp(resolver.(&1)))
     |> min_trust()
   end
 
@@ -486,9 +486,6 @@ defmodule SigilGuard.AgentTrust do
   rescue
     _ -> :low
   end
-
-  defp normalize_level(level) when level in [:low, :medium, :high], do: level
-  defp normalize_level(_), do: :low
 
   defp min_trust(levels), do: Enum.reduce(levels, &min_level/2)
 
