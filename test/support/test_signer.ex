@@ -32,7 +32,7 @@ defmodule SigilGuard.TestSigner do
       @seed seed
 
       @doc false
-      @spec seed() :: binary()
+      @spec seed() :: <<_::256>>
       def seed, do: @seed
 
       @impl SigilGuard.Signer

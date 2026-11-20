@@ -66,7 +66,7 @@ defmodule SigilGuard.AgentTrustFixture do
   end
 
   @doc false
-  @spec card_envelope(map()) :: map()
+  @spec card_envelope(map()) :: %{String.t() => String.t() | [map()]}
   def card_envelope(overrides \\ %{}) do
     {:ok, envelope} = AgentCard.sign(card(overrides), Issuer)
     envelope
@@ -85,7 +85,15 @@ defmodule SigilGuard.AgentTrustFixture do
   end
 
   @doc false
-  @spec request_context() :: map()
+  @spec request_context() :: %{
+          actor: String.t(),
+          identity: String.t(),
+          origin: :model,
+          phase: :tool_request,
+          sink: :external,
+          trust_level: :medium,
+          trust_zone: :semi_trusted
+        }
   def request_context do
     %{
       actor: "spiffe://prod.example.org/agents/release-bot",
@@ -99,7 +107,15 @@ defmodule SigilGuard.AgentTrustFixture do
   end
 
   @doc false
-  @spec response_context() :: map()
+  @spec response_context() :: %{
+          actor: String.t(),
+          identity: String.t(),
+          origin: :external,
+          phase: :tool_result,
+          sink: :model,
+          trust_level: :medium,
+          trust_zone: :semi_trusted
+        }
   def response_context,
     do: Map.merge(request_context(), %{phase: :tool_result, origin: :external, sink: :model})
 

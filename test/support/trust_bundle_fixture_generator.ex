@@ -48,7 +48,7 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
   end
 
   @doc ~s(Read a committed trust-bundle fixture, such as `["rotation", "genesis.json"]`.)
-  @spec read_json([String.t()]) :: map()
+  @spec read_json([String.t()]) :: map() | list()
   def read_json(path) when is_list(path),
     do: SigilGuard.FixturePath.read_json!(["trust_bundle" | path])
 
@@ -86,7 +86,7 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
   end
 
   @doc "Sign a successor document with the new bundle key and authorize it."
-  @spec signed_successor(map()) :: map()
+  @spec signed_successor(map()) :: %{String.t() => String.t() | [map()]}
   def signed_successor(document) do
     document
     |> sign_with([NewBundleSigner])

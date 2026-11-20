@@ -13,6 +13,9 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
   @issued_at "2026-07-02T12:00:00.000Z"
   @expires_at "2026-08-01T12:00:00.000Z"
 
+  @typedoc "A bundle with only its document set, which is all the issuer checks read."
+  @type role_bundle :: %TrustBundle{document: %{String.t() => map()}, envelope: map()}
+
   @doc false
   @spec fixtures() :: [String.t()]
   def fixtures, do: Map.keys(generate()) |> Enum.sort()
@@ -54,7 +57,7 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
   end
 
   @doc "The research-peer card the committed fixtures sign."
-  @spec card() :: map()
+  @spec card() :: %{String.t() => String.t() | [String.t() | %{String.t() => String.t()}]}
   def card do
     %{
       "agent_id" => "spiffe://prod.example.org/agents/research-peer",
@@ -118,7 +121,7 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
   def issuer_material, do: %{issuer_keyid() => issuer_public_key()}
 
   @doc "A trust bundle whose agent_card role lists `role_keyids` over `keys`."
-  @spec bundle_with_role([String.t()], keys: %{String.t() => binary()}) :: TrustBundle.t()
+  @spec bundle_with_role([String.t()], keys: %{String.t() => binary()}) :: role_bundle()
   def bundle_with_role(role_keyids, keys: keys) do
     document = %{
       "keys" =>

@@ -108,7 +108,7 @@ defmodule SigilGuard.AuditProofFixture do
   A checkpoint over a three-event chain and the anchor recording it at `:storage` and
   `:uri`. The checkpoint is signed by `SigilGuard.TestSigner` unless `signed: false`.
   """
-  @spec anchor_fixture(keyword()) :: {map(), map()}
+  @spec anchor_fixture(keyword()) :: {map(), %{String.t() => term()}}
   def anchor_fixture(opts) do
     events = build_signed_chain(3, @anchor_key, "anchor-fixture-")
 
