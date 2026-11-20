@@ -1257,6 +1257,16 @@ defmodule SigilGuard.ToolGatewayTest do
       assert Enum.map(decision.matched_rules, & &1.rule_id) == [
                "sandbox.matrix.execute.container"
              ]
+
+      # A result resolves no manifest, so it is class `execute` whatever the
+      # caller passes.
+      facts = %{manifest_digest: String.duplicate("a", 64), side_effects: ["read"]}
+
+      for opts <- [[], [manifest_facts: facts]] do
+        rules = ToolGateway.guard_result(result(), context, opts).matched_rules
+
+        assert Enum.map(rules, & &1.rule_id) == ["sandbox.matrix.execute.container"]
+      end
     end
 
     test "an App-only tool admits the App origin and no other" do

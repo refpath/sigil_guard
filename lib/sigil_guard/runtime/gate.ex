@@ -246,12 +246,24 @@ defmodule SigilGuard.Runtime.Gate do
     |> normalize_risk_level()
   end
 
+  # The highest risk any signal reports. The action's own classification
+  # applies only when no signal reports one.
   defp inferred_risk_level(state) do
-    scanner_error_risk(state.scanner_error) ||
-      repo_policy_risk(state.repo_policy) ||
-      quarantine_risk(state.quarantine) ||
-      hit_risk(state.hits, state.context) ||
-      Policy.classify_risk(state.action, state.opts)
+    signals =
+      Enum.reject(
+        [
+          scanner_error_risk(state.scanner_error),
+          repo_policy_risk(state.repo_policy),
+          quarantine_risk(state.quarantine),
+          hit_risk(state.hits, state.context)
+        ],
+        &is_nil/1
+      )
+
+    case signals do
+      [] -> Policy.classify_risk(state.action, state.opts)
+      [_ | _] -> Enum.max_by(signals, &Enum.find_index(@risk_levels, fn level -> level == &1 end))
+    end
   end
 
   defp scanner_error_risk(nil), do: nil
@@ -597,47 +609,75 @@ defmodule SigilGuard.Runtime.Gate do
     {verdict, action, reason, nil, nil}
   end
 
-  defp source_sink_verdict(%{scanner_error: scanner_error})
-       when scanner_error in [:scanner_failed] do
-    {:blocked, :block, "Scanner failed during runtime gate: #{scanner_error}"}
+  # Each signal contributes at most one verdict and the strongest wins by the
+  # verdict order, so a repo approval rule cannot stand in front of a block
+  # from the scanner or from quarantine. A tie keeps the earlier signal.
+  defp source_sink_verdict(state) do
+    contributions =
+      Enum.reject(
+        [
+          scanner_verdict(state),
+          repo_verdict(state.repo_policy),
+          zone_verdict(state.context),
+          quarantine_verdict(state.context, state.quarantine),
+          hit_verdict(state)
+        ],
+        &is_nil/1
+      )
+
+    case contributions do
+      [] -> {:allowed, :allow, nil}
+      [_ | _] -> strongest_contribution(contributions)
+    end
   end
 
-  defp source_sink_verdict(%{
-         repo_policy: %RepoDecision{verdict: :block} = decision
-       }) do
-    {:blocked, :block, decision.reason}
+  # An approval that wins over a redaction still releases redacted content.
+  defp strongest_contribution(contributions) do
+    case Enum.max_by(contributions, &contribution_rank/1) do
+      {:confirm, :require_approval, reason} = approval ->
+        if Enum.any?(contributions, &match?({:allowed, :redact, _}, &1)),
+          do: {:confirm, :redact, reason},
+          else: approval
+
+      strongest ->
+        strongest
+    end
   end
 
-  defp source_sink_verdict(%{
-         repo_policy: %RepoDecision{verdict: :require_approval} = decision
-       }) do
-    {:confirm, :require_approval, decision.reason}
-  end
+  defp contribution_rank({:blocked, _, _}), do: Verdict.rank(:block)
+  defp contribution_rank({:confirm, :quarantine, _}), do: Verdict.rank(:quarantine)
+  defp contribution_rank({:confirm, _, _}), do: Verdict.rank(:confirm)
+  defp contribution_rank({:allowed, :redact, _}), do: Verdict.rank(:redact)
 
-  defp source_sink_verdict(%{
-         repo_policy: {:error, reason}
-       }) do
-    {:blocked, :block, "Repo policy could not be compiled: #{inspect(reason)}"}
-  end
+  defp scanner_verdict(%{scanner_error: :scanner_failed}),
+    do: {:blocked, :block, "Scanner failed during runtime gate: scanner_failed"}
 
-  defp source_sink_verdict(%{
-         context: %Context{trust_zone: :untrusted, phase: :tool_request}
-       }) do
-    {:blocked, :block, "Untrusted tool requests cannot execute privileged actions"}
-  end
+  defp scanner_verdict(_), do: nil
 
-  defp source_sink_verdict(%{context: context, quarantine: %{verdict: :blocked}}) do
-    blocked_quarantine_verdict(context)
-  end
+  defp repo_verdict(%RepoDecision{verdict: :block} = decision),
+    do: {:blocked, :block, decision.reason}
 
-  defp source_sink_verdict(%{
-         context: %Context{phase: :tool_result},
-         quarantine: %{verdict: :suspicious}
-       }) do
-    {:confirm, :quarantine, "Tool result should be reviewed before model ingestion"}
-  end
+  defp repo_verdict(%RepoDecision{verdict: :require_approval} = decision),
+    do: {:confirm, :require_approval, decision.reason}
 
-  defp source_sink_verdict(%{context: context, hits: [_ | _], opts: opts}) do
+  defp repo_verdict({:error, reason}),
+    do: {:blocked, :block, "Repo policy could not be compiled: #{inspect(reason)}"}
+
+  defp repo_verdict(_), do: nil
+
+  defp zone_verdict(%Context{trust_zone: :untrusted, phase: :tool_request}),
+    do: {:blocked, :block, "Untrusted tool requests cannot execute privileged actions"}
+
+  defp zone_verdict(_), do: nil
+
+  defp quarantine_verdict(context, %{verdict: :blocked}), do: blocked_quarantine_verdict(context)
+
+  defp quarantine_verdict(%Context{phase: :tool_result}, %{verdict: :suspicious}),
+    do: {:confirm, :quarantine, "Tool result should be reviewed before model ingestion"}
+
+  defp quarantine_verdict(_, _), do: nil
+
+  defp hit_verdict(%{context: context, hits: [_ | _], opts: opts}) do
     if external_sensitive_block?(context, opts) do
       {:blocked, :block, "Sensitive content cannot cross into #{context.sink} without redaction"}
     else
@@ -645,7 +685,7 @@ defmodule SigilGuard.Runtime.Gate do
     end
   end
 
-  defp source_sink_verdict(_), do: {:allowed, :allow, nil}
+  defp hit_verdict(_), do: nil
 
   defp blocked_quarantine_verdict(%Context{phase: :tool_result, sink: :model}) do
     {:confirm, :quarantine, "Tool result contains prompt-injection indicators"}

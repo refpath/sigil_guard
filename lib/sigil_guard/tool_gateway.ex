@@ -309,7 +309,7 @@ defmodule SigilGuard.ToolGateway do
       case request_action_digest(opts) do
         :ok ->
           payload
-          |> Gate.evaluate(result_context, opts)
+          |> Gate.evaluate(result_context, gate_opts(opts, nil))
           |> put_protocol_metadata(result, opts)
           |> put_result_binding_metadata(opts)
           |> maybe_apply_result_confirmation(payload, result_context, result, opts)

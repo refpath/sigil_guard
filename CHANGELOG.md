@@ -5,6 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Security.** In `SigilGuard.Runtime.Gate`, a repo policy `require_approval`
+  verdict was checked before quarantine and scanner hits and returned first.
+  A repo change that carried a detected secret or a high-severity injection
+  indicator was blocked without a repo policy and became a confirm decision
+  with `effect: :allow` once a rule asked for approval. The gate's own signals
+  now combine by verdict strength, the reported risk is the highest any signal
+  gives, and an approval that wins over a redaction keeps `effect: :redact`.
+- `SigilGuard.ToolGateway.guard_result/3` drops a caller-supplied
+  `:manifest_facts`, as `guard_request/3` does.
 - `SigilGuard.ToolGateway.guarded_result/3` builds a redacted response from the
   original result, so an existing `resultType` such as `input_required`
   survives redaction. It was replaced by the default.
