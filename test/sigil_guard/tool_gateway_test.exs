@@ -1827,6 +1827,58 @@ defmodule SigilGuard.ToolGatewayTest do
       assert predicate["scanner"] == %{"hit_count" => 0, "redacted" => false}
     end
 
+    test "a result attestation carries the manifest's output schema digest and no other" do
+      {:ok, capability} =
+        CapabilityManifest.new(
+          Map.put(manifest(), "output_schema", %{"type" => "object", "properties" => %{}})
+        )
+
+      assert capability.output_schema_sha256 =~ ~r/\A[0-9a-f]{64}\z/
+
+      context = attestation_result_context()
+
+      decision =
+        ToolGateway.guard_result(result(), context, request_action_digest: @request_action_digest)
+
+      attest = fn extra ->
+        ToolGateway.attest_result(
+          decision,
+          context,
+          Keyword.merge(
+            [
+              payload: result(),
+              signer: TrustedSigner,
+              keyid: "trusted",
+              now: @now,
+              manifest: capability,
+              request_action_digest: @request_action_digest
+            ],
+            extra
+          )
+        )
+      end
+
+      digest = fn {:ok, envelope} ->
+        {:ok, statement} =
+          Attestation.verify(envelope, %{"trusted" => TrustedSigner.public_key()}, now: @now)
+
+        statement["predicate"]["output_schema_sha256"]
+      end
+
+      for same <- [
+            [],
+            [output_schema_sha256: capability.output_schema_sha256],
+            [output_schema_sha256: nil]
+          ] do
+        assert digest.(attest.(same)) == capability.output_schema_sha256
+      end
+
+      assert attest.(output_schema_sha256: String.duplicate("e", 64)) ==
+               {:error, :schema_digest_mismatch}
+
+      assert attest.(output_schema_sha256: "bad") == {:error, :schema_digest_mismatch}
+    end
+
     test "rejects malformed attestation helper inputs" do
       decision = %Decision{
         verdict: :allowed,

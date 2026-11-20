@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.ToolGateway.attest_request/3` and `attest_result/3` return
+  `{:error, :schema_digest_mismatch}` when `:output_schema_sha256` differs
+  from the digest the `:manifest` declares. The caller's value was written
+  as given before.
 - A gateway denial for a manifest that drifted from its pin carries
   `expected_manifest_digest`, `received_manifest_digest` and the preimage
   fields that differ in `drifted_fields`, in the decision's audit metadata

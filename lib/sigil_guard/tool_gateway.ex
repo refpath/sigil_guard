@@ -90,7 +90,8 @@ defmodule SigilGuard.ToolGateway do
           | :effect_replay_protection_required
 
   @typedoc "An attestation construction or signing failure."
-  @type attest_error :: Attestation.from_decision_error() | Attestation.sign_error()
+  @type attest_error ::
+          Attestation.from_decision_error() | Attestation.sign_error() | :schema_digest_mismatch
 
   @typedoc "A confirmation-token issue failure."
   @type confirmation_issue_error ::
@@ -1116,13 +1117,10 @@ defmodule SigilGuard.ToolGateway do
 
     case Keyword.fetch(opts, :payload) do
       {:ok, payload} when is_map(payload) ->
-        normalized =
-          opts
-          |> Keyword.put(:payload, SecurityPayload.for_gate(payload, direction, opts))
-          |> Keyword.put(:statement_type, statement_type)
-          |> normalize_attestation_manifest()
-
-        {:ok, normalized}
+        opts
+        |> Keyword.put(:payload, SecurityPayload.for_gate(payload, direction, opts))
+        |> Keyword.put(:statement_type, statement_type)
+        |> normalize_attestation_manifest()
 
       _ ->
         {:error, :invalid_payload}
@@ -1134,17 +1132,22 @@ defmodule SigilGuard.ToolGateway do
       %CapabilityManifest{} = capability ->
         opts
         |> Keyword.put(:manifest_digest, capability.digest)
-        |> maybe_put_output_schema_sha256(capability.output_schema_sha256)
+        |> put_output_schema_sha256(capability.output_schema_sha256)
 
       _ ->
-        opts
+        {:ok, opts}
     end
   end
 
-  defp maybe_put_output_schema_sha256(opts, digest) when is_binary(digest),
-    do: Keyword.put_new(opts, :output_schema_sha256, digest)
+  # A statement that names a manifest carries that manifest's output schema
+  # digest. A caller's value has to be the same one.
+  defp put_output_schema_sha256(opts, declared) when is_binary(declared) do
+    if Keyword.get(opts, :output_schema_sha256, declared) in [declared, nil],
+      do: {:ok, Keyword.put(opts, :output_schema_sha256, declared)},
+      else: {:error, :schema_digest_mismatch}
+  end
 
-  defp maybe_put_output_schema_sha256(opts, _), do: opts
+  defp put_output_schema_sha256(opts, _), do: {:ok, opts}
 
   defp maybe_force_suspicious_confirmation(%Decision{verdict: :blocked} = decision, _, _, _, _) do
     decision
