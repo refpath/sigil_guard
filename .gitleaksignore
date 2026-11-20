@@ -38,3 +38,7 @@ d01ac8813443058b30844ce9a3b3d6e44b3648da:test/sigil_guard/runtime/gate_test.exs:
 7e15150de0e57861b5aba9af0b01b313c4bc4fd5:test/sigil_guard/identity_test.exs:generic-api-key:142
 72ea5cb5896a2966c1e021aa880fbf94bfa44588:notebooks/trust-bundles-identity-and-vault.livemd:generic-api-key:407
 32f09d65e4f2ad2dbcfe4d6ba0e1c1f6bea6de0d:bench/primitives.exs:generic-api-key:21
+# The shared synthetic generic-secret fixture, moved to new lines when the
+# scanner and gate tests were tightened.
+7fc506915dd0ef55a8b3f849d12277408b9ca402:test/sigil_guard/scanner/pipeline_test.exs:generic-api-key:215
+7fc506915dd0ef55a8b3f849d12277408b9ca402:test/sigil_guard/runtime/gate_test.exs:generic-api-key:52
