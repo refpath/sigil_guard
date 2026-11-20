@@ -125,16 +125,6 @@ defmodule SigilGuard.BoundaryPolicy do
   # Unmapped and `none` values contribute no class; the strictest remaining
   # cell decides. To fail closed, `delete` folds into `write` and
   # `privileged` into `execute`.
-  @class_of %{
-    "read" => :read,
-    "write" => :write,
-    "delete" => :write,
-    "execute" => :execute,
-    "privileged" => :execute,
-    "network" => :network,
-    "none" => nil
-  }
-
   @typedoc "A compiled policy: `%{default: verdict | nil, rules: list}` or nil."
   @type policy :: %{optional(atom()) => term()} | nil
 
@@ -364,14 +354,8 @@ defmodule SigilGuard.BoundaryPolicy do
 
   defp declared_classes(tool) do
     case Map.get(tool, "side_effects") || Map.get(tool, :side_effects) do
-      effects when is_list(effects) ->
-        effects
-        |> Enum.map(&Map.get(@class_of, to_string(&1), :execute))
-        |> Enum.reject(&is_nil/1)
-        |> Enum.uniq()
-
-      _ ->
-        [:execute]
+      effects when is_list(effects) -> Match.effect_classes(effects)
+      _ -> [:execute]
     end
   end
 

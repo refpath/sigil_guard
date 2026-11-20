@@ -7,9 +7,38 @@ defmodule SigilGuard.BoundaryPolicy.Match do
   key matches anything. `source`, `tool`, and `actor` accept `*`; `hits` and
   `indicator` use `none`/`any` over the categories present; `effect` intersects
   the tool's side-effect classes; `isolation` uses `absent` for a nil level.
+
+  A declared side effect maps to a class before it is compared: `delete` is
+  `write`, `privileged` is `execute`, `none` has no class, and a name outside
+  the manifest vocabulary is `execute`.
   """
 
   alias SigilGuard.Boundary
+
+  @class_of %{
+    "read" => :read,
+    "write" => :write,
+    "delete" => :write,
+    "execute" => :execute,
+    "privileged" => :execute,
+    "network" => :network,
+    "none" => nil
+  }
+
+  @doc false
+  @spec effect_classes(term()) :: [:read | :write | :execute | :network]
+  def effect_classes(effects) when is_list(effects) do
+    effects
+    |> Enum.map(&class_of/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  def effect_classes(_), do: []
+
+  defp class_of(effect) when is_binary(effect), do: Map.get(@class_of, effect, :execute)
+  defp class_of(effect) when is_atom(effect), do: class_of(Atom.to_string(effect))
+  defp class_of(_), do: :execute
 
   @doc """
   Return the rules from `rules` whose matchers all match `boundary`, in order.
@@ -70,7 +99,8 @@ defmodule SigilGuard.BoundaryPolicy.Match do
     tool
     |> fetch("side_effects")
     |> List.wrap()
-    |> Enum.map(&str/1)
+    |> effect_classes()
+    |> Enum.map(&Atom.to_string/1)
   end
 
   defp side_effects(_), do: []

@@ -1196,6 +1196,69 @@ defmodule SigilGuard.ToolGatewayTest do
       assert bad_visibility.audit_metadata.deny_reason == :app_visibility_denied
     end
 
+    test "the sandbox requirement reads the context's own sandbox fields" do
+      guard =
+        &ToolGateway.guard_request(request(), &1, manifests: %{"repo_file_write" => manifest()})
+
+      for context <- [
+            [trust_level: :high, sandbox_id: "sandbox-1", isolation_level: :vm],
+            [trust_level: :high, metadata: %{sandbox_id: "sandbox-1", isolation_level: "vm"}],
+            [
+              trust_level: :high,
+              metadata: %{"sandbox_id" => "sandbox-1", "isolation_level" => :vm}
+            ]
+          ] do
+        assert guard.(context).verdict == :allowed
+      end
+
+      for context <- [
+            [trust_level: :high, sandbox_id: "sandbox-1", isolation_level: :none],
+            [trust_level: :high, isolation_level: :vm],
+            [trust_level: :high, sandbox_id: "sandbox-1"]
+          ] do
+        assert guard.(context).audit_metadata.deny_reason == :sandbox_required
+      end
+    end
+
+    test "the sandbox matrix uses the classes the pinned manifest declares" do
+      context = [trust_level: :high, sandbox_id: "sandbox-1", isolation_level: :container]
+
+      decide = fn manifest ->
+        decision =
+          ToolGateway.guard_request(request(), context,
+            manifests: %{"repo_file_write" => manifest}
+          )
+
+        {decision.action, Enum.map(decision.matched_rules, & &1.rule_id)}
+      end
+
+      assert {:confirm, ["sandbox.matrix.write.container"]} = decide.(manifest())
+      assert {:allow, []} = decide.(Map.put(manifest(), "side_effects", ["read"]))
+
+      assert {:confirm, ["sandbox.matrix.write.container"]} =
+               decide.(Map.put(manifest(), "side_effects", ["delete", "read"]))
+
+      assert {:confirm, ["sandbox.matrix.execute.container"]} =
+               decide.(Map.put(manifest(), "side_effects", ["privileged"]))
+
+      assert {:allow, []} = decide.(Map.put(manifest(), "side_effects", ["none"]))
+    end
+
+    test "a caller option cannot stand in for a pinned manifest's classes" do
+      context = [trust_level: :high, sandbox_id: "sandbox-1", isolation_level: :container]
+
+      decision =
+        ToolGateway.guard_request(request(), context,
+          manifest_facts: %{manifest_digest: String.duplicate("a", 64), side_effects: ["read"]}
+        )
+
+      assert decision.action == :confirm
+
+      assert Enum.map(decision.matched_rules, & &1.rule_id) == [
+               "sandbox.matrix.execute.container"
+             ]
+    end
+
     test "an App-only tool admits the App origin and no other" do
       app_only =
         Map.put(manifest(), "ui", %{"resource_uri" => "ui://repo/review", "visibility" => ["app"]})

@@ -168,6 +168,22 @@ defmodule SigilGuard.BoundaryPolicy.MatchTest do
                eval([tool: %{"side_effects" => [:read]}], policy)
     end
 
+    test "a declared side effect is compared by its class" do
+      matches? = fn rule, effects ->
+        policy = compile!("version 3\n[rules]\nblock " <> rule <> "\n")
+        match?({:block, ["line_3"]}, eval([tool: %{"side_effects" => effects}], policy))
+      end
+
+      assert matches?.("effect:write", ["delete"])
+      assert matches?.("effect:execute", ["privileged"])
+      assert matches?.("effect:execute", ["format_disk"])
+      assert matches?.("effect:read", [:read])
+
+      refute matches?.("effect:write", ["read"])
+      refute matches?.("effect:read,write,execute,network", ["none"])
+      refute matches?.("effect:read,write,execute,network", [])
+    end
+
     test "isolation:absent matches a nil level; a level value matches itself" do
       policy = compile!("version 3\n[rules]\nblock isolation:absent\nconfirm isolation:vm\n")
       assert {:block, ["line_3"]} = eval([], policy)

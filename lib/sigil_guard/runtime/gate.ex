@@ -50,6 +50,10 @@ defmodule SigilGuard.Runtime.Gate do
     * `:risk_level` — override policy risk
     * `:on_sensitive` — `:block` or `:redact` for sensitive content
     * `:strict_quarantine` — block medium quarantine indicators too
+    * `:manifest_facts` — `%{manifest_digest: sha256, side_effects: [name]}` from
+      a capability manifest the caller verified. The sandbox matrix and
+      `effect:` policy rules use the classes it declares; without it a tool is
+      class `execute`. `SigilGuard.ToolGateway` sets it from the pinned manifest.
   """
   @spec evaluate(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def evaluate(payload, context \\ %Context{}, opts \\ []) do
@@ -467,7 +471,7 @@ defmodule SigilGuard.Runtime.Gate do
       trust_zone: context.trust_zone,
       hits: state.hits,
       actor: boundary_fact("id", context.actor || context.identity),
-      tool: boundary_fact("name", context.tool),
+      tool: boundary_tool(context.tool, Keyword.get(state.opts, :manifest_facts)),
       resource: boundary_fact("uri", context.resource_uri),
       indicators: state.quarantine.indicators,
       action_digest: action_digest,
@@ -476,6 +480,16 @@ defmodule SigilGuard.Runtime.Gate do
       sandbox: boundary_sandbox(context)
     })
   end
+
+  # `:manifest_facts` carries what a verified capability manifest declares.
+  # Without it the tool is a name only, and the matrix treats it as `execute`.
+  defp boundary_tool(nil, _), do: nil
+
+  defp boundary_tool(name, %{manifest_digest: digest, side_effects: effects})
+       when is_binary(digest) and is_list(effects),
+       do: %{"name" => name, "manifest_digest" => digest, "side_effects" => effects}
+
+  defp boundary_tool(name, _), do: %{"name" => name}
 
   defp boundary_fact(_, nil), do: nil
   defp boundary_fact(key, value), do: %{key => value}
@@ -508,9 +522,8 @@ defmodule SigilGuard.Runtime.Gate do
     ]
   end
 
-  # Supply a sandbox only when the host declared an isolation level. The gate
-  # carries the tool name but no verified side-effect facts. Sandbox evaluation
-  # remains opt-in through a host-supplied isolation level.
+  # Supply a sandbox only when the host declared an isolation level. Sandbox
+  # evaluation remains opt-in through that level.
   defp boundary_sandbox(%Context{isolation_level: nil}), do: nil
 
   defp boundary_sandbox(%Context{isolation_level: level, sandbox_id: id}) do

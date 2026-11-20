@@ -140,7 +140,7 @@ defmodule SigilGuard.ToolGateway do
            :ok <- verify_inbound_attestation(request, payload, request_context, capability, opts),
            :ok <- Effect.check_request(effect) do
         payload
-        |> Gate.evaluate(request_context, opts)
+        |> Gate.evaluate(request_context, gate_opts(opts, capability))
         |> put_protocol_metadata(request, opts)
         |> put_manifest_metadata(capability)
         |> maybe_force_suspicious_confirmation(payload, request_context, capability, opts)
@@ -794,6 +794,14 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
+  # The sandbox matrix and `effect:` rules read the classes a verified manifest
+  # declares. Only a resolved manifest supplies them; a caller option cannot.
+  defp gate_opts(opts, %CapabilityManifest{digest: digest, side_effects: effects})
+       when is_binary(digest) and is_list(effects),
+       do: Keyword.put(opts, :manifest_facts, %{manifest_digest: digest, side_effects: effects})
+
+  defp gate_opts(opts, _), do: Keyword.delete(opts, :manifest_facts)
+
   # Passthrough compares two host options and needs no manifest.
   defp passthrough_resource_audience(nil, opts), do: token_passthrough(opts)
 
@@ -890,9 +898,7 @@ defmodule SigilGuard.ToolGateway do
          %CapabilityManifest{name: tool, sandbox: %{"min_isolation" => min_isolation}},
          context
        ) do
-    metadata = sandbox_metadata(context)
-    sandbox_id = metadata[:sandbox_id] || metadata["sandbox_id"]
-    isolation_level = metadata[:isolation_level] || metadata["isolation_level"]
+    {sandbox_id, isolation_level} = sandbox_facts(context)
 
     if present?(sandbox_id) and isolation_sufficient?(isolation_level, min_isolation) do
       :ok
@@ -904,12 +910,24 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp require_sandbox(%CapabilityManifest{name: tool}, context) do
-    metadata = sandbox_metadata(context)
-    sandbox_id = metadata[:sandbox_id] || metadata["sandbox_id"]
-    isolation_level = metadata[:isolation_level] || metadata["isolation_level"]
+    {sandbox_id, isolation_level} = sandbox_facts(context)
 
     {:error, {:sandbox_required, sandbox_denial_metadata(tool, nil, isolation_level, sandbox_id)}}
   end
+
+  # The context fields are the ones the SP.01 context digest binds. Context
+  # metadata is the older carrier and is read when a field is unset.
+  defp sandbox_facts(%Context{} = context) do
+    metadata = sandbox_metadata(context)
+
+    {context.sandbox_id || metadata[:sandbox_id] || metadata["sandbox_id"],
+     isolation_name(
+       context.isolation_level || metadata[:isolation_level] || metadata["isolation_level"]
+     )}
+  end
+
+  defp isolation_name(level) when is_atom(level) and not is_nil(level), do: Atom.to_string(level)
+  defp isolation_name(level), do: level
 
   # The gate rejects a context whose metadata is not a map; until then it
   # simply names no sandbox.

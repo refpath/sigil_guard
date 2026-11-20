@@ -5,6 +5,16 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.ToolGateway.guard_request/3` reads the sandbox id and isolation
+  level from `Context.sandbox_id` and `Context.isolation_level`, the fields the
+  context digest binds, and falls back to `context.metadata`. A context that
+  set only the fields was denied `:sandbox_required`.
+- The gateway passes a pinned manifest's digest and side effects to the gate,
+  so the SP.04 sandbox matrix and `effect:` policy rules use the classes the
+  manifest declares. Without a pinned manifest a tool is still class `execute`.
+  `SigilGuard.Runtime.Gate.evaluate/3` accepts the same facts as
+  `:manifest_facts`. An `effect:` rule compares classes: `delete` is `write`,
+  `privileged` is `execute`, and an unknown side effect is `execute`.
 - Quarantine indicators carry a `:category` (`:injection` or `:poisoning`, the
   set that supplied them). A boundary policy `indicator:` matcher compares that
   value, so it never matched an indicator the library produced: through
