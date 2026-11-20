@@ -17,7 +17,12 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
 
   alias Mix.SigilGuard.Findings
 
-  @type finding :: Findings.t()
+  @type finding :: %{
+          required(:check) => atom(),
+          required(:path) => String.t(),
+          required(:line) => pos_integer() | nil,
+          required(:message) => String.t()
+        }
 
   @type lint_opts :: [
           root: Path.t(),

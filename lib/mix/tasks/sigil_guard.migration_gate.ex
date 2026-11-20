@@ -15,7 +15,12 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
 
   alias Mix.SigilGuard.Findings
 
-  @type finding :: Findings.t()
+  @type finding :: %{
+          required(:check) => atom(),
+          required(:path) => String.t(),
+          required(:line) => pos_integer() | nil,
+          required(:message) => String.t()
+        }
 
   @type gate_opts :: [root: Path.t(), required_mappings: [{atom(), String.t()}]]
 
