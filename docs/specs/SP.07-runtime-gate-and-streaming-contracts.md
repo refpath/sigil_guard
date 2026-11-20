@@ -252,8 +252,8 @@ evidence-linked without raw payloads:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `matched_rules` | `[%{rule_id: String.t(), explanation: String.t()}]` | Every rule that contributed to the verdict; MAY be empty. The gate adds one `gate` rule carrying its reason, when it has one, and appends the kernel's matched rules. Mirrors into SP.01's `predicate.matched_rules`, where `rule_id` is emitted as `id`. The mirror is not implemented: `Attestation.from_decision/3` does not read the field, so a host that needs the rules in a statement adds them itself. |
-| `evidence_refs` | `[String.t()]` | Audit event ids and checkpoint digests supporting the decision (SP.05). Each ref becomes the `ref` value of a `predicate.evidence` entry in SP.01. Neither part is implemented: the gate and the kernel always return `[]`, and `predicate.evidence` comes only from the `:evidence` option that the host passes to `Attestation.from_decision/3`. |
+| `matched_rules` | `[%{rule_id: String.t(), explanation: String.t()}]` | Every rule that contributed to the verdict; MAY be empty. The gate adds one `gate` rule carrying its reason, when it has one, and appends the kernel's matched rules. Mirrors into SP.01's `predicate.matched_rules`, where `rule_id` is emitted as `id`. `Attestation.from_decision/3` writes the mirror for a non-empty list and no field for an empty one. |
+| `evidence_refs` | `[SigilGuard.Audit.Evidence.ref()]` | References to the audit artifacts that support the decision (SP.05): `%{"kind" => "checkpoint" \| "export" \| "anchor", "ref" => digest}`, as `Evidence.ref/2` builds them. `Attestation.from_decision/3` writes a non-empty list into `predicate.evidence` unless the host passes the `:evidence` option, which wins; whichever list is written passes `Evidence.validate/1` first, and a list that fails returns `{:error, :invalid_evidence}`. The gate and the kernel return `[]`: they are pure and hold no audit artifacts. The host sets the field on the decision once it has a checkpoint, export, or anchor for it. |
 | `effect` | `:allow \| :redact \| :quarantine \| nil` | The post-confirmation executable action, separated from the unified verdict. On a `:confirm` decision, `action` is the unified verdict `:confirm` while `effect` records what to execute once confirmation is accepted. On non-confirm decisions `effect` MAY mirror `action` or be `nil`. The confirmation dispatch (`ToolGateway`/`Base`) reads `effect`, not `action`, to decide what runs after acceptance; the confirmation token binding is unchanged (it never depended on `action`). |
 
 Runtime decisions also surface the boundary labels `source`, `sink`,
@@ -380,10 +380,16 @@ inside a map or keyword context still blocks.
 - [x] The legacy `Decision.verdict` field maps consistently from
       `Decision.action` and stays available in 1.0.0 for compatibility.
 - [x] `matched_rules` and `evidence_refs` carry the typed shapes above.
-- [ ] Their mirrors into SP.01's `predicate.matched_rules` and
-      `predicate.evidence` are verified by tests (not implemented:
-      `Attestation.from_decision/3` reads neither field, and `evidence_refs`
-      is always `[]`).
+- [x] Their mirrors into SP.01's `predicate.matched_rules` and
+      `predicate.evidence` are verified by a test:
+      `Attestation.from_decision/3` copies both fields from a decision that
+      carries them (`AttestationFromDecisionTest`, "matched rules and
+      evidence references follow the decision").
+- [x] `evidence_refs` holds audit evidence references that the host sets,
+      and `from_decision/3` refuses a list that fails the SP.05 shape check
+      (`AttestationFromDecisionTest`, "a decision's evidence references pass
+      the same check as the option"). The gate fills none: it holds no audit
+      artifacts.
 - [x] `SigilGuard.scan/1`, `scan_and_redact/1`, and `policy_verdict/3`
       return shapes are byte-identical to v2, asserted by the
       consumer-contracts conformance test; hit-map extensions are additive

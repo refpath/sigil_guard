@@ -157,19 +157,17 @@ decides.
 ## Attestation Sign And Verify
 
 Create a statement from a decision, sign it with a host signer, and attach it
-as `_agent_trust`. Give each statement its own nonce: verification with
-`consume: true` rejects a statement that has none.
+as `_agent_trust`. `from_decision/3` gives each statement its own nonce of 32
+lowercase hex characters, so verification with `consume: true` needs no extra
+option. Pass `nonce:` to supply your own string.
 
 ```elixir
 alias SigilGuard.Attestation
 
-nonce = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
-
 {:ok, statement} =
   Attestation.from_decision(decision, context,
     payload: request,
-    statement_type: :tool_request,
-    nonce: nonce
+    statement_type: :tool_request
   )
 
 {:ok, envelope} =
@@ -202,7 +200,7 @@ end
 
 `consume: true` records the nonce in `SigilGuard.ReplayStore`. A second
 verification of the same envelope returns `{:error, :replay_detected}`, and a
-statement signed without a nonce returns `{:error, :invalid_payload}`.
+statement built with `nonce: false` returns `{:error, :invalid_payload}`.
 
 ## Confirmation Flow
 

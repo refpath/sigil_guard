@@ -17,6 +17,12 @@ defmodule SigilGuard.Decision do
   explainable and evidence-linked without raw payloads. It also surfaces the
   boundary labels (`source`, `sink`, `trust_zone`, `actor`, `resource`,
   `phase`) on the decision.
+
+  `evidence_refs` holds `SigilGuard.Audit.Evidence` references. The gate and
+  the kernel return an empty list: they hold no audit artifacts. A host sets
+  the field once it has a checkpoint, export or anchor for the decision, and
+  `SigilGuard.Attestation.from_decision/3` then writes the references into
+  the statement.
   """
 
   @type action :: :allow | :redact | :quarantine | :block | :confirm
@@ -36,7 +42,7 @@ defmodule SigilGuard.Decision do
           hits: [SigilGuard.Patterns.scan_hit()],
           indicators: [map()],
           matched_rules: [matched_rule()],
-          evidence_refs: [String.t()],
+          evidence_refs: [SigilGuard.Audit.Evidence.ref()],
           effect: effect(),
           source: atom() | String.t() | nil,
           sink: atom() | String.t() | nil,

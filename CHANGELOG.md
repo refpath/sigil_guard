@@ -5,6 +5,20 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The `action` subject of a gateway statement reads the method, tool and
+  arguments from the message the gate payload stands for, in its JSON-RPC
+  shape. Reading the params object in place let a member of that object
+  named `params` or `method` be taken for the message's own, so a request
+  could carry decoy arguments into the action digest. A result object's
+  `method` member no longer enters it either.
+- `SigilGuard.Attestation.from_decision/3` and `sign/3` write timestamps
+  with three fractional digits whatever the precision of `:now`. `sign/3`
+  writes its `:nonce` option only when it is a string, so `nonce: false`
+  means the same to both functions; the `SigilGuard.AgentTrust` helpers
+  forward `nonce: nil` instead of dropping it.
+- `SigilGuard.Decision.evidence_refs` holds `SigilGuard.Audit.Evidence`
+  references, and `from_decision/3` checks them as it checks the `:evidence`
+  option (`:invalid_evidence`).
 - The benchmark harness checks each fixture before timing it and stops when
   a fixture takes another path than its scenario names. Two did: the BM.04
   stream halted at its first secret and timed one evaluation, and the BM.03

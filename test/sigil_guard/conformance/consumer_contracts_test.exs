@@ -403,6 +403,86 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     assert Envelope.verify(envelope, %{keyid => RequestSigningSigner.public_key()}) == {:ok, "{}"}
   end
 
+  describe "gateway attestation contracts" do
+    alias SigilGuard.Attestation
+    alias SigilGuard.Attestation.Digest
+    alias SigilGuard.ToolGateway
+
+    @gateway_context [
+      phase: :tool_request,
+      origin: :model,
+      sink: :tool,
+      actor: "spiffe://agents/planner",
+      tool: "repo_file_write",
+      trust_level: :high
+    ]
+
+    defp tool_call(arguments) do
+      %{
+        "jsonrpc" => "2.0",
+        "id" => 7,
+        "method" => "tools/call",
+        "params" => %{"name" => "repo_file_write", "arguments" => arguments}
+      }
+    end
+
+    defp attested_statement(request) do
+      decision = ToolGateway.guard_request(request, @gateway_context, require_manifest: false)
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, @gateway_context,
+          payload: request,
+          signer: SigilGuard.TestSigner,
+          keyid: "consumer"
+        )
+
+      {:ok, statement} =
+        Attestation.verify(envelope, %{"consumer" => SigilGuard.TestSigner.public_key()})
+
+      statement
+    end
+
+    defp subject(statement, name) do
+      Enum.find_value(statement["subject"], fn entry ->
+        entry["name"] == name && entry["digest"]["sha256"]
+      end)
+    end
+
+    test "the action subject is the digest of the raw MCP request" do
+      request = tool_call(%{"path" => "docs/a.md", "content" => "one"})
+      statement = attested_statement(request)
+
+      {:ok, raw} = Digest.action_digest(:tool_request, request, @gateway_context)
+
+      assert subject(statement, "action") == raw
+
+      refute subject(
+               attested_statement(tool_call(%{"path" => "docs/b.md", "content" => "one"})),
+               "action"
+             ) ==
+               raw
+    end
+
+    test "a member of the params object cannot replace the bound arguments" do
+      request = tool_call(%{"path" => "docs/a.md"})
+      decoy = put_in(request, ["params", "params"], %{"arguments" => %{"path" => "other"}})
+
+      assert subject(attested_statement(decoy), "action") ==
+               subject(attested_statement(request), "action")
+
+      refute subject(attested_statement(decoy), "payload") ==
+               subject(attested_statement(request), "payload")
+    end
+
+    test "a statement carries a nonce and millisecond timestamps" do
+      predicate = attested_statement(tool_call(%{}))["predicate"]
+
+      assert predicate["nonce"] =~ ~r/\A[0-9a-f]{32}\z/
+      assert predicate["issued_at"] =~ ~r/\.\d{3}Z\z/
+      assert predicate["expires_at"] =~ ~r/\.\d{3}Z\z/
+    end
+  end
+
   describe "export compatibility facade contracts" do
     test "scan/1 returns the stable clean and hit shapes" do
       assert {:ok, "safe text"} = SigilGuard.scan("safe text")

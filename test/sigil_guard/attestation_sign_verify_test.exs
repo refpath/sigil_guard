@@ -248,6 +248,31 @@ defmodule SigilGuard.AttestationSignVerifyTest do
       assert Attestation.sign(open_ended, TrustedSigner, ttl_ms: 0) == {:error, :invalid_payload}
     end
 
+    test "sign/3 writes a nonce only when given one, and a clock value in milliseconds" do
+      assert {:ok, statement} = valid_statement()
+      bare = Map.update!(statement, "predicate", &Map.delete(&1, "nonce"))
+      trust = %{"trusted" => TrustedSigner.public_key()}
+
+      signed = fn statement, opts ->
+        {:ok, envelope} = Attestation.sign(statement, TrustedSigner, [{:keyid, "trusted"} | opts])
+        {:ok, verified} = Attestation.verify(envelope, trust, now: @now)
+        verified["predicate"]
+      end
+
+      for absent <- [[], [nonce: nil], [nonce: false]] do
+        refute Map.has_key?(signed.(bare, absent), "nonce")
+        assert signed.(statement, absent)["nonce"] == statement["predicate"]["nonce"]
+      end
+
+      assert signed.(bare, nonce: "given")["nonce"] == "given"
+
+      assert signed.(statement, now: ~U[2026-07-03 12:00:00Z])["issued_at"] ==
+               "2026-07-03T12:00:00.000Z"
+
+      assert signed.(statement, now: ~U[2026-07-03 12:00:00.654321Z])["issued_at"] ==
+               "2026-07-03T12:00:00.654Z"
+    end
+
     test "can consume attestation nonces for replay protection" do
       assert {:ok, statement} = valid_statement(%{"nonce" => "replay-nonce"})
       assert {:ok, envelope} = Attestation.sign(statement, TrustedSigner, keyid: "trusted")

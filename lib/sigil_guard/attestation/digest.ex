@@ -278,26 +278,37 @@ defmodule SigilGuard.Attestation.Digest do
   def manifest_digest(manifest) when is_map(manifest), do: normalized_jcs_digest(manifest)
   def manifest_digest(_), do: {:error, :invalid_payload}
 
-  # A gateway digests its gate payload, which wraps the MCP message in a
-  # projection. The action is the message's method and arguments, so the
-  # preimage reads through the wrapper.
+  # A gateway digests its gate payload, which carries the MCP message as a
+  # projection: the method beside the params object for a request, the result
+  # object for a result. The action is the message's method and arguments, so
+  # the preimage is read from the message the projection stands for.
+  #
+  # The message is rebuilt in its JSON-RPC shape instead of read in place. A
+  # params object may hold members of any name, and one called `params` or
+  # `method` would otherwise be taken for the message's own.
   @gate_payload_keys ~w(action binding text tool)
+  @binding_keys ~w(kind method payload protocol_version)
 
-  defp gate_message(
-         %{"binding" => %{"kind" => kind, "payload" => %{} = message} = binding} = payload
-       )
+  defp gate_message(%{"binding" => %{"kind" => kind} = binding} = payload)
        when kind in ["request", "result"] do
-    if Map.keys(payload) -- @gate_payload_keys == [],
-      do: put_method(message, Map.get(binding, "method")),
+    if gate_payload?(payload, binding),
+      do: projected_message(kind, binding),
       else: payload
   end
 
   defp gate_message(payload), do: payload
 
-  # The projection keeps the JSON-RPC method beside the params it carries.
-  defp put_method(message, method) when is_binary(method),
-    do: Map.put_new(message, "method", method)
+  defp gate_payload?(payload, binding) do
+    Enum.sort(Map.keys(payload)) == @gate_payload_keys and
+      Map.has_key?(binding, "payload") and Map.keys(binding) -- @binding_keys == []
+  end
 
+  defp projected_message("request", binding),
+    do: put_method(%{"params" => Map.get(binding, "payload")}, Map.get(binding, "method"))
+
+  defp projected_message("result", binding), do: put_method(%{}, Map.get(binding, "method"))
+
+  defp put_method(message, method) when is_binary(method), do: Map.put(message, "method", method)
   defp put_method(message, _), do: message
 
   defp normalized_payload_map(payload) when is_map(payload) do

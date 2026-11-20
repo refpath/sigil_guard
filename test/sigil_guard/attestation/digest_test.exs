@@ -684,5 +684,85 @@ defmodule SigilGuard.Attestation.DigestTest do
       refute Map.has_key?(preimage, "method")
       refute Map.has_key?(preimage, "arguments")
     end
+
+    test "a member of the params object cannot stand in for the message's own" do
+      preimage = fn params ->
+        request = Map.update!(call(%{"path" => "real"}), "params", &Map.merge(&1, params))
+
+        {:ok, wrapped} =
+          Digest.action_preimage(
+            :tool_request,
+            SecurityPayload.for_gate(request, :request),
+            @context
+          )
+
+        {:ok, raw} = Digest.action_preimage(:tool_request, request, @context)
+
+        assert wrapped == raw
+        wrapped
+      end
+
+      honest = preimage.(%{})
+
+      assert honest["arguments"] == %{"path" => "real"}
+
+      for decoy <- [
+            %{"params" => %{"arguments" => %{"path" => "decoy"}}},
+            %{"params" => %{"name" => "other_tool", "arguments" => %{}}},
+            %{"method" => "resources/read"}
+          ] do
+        assert preimage.(decoy) == honest
+      end
+    end
+
+    test "a member of the result object named method stays application data" do
+      context = %{phase: :tool_result, origin: :tool, sink: :model, tool: "repo_file_write"}
+      opts = [request_action_digest: String.duplicate("a", 64)]
+
+      preimage = fn result ->
+        response = %{"jsonrpc" => "2.0", "id" => 1, "result" => result}
+
+        {:ok, wrapped} =
+          Digest.action_preimage(
+            :tool_result,
+            SecurityPayload.for_gate(response, :result),
+            context,
+            opts
+          )
+
+        {:ok, raw} = Digest.action_preimage(:tool_result, response, context, opts)
+
+        assert wrapped == raw
+        wrapped
+      end
+
+      plain = preimage.(%{"content" => []})
+
+      refute Map.has_key?(plain, "method")
+      assert preimage.(%{"content" => [], "method" => "tools/call"}) == plain
+    end
+
+    test "only the exact gate payload shape is read as a projection" do
+      projected = SecurityPayload.for_gate(call(%{"path" => "x"}), :request)
+
+      # Outside the exact shape a null is application data and may be
+      # refused, so the look-alikes below carry none.
+      binding = Map.put(projected.binding, "protocol_version", "2026-07-28")
+      wrapper = %{projected | binding: binding}
+
+      assert {:ok, %{"arguments" => %{"path" => "x"}}} =
+               Digest.action_preimage(:tool_request, wrapper, @context)
+
+      for look_alike <- [
+            Map.delete(wrapper, :text),
+            %{"binding" => binding},
+            %{wrapper | binding: Map.put(binding, "extra", "x")},
+            %{wrapper | binding: Map.put(binding, "kind", "other")},
+            %{wrapper | binding: Map.delete(binding, "payload")}
+          ] do
+        assert {:ok, preimage} = Digest.action_preimage(:tool_request, look_alike, @context)
+        refute Map.has_key?(preimage, "arguments")
+      end
+    end
   end
 end

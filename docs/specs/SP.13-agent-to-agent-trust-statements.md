@@ -271,11 +271,13 @@ consumer migrates when adopting v3. The mapping is 1:1:
 Both predicates carry the SP.01 core fields that
 `Attestation.from_decision/3` emits: `profile`, `statement_type`, `actor`,
 `verdict`, `action`, `risk_level`, `issued_at`, `expires_at`, `reason` when
-the decision has one, `nonce` when the caller passes `:nonce`, and
-`evidence` when the caller passes `:evidence`. The attest helpers emit no
-`resource` and no `boundary`. `matched_rules` appears only on an
-unknown-peer statement, where it holds the single entry of rule 6 under
-Delegation-Chain Validation. `tool` MUST be absent;
+the decision has one, `nonce`, `matched_rules` when the decision has matched
+rules, and `evidence` from the `:evidence` option, else from the decision's
+`evidence_refs` when that list is not empty. The nonce is generated unless
+the caller passes a string as `:nonce`; `nonce: false` or `nonce: nil`
+omits it. The attest helpers emit no `resource` and no `boundary`. An unknown-peer
+statement also carries the entry of rule 6 under Delegation-Chain
+Validation, placed first in `matched_rules`. `tool` MUST be absent;
 `TrustProfile.validate/1` rejects it with `{:error, :invalid_payload}`.
 
 SP.01 owns the digest rules and already fixes the
@@ -391,10 +393,11 @@ beyond these rules.
    `:peer_card` is unknown. Default: the attested verdict MUST be
    `quarantine` (a `block` decision verdict stays `block`), `peer_trust` is
    `low`, `peer_agent.card_digest` and the `manifest` subject are omitted,
-   and `matched_rules` is set to the single entry
+   and `matched_rules` starts with the entry
    `{"id": "agent.unknown_peer.quarantine", "explanation": "no
-   bundle-declared issuer matched the peer card"}`. Policy MAY strengthen
-   to `block`; nothing may weaken to `allow` without a card. With
+   bundle-declared issuer matched the peer card"}`, followed by the rules
+   of the decision when it has any. Policy MAY strengthen to `block`;
+   nothing may weaken to `allow` without a card. With
    `require_peer_card: true` the flow returns `{:error, :unknown_agent}`
    instead of attesting. A `:peer_card` envelope that fails verification
    does not take this path. The attest helper returns the card error

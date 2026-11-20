@@ -431,6 +431,40 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       assert overridden["predicate"]["evidence"] == other
     end
 
+    test "a decision's evidence references pass the same check as the option" do
+      for refs <- [["event-1"], [%{"kind" => "audit", "ref" => "x"}], [%{"kind" => "export"}]] do
+        assert build(decision(evidence_refs: refs)) == {:error, :invalid_evidence}
+        assert build(decision(), evidence: refs) == {:error, :invalid_evidence}
+      end
+
+      # A valid option is what gets signed, so a malformed field behind it
+      # does not refuse the statement.
+      valid = [%{"kind" => "anchor", "ref" => String.duplicate("c", 64)}]
+
+      assert {:ok, statement} = build(decision(evidence_refs: ["event-1"]), evidence: valid)
+      assert statement["predicate"]["evidence"] == valid
+    end
+
+    test "timestamps have three fractional digits whatever the clock precision" do
+      for now <- [
+            ~U[2026-07-02 12:00:00Z],
+            ~U[2026-07-02 12:00:00.1Z],
+            ~U[2026-07-02 12:00:00.123456Z]
+          ] do
+        assert {:ok, statement} = build(decision(), now: now)
+
+        for field <- ["issued_at", "expires_at"] do
+          assert statement["predicate"][field] =~ ~r/\A2026-07-02T12:0[05]:00\.\d{3}Z\z/, field
+        end
+      end
+
+      assert {:ok, coarse} = build(decision(), now: ~U[2026-07-02 12:00:00Z])
+      assert coarse["predicate"]["issued_at"] == "2026-07-02T12:00:00.000Z"
+
+      assert {:ok, fine} = build(decision(), now: ~U[2026-07-02 12:00:00.123999Z])
+      assert fine["predicate"]["issued_at"] == "2026-07-02T12:00:00.123Z"
+    end
+
     test "a confirmed release of a quarantined result attests released_sanitized" do
       context = %{@context | phase: :tool_result, origin: :tool, sink: :model}
       digest = String.duplicate("a", 64)

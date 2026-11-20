@@ -273,28 +273,28 @@ digest inputs.
 The table lists the profile's predicate fields. The Checked column names the
 function that rejects a missing or malformed field. `TrustProfile.validate/1`
 runs inside `sign/3`, `from_decision/3`, and `verify/3`, and of these fields
-it checks only `profile` and `statement_type`. The Emitted column states
-when `from_decision/3` writes the field. A field that `from_decision/3` does
-not write reaches a statement only when the host adds it to the statement
-map before `sign/3`.
+it checks `profile`, `statement_type`, `actor.id`, `verdict`, `issued_at`,
+and `expires_at`. The Emitted column states when `from_decision/3` writes
+the field. A field that `from_decision/3` does not write reaches a statement
+only when the host adds it to the statement map before `sign/3`.
 
 | Field | Type | Checked | Emitted by `from_decision/3` | Description |
 |-------|------|---------|------------------------------|-------------|
 | `profile` | string | `validate/1` | always | Exactly `sigil_guard_agent_trust/v1`. |
 | `statement_type` | string | `validate/1` | always | Equals the `predicateType` type segment. |
-| `actor` | map | `verify/3` with `replay: true` (`actor.id` only) | always | `{"id": string, "trust_level": string}`. SPIFFE-shaped ids recommended, opaque strings accepted (R.05). `trust_level` is `context.trust_level`. |
+| `actor` | map | `validate/1` (`actor.id` only, a non-empty string) | always | `{"id": string, "trust_level": string}`. SPIFFE-shaped ids recommended, opaque strings accepted (R.05). `trust_level` is `context.trust_level`. |
 | `tool` | map | no | `tool_request` only | `{"name": string, "mcp_server": string, "manifest_digest": string}` from `context.tool`, `context.mcp_server`, and the `:manifest_digest` option; keys omitted when absent, the map omitted when empty. |
 | `resource` | map | no | `tool_request` only | `{"uri": string, "audience": string, "scope": string}`. `uri` is the `:resource` option, else `context.resource_uri`; `audience` is the `:audience` option, else `context.intended_audience`; `scope` is the `:scopes` option, a list being sorted and joined with single spaces. Keys omitted when absent. |
 | `boundary` | map | no | `tool_result` only, as `{"sink": string}` | Mirror of context digest fields: `phase`, `origin`, `sink`, `trust_zone`, `intended_audience`, and `source`, `sandbox_id`, `isolation_level` when present. The `tool_request` golden vector carries the full mirror. No function builds the full mirror. |
-| `verdict` | string | no | always | `allow`, `block`, `confirm`, or `quarantine`. The SP.07 enum also has `redact`; `from_decision/3` writes `allow` for a redact decision and records the redaction in `action`. |
+| `verdict` | string | `validate/1` (a non-empty string; the value is not compared with the enum) | always | `allow`, `block`, `confirm`, or `quarantine`. The SP.07 enum also has `redact`; `from_decision/3` writes `allow` for a redact decision and records the redaction in `action`. |
 | `action` | string | no | always | The decision `action`: `allow`, `redact`, `confirm`, `quarantine`, or `block`. |
 | `risk_level` | string | no | always | The decision `risk_level`. |
 | `reason` | string | no | when the decision has a `reason` | The decision `reason`. |
-| `matched_rules` | list | no | never | `[{"id": string, "explanation": string}]`; MAY be empty. `from_decision/3` does not read `decision.matched_rules`. The `tool_request` golden vector carries one entry. |
-| `nonce` | string | `verify/3` with `replay: true` | only with the `:nonce` option | Profile format: 16 random bytes, lowercase hex (32 characters). The code accepts any string and generates none. |
-| `issued_at` | string | `verify/3` | always | ISO 8601 UTC. The profile format has millisecond precision, e.g. `2026-07-02T12:00:00.000Z`; see the precision note below. |
-| `expires_at` | string | `verify/3` | always | Same format; MUST be later than `issued_at`, else `verify/3` returns `{:error, :invalid_payload}`. |
-| `evidence` | list | `from_decision/3` (`:invalid_evidence`) | only with the `:evidence` option | Audit references `[{"kind": "checkpoint" \| "export" \| "anchor", "ref": string}]`. `decision.evidence_refs` is not read. |
+| `matched_rules` | list | no | when `decision.matched_rules` is not empty | `[{"id": string, "explanation": string}]`; MAY be empty. `from_decision/3` copies `decision.matched_rules`: `rule_id` is written as `id`, a `nil` explanation as `""`, and an entry whose `rule_id` is not a string is left out. The `tool_request` golden vector carries one entry. |
+| `nonce` | string | `verify/3` with `replay: true` | always, unless the `:nonce` option is `false` or `nil` | Profile format: 16 random bytes, lowercase hex (32 characters). `from_decision/3` generates a value in that format from `:crypto.strong_rand_bytes/1` when the caller passes no `:nonce`. A string passed as `:nonce` is written as given, in any format. |
+| `issued_at` | string | `validate/1` | always | ISO 8601 UTC. The profile format has millisecond precision, e.g. `2026-07-02T12:00:00.000Z`; see the precision note below. |
+| `expires_at` | string | `validate/1` | always | Same format; MUST be later than `issued_at`, else `validate/1` returns `{:error, :invalid_payload}`, in `sign/3` and `from_decision/3` as in `verify/3`. |
+| `evidence` | list | `from_decision/3` (`:invalid_evidence`) | with the `:evidence` option, else when `decision.evidence_refs` is not empty | Audit references `[{"kind": "checkpoint" \| "export" \| "anchor", "ref": string}]`. The option wins over `decision.evidence_refs`. Whichever list is written passes `SigilGuard.Audit.Evidence.validate/1` first. |
 
 `tool_result` statements also get the SP.03 fields `request_action_digest`,
 `quarantine` (`status` and `indicator_ids`, with built-in atom ids written as
@@ -303,18 +303,24 @@ when that option is given. `agent_request`/`agent_response` predicates extend
 this core with SP.13-owned fields (delegation chain, peer trust) without
 removing or retyping any core field.
 
-Precision note. `from_decision/3` writes `issued_at` as
-`DateTime.to_iso8601/1` of `:now` and `expires_at` as that time plus the TTL
-in milliseconds. It does not truncate. With no `:now` option the clock is
-`DateTime.utc_now/0`, so both timestamps carry microseconds, as in
-`2026-07-02T12:00:00.123456Z`. A host that needs the millisecond form passes
-`now: DateTime.utc_now(:millisecond)`. `verify/3` accepts any ISO 8601
-timestamp with an offset.
+Precision note. `from_decision/3` sets the clock value to millisecond
+precision, also when the caller passes `:now`: finer digits are cut off and
+a coarser value is padded. It writes `issued_at` as `DateTime.to_iso8601/1`
+of that value and `expires_at` as that time plus the TTL in milliseconds, so
+both timestamps have three fractional digits: `now: ~U[2026-07-02 12:00:00Z]`
+gives `2026-07-02T12:00:00.000Z` and `now: ~U[2026-07-02 12:00:00.123999Z]`
+gives `2026-07-02T12:00:00.123Z`. With no `:now` option the clock is
+`DateTime.utc_now/0`. `sign/3` treats a `DateTime` passed as `:now` the same
+way and writes a string passed as `:now` as given. `validate/1` and
+`verify/3` accept any ISO 8601 timestamp with an offset.
 
 A statement without a `nonce` verifies with `replay: false` and fails
-`verify/3` with `replay: true` (`{:error, :invalid_payload}`). A host that
-wants consuming verification passes `:nonce` to `from_decision/3` or
-`sign/3`.
+`verify/3` with `replay: true` (`{:error, :invalid_payload}`). A statement
+from `from_decision/3` carries a generated nonce and can be consumed once,
+unless the caller passed `nonce: false` or `nonce: nil`. `sign/3` generates
+no nonce. It writes its `:nonce` option when the value is a string and
+otherwise leaves the predicate as it is, so one option list can be passed to
+both functions.
 
 ## Digest Computation (Normative)
 
@@ -404,13 +410,13 @@ mutually distinguishable), so no class prefix is needed:
 | any other term (tuples, pids, non-UTF-8 binaries, functions) | `{:error, :invalid_payload}` |
 
 `SigilGuard.Attestation.Digest.payload_digest/1` accepts all three classes.
-The callers narrow them. `from_decision/3` requires a map `:payload` and
-returns `{:error, :invalid_payload}` for a binary or a list. The action
-digest of every statement type except `model_ingress` and `model_egress`
-reads the payload as a map, so `Digest.digests/4` and digest recomputation
-in `verify/3` accept a binary or list payload only for those two types. A
-host that attests a binary or list payload builds the Statement itself with
-`Digest.digests/4` and `Attestation.Statement.build/3`, then calls `sign/3`.
+The action digest narrows them. For every statement type except
+`model_ingress` and `model_egress` it reads the payload as a map, so
+`from_decision/3`, `Digest.digests/4`, and digest recomputation in
+`verify/3` accept a binary or list payload only for those two types and
+return `{:error, :invalid_payload}` for the other six. `from_decision/3`
+returns the same error for a `:payload` that is not a map, a binary, or a
+list.
 
 ### Action Digest (Per Statement Type)
 
@@ -432,6 +438,28 @@ strip rule at their top level.
 
 A missing required field fails with `{:error, :invalid_payload}`; there is
 no fallback default action name in v3.
+
+For `tool_request` and `tool_result` the preimage reads through the gate
+payload that the SP.03 gateways digest. That payload wraps the MCP message:
+its keys are `action`, `tool`, `text`, and `binding`, and `binding` is the
+projection `{"kind", "method", "protocol_version", "payload"}`. A map with
+exactly those four keys, whose `binding` has `kind` `request` or `result`, a
+`payload`, and no key outside the projection, is replaced by the message it
+stands for, in JSON-RPC shape. For a request that is
+`{"method": binding.method, "params": binding.payload}`; for a result it is
+an empty map, because the result preimage reads nothing from the message.
+The fields in the table are then read from that message. A gateway-built
+statement therefore has the same action preimage as the raw MCP message:
+for `tool_request`, `statement_type`, `tool`, `method`, and `arguments`. Two
+calls to one tool with different arguments have different action digests.
+Any other map is read as given. The golden vectors digest raw messages and
+their bytes are unchanged.
+
+The message is rebuilt and not read in place because a params object may
+hold members of any name. Read in place, a member named `params` would be
+taken for the message's `params` and its `arguments` would replace the real
+ones in the digest, and a result member named `method` would be taken for
+the JSON-RPC method.
 
 ### Manifest Digest (Applicability)
 
@@ -622,10 +650,12 @@ defmodule SigilGuard.TrustProfile do
   @spec validate(map()) :: {:ok, statement :: map()} | {:error, validate_error()}
   # Structural validation of a decoded Statement: _type, subject names and
   # order, predicateType registry membership, predicate.profile,
-  # predicate.statement_type, and for agent_request/agent_response the
-  # SP.13 extension fields. No other predicate field is checked: actor,
-  # verdict, nonce, issued_at, and expires_at may be absent, and the two
-  # timestamps may be inverted.
+  # predicate.statement_type, the core fields below, and for
+  # agent_request/agent_response the SP.13 extension fields. Core fields:
+  # actor.id and verdict are non-empty strings, issued_at and expires_at
+  # are ISO 8601 timestamps with an offset, and issued_at is strictly
+  # before expires_at; anything else is :invalid_payload. No other
+  # predicate field is checked, and nonce may be absent.
 end
 ```
 
@@ -657,11 +687,16 @@ defmodule SigilGuard.Attestation do
           {:ok, envelope :: map()} | {:error, sign_error()}
   # signer implements SigilGuard.Signer. opts: :keyid (defaults to the
   # derived "sha256:<hex>" form); :now overwrites predicate.issued_at and
-  # :nonce overwrites predicate.nonce, for deterministic tests. sign/3 runs
-  # TrustProfile.validate/1 and no other check: it does not set or compare
-  # expires_at, does not read :ttl_ms, and signs a statement whose
-  # issued_at is not before its expires_at. :invalid_envelope is returned
-  # when the envelope would exceed the SigilGuard.Limits input budget.
+  # :nonce overwrites predicate.nonce, for deterministic tests; :ttl_ms.
+  # A DateTime :now is written with millisecond precision, a string :now
+  # as given. :nonce is written when it is a string. A statement that then has
+  # issued_at and no expires_at gets expires_at = issued_at + ttl, from
+  # :ttl_ms, else :attestation_ttl_ms, else 300_000 ms; a stated
+  # expires_at is kept. sign/3 then runs TrustProfile.validate/1 and no
+  # other check, so a statement without actor.id or verdict, or whose
+  # issued_at is not before its expires_at, returns :invalid_payload and
+  # is not signed. :invalid_envelope is returned when the envelope would
+  # exceed the SigilGuard.Limits input budget.
 
   @spec verify(
           envelope :: map(),
@@ -682,9 +717,13 @@ defmodule SigilGuard.Attestation do
           SigilGuard.Context.t() | map() | keyword(),
           opts :: keyword()
         ) :: {:ok, statement :: map()} | {:error, from_decision_error()}
-  # opts: :payload (required, a map), :statement_type (required for
-  # :release, :agent_request, :agent_response), :ttl_ms, :now, :nonce,
-  # :request_action_digest, :manifest, :manifest_digest, :evidence.
+  # opts: :payload (required; a map, or for model_ingress and
+  # model_egress also a binary or a list), :statement_type (required for
+  # :release, :agent_request, :agent_response), :ttl_ms, :now (written
+  # with millisecond precision), :nonce (a string; generated when the
+  # option is absent, omitted for false or nil), :request_action_digest,
+  # :manifest, :manifest_digest, :evidence (else decision.evidence_refs;
+  # both are shape-checked).
   # tool_request also reads :resource, :audience, :scopes. tool_result also
   # reads :output_schema_sha256, :quarantine_status, :indicator_ids,
   # :scanner_hit_count, :redacted (SP.03). The agent types also read
@@ -874,25 +913,24 @@ environment (SP.02, SP.13).
 
 | Setting | Default | Semantics |
 |---------|---------|-----------|
-| Attestation TTL | `300_000` ms | `from_decision/3` derives `expires_at = issued_at + ttl` from `:ttl_ms`, else `:attestation_ttl_ms`. `sign/3` does not: it ignores `:ttl_ms` and leaves `expires_at` as given, also when its `:now` option replaces `issued_at`. |
+| Attestation TTL | `300_000` ms | `from_decision/3` derives `expires_at = issued_at + ttl` from `:ttl_ms`, else `:attestation_ttl_ms`. `sign/3` derives it the same way for a statement that has `issued_at` and no `expires_at`. It keeps an `expires_at` the statement states, also when its `:now` option replaces `issued_at`. |
 | Max clock skew | `60_000` ms | `Attestation.verify/3`: from `:max_skew_ms` opt, else config. Matches the v2 envelope `max_skew_ms` convention. |
 | Replay protection | off | Opt-in per verify call with `replay: true` (alias `consume: true`), exactly as today. |
 | Replay scope | `{identity, nonce}` | Key is `{"attestation:" <> predicate.actor.id, nonce}` in `SigilGuard.ReplayStore.check_and_put/3` on the existing `:sigil_guard_replay` ETS table. |
 | Replay entry TTL | at least `300_000` ms | `max(expires_at - now + S + 1, requested TTL, 1)` ms. The requested TTL resolves from `:replay_ttl_ms`, otherwise `:ttl_ms`, then application `:replay_ttl_ms`, then `300_000` ms. |
 
-Freshness rules, evaluated by `verify/3` with `now` (or the `:now` opt) and
-skew `S`: `issued_at >= expires_at` is structurally invalid and fails with
-`{:error, :invalid_payload}`, as does a missing or unparseable `issued_at`
-or `expires_at`; `now > expires_at + S` fails with
+The shape of the lifetime is checked by `TrustProfile.validate/1`, and so by
+`sign/3`, `from_decision/3`, and `verify/3`: `issued_at >= expires_at` is
+structurally invalid and fails with `{:error, :invalid_payload}`, as does a
+missing or unparseable `issued_at` or `expires_at`. `sign/3` therefore
+refuses an inverted lifetime, and `verify/3` refuses one that was signed
+without `sign/3`. Freshness rules are evaluated by `verify/3` only, with
+`now` (or the `:now` opt) and skew `S`: `now > expires_at + S` fails with
 `{:error, :expired_attestation}`; `issued_at > now + S` (future-dated) also
-fails with `{:error, :expired_attestation}`. These checks run at verify time
-only. `sign/3` and `TrustProfile.validate/1` read neither timestamp, so
-`sign/3` signs an inverted lifetime and the statement is rejected later by
-`verify/3`. A producer that builds a statement without `from_decision/3`
-checks the lifetime itself. A second `verify` with `replay: true` for a live
-`{actor, nonce}` pair fails with `{:error, :replay_detected}`; when the
-replay table already holds 100,000 entries the claim fails with
-`{:error, :replay_capacity_exceeded}`.
+fails with `{:error, :expired_attestation}`. A second `verify` with
+`replay: true` for a live `{actor, nonce}` pair fails with
+`{:error, :replay_detected}`; when the replay table already holds 100,000
+entries the claim fails with `{:error, :replay_capacity_exceeded}`.
 
 Consuming verification retains the nonce through the inclusive
 `expires_at + S` acceptance boundary. A shorter requested replay TTL cannot
@@ -935,14 +973,15 @@ there 1:1. The v2 verdict mapping is `:allowed -> "allow"`,
 `:blocked -> "block"`, and `:scanned -> "allow"`; v2 `:scanned` was
 advisory. A v3 `%SigilGuard.Decision{}` records the rules behind its
 verdict in `matched_rules`. `Attestation.from_decision/3` copies the
-decision `reason` into the predicate and does not copy `matched_rules`.
+decision `reason` into the predicate, and `matched_rules` when the list is
+not empty.
 
 | V2 Envelope surface | V3 Attestation surface |
 |---------------------|------------------------|
 | `identity` | `predicate.actor.id` (issuer is the resolved signing key via `keyid`). |
 | `verdict` (`allowed`/`blocked`/`scanned`) | `predicate.verdict` per the mapping above. |
 | `timestamp` | `predicate.issued_at` (`expires_at` is new and required). |
-| `nonce` (16-byte hex) | `predicate.nonce`, present only when `nonce:` is passed to `from_decision/3` or `sign/3`. A 16-byte hex value still works; the library does not require that format. |
+| `nonce` (16-byte hex) | `predicate.nonce`. `from_decision/3` generates a 16-byte hex value unless `nonce:` is passed; `nonce: false` omits the field. A string passed as `nonce:` is written as given; the library does not require the hex format. |
 | `signature` (single base64url string) | `signatures[0].sig` in the DSSE envelope, plus new `keyid`. |
 | `reason` | `predicate.reason`, copied from the decision. |
 | Canonical bytes `{identity,nonce,timestamp,verdict}` | DSSE PAE over the payload type and the JCS statement bytes. |
@@ -954,8 +993,8 @@ decision `reason` into the predicate and does not copy `matched_rules`.
 | Legacy envelope fixtures | Moved to `test/fixtures/historical/` (SP.06). |
 
 For a `tool_result`, `from_decision/3` records scanner evidence in
-`predicate.scanner` (SP.03). A host that wants `matched_rules` in the
-predicate adds the list to the statement before `Attestation.sign/3`.
+`predicate.scanner` (SP.03). A statement built from a decision without
+matched rules has no `matched_rules` field.
 
 ## Integration Points
 
@@ -1003,7 +1042,7 @@ atoms instead of inventing artifact-specific ones.
 | `:replay_capacity_exceeded` | consuming verification while `SigilGuard.ReplayStore` already holds 100,000 entries | retry after entries expire | request blocked |
 | `:unsupported_number_range` | integer outside `[-(2^53 - 1), 2^53 - 1]` reached the JCS encoder | carry the value as a string | encoding rejected |
 | `:invalid_map` | JCS input not JSON-representable, or key collision after normalization | fix the input map | encoding rejected (surfaced as `:invalid_payload` by `Attestation`) |
-| `:invalid_payload` | payload/context cannot produce digest preimages; required action field missing; a map entry with a `nil` value in a payload; a non-map `:payload` given to `from_decision/3`; actor id unresolvable; at `verify/3`, `issued_at >= expires_at`, a missing or unparseable `issued_at` or `expires_at`, or `replay: true` on a statement without a string `nonce` and `actor.id` | supply the required fields | no attestation emitted, or verification fails |
+| `:invalid_payload` | payload/context cannot produce digest preimages; required action field missing; a map entry with a `nil` value in a payload; a `:payload` given to `from_decision/3` that is not a map, a binary, or a list, or a binary or list for a statement type whose action preimage reads a map; actor id unresolvable; in `TrustProfile.validate/1`, and so in `sign/3`, `from_decision/3`, and `verify/3`, an `actor.id` or `verdict` that is not a non-empty string, a missing or unparseable `issued_at` or `expires_at`, or `issued_at >= expires_at`; at `verify/3`, `replay: true` on a statement without a string `nonce` | supply the required fields | no attestation emitted, or verification fails |
 | `:invalid_signer` | signer module does not export `sign/1` or returned a non-64-byte signature | implement `SigilGuard.Signer` | signing fails |
 | `:legacy_contract_removed` | removed v2 API or config key used | follow `MIGRATING-1.0.md` | boot/call fails with a migration pointer |
 | `:unknown_config_key` | unrecognized `:sigil_guard` key at boot | remove or fix the key per `MIGRATING-1.0.md` | boot fails closed |
@@ -1038,7 +1077,10 @@ atoms instead of inventing artifact-specific ones.
 | replay | `AttestationTest` | Nonce reuse with `replay: true` yields `:replay_detected`. |
 | expiry and skew | `AttestationTest` | Expired and future-dated statements yield `:expired_attestation` exactly at the skew boundaries. |
 | malformed JCS inputs | `Canonical.JCSTest` | RFC 8785 appendix vectors, surrogate-pair keys, NFC/NFD twins, `-0`, `1e+21`, integers at and beyond the range bound, duplicate-key rejection, encode-decode-encode property. |
-| statement validation | `TrustProfileTest` | Unknown types, wrong profile/version, subject order violations fail with named atoms. |
+| statement validation | `TrustProfileTest` | Unknown types, wrong profile/version, subject order violations fail with named atoms. A missing or empty `actor.id` or `verdict`, a missing or unparseable timestamp, and `issued_at >= expires_at` fail with `:invalid_payload`. |
+| statement content | `AttestationFromDecisionTest` | `from_decision/3` generates a nonce that can be consumed once, writes timestamps with three fractional digits for any clock precision, copies matched rules and checked evidence references from the decision, writes `released_sanitized` after a confirmed release, and accepts a text or list payload for `model_egress`. |
+| sign-time lifetime | `AttestationSignVerifyTest` | `sign/3` derives a missing `expires_at` from the TTL, keeps a stated one, refuses an inverted lifetime and a statement without an actor, writes a `DateTime` `:now` with millisecond precision, and writes `:nonce` only when it is a string. |
+| gateway action preimage | `Attestation.DigestTest`, `ToolGatewayTest` | The `tool_request` and `tool_result` preimages of a gate payload equal those of the raw message; different arguments give different action digests; a params member named `params` or `method` and a result member named `method` do not change the preimage; a map that is not exactly the wrapper is read as given. |
 | legacy removal | `ConfigTest` + migration tests | Removed keys/APIs raise `SigilGuard.ConfigError`/`:legacy_contract_removed` naming `MIGRATING-1.0.md`. |
 
 ## Acceptance Criteria

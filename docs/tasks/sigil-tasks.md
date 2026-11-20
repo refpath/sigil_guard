@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 306 / 312 tasks done (98.1%).** Milestones: 16 complete, 1 open.
+**Overall: 307 / 312 tasks done (98.4%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 11 | 17 | 65% | Open |
-| — | **Total** | **306** | **312** | **98.1%** | 16 done |
+| M14 | Spec conformance backlog | 12 | 17 | 71% | Open |
+| — | **Total** | **307** | **312** | **98.4%** | 16 done |
 
 ### Release Handoff
 
@@ -3191,7 +3191,7 @@ needs its design confirmed against the consumer contracts before work begins.
     obligation the deployment guide already states. Tests:
     `Runtime.StreamTest`.
 
-- [ ] M14.07 Attestation predicate completeness (`SP.01`, `SP.03`, `SP.07`).
+- [x] M14.07 Attestation predicate completeness (`SP.01`, `SP.03`, `SP.07`).
   - AC: `Attestation.from_decision/3` emits the `boundary` mirror,
     `matched_rules`, evidence references, a generated nonce, and millisecond
     timestamps; the `action` subject binds method and arguments; a confirmed
@@ -3200,6 +3200,20 @@ needs its design confirmed against the consumer contracts before work begins.
     required predicate fields; `:ttl_ms` sets `expires_at`; binary and list
     payloads are accepted.
   - Note: this changes signed statement content and the frozen vectors.
+  - Resolved: `from_decision/3` writes a generated nonce, timestamps with
+    three fractional digits, the decision's matched rules and its checked
+    evidence references, and `released_sanitized` after a confirmed release.
+    `sign/3` and `TrustProfile.validate/1` refuse an inverted lifetime and a
+    statement without `actor.id` or `verdict`, and `sign/3` derives a
+    missing `expires_at` from the TTL. Text and list payloads are accepted
+    where the action preimage reads no map. The `action` subject of a
+    gateway statement is the digest of the raw MCP message: method, tool and
+    arguments, read from the projection rebuilt in JSON-RPC shape so that a
+    params member named `params` or `method` cannot stand in for the
+    message's own. This is a wire change against 1.0.5 and MIGRATING-1.0.md
+    states it. `Decision.evidence_refs` holds `Audit.Evidence` references;
+    the gate fills none because it holds no audit artifacts.
+
 - [x] M14.08 Trust bundle as verification material (`SP.01`, `SP.02`,
       `SP.03`, `SP.13`).
   - AC: `Attestation.verify/3` accepts a `%TrustBundle{}` and resolves `keys`

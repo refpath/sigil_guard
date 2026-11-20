@@ -249,29 +249,37 @@ metadata strip rule. `attest_request/3` and `attest_result/3` compute them
 with `Attestation.Digest.digests/4` over the gate payload that
 `MCP.SecurityPayload.for_gate/3` builds from the `:payload` option. That is
 the same value `guard_request/3` verifies an inbound attestation against.
-The tables fix where each bound item lives.
+The action preimage reads through that gate payload to the MCP message it
+wraps (SP.01, Action Digest). The tables fix where each bound item lives.
 
 ### tool_request Binding
 
 `attest_request/3` writes the SP.01 predicate fields `profile`,
-`statement_type`, `actor` (`id`, `trust_level`), `verdict`, `issued_at`, and
-`expires_at`. It adds `action`, `risk_level`, `tool`, `resource`, `reason`
-when the decision has one, and `nonce` and `evidence` when the caller passes
-them. It writes no `boundary` mirror and no `matched_rules`. Granted scopes
-bind as the ascending-sorted, single-space-joined string in
+`statement_type`, `actor` (`id`, `trust_level`), `verdict`, `issued_at`,
+`expires_at`, and `nonce`, which is generated unless the caller passes one.
+It adds `action`, `risk_level`, `tool`, `resource`, `reason` when the
+decision has one, `matched_rules` when the decision has matched rules, and
+`evidence` from the `:evidence` option, else from the decision's
+`evidence_refs` when that list is not empty. It writes no `boundary` mirror.
+Granted scopes bind as the ascending-sorted, single-space-joined string in
 `resource.scope`.
 
 | Bound item | Where it binds |
 |------------|----------------|
 | Actor | `predicate.actor.id` (the context `actor`, else `identity`) + `actor` key of the context digest. |
 | Tool identity (tool digest) | `manifest` subject entry = `manifest_digest`, written when the caller passes `:manifest` (a `%CapabilityManifest{}`) or `:manifest_digest`; `predicate.tool` mirror (`name`, `mcp_server`, `manifest_digest`). |
-| Action | `action` subject entry. The SP.01 `tool_request` preimage is computed over the gate payload, which has no top-level `method`, `params`, or `arguments`, so the preimage holds `statement_type` and the context `tool` only. Method and arguments bind through the `payload` subject. |
+| Action | `action` subject entry. The SP.01 `tool_request` preimage reads through the gate payload to the message it wraps, so it holds `statement_type`, the context `tool`, the request `method`, and the `arguments`. It is the same preimage as for the raw MCP message. Two calls to one tool with different arguments have different action digests. The `payload` subject binds method and arguments too. |
 | Full guarded payload | `payload` subject entry. |
 | Boundary context incl. `sandbox_id` | `context` subject entry (SP.01 field list; the `Context` fields, not `context.metadata`). |
 | Resource / audience | `predicate.resource` `{"uri", "audience", "scope"}`, from the `:resource`, `:audience`, and `:scopes` options; `uri` falls back to the context `resource_uri` and `audience` to the context `intended_audience`. |
 | Scopes | `predicate.resource.scope`, joined as above. |
-| Nonce | `predicate.nonce`, written only when the caller passes `:nonce`. `attest_request/3` generates none and does not check the format. A statement without a nonce fails `Attestation.verify/3` with `replay: true` (`:invalid_payload`). |
-| Expiry | `predicate.expires_at` (TTL default per SP.01). |
+| Nonce | `predicate.nonce`. `Attestation.from_decision/3` generates 16 random bytes as 32 lowercase hex characters unless the caller passes `:nonce`. A caller's string is written as given; its format is not checked. `nonce: false` or `nonce: nil` omits the field, and a statement without a nonce fails `Attestation.verify/3` with `replay: true` (`:invalid_payload`). |
+| Expiry | `predicate.expires_at` (TTL default per SP.01). Both timestamps have three fractional digits, with or without `:now`. The helper passes `:now` to `from_decision/3` and to `sign/3`, and both write a `DateTime` with millisecond precision. |
+
+An attestation that a gateway signed while the action preimage held
+`statement_type` and `tool` only carries a different `action` digest. It
+fails digest recomputation with `:digest_mismatch`, so both sides of a
+gateway run a version with the same preimage.
 
 The context passed to `attest_request/3` must name the `tool` and an `actor`
 or `identity`; otherwise the call returns `{:error, :invalid_payload}`. The
@@ -292,12 +300,13 @@ that names the `tool` and an `actor` or `identity`, and it requires
 | Bound item | Where it binds |
 |------------|----------------|
 | Result content (result digest) | `payload` subject entry over the stripped result. |
+| Action | `action` subject entry. The SP.01 `tool_result` preimage reads through the gate payload as the request preimage does. The gateway's result projection has a `nil` method, so the preimage holds `statement_type`, the context `tool`, and `request_action_digest`, as for the raw JSON-RPC response. A member of the result object named `method` is application data and does not enter the preimage; the `payload` subject binds it. |
 | Sink | `sink` key of the context digest + `predicate.boundary.sink`. |
-| Evidence refs | `predicate.evidence` (SP.01 shape), written only from the caller's `:evidence` option. `Decision.evidence_refs` is not read. |
+| Evidence refs | `predicate.evidence` (SP.01 shape), from the caller's `:evidence` option, else from `Decision.evidence_refs` when that list is not empty; either list is shape-checked (`:invalid_evidence`). `guard_result/3` returns a decision with an empty list, so the field is written only when the caller passes the option or fills the list. |
 | Manifest | `manifest` subject entry, written when the caller passes `:manifest` or `:manifest_digest`. Passing the paired request's manifest is the caller's step; `guard_result/3` resolves none. |
-| Request back-reference | `predicate.request_action_digest` (string, required) mirroring the `request_action_digest` inside the action-digest preimage (SP.01). The gateway does not compute it: the caller supplies the `:request_action_digest` option, 64 lowercase hex characters. |
+| Request back-reference | `predicate.request_action_digest` (string, required) mirroring the `request_action_digest` inside the action-digest preimage (SP.01). The gateway does not compute it: the caller supplies the `:request_action_digest` option, 64 lowercase hex characters. The `action` subject of the paired `tool_request` statement covers that request's method and arguments, so passing it ties the result to them and not to the tool name alone. |
 | Output schema digest | `predicate.output_schema_sha256` (string): the caller's `:output_schema_sha256` option when given, else the field of the `:manifest` struct; omitted when neither is set. It MUST equal the manifest field when the manifest declares one. That equality is not implemented: no code compares a caller-supplied value with the manifest, so the caller has to pass the manifest's value or omit the option. |
-| Quarantine status | `predicate.quarantine` (map, required): `{"status": "none" \| "quarantined" \| "released_sanitized", "indicator_ids": [string]}`. `status` comes from the `:quarantine_status` option, else from the decision's `audit_metadata.quarantine_status`: `:quarantined` gives `"quarantined"`, `:released_sanitized` gives `"released_sanitized"`, and any other value gives `"none"`. `guard_result/3` never records `:released_sanitized`, so that status is written only when the caller passes it; a confirmed release keeps `:quarantined`. `indicator_ids` are the indicator ids as strings, deduplicated and sorted. |
+| Quarantine status | `predicate.quarantine` (map, required): `{"status": "none" \| "quarantined" \| "released_sanitized", "indicator_ids": [string]}`. `status` comes from the `:quarantine_status` option when the caller passes one. Otherwise a decision whose `audit_metadata.release_status` is `:confirmed_sanitized` gives `"released_sanitized"`. `guard_result/3` sets that value when a confirmation releases a quarantined result, and leaves `quarantine_status` at `:quarantined`. For any other decision `audit_metadata.quarantine_status` decides: `:quarantined` gives `"quarantined"`, `:released_sanitized` gives `"released_sanitized"`, and any other value gives `"none"`. `indicator_ids` are the indicator ids as strings, deduplicated and sorted. |
 | Scanner summary | `predicate.scanner` (map, required): `{"hit_count": integer, "redacted": boolean}`; summary only, never raw content. |
 
 ## Confirmation Lifecycle
@@ -466,10 +475,11 @@ defmodule SigilGuard.ToolGateway do
   @spec attest_request(SigilGuard.Decision.t(), ctx(), keyword()) ::
           {:ok, envelope :: map()} | {:error, attest_error()}
   # opts: :payload (required), :signer (required), :keyid, :manifest,
-  # :manifest_digest, :resource, :audience, :scopes, :ttl_ms, :now, :nonce,
-  # :evidence. Builds and signs a tool_request statement via
-  # Attestation.from_decision/3 + Attestation.sign/3 (SP.01). The context
-  # must name the tool and an actor or identity.
+  # :manifest_digest, :resource, :audience, :scopes, :ttl_ms, :now, :nonce
+  # (generated when absent), :evidence. Builds and signs a tool_request
+  # statement via Attestation.from_decision/3 + Attestation.sign/3 (SP.01);
+  # both receive the options. The context must name the tool and an actor
+  # or identity.
 
   @spec attest_result(SigilGuard.Decision.t(), ctx(), keyword()) ::
           {:ok, envelope :: map()} | {:error, attest_error()}
@@ -764,6 +774,8 @@ Spec-local atoms. Shared atoms (`:digest_mismatch`, `:expired_attestation`,
 | unsandboxed privileged tool | `ToolGatewayTest` | Missing/insufficient sandbox blocks with `:sandbox_required` (TM.09). |
 | poisoned result | `ToolGatewayTest` | Injected result content quarantines; release is sanitized-only (TM.01). |
 | confirmation binding | `ConfirmationTest` | Token cannot approve a changed action, payload, context (incl. `sandbox_id`), or manifest; second use fails `:replay_detected`; expiry honored (TM.06). |
+| action binding | `ToolGatewayTest`, `Attestation.DigestTest` | The `action` subject of a gateway-built `tool_request` statement changes with the arguments, and the gateway accepts its own attestation; the preimage of the gate payload equals that of the raw message, also when the params object has a member named `params` or `method`. |
+| released result | `AttestationFromDecisionTest`, `ToolGatewayTest` | A decision with `release_status: :confirmed_sanitized` attests `released_sanitized`; `guard_result/3` sets that status on a confirmed release. |
 | facade parity | `MCP.GatewayTest` | Every facade helper delegates per the mapping table with identical return shapes and JSON-RPC codes. |
 
 Every module includes negative, tamper, replay, expiration, and

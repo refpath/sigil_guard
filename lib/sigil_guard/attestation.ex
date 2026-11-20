@@ -143,7 +143,7 @@ defmodule SigilGuard.Attestation do
 
   def from_decision(%SigilGuard.Decision{} = decision, context, opts) when is_list(opts) do
     with {:ok, payload} <- required_payload(opts),
-         :ok <- validate_evidence_option(opts),
+         :ok <- validate_evidence(opts, decision),
          {:ok, context} <- normalize_context(context),
          {:ok, statement_type} <- decision_statement_type(context, opts),
          {:ok, actor_id} <- context_actor_id(context),
@@ -325,8 +325,17 @@ defmodule SigilGuard.Attestation do
   defp apply_sign_options(statement, opts) do
     statement
     |> maybe_put_predicate("issued_at", issued_at_option(opts))
-    |> maybe_put_predicate("nonce", Keyword.get(opts, :nonce))
+    |> maybe_put_predicate("nonce", nonce_option(opts))
     |> put_missing_expiry(opts)
+  end
+
+  # `nonce: false` and `nonce: nil` mean no nonce to `from_decision/3`. Here
+  # they leave the predicate as it is, so the pair can share one option list.
+  defp nonce_option(opts) do
+    case Keyword.get(opts, :nonce) do
+      nonce when is_binary(nonce) -> nonce
+      _ -> nil
+    end
   end
 
   # A statement that states when it was issued and not when it expires gets
@@ -349,7 +358,7 @@ defmodule SigilGuard.Attestation do
 
   defp issued_at_option(opts) do
     case Keyword.fetch(opts, :now) do
-      {:ok, %DateTime{} = now} -> DateTime.to_iso8601(now)
+      {:ok, %DateTime{} = now} -> DateTime.to_iso8601(millisecond(now))
       {:ok, now} when is_binary(now) -> now
       {:ok, _} -> nil
       :error -> nil
@@ -376,10 +385,12 @@ defmodule SigilGuard.Attestation do
     end
   end
 
-  defp validate_evidence_option(opts) do
-    case Keyword.fetch(opts, :evidence) do
-      :error -> :ok
-      {:ok, evidence} -> Evidence.validate(evidence)
+  # The option and the decision's own references end up in the same signed
+  # field, so both pass the same shape check.
+  defp validate_evidence(opts, decision) do
+    case predicate_evidence(opts, decision) do
+      nil -> :ok
+      evidence -> Evidence.validate(evidence)
     end
   end
 
@@ -424,10 +435,15 @@ defmodule SigilGuard.Attestation do
 
   defp attestation_now(opts) do
     case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
-      %DateTime{} = now -> {:ok, DateTime.truncate(now, :millisecond)}
+      %DateTime{} = now -> {:ok, millisecond(now)}
       _ -> {:error, :invalid_payload}
     end
   end
+
+  # The profile writes three fractional digits. Truncating alone keeps a
+  # coarser clock value coarse, so the precision is set as well.
+  defp millisecond(%DateTime{microsecond: {microseconds, _}} = time),
+    do: %{time | microsecond: {div(microseconds, 1000) * 1000, 3}}
 
   # A statement gets a fresh nonce unless the caller supplies one or passes
   # `nonce: false`. Without a nonce a statement cannot be replay-consumed.

@@ -289,8 +289,17 @@ defmodule SigilGuard.AgentTrust do
     |> maybe_put_opt(:request_action_digest, Keyword.get(params.opts, :request_action_digest))
     |> maybe_put_opt(:ttl_ms, Keyword.get(params.opts, :ttl_ms))
     |> maybe_put_opt(:now, Keyword.get(params.opts, :now))
-    |> maybe_put_opt(:nonce, Keyword.get(params.opts, :nonce))
+    |> forward_opt(:nonce, params.opts)
     |> maybe_put_opt(:evidence, Keyword.get(params.opts, :evidence))
+  end
+
+  # Unlike `maybe_put_opt/3` this keeps a `nil` or `false` the caller passed,
+  # which is how a caller asks for a statement without a nonce.
+  defp forward_opt(fd_opts, key, opts) do
+    case Keyword.fetch(opts, key) do
+      {:ok, value} -> Keyword.put(fd_opts, key, value)
+      :error -> fd_opts
+    end
   end
 
   defp put_card_digest(fd_opts, extra) do

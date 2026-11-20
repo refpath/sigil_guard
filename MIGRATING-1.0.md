@@ -335,14 +335,14 @@ The 0.2.x verdict mapping is `:allowed -> "allow"`, `:blocked -> "block"`, and
 `:scanned -> "allow"`; 0.2.x `:scanned` was advisory. A 1.0
 `%SigilGuard.Decision{}` records the rules behind its verdict in
 `matched_rules`. `Attestation.from_decision/3` copies the decision `reason`
-into the predicate and does not copy `matched_rules`.
+into the predicate, and `matched_rules` when the list is not empty.
 
 | 0.2.x Envelope surface | 1.0 Attestation surface |
 |---------------------|------------------------|
 | `identity` | `predicate.actor.id` (issuer is the resolved signing key via `keyid`). |
 | `verdict` (`allowed`/`blocked`/`scanned`) | `predicate.verdict` per the mapping above. |
 | `timestamp` | `predicate.issued_at` (`expires_at` is new and required). |
-| `nonce` (16-byte hex) | `predicate.nonce`, present only when `nonce:` is passed to `from_decision/3` or `sign/3`. A 16-byte hex value still works; the library does not require that format. |
+| `nonce` (16-byte hex) | `predicate.nonce`. `from_decision/3` generates a 16-byte hex value unless `nonce:` is passed; `nonce: false` omits the field. A string passed as `nonce:` is written as given; the library does not require the hex format. |
 | `signature` (single base64url string) | `signatures[0].sig` in the DSSE envelope, plus new `keyid`. |
 | `reason` | `predicate.reason`, copied from the decision. |
 | Canonical bytes `{identity,nonce,timestamp,verdict}` | DSSE PAE over the payload type and the JCS statement bytes. |
@@ -370,13 +370,10 @@ request =
 After:
 
 ```elixir
-nonce = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
-
 {:ok, statement} =
   SigilGuard.Attestation.from_decision(decision, context,
     payload: request,
-    statement_type: :tool_request,
-    nonce: nonce
+    statement_type: :tool_request
   )
 
 {:ok, envelope} =
@@ -387,8 +384,18 @@ nonce = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
 request = SigilGuard.Attestation.attach(request, envelope)
 ```
 
-The statement carries a nonce only when one is passed. Verification with
+`from_decision/3` gives the statement a nonce: 16 random bytes written as 32
+lowercase hex characters. Pass `nonce:` to supply your own string, or
+`nonce: false` to build a statement without one. Verification with
 `consume: true` rejects a statement without a nonce with `:invalid_payload`.
+
+`sign/3` validates the statement before it signs. Its `now:` option replaces
+`issued_at`, and a statement with `issued_at` and no `expires_at` gets the
+configured lifetime: `ttl_ms:`, else the `:attestation_ttl_ms` application
+key, else `300_000` ms. A statement that then lacks `actor.id`, `verdict`,
+or `issued_at`, or whose `issued_at` is not before its `expires_at`, returns
+`{:error, :invalid_payload}`. A statement from `from_decision/3` has all four
+fields.
 
 ### Verifying An Attached Request
 
@@ -568,6 +575,17 @@ created by the earlier string-flattening draft. Pass the original raw MCP
 request or result to `ToolGateway.issue_confirmation/5`,
 `attest_request/3`, and `attest_result/3`; the helpers apply the shared
 projection. Do not pre-flatten payloads into `tool`/`action`/`text` maps.
+
+The `action` subject of a gateway `tool_request` attestation covers the tool
+name, the request method, and the arguments. It is the digest the raw MCP
+message gives. Releases up to 1.0.5 computed it from the statement type and
+the tool name, so every call to one tool had the same action digest and a
+result attestation could be paired with any call of that tool. An
+attestation signed by such a release fails digest recomputation:
+`Attestation.verify/3` returns `{:error, :digest_mismatch}`, and
+`guard_request/3` with `attestation: :required` blocks the request with
+`:invalid_attestation`. The `request_action_digest` a result names changes
+with it. Upgrade both sides of a gateway together and sign again.
 
 ### Protocol Version And Results
 
