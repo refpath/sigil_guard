@@ -64,8 +64,8 @@ sequenceDiagram
 
     Host->>Loader: source (file/priv/map/binary or boot config)
     Loader->>Verify: DSSE envelope
-    Verify->>Cache: read pin, snapshot, rotation digests, revocations
-    Verify->>Verify: envelope + schema + chain + threshold + expiry
+    Verify->>Cache: read pin, snapshot, floor, rotation digests, revocations
+    Verify->>Verify: envelope + schema + chain + threshold + expiry + rollback
     alt verified and accepted by the cache
         Loader->>Cache: put snapshot (sequence and floor check), raise floor
         Loader-->>Host: {:ok, bundle}
@@ -76,7 +76,7 @@ sequenceDiagram
 ```
 
 Verification order is normative; the first failure wins. `verify/2` runs
-steps 1 to 6: (1) SP.01 envelope checks (`:invalid_envelope`,
+seven steps: (1) SP.01 envelope checks (`:invalid_envelope`,
 `:invalid_payload_type`, then `:duplicate_keyid` before
 `:invalid_base64`); (2) strict JSON parse of the decoded payload, then
 document schema validation, which includes the `"bundle"` delegate check
@@ -87,13 +87,16 @@ resolution (`:unknown_key_id` when no signature keyid belongs to the
 `"bundle"` role); (5) Ed25519-over-PAE verification and threshold count;
 (6) document expiry, then root-role expiry, then `"bundle"`-role expiry.
 
-Step (7), sequence and floor comparison, is not part of `verify/2`.
-`TrustBundle.Cache.put/1` performs it, so it runs in `load/1,2` and
-`dev_bundle/1` unless `cache: false` is passed. A bundle with a lower
-sequence than the cached snapshot and the same `roles` and `keys` passes
-`verify/2`, and passes `load/2` with `cache: false`. A host that calls
-`verify/2` directly, or loads with `cache: false`, gets no sequence or floor
-check and has to enforce one itself.
+Step (7) compares the bundle with the state accepted earlier in this boot.
+`verify/2` runs it last, read-only, through `TrustBundle.Cache.check/1`: a
+sequence at or below the cached snapshot's (other than the cached snapshot
+itself), a sequence below the floor, a lower root version, a revoked signing
+key, or a forked authority fails as `Cache.put/1` would, and nothing is
+recorded. `load/1,2` and `dev_bundle/1` then call `Cache.put/1`, which
+records the snapshot and raises the floor, unless `cache: false` is passed.
+With an empty cache step (7) accepts any sequence: the first bundle a boot
+sees has nothing to be compared with, and the durable floor is the
+`rollback_floor` signed into the embedded bundle.
 
 ### Architectural Patterns
 
@@ -164,9 +167,9 @@ accepts only a sequence strictly greater than the cached one (re-putting
 the byte-identical bundle is an idempotent no-op) and not below the floor;
 on acceptance the floor becomes `max(floor, rollback_floor, sequence)`.
 Violations fail with `{:error, :sequence_below_floor}` (renamed from the
-v2 draft's `:rollback_detected`; see Error Handling). The comparison lives
-in `TrustBundle.Cache.put/1` and nowhere else: `verify/2` does not consult
-the sequence or the floor (Verification Pipeline, step 7).
+v2 draft's `:rollback_detected`; see Error Handling). `Cache.put/1` makes
+the comparison when it records a bundle, and `verify/2` makes the same
+comparison read-only (Verification Pipeline, step 7).
 
 **Revocation by list and by omission.** Both are required. An explicit
 `revocations` entry of kind `"key"` kills a keyid immediately, mid-cycle,
@@ -200,11 +203,13 @@ runbooks:
    (Authority changes, above), else `{:error, :threshold_not_met}`.
 4. The new `rollback_floor` is bumped strictly above the previous floor so
    every prior bundle is invalidated, including bundles carrying unexpired
-   signatures from the compromised keys. The issuer owns this step. The
-   verifier checks the rotation document's `rollback_floor` for format only
-   and never compares it with a previous value; the floor the cache applies
-   comes from the successor bundle document's `rollback_floor` and
-   `sequence`.
+   signatures from the compromised keys. The verifier enforces two parts of
+   this. Within a chain, each rotation document's floor must exceed the floor
+   of the rotation before it. And a bundle's `sequence` must not be below the
+   floor of the last rotation in its chain. Either violation fails with
+   `{:error, :sequence_below_floor}`. The first rotation in a chain is not
+   compared with the genesis floor, because the genesis document is not part
+   of the chain; issuers still have to raise it.
 5. Distribution happens through the host's normal release channel. There is
    no emergency side channel; adding one would recreate the live serving
    path this model rejects.
@@ -232,7 +237,10 @@ pos_integer(), threshold: pos_integer(), keyids: [String.t()], keys:
 cached pin is used. When neither exists, `verify/2` walks from the bundle's
 own root, which requires an empty `rotation_chain`: a bundle that carries a
 chain fails with `{:error, :invalid_bundle_format}` until a pin is cached or
-`:genesis_root` is passed. `Cache.put/1` stores the pin from the first
+`:genesis_root` is passed. That refusal is deliberate. A chain proves a root
+only to a verifier that already trusts the root it starts from, and a
+verifier that accepted a first-seen chain would let whoever delivers the
+first bundle choose the root (R.12). `Cache.put/1` stores the pin from the first
 bundle it accepts for a `bundle_id` - embedding the artifact in the release
 IS the pinning act (R.01 local-first) - and keeps that pin for the rest of
 the boot. It records the digests of every accepted bundle's chain entries
@@ -250,9 +258,10 @@ verifier never picks a branch.
 
 **Rotation replay.** Once the successor bundle is cached, a replayed
 pre-rotation bundle fails with `{:error, :sequence_below_floor}`: `verify/2`
-rejects a root version below the cached snapshot's, and `Cache.put/1`
-rejects a sequence at or below the cached one. Neither check reads the
-rotation document's `rollback_floor`, and both depend on the per-boot cache.
+and `Cache.put/1` both reject a root version below the cached snapshot's and
+a sequence at or below the cached one. Both depend on the per-boot cache.
+The rotation document's `rollback_floor` protects without the cache as
+well: a bundle carrying that rotation cannot have a sequence below it.
 
 ## Data Model
 
@@ -302,7 +311,7 @@ outgoing keys AND the incoming root's declared threshold under its own
 | `root_version` | string | yes | `^[1-9][0-9]*$`; exactly the previous root version + 1. |
 | `roles.root` | map | yes | New root descriptor; its `version` MUST equal `root_version`. |
 | `keys` | map | yes | The new root keys only; same shape and keyid rule as above. |
-| `rollback_floor` | string | yes | `^[1-9][0-9]*$`. Issuers MUST set it strictly greater than the previous root document's floor. The verifier checks the format only: it never compares this value with a previous floor and never applies it to the cache floor. |
+| `rollback_floor` | string | yes | `^[1-9][0-9]*$`. MUST be strictly greater than the previous root document's floor. The verifier compares it with the rotation before it in the chain and requires the carrying bundle's `sequence` to be at least the last rotation's floor (`:sequence_below_floor`). |
 | `issued_at` | string | yes | ISO 8601 UTC ms; historical entries are not freshness-checked. |
 
 ## Signing And Canonical Form
@@ -394,28 +403,18 @@ with `Attestation.Envelope.add_signature/3` before they verify it.
 `verify/2` rejects with `{:error, :invalid_bundle_format}` when passed as a
 bundle; they verify only as `rotation_chain` entries.
 
-### Bundle-State Statement (Optional Evidence)
+### Bundle-State Statement (Not Part Of The Design)
 
-Hosts MAY record bundle lifecycle facts as in-toto-style Statements with
-predicateType `https://sigilguard.dev/trust-bundle-state/v1` (reserved in
-SP.01, owned here). This spec fixes their shape: exactly one subject named
-`"bundle"` whose digest is the `bundle_digest`; predicate fields `profile`
-(`sigil_guard_agent_trust/v1`), `bundle_id`, `sequence`, `root_version`,
-`observed_at` (ISO 8601 UTC ms), `issuer_class` (`"release"` or `"dev"`),
-and `event` from the closed set `"loaded" | "quarantined" | "rotated" |
-"floor_bumped"`; `"quarantined"` adds `reason` (the error atom as a
-string).
-
-This Statement is not implemented. No library function builds, signs, or
-verifies it, and `SigilGuard.Attestation` cannot carry it:
-`TrustProfile.validate/1` runs inside `Attestation.sign/3` and
-`Attestation.verify/3` and rejects the single `"bundle"` subject with
-`{:error, :invalid_profile}`; the predicateType is also outside its
-registry (`{:error, :unknown_statement_type}`). A host that wants this
-evidence builds the Statement itself and signs its JCS bytes with
-`SigilGuard.Attestation.Envelope.sign/3`, the path the SP.05
-checkpoint-state Statement uses. The lifecycle facts the library records
-today are the Quarantine records and the telemetry events below.
+An earlier draft reserved the predicateType
+`https://sigilguard.dev/trust-bundle-state/v1` for a signed Statement about
+bundle lifecycle events. It is not part of this design. The lifecycle facts
+the library records are the Quarantine records and the telemetry events
+below, and `SigilGuard.Attestation` rejects a Statement with that
+predicateType (`{:error, :unknown_statement_type}`) or with a single
+`"bundle"` subject (`{:error, :invalid_profile}`). A host that wants signed
+lifecycle evidence defines its own predicate and signs its JCS bytes with
+`SigilGuard.Attestation.Envelope.sign/3`, as the SP.05 checkpoint-state
+Statement does.
 
 ## Loading Sources
 
@@ -470,9 +469,7 @@ marker in production audit streams.
 **Recognizability in evidence:** the generated document carries
 `provenance: {"builder": "SigilGuard.TrustBundle.dev_bundle/1",
 "issuer_class": "dev"}`; the loaded struct sets `dev?: true` and
-`source: :dev`; the load span's stop metadata carries `dev: true`. A
-bundle-state Statement for it MUST carry `issuer_class: "dev"`; the library
-emits no such Statement, so the host that builds one sets the field.
+`source: :dev`; the load span's stop metadata carries `dev: true`.
 
 ## Public API Sketch
 
@@ -509,7 +506,8 @@ defmodule SigilGuard.TrustBundle do
   @spec load(source()) :: {:ok, t()} | {:error, load_error()}
   @spec load(source(), keyword()) :: {:ok, t()} | {:error, load_error()}
   # Reads the source, runs verify/2 with the same opts, then Cache.put/1
-  # unless cache: false. Cache.put/1 is the only sequence and floor check.
+  # unless cache: false. verify/2 checks the sequence and floor read-only;
+  # Cache.put/1 checks again and records.
   # Failures write a Quarantine record. opts: :genesis_root, :now,
   # :max_skew_ms (default 60_000; the application key is not read),
   # :enforce_declared_threshold (default false), :cache (default true),
@@ -517,11 +515,9 @@ defmodule SigilGuard.TrustBundle do
 
   @spec verify(envelope :: map(), opts :: keyword()) ::
           {:ok, t()} | {:error, verify_error()}
-  # Runs steps 1 to 6 of the verification order. Reads the Cache (pin,
-  # snapshot, rotation digests, revocation union) but never writes it, and
-  # does not consult the sequence or the floor: a lower-sequence bundle
-  # with the cached roles and keys verifies. On failure it writes a
-  # Quarantine record unless quarantine: false.
+  # Runs the seven steps of the verification order. Reads the Cache (pin,
+  # snapshot, floor, rotation digests, revocation union) but never writes
+  # it. On failure it writes a Quarantine record unless quarantine: false.
 
   @spec dev_bundle(keyword()) :: {:ok, t()} | {:error, load_error()}
 
@@ -608,7 +604,7 @@ for removed `registry_*` config keys are owned by SP.01.
 | Gateway (SP.03) | verified capability manifests from `tools` | internal | Elixir API |
 | Scanner/policy (SP.04, SP.11) | `patterns` and `policies` sections | internal | Elixir API |
 | Identity (SP.10) | `identity_issuers/1` returns the section; no identity resolver reads it, so the host applies it | inbound | Elixir API |
-| Audit (SP.05) | quarantine evidence refs; bundle-state Statements are not implemented | internal | Elixir API |
+| Audit (SP.05) | quarantine evidence refs | internal | Elixir API |
 
 ## Telemetry And Observability
 
@@ -723,9 +719,6 @@ reused by reference, never redefined.
 - [x] `dev_bundle/1` output carries `issuer_class: "dev"` in provenance,
       `dev?: true` in the struct, and `dev: true` in load telemetry; no
       production doc or config example references it.
-- [ ] Bundle-state Statements carry `issuer_class: "dev"` for a dev bundle
-      (not implemented: no library code builds, signs, or verifies a
-      bundle-state Statement; the host does).
 - [x] Boot with an invalid configured `:trust_bundle` raises
       `SigilGuard.ConfigError` naming the verify error atom.
 - [x] Every error atom in this spec's taxonomy is produced by at least one

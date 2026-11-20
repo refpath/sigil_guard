@@ -252,8 +252,9 @@ Two more predicate type URIs are reserved outside this registry:
 `SigilGuard.TrustProfile` lists neither, so `Attestation.sign/3` and
 `Attestation.verify/3` reject a Statement that uses them. The
 checkpoint-state Statement is built by `SigilGuard.Audit.Checkpoint` and
-signed through `Attestation.Envelope` (SP.05). No code builds a
-trust-bundle-state Statement (SP.02). SP.01 owns the Statement layer, the
+signed through `Attestation.Envelope` (SP.05). The trust-bundle-state
+Statement was dropped from the design and nothing builds one (SP.02). SP.01
+owns the Statement layer, the
 digest rules, and this registry; predicate owners define full predicate
 schemas without changing the digest inputs below.
 

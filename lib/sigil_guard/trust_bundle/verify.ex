@@ -55,8 +55,10 @@ defmodule SigilGuard.TrustBundle.Verify do
          {:ok, context} <- verification_context(document, signatures, opts),
          :ok <- reject_revoked_signatures(signatures, context.revoked_keyids),
          :ok <- verify_threshold(signatures, context, fields.payload_type, payload),
-         :ok <- verify_freshness(document, context.role, opts) do
-      {:ok, trust_bundle(envelope, document, payload, source(opts))}
+         :ok <- verify_freshness(document, context.role, opts),
+         bundle = trust_bundle(envelope, document, payload, source(opts)),
+         :ok <- Cache.check(bundle) do
+      {:ok, bundle}
     else
       {:ok, :rotation, _} -> {:error, :invalid_bundle_format}
       {:error, reason} -> {:error, reason}
@@ -310,7 +312,8 @@ defmodule SigilGuard.TrustBundle.Verify do
         {:error, :sequence_below_floor}
 
       true ->
-        with {:ok, terminal} <- walk_rotations(chain, genesis, Map.fetch!(document, "bundle_id")) do
+        with {:ok, terminal} <- walk_rotations(chain, genesis, Map.fetch!(document, "bundle_id")),
+             :ok <- sequence_at_rotation_floor?(document, terminal) do
           terminal_root_matches?(terminal, current_root, document)
         end
     end
@@ -381,6 +384,7 @@ defmodule SigilGuard.TrustBundle.Verify do
          {:ok, :rotation, document} <- Schema.validate(document),
          :ok <- next_root_version?(document, previous),
          {:ok, next} <- rotation_root(document),
+         :ok <- floor_advances?(next, previous),
          :ok <- verify_rotation_threshold(signatures, previous, fields.payload_type, payload),
          :ok <- verify_rotation_threshold(signatures, next, fields.payload_type, payload) do
       {:ok, next}
@@ -413,9 +417,26 @@ defmodule SigilGuard.TrustBundle.Verify do
          keys: keys,
          bundle_id: document["bundle_id"],
          descriptor: root,
-         digest: document_digest(document)
+         digest: document_digest(document),
+         rollback_floor: positive_integer!(Map.fetch!(document, "rollback_floor"))
        }}
     end
+  end
+
+  # Each rotation raises the floor above the rotation before it. The first
+  # rotation in a chain has no predecessor here: the genesis document is not
+  # part of the chain.
+  defp floor_advances?(%{rollback_floor: next}, %{rollback_floor: previous})
+       when next <= previous,
+       do: {:error, :sequence_below_floor}
+
+  defp floor_advances?(_, _), do: :ok
+
+  # A bundle may not sit below the floor its own root rotation set.
+  defp sequence_at_rotation_floor?(document, %{rollback_floor: floor}) do
+    if positive_integer!(Map.fetch!(document, "sequence")) >= floor,
+      do: :ok,
+      else: {:error, :sequence_below_floor}
   end
 
   defp verify_rotation_threshold(signatures, root, payload_type, payload) do

@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 303 / 312 tasks done (97.1%).** Milestones: 16 complete, 1 open.
+**Overall: 304 / 312 tasks done (97.4%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 8 | 17 | 47% | Open |
-| — | **Total** | **303** | **312** | **97.1%** | 16 done |
+| M14 | Spec conformance backlog | 9 | 17 | 53% | Open |
+| — | **Total** | **304** | **312** | **97.4%** | 16 done |
 
 ### Release Handoff
 
@@ -3206,11 +3206,19 @@ needs its design confirmed against the consumer contracts before work begins.
     minus revocations; `:require_manifest` is honoured there; a manifest's
     `issuer_keyid` must name a bundle-declared issuer; the gateway trusts a
     manifest only from a verified bundle; `identity_issuers` has a consumer.
-- [ ] M14.09 Trust bundle verification gaps (`SP.02`).
+- [x] M14.09 Trust bundle verification gaps (`SP.02`).
   - AC: `TrustBundle.verify/2` and `load/2` with `cache: false` check the
     sequence floor; a rotation document's `rollback_floor` must exceed the
     previous one; a first-seen bundle with a rotation chain can establish its
     pin; bundle-state Statements exist or leave the spec.
+  - Resolved: `TrustBundle.verify/2` runs the sequence and floor comparison
+    read-only through `Cache.check/1`, so an uncached load is protected too.
+    Rotation floors are enforced within a chain and against the carrying
+    bundle. A first-seen bundle with a rotation chain still needs
+    `:genesis_root`: TUF requires a root delivered out of band and has no
+    trust-on-first-use for a chain (R.12). The bundle-state Statement is
+    dropped from SP.02. Tests: `TrustBundle.GoldenFixtureTest`.
+
 - [ ] M14.10 Confirmation token alignment (`SP.03`, `SP.08`).
   - AC: the token `action_digest` follows SP.01 Digest Computation and the
     body is JCS, or the specs adopt the legacy digest as the contract; direct

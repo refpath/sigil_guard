@@ -97,6 +97,27 @@ defmodule SigilGuard.TrustBundle.Cache do
   end
 
   @doc """
+  Check whether `put/1` would accept `bundle`, without recording anything.
+
+  `SigilGuard.TrustBundle.verify/2` calls this as the last verification step,
+  so a bundle below the state already accepted in this boot is refused even
+  when the caller does not cache it.
+  """
+  @doc since: "1.1.0"
+  @spec check(TrustBundle.t()) :: :ok | {:error, put_error()}
+  def check(%TrustBundle{bundle_id: bundle_id, sequence: sequence} = bundle)
+      when is_binary(bundle_id) and is_integer(sequence) and sequence > 0 do
+    ensure_table()
+
+    case :ets.lookup(@table, bundle_id) do
+      [] -> :ok
+      [row] -> rejection(bundle, row)
+    end
+  end
+
+  def check(%TrustBundle{}), do: :ok
+
+  @doc """
   Accept a verified trust-bundle snapshot if it advances the sequence floor.
 
   A byte-identical re-put, represented by the same sequence and digest, is
@@ -151,40 +172,39 @@ defmodule SigilGuard.TrustBundle.Cache do
     if inserted?, do: {:ok, bundle}, else: put(bundle)
   end
 
-  defp put_existing(bundle, {_, cached, floor, pin, digests, revoked} = row) do
+  # `:ok` for the cached snapshot itself and for a bundle that advances it.
+  defp rejection(bundle, {_, cached, floor, _, digests, revoked}) do
     cond do
-      same_snapshot?(bundle, cached) ->
-        {:ok, cached}
-
-      bundle.sequence <= cached.sequence ->
-        {:error, :sequence_below_floor}
-
-      bundle.sequence < floor ->
-        {:error, :sequence_below_floor}
-
-      root_version_below_cached?(bundle, cached) ->
-        {:error, :sequence_below_floor}
-
-      revoked_signature?(bundle, revoked) ->
-        {:error, :revoked_key}
-
-      forked_authority?(bundle, cached, digests) ->
-        {:error, :forked_root_chain}
-
-      true ->
-        accepted = accepted_floor(floor, bundle)
-
-        replacement =
-          {bundle.bundle_id, bundle, accepted, pin, Map.merge(digests, rotation_digests(bundle)),
-           MapSet.union(revoked, collect_revoked_keyids(bundle))}
-
-        match = [
-          {{bundle.bundle_id, :"$2", :"$3", :"$4", :"$5", :"$6"},
-           [{:"=:=", :"$_", {:const, row}}], [{:const, replacement}]}
-        ]
-
-        if :ets.select_replace(@table, match) == 1, do: {:ok, bundle}, else: put(bundle)
+      same_snapshot?(bundle, cached) -> :ok
+      bundle.sequence <= cached.sequence -> {:error, :sequence_below_floor}
+      bundle.sequence < floor -> {:error, :sequence_below_floor}
+      root_version_below_cached?(bundle, cached) -> {:error, :sequence_below_floor}
+      revoked_signature?(bundle, revoked) -> {:error, :revoked_key}
+      forked_authority?(bundle, cached, digests) -> {:error, :forked_root_chain}
+      true -> :ok
     end
+  end
+
+  defp put_existing(bundle, {_, cached, _, _, _, _} = row) do
+    case {same_snapshot?(bundle, cached), rejection(bundle, row)} do
+      {true, _} -> {:ok, cached}
+      {false, {:error, reason}} -> {:error, reason}
+      {false, :ok} -> replace(bundle, row)
+    end
+  end
+
+  defp replace(bundle, {_, _, floor, pin, digests, revoked} = row) do
+    replacement =
+      {bundle.bundle_id, bundle, accepted_floor(floor, bundle), pin,
+       Map.merge(digests, rotation_digests(bundle)),
+       MapSet.union(revoked, collect_revoked_keyids(bundle))}
+
+    match = [
+      {{bundle.bundle_id, :"$2", :"$3", :"$4", :"$5", :"$6"}, [{:"=:=", :"$_", {:const, row}}],
+       [{:const, replacement}]}
+    ]
+
+    if :ets.select_replace(@table, match) == 1, do: {:ok, bundle}, else: put(bundle)
   end
 
   defp revoked_signature?(bundle, revoked) do

@@ -5,6 +5,16 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Behaviour change.** `SigilGuard.TrustBundle.verify/2`, and `load/2` with
+  `cache: false`, refuse a bundle below the state already accepted in this
+  boot: a sequence at or below the cached snapshot's, a sequence below the
+  floor, a revoked signing key or a forked authority returns the error
+  `SigilGuard.TrustBundle.Cache.put/1` would. Only a cached load checked this.
+  `Cache.check/1` is the read-only form.
+- A rotation document's `rollback_floor` is enforced. Within a chain each
+  rotation's floor must exceed the one before it, and a bundle's `sequence`
+  must not be below the floor of the last rotation in its chain. Both fail
+  with `:sequence_below_floor`. The field was checked for format only.
 - **Behaviour change.** `SigilGuard.Runtime.Gate` applies the `[contracts]`
   section of a boundary policy file passed as `:boundary_policy`. For the
   context sink it checks the content class and, on a text payload, re-scans

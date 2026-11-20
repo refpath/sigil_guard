@@ -194,6 +194,167 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
     assert TrustBundle.verify(reauthorized_old_key, now: @now) == {:error, :revoked_key}
   end
 
+  describe "rollback against the state accepted in this boot" do
+    alias SigilGuard.TrustBundleFixtureGenerator.BundleSigner
+
+    defp next_minimal(sequence) do
+      ["minimal", "envelope.json"]
+      |> read_json()
+      |> envelope_document()
+      |> Map.put("sequence", Integer.to_string(sequence))
+      |> signed_document(BundleSigner)
+    end
+
+    test "verify/2 and an uncached load refuse a bundle below the cached snapshot" do
+      first = read_json(["minimal", "envelope.json"])
+      second = next_minimal(2)
+
+      # Nothing is cached yet, so either bundle verifies.
+      assert {:ok, %TrustBundle{sequence: 1}} = TrustBundle.verify(first, now: @now)
+      assert {:ok, %TrustBundle{sequence: 2}} = TrustBundle.verify(second, now: @now)
+      assert Cache.floor("example-org-trust") == 0
+
+      assert {:ok, %TrustBundle{sequence: 2}} = TrustBundle.load({:map, second}, now: @now)
+
+      assert TrustBundle.verify(first, now: @now) == {:error, :sequence_below_floor}
+
+      assert TrustBundle.load({:map, first}, now: @now, cache: false) ==
+               {:error, :sequence_below_floor}
+
+      # The cached snapshot itself still verifies, and a newer one does too.
+      assert {:ok, %TrustBundle{sequence: 2}} = TrustBundle.verify(second, now: @now)
+      assert {:ok, %TrustBundle{sequence: 3}} = TrustBundle.verify(next_minimal(3), now: @now)
+
+      # verify/2 records nothing.
+      assert Cache.floor("example-org-trust") == 2
+    end
+
+    test "an uncached load does not raise the floor" do
+      second = next_minimal(2)
+
+      assert {:ok, _} = TrustBundle.load({:map, second}, now: @now, cache: false)
+      assert Cache.floor("example-org-trust") == 0
+
+      assert {:ok, %TrustBundle{sequence: 1}} =
+               TrustBundle.verify(read_json(["minimal", "envelope.json"]), now: @now)
+    end
+
+    test "Cache.check/1 answers as put/1 would, without recording" do
+      {:ok, first} = TrustBundle.verify(read_json(["minimal", "envelope.json"]), now: @now)
+      {:ok, second} = TrustBundle.verify(next_minimal(2), now: @now)
+
+      assert Cache.check(first) == :ok
+      assert {:ok, _} = Cache.put(second)
+      assert Cache.check(second) == :ok
+      assert Cache.check(first) == {:error, :sequence_below_floor}
+      assert Cache.check(%TrustBundle{}) == :ok
+    end
+  end
+
+  describe "rotation rollback floors" do
+    alias SigilGuard.TrustBundleFixtureGenerator.ForkedRootSigner
+    alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
+    alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
+    alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
+
+    defp key_descriptor(signer) do
+      %{
+        "alg" => "ed25519",
+        "public_key" => Base.url_encode64(signer.public_key(), padding: false)
+      }
+    end
+
+    defp sign_with(document, signers) do
+      {:ok, payload} = JCS.encode(document)
+      {:ok, envelope} = Envelope.sign_many(payload, signers)
+      envelope
+    end
+
+    # The committed successor with its rotation document re-issued at `floor`.
+    defp successor_with_rotation_floor(floor, sequence) do
+      successor = read_json(["rotation", "successor.json"])
+
+      rotation =
+        successor
+        |> rotation()
+        |> envelope_document()
+        |> Map.put("rollback_floor", Integer.to_string(floor))
+        |> sign_with([RootSigner, NewRootSigner])
+
+      successor
+      |> envelope_document()
+      |> Map.put("rotation_chain", [rotation])
+      |> Map.put("sequence", Integer.to_string(sequence))
+      |> Map.put("rollback_floor", Integer.to_string(min(floor, sequence)))
+      |> sign_with([NewBundleSigner, NewRootSigner])
+    end
+
+    # A bundle under root version 3, reached through two rotations whose
+    # floors are `second_floor` and `third_floor`.
+    defp twice_rotated(second_floor, third_floor) do
+      successor = envelope_document(read_json(["rotation", "successor.json"]))
+      second = envelope_document(rotation(read_json(["rotation", "successor.json"])))
+      new_root_keyid = Envelope.keyid(NewRootSigner.public_key())
+      third_root_keyid = Envelope.keyid(ForkedRootSigner.public_key())
+      third_root = %{second["roles"]["root"] | "keyids" => [third_root_keyid], "version" => "3"}
+
+      second_rotation =
+        second
+        |> Map.put("rollback_floor", Integer.to_string(second_floor))
+        |> sign_with([RootSigner, NewRootSigner])
+
+      third_rotation =
+        second
+        |> Map.put("root_version", "3")
+        |> Map.put("rollback_floor", Integer.to_string(third_floor))
+        |> Map.put("roles", %{"root" => third_root})
+        |> Map.put("keys", %{
+          new_root_keyid => key_descriptor(NewRootSigner),
+          third_root_keyid => key_descriptor(ForkedRootSigner)
+        })
+        |> sign_with([NewRootSigner, ForkedRootSigner])
+
+      sequence = Integer.to_string(max(second_floor, third_floor) + 1)
+
+      successor
+      |> Map.put("rotation_chain", [second_rotation, third_rotation])
+      |> Map.put("sequence", sequence)
+      |> Map.put("rollback_floor", sequence)
+      |> put_in(["roles", "root"], third_root)
+      |> Map.update!("keys", fn keys ->
+        keys
+        |> Map.delete(new_root_keyid)
+        |> Map.put(third_root_keyid, key_descriptor(ForkedRootSigner))
+      end)
+      |> sign_with([NewBundleSigner, ForkedRootSigner])
+    end
+
+    setup do
+      %{pin: root_pin(envelope_document(read_json(["rotation", "genesis.json"])))}
+    end
+
+    test "a bundle below the floor its own rotation set is refused", %{pin: pin} do
+      verify = &TrustBundle.verify(&1, now: @now, genesis_root: pin)
+
+      assert {:ok, %TrustBundle{sequence: 2}} = verify.(successor_with_rotation_floor(2, 2))
+      assert {:ok, %TrustBundle{sequence: 5}} = verify.(successor_with_rotation_floor(5, 5))
+      assert {:ok, %TrustBundle{sequence: 7}} = verify.(successor_with_rotation_floor(5, 7))
+
+      assert verify.(successor_with_rotation_floor(5, 2)) == {:error, :sequence_below_floor}
+      assert verify.(successor_with_rotation_floor(5, 4)) == {:error, :sequence_below_floor}
+    end
+
+    test "each rotation raises the floor above the one before it", %{pin: pin} do
+      verify = &TrustBundle.verify(&1, now: @now, genesis_root: pin)
+
+      assert {:ok, %TrustBundle{root_version: 3}} = verify.(twice_rotated(2, 3))
+      assert {:ok, %TrustBundle{root_version: 3}} = verify.(twice_rotated(2, 9))
+
+      assert verify.(twice_rotated(2, 2)) == {:error, :sequence_below_floor}
+      assert verify.(twice_rotated(4, 3)) == {:error, :sequence_below_floor}
+    end
+  end
+
   defp read_json(path) when is_list(path) do
     path
     |> then(&Path.join([@fixtures | &1]))
