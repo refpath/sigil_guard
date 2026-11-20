@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Security.** `SigilGuard.RepoPolicy.evaluate/2` returned `:require_approval`
+  for a change that touched an unmatched path under `default block` whenever
+  another path matched a `require_approval` rule. The default now competes by
+  rank for every unmatched path, so that change is `:block`, as SP.11 states.
+  Decision reasons name the rule or the default that produced the verdict.
 - **Security.** `SigilGuard.ToolGateway.guard_result/3` released a result
   unredacted after a confirmation token was accepted. A result that carried a
   detected secret from a caller below the required trust level got a confirm

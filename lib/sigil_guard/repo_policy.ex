@@ -511,29 +511,38 @@ defmodule SigilGuard.RepoPolicy do
     |> Enum.max_by(&Map.fetch!(@decision_rank, &1))
   end
 
-  defp final_verdict(:block, _, _), do: :block
-  defp final_verdict(:require_approval, _, _), do: :require_approval
-  defp final_verdict(_, [_ | _], default), do: default
-  defp final_verdict(:allow, [], _), do: :allow
-  defp final_verdict(nil, [], default), do: default
+  # The default is the decision for every unmatched path, so it competes with
+  # the matched rules by rank. It also decides a change no rule matched.
+  defp final_verdict(nil, _, default), do: default
+  defp final_verdict(strongest, [], _), do: strongest
 
-  defp reason(:block, matches, _, _) do
-    "Repo policy blocked by #{rule_summary(matches)}"
+  defp final_verdict(strongest, [_ | _], default),
+    do: Enum.max_by([strongest, default], &Map.fetch!(@decision_rank, &1))
+
+  defp reason(:block, matches, unmatched, _) do
+    cond do
+      Enum.any?(matches, fn {rule, _} -> rule.decision == :block end) ->
+        "Repo policy blocked by #{rule_summary(matches)}"
+
+      unmatched != [] ->
+        "Repo policy default blocked unmatched paths"
+
+      true ->
+        "Repo policy default blocked a change no rule matched"
+    end
   end
 
-  defp reason(:require_approval, _, unmatched, _) when unmatched != [] do
-    "Repo policy requires approval for unmatched paths"
-  end
+  defp reason(:require_approval, _, [_ | _], :require_approval),
+    do: "Repo policy requires approval for unmatched paths"
 
-  defp reason(:require_approval, matches, _, _) do
-    "Repo policy requires approval by #{rule_summary(matches)}"
-  end
+  defp reason(:require_approval, [_ | _] = matches, _, _),
+    do: "Repo policy requires approval by #{rule_summary(matches)}"
+
+  defp reason(:require_approval, [], _, _),
+    do: "Repo policy default requires approval for a change no rule matched"
 
   defp reason(:allow, _, [], _), do: "Repo policy allowed all changed paths"
-
-  defp reason(:allow, _, unmatched, :allow) when unmatched != [] do
-    "Repo policy default allowed unmatched paths"
-  end
+  defp reason(:allow, _, _, _), do: "Repo policy default allowed unmatched paths"
 
   defp rule_summary(matches) do
     matches

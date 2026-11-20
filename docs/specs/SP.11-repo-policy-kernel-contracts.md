@@ -46,7 +46,11 @@ Decision precedence is conservative:
 2. `:require_approval`
 3. `:allow`
 
-If a path is unmatched, the policy default applies.
+If a path is unmatched, the policy default is the decision for that path and
+competes with the matched rules by the same rank. A change with one unmatched
+path under `default block` is blocked even when another path matches a
+`require_approval` rule. A change that matches no rule at all, including one
+with no paths, takes the default.
 
 ### Data Flow
 

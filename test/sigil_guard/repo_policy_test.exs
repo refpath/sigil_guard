@@ -462,6 +462,52 @@ defmodule SigilGuard.RepoPolicyTest do
       assert decision.matched_rule_ids == []
     end
 
+    test "the default competes by rank for every unmatched path" do
+      rules = [
+        %{id: "allow-docs", decision: :allow, agents: ["*"], paths: ["docs/**"]},
+        %{id: "review-config", decision: :require_approval, agents: ["*"], paths: ["config/**"]},
+        %{id: "block-secrets", decision: :block, agents: ["*"], paths: ["secrets/**"]}
+      ]
+
+      verdict = fn default, paths ->
+        {:ok, policy} = RepoPolicy.compile(%{default: default, rules: rules})
+        decision = RepoPolicy.evaluate(policy, %{agent: "did:web:codex", changed_paths: paths})
+        {decision.verdict, decision.reason}
+      end
+
+      # A weaker matched rule never lifts an unmatched path above a block default.
+      assert verdict.(:block, ["config/a.exs", "other.txt"]) ==
+               {:block, "Repo policy default blocked unmatched paths"}
+
+      assert verdict.(:block, ["docs/a.md", "other.txt"]) ==
+               {:block, "Repo policy default blocked unmatched paths"}
+
+      assert verdict.(:block, ["other.txt"]) ==
+               {:block, "Repo policy default blocked unmatched paths"}
+
+      assert verdict.(:block, []) ==
+               {:block, "Repo policy default blocked a change no rule matched"}
+
+      assert verdict.(:block, ["docs/a.md", "config/a.exs"]) ==
+               {:require_approval, "Repo policy requires approval by allow-docs, review-config"}
+
+      # A matched rule stronger than the default still decides.
+      assert verdict.(:allow, ["config/a.exs", "other.txt"]) ==
+               {:require_approval, "Repo policy requires approval by review-config"}
+
+      assert verdict.(:require_approval, ["docs/a.md", "other.txt"]) ==
+               {:require_approval, "Repo policy requires approval for unmatched paths"}
+
+      assert verdict.(:require_approval, []) ==
+               {:require_approval,
+                "Repo policy default requires approval for a change no rule matched"}
+
+      for default <- [:allow, :require_approval, :block] do
+        assert {:block, "Repo policy blocked by review-config, block-secrets"} =
+                 verdict.(default, ["config/a.exs", "secrets/key", "other.txt"])
+      end
+    end
+
     test "uses default decisions for empty and unmatched path sets" do
       allow_default = compile!(default: :allow, rules: [])
       block_default = compile!(default: :block, rules: [])
