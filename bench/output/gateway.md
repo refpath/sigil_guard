@@ -14,7 +14,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (1426856)
+- SigilGuard: 1.0.5 (3471773)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -22,7 +22,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 
 | Figure | Median (us) | Percent |
 |--------|------------:|--------:|
-| BM.08 gateway overhead versus no-op | 54.749 |  |
+| BM.08 gateway overhead versus no-op | 46.790 |  |
 
 ## System
 
@@ -85,110 +85,110 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.08 no-op baseline</td>
-    <td style="white-space: nowrap; text-align: right">480197.47 K</td>
-    <td style="white-space: nowrap; text-align: right">0.00208 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;69.65%</td>
-    <td style="white-space: nowrap; text-align: right">0.00204 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.00279 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">245859.21 K</td>
+    <td style="white-space: nowrap; text-align: right">0.00407 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;119.60%</td>
+    <td style="white-space: nowrap; text-align: right">0.00217 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.0180 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.19 effect authority admit</td>
-    <td style="white-space: nowrap; text-align: right">34.16 K</td>
-    <td style="white-space: nowrap; text-align: right">29.27 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;15.53%</td>
-    <td style="white-space: nowrap; text-align: right">28.08 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">41.50 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.18 capability manifest new</td>
-    <td style="white-space: nowrap; text-align: right">21.65 K</td>
-    <td style="white-space: nowrap; text-align: right">46.20 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;13.48%</td>
-    <td style="white-space: nowrap; text-align: right">45.17 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">61.92 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">30.58 K</td>
+    <td style="white-space: nowrap; text-align: right">32.70 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;15.04%</td>
+    <td style="white-space: nowrap; text-align: right">32 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">46.67 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.17 guard_result</td>
-    <td style="white-space: nowrap; text-align: right">21.01 K</td>
-    <td style="white-space: nowrap; text-align: right">47.59 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;12.41%</td>
-    <td style="white-space: nowrap; text-align: right">47.25 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">60.46 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">25.43 K</td>
+    <td style="white-space: nowrap; text-align: right">39.32 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;14.92%</td>
+    <td style="white-space: nowrap; text-align: right">38.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">55.58 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.18 capability manifest new</td>
+    <td style="white-space: nowrap; text-align: right">21.90 K</td>
+    <td style="white-space: nowrap; text-align: right">45.65 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;14.14%</td>
+    <td style="white-space: nowrap; text-align: right">44.25 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">62.13 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.18 capability manifest verify</td>
-    <td style="white-space: nowrap; text-align: right">18.95 K</td>
-    <td style="white-space: nowrap; text-align: right">52.77 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.37%</td>
-    <td style="white-space: nowrap; text-align: right">52.38 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">66.21 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">21.46 K</td>
+    <td style="white-space: nowrap; text-align: right">46.61 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;14.30%</td>
+    <td style="white-space: nowrap; text-align: right">45.88 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">63.96 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap; text-align: right">18.13 K</td>
-    <td style="white-space: nowrap; text-align: right">55.16 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;10.95%</td>
-    <td style="white-space: nowrap; text-align: right">54.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">69.96 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">20.70 K</td>
+    <td style="white-space: nowrap; text-align: right">48.31 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;13.55%</td>
+    <td style="white-space: nowrap; text-align: right">46.79 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">63.96 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.18 capability manifest drifted fields</td>
-    <td style="white-space: nowrap; text-align: right">17.24 K</td>
-    <td style="white-space: nowrap; text-align: right">58.00 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.11%</td>
-    <td style="white-space: nowrap; text-align: right">57.63 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">70.29 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">20.29 K</td>
+    <td style="white-space: nowrap; text-align: right">49.30 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;11.47%</td>
+    <td style="white-space: nowrap; text-align: right">48.25 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">66.27 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned compiled manifest</td>
-    <td style="white-space: nowrap; text-align: right">16.24 K</td>
-    <td style="white-space: nowrap; text-align: right">61.59 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;11.99%</td>
-    <td style="white-space: nowrap; text-align: right">61.38 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">78 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">17.82 K</td>
+    <td style="white-space: nowrap; text-align: right">56.10 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;12.99%</td>
+    <td style="white-space: nowrap; text-align: right">55 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">74.38 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.17 guard_result pinned manifest</td>
-    <td style="white-space: nowrap; text-align: right">9.05 K</td>
-    <td style="white-space: nowrap; text-align: right">110.54 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.87%</td>
-    <td style="white-space: nowrap; text-align: right">111.04 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">133.63 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">10.75 K</td>
+    <td style="white-space: nowrap; text-align: right">93.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;11.87%</td>
+    <td style="white-space: nowrap; text-align: right">91.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">119.88 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned manifest</td>
-    <td style="white-space: nowrap; text-align: right">8.55 K</td>
-    <td style="white-space: nowrap; text-align: right">116.94 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.10%</td>
-    <td style="white-space: nowrap; text-align: right">117.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">139.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">9.66 K</td>
+    <td style="white-space: nowrap; text-align: right">103.55 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;10.59%</td>
+    <td style="white-space: nowrap; text-align: right">102.00 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">130.50 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request required attestation</td>
-    <td style="white-space: nowrap; text-align: right">4.86 K</td>
-    <td style="white-space: nowrap; text-align: right">205.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;8.49%</td>
-    <td style="white-space: nowrap; text-align: right">205.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">255.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">4.89 K</td>
+    <td style="white-space: nowrap; text-align: right">204.55 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;11.02%</td>
+    <td style="white-space: nowrap; text-align: right">203.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">261.29 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.19 guard_request effect binding</td>
-    <td style="white-space: nowrap; text-align: right">4.14 K</td>
-    <td style="white-space: nowrap; text-align: right">241.50 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;7.71%</td>
-    <td style="white-space: nowrap; text-align: right">239.88 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">299.98 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">3.62 K</td>
+    <td style="white-space: nowrap; text-align: right">276.17 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;12.30%</td>
+    <td style="white-space: nowrap; text-align: right">276.63 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">382.52 &micro;s</td>
   </tr>
 
 </table>
@@ -203,74 +203,74 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.08 no-op baseline</td>
-    <td style="white-space: nowrap;text-align: right">480197.47 K</td>
+    <td style="white-space: nowrap;text-align: right">245859.21 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.19 effect authority admit</td>
-    <td style="white-space: nowrap; text-align: right">34.16 K</td>
-    <td style="white-space: nowrap; text-align: right">14056.74x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.18 capability manifest new</td>
-    <td style="white-space: nowrap; text-align: right">21.65 K</td>
-    <td style="white-space: nowrap; text-align: right">22183.06x</td>
+    <td style="white-space: nowrap; text-align: right">30.58 K</td>
+    <td style="white-space: nowrap; text-align: right">8038.61x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.17 guard_result</td>
-    <td style="white-space: nowrap; text-align: right">21.01 K</td>
-    <td style="white-space: nowrap; text-align: right">22853.35x</td>
+    <td style="white-space: nowrap; text-align: right">25.43 K</td>
+    <td style="white-space: nowrap; text-align: right">9667.89x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.18 capability manifest new</td>
+    <td style="white-space: nowrap; text-align: right">21.90 K</td>
+    <td style="white-space: nowrap; text-align: right">11224.08x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.18 capability manifest verify</td>
-    <td style="white-space: nowrap; text-align: right">18.95 K</td>
-    <td style="white-space: nowrap; text-align: right">25338.13x</td>
+    <td style="white-space: nowrap; text-align: right">21.46 K</td>
+    <td style="white-space: nowrap; text-align: right">11458.98x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap; text-align: right">18.13 K</td>
-    <td style="white-space: nowrap; text-align: right">26487.47x</td>
+    <td style="white-space: nowrap; text-align: right">20.70 K</td>
+    <td style="white-space: nowrap; text-align: right">11878.28x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.18 capability manifest drifted fields</td>
-    <td style="white-space: nowrap; text-align: right">17.24 K</td>
-    <td style="white-space: nowrap; text-align: right">27850.71x</td>
+    <td style="white-space: nowrap; text-align: right">20.29 K</td>
+    <td style="white-space: nowrap; text-align: right">12119.77x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned compiled manifest</td>
-    <td style="white-space: nowrap; text-align: right">16.24 K</td>
-    <td style="white-space: nowrap; text-align: right">29573.49x</td>
+    <td style="white-space: nowrap; text-align: right">17.82 K</td>
+    <td style="white-space: nowrap; text-align: right">13793.37x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.17 guard_result pinned manifest</td>
-    <td style="white-space: nowrap; text-align: right">9.05 K</td>
-    <td style="white-space: nowrap; text-align: right">53080.71x</td>
+    <td style="white-space: nowrap; text-align: right">10.75 K</td>
+    <td style="white-space: nowrap; text-align: right">22873.83x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned manifest</td>
-    <td style="white-space: nowrap; text-align: right">8.55 K</td>
-    <td style="white-space: nowrap; text-align: right">56154.2x</td>
+    <td style="white-space: nowrap; text-align: right">9.66 K</td>
+    <td style="white-space: nowrap; text-align: right">25458.75x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.16 guard_request required attestation</td>
-    <td style="white-space: nowrap; text-align: right">4.86 K</td>
-    <td style="white-space: nowrap; text-align: right">98900.1x</td>
+    <td style="white-space: nowrap; text-align: right">4.89 K</td>
+    <td style="white-space: nowrap; text-align: right">50289.64x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.19 guard_request effect binding</td>
-    <td style="white-space: nowrap; text-align: right">4.14 K</td>
-    <td style="white-space: nowrap; text-align: right">115965.83x</td>
+    <td style="white-space: nowrap; text-align: right">3.62 K</td>
+    <td style="white-space: nowrap; text-align: right">67899.56x</td>
   </tr>
 
 </table>
@@ -292,57 +292,57 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.19 effect authority admit</td>
-    <td style="white-space: nowrap">51.52 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.18 capability manifest new</td>
-    <td style="white-space: nowrap">80.46 KB</td>
+    <td style="white-space: nowrap">55.72 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.17 guard_result</td>
-    <td style="white-space: nowrap">78.34 KB</td>
+    <td style="white-space: nowrap">80.77 KB</td>
+    <td>&mdash;</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.18 capability manifest new</td>
+    <td style="white-space: nowrap">80.95 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.18 capability manifest verify</td>
-    <td style="white-space: nowrap">80.66 KB</td>
+    <td style="white-space: nowrap">80.77 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap">85.32 KB</td>
+    <td style="white-space: nowrap">87.79 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.18 capability manifest drifted fields</td>
-    <td style="white-space: nowrap">85.63 KB</td>
+    <td style="white-space: nowrap">85.16 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned compiled manifest</td>
-    <td style="white-space: nowrap">102.43 KB</td>
+    <td style="white-space: nowrap">104.66 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.17 guard_result pinned manifest</td>
-    <td style="white-space: nowrap">174.94 KB</td>
+    <td style="white-space: nowrap">178.21 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.16 guard_request pinned manifest</td>
-    <td style="white-space: nowrap">183.93 KB</td>
+    <td style="white-space: nowrap">186.76 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.16 guard_request required attestation</td>
-    <td style="white-space: nowrap">280.03 KB</td>
+    <td style="white-space: nowrap">283.50 KB</td>
     <td>&mdash;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.19 guard_request effect binding</td>
-    <td style="white-space: nowrap">455.95 KB</td>
+    <td style="white-space: nowrap">459.38 KB</td>
     <td>&mdash;</td>
   </tr>
 </table>
