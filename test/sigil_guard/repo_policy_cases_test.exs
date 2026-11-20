@@ -101,4 +101,9 @@ defmodule SigilGuard.RepoPolicyCasesTest do
     assert {:ok, policy} = compile.("src\\lib\\")
     assert hd(policy.rules).paths == ["src/lib/**"]
   end
+
+  test "an improper rule list is refused instead of raising" do
+    assert RepoPolicy.compile(%{default: :block, rules: [1 | 2]}) == {:error, :invalid_rules}
+    assert RepoPolicy.compile(%RepoPolicy{rules: [1 | 2]}) == {:error, :invalid_rules}
+  end
 end

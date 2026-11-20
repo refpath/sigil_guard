@@ -320,6 +320,12 @@ defmodule SigilGuard.RepoPolicy do
   defp rule_explanation(_, decision), do: decision.reason
 
   defp compile_rules(rules) when is_list(rules) do
+    if List.improper?(rules), do: {:error, :invalid_rules}, else: compile_rule_list(rules)
+  end
+
+  defp compile_rules(_), do: {:error, :invalid_rules}
+
+  defp compile_rule_list(rules) do
     result =
       rules
       |> Enum.with_index()
@@ -336,9 +342,13 @@ defmodule SigilGuard.RepoPolicy do
     end
   end
 
-  defp compile_rules(_), do: {:error, :invalid_rules}
-
   defp ensure_compiled_rules(rules) when is_list(rules) do
+    if List.improper?(rules), do: {:error, :invalid_rules}, else: ensure_compiled_rule_list(rules)
+  end
+
+  defp ensure_compiled_rules(_), do: {:error, :invalid_rules}
+
+  defp ensure_compiled_rule_list(rules) do
     result =
       rules
       |> Enum.with_index()
@@ -354,8 +364,6 @@ defmodule SigilGuard.RepoPolicy do
       error -> error
     end
   end
-
-  defp ensure_compiled_rules(_), do: {:error, :invalid_rules}
 
   defp ensure_compiled_rule(%{path_matchers: path_matchers} = rule, _)
        when is_list(path_matchers),
