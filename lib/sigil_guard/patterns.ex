@@ -144,17 +144,12 @@ defmodule SigilGuard.Patterns do
 
   @doc "Return compiled built-in patterns."
   @spec built_in() :: [compiled_pattern()]
-  def built_in do
-    case :persistent_term.get({__MODULE__, :built_in_patterns}, :undefined) do
-      :undefined ->
-        patterns = compile_built_in_patterns()
-        :persistent_term.put({__MODULE__, :built_in_patterns}, patterns)
-        patterns
-
-      patterns ->
-        patterns
-    end
-  end
+  def built_in,
+    do:
+      SigilGuard.Runtime.Tables.cached(
+        {__MODULE__, :built_in_patterns},
+        &compile_built_in_patterns/0
+      )
 
   @doc "The default `max_match_bytes` used when a pattern does not declare one."
   @spec default_max_match_bytes() :: 256

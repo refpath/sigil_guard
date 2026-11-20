@@ -149,18 +149,11 @@ defmodule SigilGuard.Quarantine do
   defp prefilter_match?(text), do: :binary.match(ascii_lowercase(text), prefilter()) != :nomatch
 
   # A compiled binary pattern cannot be a module attribute, and compiling it
-  # costs more than the search, so it is built once and kept in
-  # `:persistent_term`, like the indicator list below.
+  # costs more than the search, so it is built once.
   defp prefilter do
-    case :persistent_term.get({__MODULE__, :prefilter}, :undefined) do
-      :undefined ->
-        pattern = :binary.compile_pattern(@prefilter_words)
-        :persistent_term.put({__MODULE__, :prefilter}, pattern)
-        pattern
-
-      pattern ->
-        pattern
-    end
+    SigilGuard.Runtime.Tables.cached({__MODULE__, :prefilter}, fn ->
+      :binary.compile_pattern(@prefilter_words)
+    end)
   end
 
   defp ascii_lowercase(text) do
@@ -201,18 +194,11 @@ defmodule SigilGuard.Quarantine do
 
   # Regexes nested inside collections cannot be injected from module
   # attributes on Elixir 1.18 with OTP 28, so the indicator list is built at
-  # runtime and cached in `:persistent_term` (same approach as
-  # `SigilGuard.Patterns.built_in/0`).
+  # runtime.
   defp indicators do
-    case :persistent_term.get({__MODULE__, :indicators}, :undefined) do
-      :undefined ->
-        indicators = Enum.map(built_in_indicator_list(), &put_built_in_category/1)
-        :persistent_term.put({__MODULE__, :indicators}, indicators)
-        indicators
-
-      indicators ->
-        indicators
-    end
+    SigilGuard.Runtime.Tables.cached({__MODULE__, :indicators}, fn ->
+      Enum.map(built_in_indicator_list(), &put_built_in_category/1)
+    end)
   end
 
   defp put_built_in_category(%{id: id} = indicator) do

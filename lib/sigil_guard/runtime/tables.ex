@@ -46,4 +46,21 @@ defmodule SigilGuard.Runtime.Tables do
 
     :ok
   end
+
+  # Values that cannot be module attributes (compiled regexes and binary
+  # patterns) are built on first use and kept in `:persistent_term`. Two
+  # processes may both build on a cold start; both store the same value.
+  @doc false
+  @spec cached(term(), (-> value)) :: value when value: term()
+  def cached(key, build) do
+    case :persistent_term.get(key, :undefined) do
+      :undefined ->
+        value = build.()
+        :persistent_term.put(key, value)
+        value
+
+      value ->
+        value
+    end
+  end
 end
