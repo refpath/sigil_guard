@@ -535,6 +535,7 @@ defmodule SigilGuard.Audit.Checkpoint do
     }
 
     with :ok <- require_binary(fields.issuer, :missing_issuer),
+         :ok <- require_binary(fields.algorithm, :missing_algorithm),
          :ok <-
            require_field(signature, "algorithm", @signature_algorithm, :unsupported_algorithm),
          :ok <- require_binary(fields.digest, :missing_digest),

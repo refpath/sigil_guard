@@ -395,6 +395,12 @@ defmodule SigilGuard.Audit.CheckpointTest do
 
       unsupported = put_in(signed, ["signature", "algorithm"], "RSA")
       assert {:error, :unsupported_algorithm} = Checkpoint.verify(unsupported, events)
+
+      # The same reasons as a receipt's signature metadata.
+      for value <- [nil, ""] do
+        missing = put_in(signed, ["signature", "algorithm"], value)
+        assert {:error, :missing_algorithm} = Checkpoint.verify(missing, events)
+      end
     end
 
     test "rejects malformed keys and signatures before verification" do

@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Audit.Checkpoint.verify/3` reports a signature without an
+  `algorithm` as `:missing_algorithm`, as receipt verification does. It
+  reported `:unsupported_algorithm`, the reason for an algorithm other than
+  Ed25519.
 - `SigilGuard.RepoPolicy.evaluate/2` blocks a context that is neither a map
   nor a keyword list. It evaluated it as an empty context, so the policy
   default decided. Paths of a hand-built `%RepoPolicy{}` rule get the same
