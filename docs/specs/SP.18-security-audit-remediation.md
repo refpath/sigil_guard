@@ -136,3 +136,5 @@ timeouts, empty runs and invalid results lacking compiler diagnostics fail.
 The behavioral mutation score remains 100%. This replaces the raw Muex exit
 status in the canonical gate because that status counts proven equivalents as
 failures. Invalid compiler mutations remain separately counted and reported.
+Muex writes JSON reports directly under `_build/security-mutations/`. Compiler
+and task diagnostics go to the job log or `verdict.log`.

@@ -13,8 +13,10 @@ for target in crypto replay_store attestation/digest runtime/stream trust_bundle
     trust_bundle/verify) tests=test/sigil_guard/trust_bundle ;;
     effect_authority*) tests=test/sigil_guard/effect_authority_test.exs ;;
   esac
-  report="$(printf '%s' "${target}" | tr / _)"
+  report="_build/security-mutations/$(printf '%s' "${target}" | tr / _).json"
+  rm -f "${report}"
   mix muex --files "lib/sigil_guard/${target}.ex" --test-paths "${tests}" \
     --no-filter --no-optimize --no-tce --mutators arithmetic,comparison --max-mutations 12 --fail-at 100 \
-    --concurrency 1 --timeout 30000 --format json > "_build/security-mutations/${report}.json"
+    --concurrency 1 --timeout 30000 --format json --output "${report}"
+  test -s "${report}"
 done

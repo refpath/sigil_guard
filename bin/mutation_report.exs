@@ -44,11 +44,7 @@ end
 
 case System.argv() do
   ["--report", path] ->
-    log = File.read!(path)
-    {start, _} = :binary.match(log, "{\n  \"summary\"")
-    # Muex appends its threshold failure after the JSON object.
-    [json | _] = String.split(binary_part(log, start, byte_size(log) - start), "\n** (Mix)")
-    report = Jason.decode!(String.trim(json))
+    report = Jason.decode!(File.read!(path))
     source = File.read!("lib/sigil_guard/verdict.ex")
 
     case SigilGuard.MutationReport.validate(report, source) do
