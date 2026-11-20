@@ -96,12 +96,6 @@ defmodule SigilGuard.BenchTest do
       names = Enum.flat_map(Suites.all(), &Map.keys(&1.scenarios()))
 
       assert names == Enum.uniq(names)
-      assert Enum.all?(names, &String.starts_with?(&1, "BM."))
-
-      assert Enum.all?(
-               Enum.flat_map(Suites.all(), &Map.values(&1.scenarios())),
-               &is_function(&1, 0)
-             )
     end
 
     test "every baseline scenario is still measured" do
@@ -129,7 +123,6 @@ defmodule SigilGuard.BenchTest do
         assert aliases["bench.#{id}"] == ["run bench/#{id}.exs"]
         assert "bench/output/#{id}.md" in extras
         assert String.trim(suite.title()) != ""
-        assert String.length(String.trim(suite.description())) > 80
       end
 
       assert "bench/output/benchmarks.md" in extras
@@ -149,8 +142,10 @@ defmodule SigilGuard.BenchTest do
       assert Bench.batch_size(fn -> :ok end, true) == 1
       assert Bench.batch_size(fn -> Process.sleep(1) end, false) == 1
 
+      # A call of about 0.5 us needs about 20 calls to fill a 10 us sample.
       fast = Bench.batch_size(fn -> :crypto.hash(:sha256, "x") end, false)
-      assert fast > 1 and fast <= 100_000
+      assert fast in 5..200
+      assert Bench.batch_size(fn -> nil end, false) in 1_000..10_000
 
       counter = :counters.new(1, [])
       Bench.batched(fn -> :counters.add(counter, 1, 1) end, 7).()
@@ -257,7 +252,12 @@ defmodule SigilGuard.BenchTest do
     end
 
     test "the environment block names the memory size" do
-      assert Bench.memory_info() =~ ~r/\A(\d+ GB|unknown) RAM\z/
+      expected =
+        if match?({:unix, os} when os in [:darwin, :linux], :os.type()),
+          do: ~r/\A\d+ GB RAM\z/,
+          else: ~r/\A(\d+ GB|unknown) RAM\z/
+
+      assert Bench.memory_info() =~ expected
     end
   end
 

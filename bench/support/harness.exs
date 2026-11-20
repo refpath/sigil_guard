@@ -11,6 +11,10 @@ defmodule SigilGuard.Bench do
   `bench/output/smoke/`, so it never replaces the published pages.
   """
 
+  # Benchee is a development dependency. The test environment loads this file
+  # to check the fixtures and never runs a suite.
+  @compile {:no_warn_undefined, [Benchee, Benchee.Formatter]}
+
   @typedoc "Scenario name to the function Benchee times."
   @type scenarios :: %{required(String.t()) => (-> term())}
 
@@ -46,7 +50,6 @@ defmodule SigilGuard.Bench do
   @full_config [warmup: 2, time: 5, memory_time: 2]
   @smoke_config [warmup: 0, time: 0.01, memory_time: 0]
   @batch_target_ns 10_000
-  @max_batch 100_000
 
   @doc "Run a suite when its file is the script, not when another file loads it."
   @spec script(module()) :: :ok
@@ -127,11 +130,6 @@ defmodule SigilGuard.Bench do
     scenarios = suite.scenarios()
     batches = Map.new(scenarios, fn {name, fun} -> {name, batch_size(fun, smoke?)} end)
 
-    # Benchee is a development dependency. Naming it through a variable keeps
-    # this file loadable in the test environment, which checks the fixtures.
-    benchee = Benchee
-    formatter = Benchee.Formatter
-
     config =
       Keyword.merge(bench_config(smoke?),
         percentiles: [99],
@@ -146,14 +144,14 @@ defmodule SigilGuard.Bench do
     # divided back to one call before the statistics are computed.
     result =
       config
-      |> benchee.init()
-      |> benchee.system()
-      |> add_jobs(benchee, scenarios, batches)
-      |> benchee.collect()
+      |> Benchee.init()
+      |> Benchee.system()
+      |> add_jobs(scenarios, batches)
+      |> Benchee.collect()
       |> per_call(batches)
-      |> benchee.statistics()
-      |> benchee.relative_statistics()
-      |> formatter.output()
+      |> Benchee.statistics()
+      |> Benchee.relative_statistics()
+      |> Benchee.Formatter.output()
 
     stats = scenario_stats(result)
     place_header!(file, page_header(smoke?, suite_derived(suite, stats)))
@@ -172,9 +170,9 @@ defmodule SigilGuard.Bench do
     """
   end
 
-  defp add_jobs(suite, benchee, scenarios, batches) do
+  defp add_jobs(suite, scenarios, batches) do
     Enum.reduce(scenarios, suite, fn {name, fun}, acc ->
-      benchee.benchmark(acc, name, batched(fun, Map.fetch!(batches, name)))
+      Benchee.benchmark(acc, name, batched(fun, Map.fetch!(batches, name)))
     end)
   end
 
@@ -195,9 +193,10 @@ defmodule SigilGuard.Bench do
     {calls, elapsed_ns} = time_calls(fun, 1, 0)
     per_call = max(div(elapsed_ns, calls), 1)
 
+    # One nanosecond per call is the floor, so a batch never exceeds 10,000.
     if per_call >= @batch_target_ns,
       do: 1,
-      else: min(div(@batch_target_ns + per_call - 1, per_call), @max_batch)
+      else: div(@batch_target_ns + per_call - 1, per_call)
   end
 
   defp time_calls(fun, calls, elapsed_ns) when elapsed_ns < 2_000_000 and calls < 1_000_000 do

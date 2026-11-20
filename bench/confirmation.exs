@@ -38,7 +38,7 @@ defmodule SigilGuard.Bench.Confirmation do
     context = context()
     decision = pending()
     token = token(decision)
-    confirmed = Map.put(request, "_agent_confirmation", gateway_token())
+    {confirmed, gateway_context, gateway_opts} = accepted_request()
 
     %{
       "BM.20 confirmation action digest" => fn -> Confirmation.action_digest(request, context) end,
@@ -49,7 +49,7 @@ defmodule SigilGuard.Bench.Confirmation do
         Confirmation.verify(token, request, context, @key, now: Fixtures.now(), consume: false)
       end,
       "BM.20 guard_request accepted token" => fn ->
-        ToolGateway.guard_request(confirmed, gateway_context(), gateway_opts())
+        ToolGateway.guard_request(confirmed, gateway_context, gateway_opts)
       end
     }
   end
@@ -88,6 +88,13 @@ defmodule SigilGuard.Bench.Confirmation do
     ]
   end
 
+  # The timed scenario and its precondition use this one fixture, so the
+  # precondition checks the path the scenario times.
+  defp accepted_request do
+    {Map.put(gateway_request(), "_agent_confirmation", gateway_token()), gateway_context(),
+     gateway_opts()}
+  end
+
   defp gateway_token do
     pending = ToolGateway.guard_request(gateway_request(), gateway_context(), gateway_opts())
     {:ok, capability} = SigilGuard.CapabilityManifest.new(suspicious_manifest())
@@ -115,8 +122,8 @@ defmodule SigilGuard.Bench.Confirmation do
 
     Bench.expect!(match?({:ok, _}, verified), "BM.20 token does not verify: #{inspect(verified)}")
 
-    confirmed = Map.put(gateway_request(), "_agent_confirmation", gateway_token())
-    accepted = ToolGateway.guard_request(confirmed, gateway_context(), gateway_opts())
+    {confirmed, gateway_context, gateway_opts} = accepted_request()
+    accepted = ToolGateway.guard_request(confirmed, gateway_context, gateway_opts)
 
     Bench.expect!(
       accepted.audit_metadata[:confirmation_status] == :accepted,
