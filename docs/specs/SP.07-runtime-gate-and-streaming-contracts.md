@@ -117,9 +117,10 @@ Per call, the gate:
 
 1. **Extracts, scans, inspects (gate-owned).** Normalize `Context`; `Scanner.scan`
    (hits + a scanner-failure signal); `Quarantine.inspect` (verdict, indicators,
-   sanitized text); at `:repo_change` with a `:repo_policy` option, compile and
-   evaluate `RepoPolicy` (`RepoPolicy.compile/1`, `RepoPolicy.evaluate/2`). The
-   gate does not call `RepoPolicy.policy_facts/2`.
+   sanitized text); at `:repo_change`, compile and evaluate `RepoPolicy`
+   (`RepoPolicy.compile/1`, `RepoPolicy.evaluate/2`) from the `:repo_policy`
+   option, or without one from the `[repo]` section of the `:boundary_policy`
+   file, and build the facts map with `RepoPolicy.policy_facts/2`.
 2. **Builds a `SigilGuard.Boundary`.** Bridge the `Context` phase to a lifecycle
    phase with `Lifecycle.from_context_phase/1`; carry `source`/`sink`/`trust_zone`/
    `trust_level`, the scanner `hits` as returned (built-in patterns carry category
@@ -141,9 +142,10 @@ Per call, the gate:
    on_sensitive:, policy:, hooks:, adaptive_detector:, hook_timeout_ms:, text:)`
    contributes the policy-file `[rules]` (the gate's `:boundary_policy` option),
    sandbox matrix, hook, adaptive, and the shared kernel invariants
-   (untrusted-tool-request, secret→external-sink). The gate passes no
-   `repo_facts:`, so the kernel's repo-facts contribution does not fire through
-   the gate; the repo-policy verdict enters at step 4 instead. The kernel's
+   (untrusted-tool-request, secret→external-sink). The gate passes the facts
+   map from step 1 as `repo_facts:`, so the kernel contributes the repo verdict
+   and its rules (`repo.<rule_id>`, or `repo.default`); the same verdict also
+   enters at step 4 as a gate signal. The kernel's
    unified verdict maps back to the v2 dual vocabulary and replaces the gate's
    own verdict only when it is strictly stronger.
 4. **Composes gate-owned signals.** The gate keeps the verdicts the kernel does not

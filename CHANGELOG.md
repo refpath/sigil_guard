@@ -5,6 +5,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- At a repo change `SigilGuard.Runtime.Gate` passes the repo policy facts to
+  the policy kernel, so a decision lists the repo rules that produced it as
+  `repo.<rule_id>` and its audit metadata carries `repo_policy_digest` and
+  `repo_policy_default`.
+- **Behaviour change.** The `[repo]` section of a boundary policy file passed
+  as `:boundary_policy` is now evaluated at a repo change when no
+  `:repo_policy` option is given. It was parsed and ignored.
 - `SigilGuard.RepoPolicy.load/2` and `find_file/2` check `:candidates` and
   `:max_bytes` before reading the filesystem. A malformed `:max_bytes` on a
   directory without a policy file returned `:not_found`.

@@ -125,15 +125,15 @@ most one verdict; the final verdict is the strongest contribution:
    nothing.
 6. **Hook verdicts** (`block`/`confirm` only).
 
-The kernel does not evaluate the `[repo]` section of a loaded policy file.
-`File.parse/1` compiles that section into `%File{repo: ...}`, and no kernel
-code reads it or `Boundary.repo_changes`. To get a repo contribution the host
-calls `RepoPolicy.evaluate/2` with the compiled section and the change facts,
-builds the map with `RepoPolicy.policy_facts/2`, and passes it as
-`:repo_facts`. The kernel applies that map at whatever phase the boundary
-names; it does not restrict it to `:file_changed`. The runtime gate passes no
-`:repo_facts`; it evaluates its own `:repo_policy` option at the
-`:repo_change` context phase (SP.07).
+The kernel takes repo facts as data and does not evaluate a repo policy
+itself. `File.parse/1` compiles a `[repo]` section into `%File{repo: ...}`;
+the runtime gate evaluates it. At the `:repo_change` context phase, which the
+gate bridges to `:file_changed`, the gate evaluates its `:repo_policy` option,
+or without one the `[repo]` section of its `:boundary_policy` file, builds
+the map with `RepoPolicy.policy_facts/2`, and passes it to the kernel as
+`:repo_facts` (SP.07). A host that calls the kernel directly does the same
+three steps. The kernel applies the map at whatever phase the boundary
+names, and reads neither `%File{repo: ...}` nor `Boundary.repo_changes`.
 
 Allow-side contributions take effect only where no stronger contribution
 exists. Output contracts are not part of the combination, and no kernel or
@@ -941,7 +941,7 @@ post-GA.
 | `SigilGuard.policy_verdict/3` (`Policy.evaluate/3`) as central gate | `BoundaryPolicy.evaluate/2` over normalized input. |
 | Implicit source/sink | Required boundary context. |
 | Generic quarantine checks | Quarantine as a first-class verdict with pluggable sets. No evidence reference is emitted. |
-| Repo policy separate from runtime evidence | `[repo]` section compiles into `%File{repo: ...}`. The host evaluates it and passes `RepoPolicy.policy_facts/2` as `:repo_facts`; nothing does this automatically. |
+| Repo policy separate from runtime evidence | `[repo]` section compiles into `%File{repo: ...}`. `Runtime.Gate` evaluates it at a repo change and passes `RepoPolicy.policy_facts/2` as `:repo_facts`. |
 | `SIGIL_POLICY` filename family | `SIGILGUARD_POLICY` family; legacy names return `{:error, {:legacy_policy_filename, found, use}}`. |
 | Free-string hit `category` | Built-in and bundle `secret`-set hits carry `:secret`. `Patterns.compile/1` still emits free strings; the closed atom set is not enforced. |
 
@@ -952,7 +952,7 @@ post-GA.
 | Host app | `BoundaryPolicy.evaluate/2`, `File.load/2`, hooks, detector | inbound | Elixir API |
 | Runtime gate (SP.07) | gate folds the kernel verdict and matched rules into its own combination | internal | Elixir API |
 | MCP gateway (SP.03) | manifest side effects, phases, confirmation digests | internal | Elixir API |
-| Repo policy (SP.11) | `[repo]` section parsing; facts through the host-supplied `:repo_facts` option | internal | Elixir API |
+| Repo policy (SP.11) | `[repo]` section parsing; facts through the `:repo_facts` option, which the gate sets | internal | Elixir API |
 | Trust bundle (SP.02) | pattern sets. `TrustBundle.policies/1` returns the bundle's raw `policies` section; no code compiles it into kernel or repo rules | internal | Elixir API |
 | Attestation/Audit (SP.01, SP.05) | verdicts, digests, evidence refs | internal | Elixir API |
 
@@ -1057,9 +1057,9 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
 - [ ] `no_raw_credentials` re-scans outbound text with the secret pattern
       set (not implemented: `enforce/4` replaces only the strings the caller
       passes as `:credentials`).
-- [ ] The `[repo]` section of a loaded policy file contributes a verdict at
-      `:file_changed` (not implemented: the kernel takes repo facts only from
-      the host-supplied `:repo_facts` option, at any phase).
+- [x] The `[repo]` section of a loaded policy file contributes a verdict at
+      `:file_changed`: the runtime gate evaluates it at `:repo_change` and
+      passes the facts to the kernel (`Runtime.GateTest`).
 - [x] Every hook callback exists with the specified signature; the fail-closed
       matrix covers timeout, crash, and `:invalid_hook_result` on blockable
       and notification-only phases.

@@ -116,7 +116,7 @@ defmodule SigilGuard.Runtime.Gate do
   defp evaluate_checked(payload, context, text, action, opts) do
     {hits, scanner_error} = scan_hits(text, opts)
     {quarantine, scanner_error} = inspect_quarantine(text, context, opts, scanner_error)
-    repo_policy = repo_policy_decision(payload, context, action, opts)
+    {repo_policy, repo_facts} = repo_policy_decision(payload, context, action, opts)
 
     risk =
       risk_level(%{
@@ -144,6 +144,7 @@ defmodule SigilGuard.Runtime.Gate do
       scanner_error: scanner_error,
       quarantine: quarantine,
       repo_policy: repo_policy,
+      repo_facts: repo_facts,
       risk: risk,
       policy_verdict: policy_verdict,
       opts: opts
@@ -319,21 +320,30 @@ defmodule SigilGuard.Runtime.Gate do
     end
   end
 
-  defp repo_policy_decision(_, %Context{phase: phase}, _, _) when phase != :repo_change, do: nil
+  # Returns the repo decision and the `RepoPolicy.policy_facts/2` map the
+  # kernel reads. Both are nil outside a repo change or without a policy.
+  defp repo_policy_decision(_, %Context{phase: phase}, _, _) when phase != :repo_change,
+    do: {nil, nil}
 
   defp repo_policy_decision(payload, context, action, opts) do
-    case Keyword.fetch(opts, :repo_policy) do
-      {:ok, raw_policy} ->
-        case RepoPolicy.compile(raw_policy) do
-          {:ok, policy} ->
-            RepoPolicy.evaluate(policy, repo_policy_context(payload, context, action))
+    with {:ok, raw_policy} <- repo_policy_source(opts),
+         {:ok, policy} <- RepoPolicy.compile(raw_policy) do
+      decision = RepoPolicy.evaluate(policy, repo_policy_context(payload, context, action))
 
-          {:error, reason} ->
-            {:error, reason}
-        end
+      {decision, RepoPolicy.policy_facts(policy, decision)}
+    else
+      :error -> {nil, nil}
+      {:error, reason} -> {{:error, reason}, nil}
+    end
+  end
 
-      :error ->
-        nil
+  # An explicit `:repo_policy` wins. Otherwise the `[repo]` section of a
+  # loaded `:boundary_policy` file applies.
+  defp repo_policy_source(opts) do
+    case {Keyword.fetch(opts, :repo_policy), Keyword.get(opts, :boundary_policy)} do
+      {{:ok, raw_policy}, _} -> {:ok, raw_policy}
+      {:error, %BoundaryPolicy.File{repo: %RepoPolicy{} = policy}} -> {:ok, policy}
+      {:error, _} -> :error
     end
   end
 
@@ -525,6 +535,7 @@ defmodule SigilGuard.Runtime.Gate do
   defp boundary_opts(state) do
     [
       evaluate_sandbox: not is_nil(state.context.isolation_level),
+      repo_facts: state.repo_facts,
       on_sensitive: Keyword.get(state.opts, :on_sensitive, :block),
       policy: Keyword.get(state.opts, :boundary_policy),
       hooks: Keyword.get(state.opts, :hooks, []),
@@ -767,6 +778,7 @@ defmodule SigilGuard.Runtime.Gate do
     }
     |> put_action_digest_error(action_digest_error)
     |> put_repo_policy_metadata(state.repo_policy)
+    |> put_repo_facts_metadata(state.repo_facts)
   end
 
   defp put_action_digest_error(metadata, nil), do: metadata
@@ -806,6 +818,12 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp put_repo_policy_metadata(metadata, _), do: metadata
 
+  defp put_repo_facts_metadata(metadata, %{policy_file_digest: digest, default_decision: default}) do
+    Map.merge(metadata, %{repo_policy_digest: digest, repo_policy_default: default})
+  end
+
+  defp put_repo_facts_metadata(metadata, _), do: metadata
+
   defp emit_decision(%Decision{} = decision) do
     Telemetry.emit(
       [:sigil_guard, :runtime, :gate],
@@ -835,7 +853,9 @@ defmodule SigilGuard.Runtime.Gate do
         :repo_policy_verdict,
         :repo_policy_rules,
         :repo_unmatched_paths,
-        :repo_policy_error
+        :repo_policy_error,
+        :repo_policy_digest,
+        :repo_policy_default
       ])
     )
   end

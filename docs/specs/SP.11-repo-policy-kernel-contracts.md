@@ -19,8 +19,8 @@ This spec documents the implemented deterministic repo policy kernel. The kernel
 evaluates actor/action/path facts against ordered path rules and returns
 `allow`, `require_approval`, or `block` with rule ids, unmatched paths, and a
 canonical digest. In v3, repo policy is one source of facts for
-`BoundaryPolicy` when the host passes the `RepoPolicy.policy_facts/2` map as
-the `:repo_facts` option; no library code makes that call.
+`BoundaryPolicy`: the runtime gate passes the `RepoPolicy.policy_facts/2`
+map to the kernel as the `:repo_facts` option at a repo change.
 
 ## Business Value
 
@@ -89,16 +89,16 @@ policy digest.
 | File loader | `load/2`, `find_file/2`, `load_file/2` | Safe candidates and max size. |
 | Evaluator | `evaluate/2` | Agent/action/path context. |
 | Decision struct | `SigilGuard.RepoPolicy.Decision` | Verdict, reason, paths, rules, digest. |
-| Policy facts | `policy_facts/2` | Builds the five-key map below from a compiled policy and a decision. No library code calls it. |
+| Policy facts | `policy_facts/2` | Builds the five-key map below from a compiled policy and a decision. `Runtime.Gate` calls it at a repo change. |
 | Runtime integration | `SigilGuard.Runtime.Gate` | At the `:repo_change` phase with a `:repo_policy` option: `block` blocks, `require_approval` confirms, and either raises runtime risk. |
 
 ## V3 Rewire
 
 | Current Surface | V3 Action |
 |-----------------|-----------|
-| Repo policy decision | `policy_facts/2` builds the policy-facts map below and `BoundaryPolicy.evaluate/2` accepts it as `:repo_facts`. The host connects the two; neither the gate nor the kernel does. |
+| Repo policy decision | `policy_facts/2` builds the policy-facts map below and `BoundaryPolicy.evaluate/2` accepts it as `:repo_facts`. `Runtime.Gate` connects the two at a repo change. |
 | `require_approval` | Maps to the Agent Trust `confirm` verdict, in the gate and in the kernel's `:repo_facts` contribution. |
-| Policy file digest | `policy_facts/2` returns it as `policy_file_digest`. Including it in boundary decisions and audit evidence is not implemented: neither the kernel nor the gate copies it into a decision or its audit metadata. The host records it. |
+| Policy file digest | `policy_facts/2` returns it as `policy_file_digest`. The gate copies it into the decision's audit metadata as `repo_policy_digest`. |
 | Old policy filenames | Replaced per V3 Policy Filenames (D13); legacy names fail with `:legacy_policy_filename`. |
 | Repo path facts | The `repo_change` action digest binds the payload's `repository`, `operation`, sorted `paths`, and optional `ref` (SP.01). The context digest carries no path facts, and no digest reads a `RepoPolicy.Decision`. |
 
@@ -217,10 +217,13 @@ exactly this map. `BoundaryPolicy.evaluate/2` (SP.04) reads it from the
 `:repo_facts` option: `block` contributes `block`, `require_approval`
 contributes `confirm`, and `allow` contributes nothing. When that
 contribution carries the final verdict, its rules appear in the decision as
-`repo.<rule_id>`, or as `repo.default` when no rule matched. The host makes
-both calls. `policy_facts/2` has no caller in `lib/`, and `Runtime.Gate`
-passes no `:repo_facts` to the kernel. Field names are grounded on
-`SigilGuard.RepoPolicy.Decision`.
+`repo.<rule_id>`, or as `repo.default` when no rule matched.
+`Runtime.Gate` makes both calls at the `:repo_change` phase, for its
+`:repo_policy` option or the `[repo]` section of its `:boundary_policy` file,
+and records `policy_file_digest` and `default_decision` in the decision's
+audit metadata as `repo_policy_digest` and `repo_policy_default`. A host that
+calls the kernel directly makes the calls itself. Field names are grounded
+on `SigilGuard.RepoPolicy.Decision`.
 
 ```elixir
 %{
@@ -351,18 +354,18 @@ rule in the policy, from `compile/1` and from `parse/1` alike.
 - [x] Implement the D13 filename candidates and the `:legacy_policy_filename` error.
 - [x] Build the policy-facts map with `RepoPolicy.policy_facts/2` and accept
       it in `BoundaryPolicy.evaluate/2` as `:repo_facts`.
-- [ ] Emit the policy-facts map to `BoundaryPolicy` and audit metadata (not
-      implemented: `policy_facts/2` has no caller in `lib/`, the gate passes
-      no `:repo_facts`, and gate audit metadata holds
+- [x] Emit the policy-facts map to `BoundaryPolicy` and audit metadata: the
+      gate passes it as `:repo_facts`, and its audit metadata holds
       `repo_policy_verdict`, `repo_policy_rules`, `repo_unmatched_paths`,
-      and on a compile failure `repo_policy_error`, not the facts map).
+      `repo_policy_digest`, `repo_policy_default`, and on a compile failure
+      `repo_policy_error` (`Runtime.GateTest`).
 
 ## Deferred
 
 Bundle-carried repo-policy rules and file/bundle composition are not part of
 the 1.0.0 implementation. The schema above remains the post-1.0.0 design
 candidate; the implemented contract is the deterministic file policy plus
-`RepoPolicy.policy_facts/2`, whose result a host passes to
+`RepoPolicy.policy_facts/2`, whose result the gate passes to
 `BoundaryPolicy.evaluate/2` as `:repo_facts`.
 
 ## Success Metrics

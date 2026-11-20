@@ -496,6 +496,90 @@ defmodule SigilGuard.Runtime.GateTest do
       refute redacting.sanitized_text =~ "R7v9K2mQ4xZ8pL6n"
     end
 
+    test "repo policy facts reach the kernel and the audit metadata" do
+      {:ok, policy} =
+        SigilGuard.RepoPolicy.compile(%{
+          default: :block,
+          rules: [
+            %{id: "review", decision: :require_approval, agents: ["*"], paths: ["config/**"]},
+            %{id: "secrets", decision: :block, agents: ["*"], paths: ["priv/secrets/**"]}
+          ]
+        })
+
+      context = [phase: :repo_change, sink: :repo, identity: "did:web:codex", trust_level: :high]
+      evaluate = &Gate.evaluate(%{"changed_paths" => &1}, context, repo_policy: policy)
+      rule_ids = &Enum.map(&1.matched_rules, fn rule -> rule.rule_id end)
+
+      review = evaluate.(["config/a.exs"])
+
+      assert {:confirm, _} = review.verdict
+      assert "repo.review" in rule_ids.(review)
+      assert review.audit_metadata.repo_policy_digest == SigilGuard.RepoPolicy.digest(policy)
+      assert review.audit_metadata.repo_policy_default == :block
+
+      blocked = evaluate.(["priv/secrets/key"])
+
+      assert blocked.action == :block
+      assert "repo.secrets" in rule_ids.(blocked)
+
+      unmatched = evaluate.(["lib/a.ex"])
+
+      assert unmatched.action == :block
+      assert "repo.default" in rule_ids.(unmatched)
+
+      # Outside a repo change there are no repo facts.
+      tool_request = Gate.evaluate("clean", [trust_level: :high], repo_policy: policy)
+
+      refute Map.has_key?(tool_request.audit_metadata, :repo_policy_digest)
+      refute Enum.any?(rule_ids.(tool_request), &String.starts_with?(&1, "repo."))
+    end
+
+    test "the repo section of a boundary policy file applies to a repo change" do
+      {:ok, file} =
+        SigilGuard.BoundaryPolicy.File.parse("""
+        version 3
+        [rules]
+        default allow
+        [repo]
+        default require_approval
+        allow agent:release-bot action:modify docs/**
+        block agent:* priv/secrets/**
+        """)
+
+      context = [phase: :repo_change, sink: :repo, action: "modify", trust_level: :high]
+
+      evaluate = fn identity, paths, opts ->
+        Gate.evaluate(
+          %{"changed_paths" => paths},
+          Keyword.put(context, :identity, identity),
+          Keyword.put(opts, :boundary_policy, file)
+        )
+      end
+
+      assert evaluate.("release-bot", ["docs/a.md"], []).verdict == :allowed
+      assert evaluate.("release-bot", ["priv/secrets/key"], []).action == :block
+      assert {:confirm, _} = evaluate.("other-agent", ["docs/a.md"], []).verdict
+
+      decision = evaluate.("release-bot", ["priv/secrets/key"], [])
+
+      assert decision.audit_metadata.repo_policy_digest == SigilGuard.RepoPolicy.digest(file.repo)
+      assert decision.audit_metadata.repo_policy_verdict == :block
+
+      # An explicit repo policy replaces the file's section.
+      {:ok, permissive} = SigilGuard.RepoPolicy.compile(%{default: :allow, rules: []})
+
+      assert evaluate.("release-bot", ["priv/secrets/key"], repo_policy: permissive).verdict ==
+               :allowed
+
+      # The section has no effect on another phase.
+      tool_request =
+        Gate.evaluate("clean", [phase: :tool_request, sink: :tool, trust_level: :high],
+          boundary_policy: file
+        )
+
+      refute Map.has_key?(tool_request.audit_metadata, :repo_policy_verdict)
+    end
+
     test "applies repo policy to repo-change contexts" do
       {:ok, repo_policy} =
         SigilGuard.RepoPolicy.compile(%{

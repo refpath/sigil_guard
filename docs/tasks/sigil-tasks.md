@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 298 / 312 tasks done (95.5%).** Milestones: 16 complete, 1 open.
+**Overall: 299 / 312 tasks done (95.8%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 3 | 17 | 18% | Open |
-| — | **Total** | **298** | **312** | **95.5%** | 16 done |
+| M14 | Spec conformance backlog | 4 | 17 | 24% | Open |
+| — | **Total** | **299** | **312** | **95.8%** | 16 done |
 
 ### Release Handoff
 
@@ -3124,11 +3124,18 @@ No task below is started. Several change decision outcomes, attested
 statement content, or the confirmation token for existing consumers, so each
 needs its design confirmed against the consumer contracts before work begins.
 
-- [ ] M14.01 Repo policy facts in the kernel (`SP.04`, `SP.07`, `SP.11`).
+- [x] M14.01 Repo policy facts in the kernel (`SP.04`, `SP.07`, `SP.11`).
   - AC: the gate passes `RepoPolicy.policy_facts/2` to `BoundaryPolicy` as
     `:repo_facts`; the `[repo]` section of a loaded policy file contributes a
     verdict at `:file_changed`; the policy digest and default decision reach
     the decision and its audit metadata.
+  - Resolved: at a repo change `Runtime.Gate` evaluates its `:repo_policy`
+    option, or without one the `[repo]` section of its `:boundary_policy`
+    file, and passes `RepoPolicy.policy_facts/2` to the kernel as
+    `:repo_facts`. Decisions carry `repo.<rule_id>` rules and the audit
+    metadata carries `repo_policy_digest` and `repo_policy_default`. Tests:
+    `Runtime.GateTest`.
+
 - [ ] M14.02 Output contract enforcement (`SP.04`).
   - AC: `BoundaryPolicy.Contract.enforce/4` runs in the evaluation order for
     outbound content; `no_raw_credentials` re-scans with the secret pattern
