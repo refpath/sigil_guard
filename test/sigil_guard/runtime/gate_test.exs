@@ -951,8 +951,9 @@ defmodule SigilGuard.Runtime.GateTest do
       :telemetry.attach(
         handler_id,
         [:sigil_guard, :runtime, :gate],
+        # Handlers run in the emitting process; async tests emit the same event.
         fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
+          if self() == parent, do: send(parent, {ref, event, measurements, metadata})
         end,
         nil
       )
