@@ -952,6 +952,32 @@ defmodule SigilGuard.AgentTrustTest do
       assert verify_response(envelope, rad, context: :not_a_context) == {:error, :digest_mismatch}
     end
 
+    test "a manifest subject that is not the bound card fails :manifest_digest_mismatch" do
+      {:ok, digest} = AgentCard.digest(card())
+      rad = request_action_digest(request_payload())
+      payload = %{"peer_agent" => @peer_id, "capability" => "summarize", "status" => "ok"}
+
+      {:ok, statement} =
+        SigilGuard.Attestation.from_decision(
+          %{decision() | phase: :tool_result},
+          response_context(),
+          statement_type: :agent_response,
+          payload: payload,
+          request_action_digest: rad,
+          peer_trust: :medium,
+          card_digest: digest,
+          manifest_digest: String.duplicate("c", 64),
+          now: @now
+        )
+
+      assert statement["predicate"]["peer_agent"]["card_digest"] == digest
+
+      {:ok, envelope} = SigilGuard.Attestation.sign(statement, Agent)
+
+      assert verify_response(envelope, rad, payload: payload) ==
+               {:error, :manifest_digest_mismatch}
+    end
+
     test "a statement of another type is not a response" do
       {:ok, request} =
         AgentTrust.attest_agent_request(request_payload(), request_context(),
