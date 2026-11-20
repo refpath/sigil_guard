@@ -19,7 +19,7 @@ research note.
 ## Orientation (Read First)
 
 Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. Milestones F through M12 are complete; M13 lacks only its gate task.
+rewrite. Milestones F through M13 are complete.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
@@ -61,8 +61,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 294 / 295 tasks done (99%).** Milestones: 15 complete, 1 in progress.
-**Current milestone: M13 in progress - physical effect authority.**
+**Overall: 295 / 295 tasks done (100%).** Milestones: 16 complete.
+**Current milestone: M13 complete - physical effect authority.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -81,8 +81,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M10 | External assessment projection | 1 | 1 | 100% | Complete |
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
-| M13 | Physical effect authority | 7 | 8 | 88% | In progress |
-| — | **Total** | **294** | **295** | **99%** | 15 done |
+| M13 | Physical effect authority | 8 | 8 | 100% | Complete |
+| — | **Total** | **295** | **295** | **100%** | 16 done |
 
 ### Release Handoff
 
@@ -3022,7 +3022,7 @@ reference-consumer deployment were not exercised by this milestone.
 > References: `docs/specs/SP.19-physical-effect-authority.md`,
 > `docs/research/R.11-physical-tool-authority-and-robot-attestation.md`
 > Effort: L
-> Status: in-progress
+> Status: complete
 > Dependencies: SP.01, SP.03, SP.04, SP.07, SP.08, SP.09, R.11
 
 Requirement identifiers `PE.01` to `PE.48` and conformance cases `SG-F1` to
@@ -3087,7 +3087,7 @@ and needed no task; the tasks below cover the rest.
   - AC: `test/sigil_guard/conformance/physical_effect_test.exs` passes every
     step of SG-F1 to SG-F6, including the positive steps, with neutral
     fixtures under `test/fixtures/effect_authority/`.
-- [ ] M13.08 Host guidance and full gate.
+- [x] M13.08 Host guidance and full gate.
   - AC: `guides/strict-deployment.md` and `guides/physical-effects.md` state
     the host obligations PE.18, PE.28, PE.29, PE.31, PE.32, and PE.41 and the
     non-goals PE.46 to PE.48. The consumer suite compiles and runs the
@@ -3096,8 +3096,9 @@ and needed no task; the tasks below cover the rest.
     then does; the complete application gate passes with coverage at or
     above 95%; no publish, push, or tag is performed.
 
-Hosted CI and a real receiving boundary were not exercised by this
-milestone.
+Validation on 2026-11-20: `./bin/check` passed all 18 checks with 1911 tests
+and 95.5% coverage. Hosted CI and a real receiving boundary were not
+exercised by this milestone.
 
 ## Package verification maintenance
 
