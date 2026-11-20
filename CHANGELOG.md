@@ -5,6 +5,19 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Confirmation` applies the metadata strip rule to the payload it
+  digests, so a token attached to the request it confirms verifies in a
+  direct `verify/5` call. Only the gateways stripped it before.
+- `SigilGuard.ToolGateway.guard_result/3` resolves the pinned manifest for
+  the tool the context names. The sandbox matrix then uses its declared
+  classes for the result, the decision carries the manifest digest and name,
+  and a result confirmation token may bind the manifest. A token issued
+  without one still verifies (`manifest_binding: :when_claimed` in
+  `SigilGuard.Confirmation.verify/5`). A result is never blocked for lacking
+  a manifest.
+- With an inbound attestation, `SigilGuard.ToolGateway.guard_request/3`
+  requires the statement's actor to be the actor or identity of the host
+  context, and denies `:invalid_attestation` otherwise.
 - **Behaviour change.** The `action` subject of a `tool_request` or
   `tool_result` attestation built by `SigilGuard.ToolGateway` binds the
   request method and arguments. The gateway digests a wrapped payload, and the

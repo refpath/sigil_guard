@@ -73,8 +73,13 @@ defmodule SigilGuard.Confirmation do
           {:ok, String.t()} | {:error, :invalid_payload}
   def fetch_action_digest(payload, context) do
     with {:ok, context} <- cast_context(context) do
+      # The strip rule removes the trust and confirmation metadata, so the
+      # digest is the same before and after a token is attached.
       digest =
-        %{"context" => Map.from_struct(context), "payload" => payload}
+        %{
+          "context" => Map.from_struct(context),
+          "payload" => SigilGuard.Attestation.strip_metadata(payload)
+        }
         |> canonical_bytes()
         |> Crypto.sha256_hex()
 
@@ -136,6 +141,12 @@ defmodule SigilGuard.Confirmation do
   By default, successful verification records the token nonce in `SigilGuard.ReplayStore`
   through the token expiry boundary and rejects a second verification with
   `{:error, :replay_detected}`.
+
+  With `manifest: digest` the token's `manifest_digest` claim must equal the
+  digest, and a token without the claim is refused. `manifest_binding:
+  :when_claimed` relaxes the second half: the digest is compared only when the
+  token carries the claim. The gateway uses it for results, where a token may
+  have been issued before a manifest was resolved.
   """
   @spec verify(String.t(), term(), Context.t() | map() | keyword(), binary(), keyword()) ::
           {:ok, claims()} | {:error, term()}
@@ -324,10 +335,10 @@ defmodule SigilGuard.Confirmation do
   end
 
   defp validate_manifest_digest(%{}, opts) do
-    case expected_manifest_digest(opts) do
-      :none -> :ok
-      {:ok, _} -> {:error, :manifest_digest_mismatch}
-      {:error, _} -> {:error, :manifest_digest_mismatch}
+    case {expected_manifest_digest(opts), Keyword.get(opts, :manifest_binding, :exact)} do
+      {:none, _} -> :ok
+      {{:ok, _}, :when_claimed} -> :ok
+      {_, _} -> {:error, :manifest_digest_mismatch}
     end
   end
 

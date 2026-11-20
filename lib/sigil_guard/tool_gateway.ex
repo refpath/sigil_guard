@@ -304,13 +304,15 @@ defmodule SigilGuard.ToolGateway do
   def guard_result(result, context \\ %{}, opts \\ []) do
     payload = result_payload(result, opts)
     result_context = SecurityPayload.context(result, :result, context)
+    capability = result_capability(result_context, opts)
 
     decision =
       case request_action_digest(opts) do
         :ok ->
           payload
-          |> Gate.evaluate(result_context, gate_opts(opts, nil))
+          |> Gate.evaluate(result_context, gate_opts(opts, capability))
           |> put_protocol_metadata(result, opts)
+          |> put_manifest_metadata(capability)
           |> put_result_binding_metadata(opts)
           |> maybe_apply_result_confirmation(payload, result_context, result, opts)
 
@@ -803,6 +805,21 @@ defmodule SigilGuard.ToolGateway do
 
   defp gate_opts(opts, _), do: Keyword.delete(opts, :manifest_facts)
 
+  # A result names no tool of its own. When the host's context does and a
+  # current manifest is pinned for it, that manifest gives the sandbox matrix
+  # its classes and lets a result token bind it. Anything else is no manifest,
+  # as before: a result is never blocked for lacking one.
+  defp result_capability(%Context{tool: tool}, opts) when is_binary(tool) do
+    with {:ok, %CapabilityManifest{} = capability} <- resolve_manifest(tool, opts),
+         :ok <- manifest_freshness(capability, opts) do
+      capability
+    else
+      _ -> nil
+    end
+  end
+
+  defp result_capability(_, _), do: nil
+
   # Passthrough compares two host options and needs no manifest.
   defp passthrough_resource_audience(nil, opts), do: token_passthrough(opts)
 
@@ -988,9 +1005,19 @@ defmodule SigilGuard.ToolGateway do
     verify_opts = inbound_verify_opts(payload, context, capability, opts)
 
     case Attestation.verify(envelope, Keyword.get(opts, :trust_material, %{}), verify_opts) do
-      {:ok, _} -> :ok
+      {:ok, statement} -> attested_actor(statement, context)
       {:error, _} -> {:error, :invalid_attestation}
     end
+  end
+
+  # A verified statement speaks for the actor it names. It is evidence for
+  # this request only when that is the actor the host identified.
+  defp attested_actor(statement, %Context{} = context) do
+    expected = context.actor || context.identity
+
+    if is_nil(expected) or expected == get_in(statement, ["predicate", "actor", "id"]),
+      do: :ok,
+      else: {:error, :invalid_attestation}
   end
 
   defp inbound_verify_opts(payload, context, capability, opts) do
@@ -1219,8 +1246,14 @@ defmodule SigilGuard.ToolGateway do
     opts
     |> Keyword.take([:now])
     |> Keyword.put(:consume, Keyword.get(opts, :consume_confirmation, true))
+    |> Keyword.put(:manifest_binding, manifest_binding(decision))
     |> maybe_put_confirmation_manifest(decision)
   end
+
+  # A request token must bind the pinned manifest. A result token binds it
+  # when it was issued with one.
+  defp manifest_binding(%Decision{phase: :tool_result}), do: :when_claimed
+  defp manifest_binding(%Decision{}), do: :exact
 
   defp maybe_put_confirmation_manifest(opts, %Decision{
          audit_metadata: %{manifest_digest: digest}

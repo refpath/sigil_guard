@@ -1553,6 +1553,33 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "attest_request/3 and attest_result/3" do
+    test "a verified statement about another actor is not evidence for this request" do
+      context = attestation_request_context()
+      decision = ToolGateway.guard_request(request(), context, [])
+
+      {:ok, statement} =
+        SigilGuard.Attestation.from_decision(decision, context,
+          payload: SigilGuard.MCP.SecurityPayload.for_gate(request(), :request),
+          now: @now
+        )
+
+      guard = fn statement ->
+        {:ok, envelope} = SigilGuard.Attestation.sign(statement, TrustedSigner, keyid: "trusted")
+
+        ToolGateway.guard_request(Map.put(request(), "_agent_trust", envelope), context,
+          attestation: :required,
+          trust_material: %{"trusted" => TrustedSigner.public_key()},
+          now: @now
+        )
+      end
+
+      assert guard.(statement).audit_metadata[:deny_reason] != :invalid_attestation
+
+      impersonated = put_in(statement, ["predicate", "actor", "id"], "spiffe://agents/other")
+
+      assert guard.(impersonated).audit_metadata.deny_reason == :invalid_attestation
+    end
+
     test "the action subject binds the arguments, so a result cannot be re-bound to another call" do
       context = attestation_request_context()
 
@@ -1854,6 +1881,77 @@ defmodule SigilGuard.ToolGatewayTest do
       assert "ignore_instructions" in Jason.decode!(payload)["predicate"]["quarantine"][
                "indicator_ids"
              ]
+    end
+
+    test "a result whose context names a pinned tool uses that manifest" do
+      context = [
+        phase: :tool_result,
+        trust_level: :high,
+        tool: "repo_file_write",
+        sandbox_id: "sandbox-1",
+        isolation_level: :container
+      ]
+
+      rules = fn manifest ->
+        decision =
+          ToolGateway.guard_result(result(), context, manifests: %{"repo_file_write" => manifest})
+
+        {Enum.map(decision.matched_rules, & &1.rule_id), decision.audit_metadata[:manifest_name]}
+      end
+
+      assert rules.(manifest()) == {["sandbox.matrix.write.container"], "repo_file_write"}
+      assert rules.(Map.put(manifest(), "side_effects", ["read"])) == {[], "repo_file_write"}
+
+      # No manifest for the tool, or an expired one, is no manifest: class execute.
+      expired = Map.put(manifest(), "expires_at", "2020-01-01T00:00:00.000Z")
+
+      for opts <- [[manifests: %{}], [manifests: %{"repo_file_write" => expired}], []] do
+        decision = ToolGateway.guard_result(result(), context, opts)
+
+        assert Enum.map(decision.matched_rules, & &1.rule_id) == [
+                 "sandbox.matrix.execute.container"
+               ]
+
+        refute Map.has_key?(decision.audit_metadata, :manifest_name)
+      end
+    end
+
+    test "a result token may bind the pinned manifest, and one issued without it still works" do
+      context = [
+        phase: :tool_result,
+        trust_level: :low,
+        actor: "did:web:approver",
+        tool: "repo_file_write"
+      ]
+
+      {:ok, capability} = CapabilityManifest.new(manifest())
+      opts = [manifests: %{"repo_file_write" => manifest()}, confirmation_key: @confirmation_key]
+
+      pending = ToolGateway.guard_result(result(), context, opts)
+
+      assert {:confirm, _} = pending.verdict
+      assert pending.audit_metadata.manifest_digest == capability.digest
+
+      confirm = fn issue_opts ->
+        {:ok, token} =
+          ToolGateway.issue_confirmation(
+            result(),
+            context,
+            pending,
+            @confirmation_key,
+            [{:direction, :result} | issue_opts]
+          )
+
+        ToolGateway.guard_result(result(), context, [{:confirmation_token, token} | opts])
+      end
+
+      assert confirm.(manifest: capability).verdict == :allowed
+      assert confirm.([]).verdict == :allowed
+
+      refused = confirm.(manifest: String.duplicate("b", 64))
+
+      assert refused.verdict == :blocked
+      assert refused.audit_metadata.confirmation_reason == :manifest_digest_mismatch
     end
 
     test "a redacted result keeps the original result type and request id" do
