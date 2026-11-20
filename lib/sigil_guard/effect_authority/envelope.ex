@@ -87,8 +87,8 @@ defmodule SigilGuard.EffectAuthority.Envelope do
   end
 
   defp within_lifetime?(record, document, now) do
-    {:ok, envelope_end} = Record.timestamp(document["not_after"])
-    {:ok, record_end} = Record.timestamp(record["not_after"])
+    {:ok, envelope_end} = SigilGuard.Clock.parse(document["not_after"])
+    {:ok, record_end} = SigilGuard.Clock.parse(record["not_after"])
     limit = DateTime.to_unix(envelope_end, :millisecond)
 
     now <= limit and DateTime.to_unix(record_end, :millisecond) <= limit
@@ -147,7 +147,7 @@ defmodule SigilGuard.EffectAuthority.Envelope do
   defp scalars?(document) do
     document["envelope_format"] == @format and Record.identifier?(document["id"]) and
       Record.identifier?(document["principal"]) and Record.identifier?(document["policy_epoch"]) and
-      match?({:ok, _}, Record.timestamp(document["not_after"])) and
+      match?({:ok, _}, SigilGuard.Clock.parse(document["not_after"])) and
       (not Map.has_key?(document, "frame_revision") or
          Record.identifier?(document["frame_revision"]))
   end
@@ -170,7 +170,7 @@ defmodule SigilGuard.EffectAuthority.Envelope do
          %{"tool" => tool, "manifest_sha256" => digest, "parameters" => parameters} = operation
        )
        when map_size(operation) == 3 and is_map(parameters) do
-    Record.identifier?(tool) and Record.sha256?(digest) and
+    Record.identifier?(tool) and SigilGuard.Crypto.sha256_hex?(digest) and
       Enum.all?(parameters, fn {name, bound} -> parameter_name?(name) and bound?(bound) end)
   end
 

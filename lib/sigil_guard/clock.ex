@@ -18,4 +18,21 @@ defmodule SigilGuard.Clock do
       _ -> {:error, error}
     end
   end
+
+  # The one timestamp form the library's documents carry: UTC with exactly
+  # three fractional digits, such as `2026-01-01T00:00:00.000Z`.
+  @utc_milliseconds ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
+
+  @doc false
+  @spec parse(term()) :: {:ok, DateTime.t()} | :error
+  def parse(value) when is_binary(value) do
+    with true <- Regex.match?(@utc_milliseconds, value),
+         {:ok, datetime, 0} <- DateTime.from_iso8601(value) do
+      {:ok, datetime}
+    else
+      _ -> :error
+    end
+  end
+
+  def parse(_), do: :error
 end

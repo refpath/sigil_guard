@@ -80,8 +80,8 @@ defmodule SigilGuard.EffectAuthority.Outcome do
   def audit_fields(input) do
     with true <- closed?(input, [:state], [:binding_digest, :operation_key, :refusal, :outcome]),
          true <- is_map_key(@transitions, input.state),
-         true <- absent_or?(input, :binding_digest, &Record.sha256?/1),
-         true <- absent_or?(input, :operation_key, &Record.sha256?/1),
+         true <- absent_or?(input, :binding_digest, &SigilGuard.Crypto.sha256_hex?/1),
+         true <- absent_or?(input, :operation_key, &SigilGuard.Crypto.sha256_hex?/1),
          true <- absent_or?(input, :refusal, &refusal?(&1, input.state)),
          true <- absent_or?(input, :outcome, &outcome?/1) do
       {:ok,

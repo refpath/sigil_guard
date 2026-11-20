@@ -15,7 +15,6 @@ defmodule SigilGuard.TrustBundle.Schema do
   @rotation_profile "sigil_guard_root_rotation/v1"
   @rotation_profile_stem "sigil_guard_root_rotation/"
   @positive_integer_string ~r/\A[1-9][0-9]*\z/
-  @iso8601_utc_ms ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
   @keyid_regex ~r/\Asha256:[0-9a-f]{64}\z/
   @bundle_fields ~w(
                    profile
@@ -171,16 +170,9 @@ defmodule SigilGuard.TrustBundle.Schema do
     end
   end
 
-  defp parse_timestamp(value) when is_binary(value) do
-    with true <- Regex.match?(@iso8601_utc_ms, value),
-         {:ok, datetime, 0} <- DateTime.from_iso8601(value) do
-      {:ok, datetime}
-    else
-      _ -> {:error, :invalid_bundle_format}
-    end
+  defp parse_timestamp(value) do
+    with :error <- SigilGuard.Clock.parse(value), do: {:error, :invalid_bundle_format}
   end
-
-  defp parse_timestamp(_), do: {:error, :invalid_bundle_format}
 
   defp validate_keys(keys) when is_map(keys) and map_size(keys) > 0 do
     keys

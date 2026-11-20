@@ -10,7 +10,6 @@ defmodule SigilGuard.EffectAuthority.Record do
   @environments ~w(physical simulated)
   @max_artifacts 16
   @max_identifier_bytes 256
-  @timestamp ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
 
   @type error :: :effect_binding_required | :invalid_effect_binding
 
@@ -58,23 +57,6 @@ defmodule SigilGuard.EffectAuthority.Record do
     do: printable?(value)
 
   def identifier?(_), do: false
-
-  @doc false
-  @spec sha256?(term()) :: boolean()
-  def sha256?(value), do: is_binary(value) and SigilGuard.Crypto.sha256_hex?(value)
-
-  @doc false
-  @spec timestamp(term()) :: {:ok, DateTime.t()} | :error
-  def timestamp(value) when is_binary(value) do
-    with true <- Regex.match?(@timestamp, value),
-         {:ok, datetime, 0} <- DateTime.from_iso8601(value) do
-      {:ok, datetime}
-    else
-      _ -> :error
-    end
-  end
-
-  def timestamp(_), do: :error
 
   @doc false
   @spec target?(term()) :: boolean()
@@ -137,7 +119,7 @@ defmodule SigilGuard.EffectAuthority.Record do
   end
 
   defp window?(record) do
-    with {:ok, not_after} <- timestamp(record["not_after"]),
+    with {:ok, not_after} <- SigilGuard.Clock.parse(record["not_after"]),
          {:ok, not_before} <- not_before(record) do
       is_nil(not_before) or DateTime.before?(not_before, not_after)
     else
@@ -145,17 +127,17 @@ defmodule SigilGuard.EffectAuthority.Record do
     end
   end
 
-  defp not_before(%{"not_before" => value}), do: timestamp(value)
+  defp not_before(%{"not_before" => value}), do: SigilGuard.Clock.parse(value)
   defp not_before(_), do: {:ok, nil}
 
   defp artifact?(%{"name" => name, "sha256" => digest} = artifact) when map_size(artifact) == 2,
-    do: identifier?(name) and sha256?(digest)
+    do: identifier?(name) and SigilGuard.Crypto.sha256_hex?(digest)
 
   defp artifact?(_), do: false
 
   defp envelope_reference?(%{"id" => id, "sha256" => digest} = reference)
        when map_size(reference) == 2,
-       do: identifier?(id) and sha256?(digest)
+       do: identifier?(id) and SigilGuard.Crypto.sha256_hex?(digest)
 
   defp envelope_reference?(_), do: false
 

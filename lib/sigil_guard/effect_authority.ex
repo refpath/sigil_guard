@@ -313,7 +313,7 @@ defmodule SigilGuard.EffectAuthority do
   defp unix_ms(nil, absent), do: absent
 
   defp unix_ms(timestamp, _) do
-    {:ok, datetime} = Record.timestamp(timestamp)
+    {:ok, datetime} = SigilGuard.Clock.parse(timestamp)
     DateTime.to_unix(datetime, :millisecond)
   end
 

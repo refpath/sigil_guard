@@ -83,7 +83,7 @@ defmodule SigilGuard.EffectAuthority.Facts do
   defp artifacts(_), do: :error
 
   defp artifact?(%{name: name, sha256: digest} = artifact) when map_size(artifact) == 2,
-    do: Record.identifier?(name) and Record.sha256?(digest)
+    do: Record.identifier?(name) and SigilGuard.Crypto.sha256_hex?(digest)
 
   defp artifact?(_), do: false
 

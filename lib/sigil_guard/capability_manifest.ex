@@ -36,7 +36,6 @@ defmodule SigilGuard.CapabilityManifest do
   @manifest_format "sigil_guard_capability_manifest/v2"
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @keyid_regex ~r/\Asha256:[0-9a-f]{64}\z/
-  @timestamp_regex ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
 
   @string_fields ~w(
     description
@@ -884,14 +883,9 @@ defmodule SigilGuard.CapabilityManifest do
   end
 
   defp timestamp_field(manifest, field) do
-    value = Map.get(manifest, field)
-
-    with true <- is_binary(value),
-         true <- Regex.match?(@timestamp_regex, value),
-         {:ok, _, 0} <- DateTime.from_iso8601(value) do
-      :ok
-    else
-      _ -> {:error, :invalid_manifest}
+    case SigilGuard.Clock.parse(Map.get(manifest, field)) do
+      {:ok, _} -> :ok
+      :error -> {:error, :invalid_manifest}
     end
   end
 end
