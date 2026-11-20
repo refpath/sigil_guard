@@ -163,7 +163,8 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   end
 
   @doc """
-  Hash the normalized payload delegation chain for order-preserving tamper tests.
+  SHA-256 over the JCS encoding of the validated `delegation_chain`, in order.
+  `SigilGuard.AgentTrust` compares the payload and predicate digests with it.
   """
   @spec delegation_chain_digest(map()) ::
           {:ok, String.t()} | {:error, error_reason()}

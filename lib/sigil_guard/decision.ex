@@ -4,19 +4,17 @@ defmodule SigilGuard.Decision do
 
   `:action` carries the unified verdict vocabulary:
   `:allow | :redact | :confirm | :quarantine | :block`, ordered from least to
-  most restrictive. `:verdict` keeps the legacy dual vocabulary
-  (`:allowed | :blocked | {:confirm, reason}`) populated alongside it for
+  most restrictive. `:verdict` carries the three-way policy verdict
+  (`:allowed | :blocked | {:confirm, reason}`) alongside it for
   compatibility.
 
   On a `:confirm` decision, `:action` is the unified verdict `:confirm` while
   `:effect` records the executable action (`:allow | :redact | :quarantine`) to
-  run once confirmation is accepted. Confirmation dispatch uses `:effect`; the
-  token binding remains unchanged.
+  run once confirmation is accepted. Confirmation dispatch uses `:effect`.
 
-  The 1.0 contract adds `matched_rules` and `evidence_refs` so verdicts are
-  explainable and evidence-linked without raw payloads. It also surfaces the
-  boundary labels (`source`, `sink`, `trust_zone`, `actor`, `resource`,
-  `phase`) on the decision.
+  `matched_rules` and `evidence_refs` explain a verdict and link its evidence
+  without raw payloads. The decision also carries the boundary labels
+  (`source`, `sink`, `trust_zone`, `actor`, `resource`, `phase`).
 
   `evidence_refs` holds `SigilGuard.Audit.Evidence` references. The gate and
   the kernel return an empty list: they hold no audit artifacts. A host sets

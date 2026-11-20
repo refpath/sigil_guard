@@ -181,7 +181,7 @@ defmodule SigilGuard.Patterns do
   format (with `"regex"` key).
 
   An entry that cannot be compiled is left out of the result: one with a
-  regular expression that does not compile, without a name, or with malformed
+  regular expression that is missing or does not compile, or with malformed
   metadata. Nothing reports the omission, and the scanner then runs without
   that detection. Use `compile_all/1` for patterns a host writes, so that a
   mistyped expression is an error.

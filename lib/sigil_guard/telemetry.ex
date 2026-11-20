@@ -58,18 +58,25 @@ defmodule SigilGuard.Telemetry do
       repo_policy_verdict: atom, repo_policy_rules: [String.t()],
       repo_unmatched_paths: [String.t()]}`
 
-    * `[:sigil_guard, :mcp, :request]`
+    * `[:sigil_guard, :mcp, :request]`, for request and result decisions
       Measurements: `%{system_time: integer}`
-      Metadata: `%{phase: atom, origin: atom, sink: atom, tool: String.t() | nil,
-      mcp_server: String.t() | nil, protocol_version: String.t() | nil,
-      mcp_result_type: String.t() | nil, actor: String.t() | nil,
-      identity: String.t() | nil, trust_zone: atom, trust_level: atom,
-      risk_level: atom, verdict: atom, action: atom,
-      envelope_status: :valid | :invalid | nil, envelope_reason: atom | nil,
-      confirmation_status: :accepted | :invalid | nil,
-      confirmation_reason: atom | nil, confirmation_actor: String.t() | nil,
-      confirmation_nonce_hash: String.t() | nil,
-      content_hash: String.t() | nil}`
+      Metadata: the keys of the decision's audit metadata from this list,
+      where present:
+      - boundary: `phase`, `actor`, `identity`, `origin`, `sink`, `tool`,
+        `mcp_server`, `resource_uri`, `protocol_version`, `mcp_result_type`,
+        `trust_zone`, `trust_level`, `sandbox_id`, `decision_id`
+      - outcome: `risk_level`, `verdict`, `action`, `deny_reason`,
+        `quarantine_status`, `matched_rule_ids`, `hit_count`,
+        `indicator_count`, `indicator_ids`, `scanner_error`,
+        `runtime_input_error`
+      - digests: `content_hash`, `action_digest`, `action_digest_error`,
+        `request_action_digest`, `manifest_digest`, `manifest_name`
+      - confirmation and envelope: `confirmation_status`,
+        `confirmation_reason`, `confirmation_actor`,
+        `confirmation_nonce_hash`, `confirmation_issued_at`,
+        `confirmation_expires_at`, `envelope_status`, `envelope_reason`
+      - repository policy: `repo_policy_verdict`, `repo_policy_rules`,
+        `repo_unmatched_paths`, `repo_policy_digest`
       With `effect_binding: :required` the metadata also carries
       `effect_binding: :absent | :valid | :invalid`,
       `effect_binding_digest: String.t()`, and
@@ -326,7 +333,8 @@ defmodule SigilGuard.Telemetry do
   @doc """
   Emit `[:sigil_guard, :mcp, :request]` for a gateway decision.
 
-  Only the documented MCP metadata keys are emitted; the tool gateway calls this
+  Only the MCP metadata keys listed in the module documentation are emitted;
+  the tool gateway calls this
   for every request and result decision.
   """
   @spec emit_mcp_decision(map()) :: :ok
