@@ -513,12 +513,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     end
   end
 
-  defp now(opts) do
-    case Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:millisecond) end) do
-      %DateTime{} = now -> {:ok, now}
-      _ -> {:error, :invalid_bundle_format}
-    end
-  end
+  defp now(opts), do: SigilGuard.Clock.now(opts, :invalid_bundle_format)
 
   defp max_skew_ms(opts) do
     case Keyword.get(opts, :max_skew_ms, @default_max_skew_ms) do

@@ -875,12 +875,7 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
-  defp now(opts) do
-    case Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:millisecond) end) do
-      %DateTime{} = now -> {:ok, now}
-      _ -> {:error, :invalid_now}
-    end
-  end
+  defp now(opts), do: SigilGuard.Clock.now(opts, :invalid_now)
 
   # The sandbox matrix and `effect:` rules read the classes a verified manifest
   # declares. Only a resolved manifest supplies them; a caller option cannot.

@@ -98,10 +98,9 @@ defmodule SigilGuard.TrustBundle.Issuers do
   defp bundle_keys(_), do: %{}
 
   defp check_fresh(%{"expires_at" => expiry}, opts) when is_binary(expiry) do
-    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
     skew = Keyword.get(opts, :max_skew_ms, @default_max_skew_ms)
 
-    with %DateTime{} <- now,
+    with {:ok, now} <- SigilGuard.Clock.now(opts, :untrusted_issuer),
          true <- is_integer(skew) and skew >= 0,
          {:ok, expiry, _} <- DateTime.from_iso8601(expiry),
          false <- DateTime.after?(now, DateTime.add(expiry, skew, :millisecond)) do

@@ -313,7 +313,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   @spec sign(t(), module(), keyword()) :: t()
   def sign(checkpoint, signer, opts) when is_map(checkpoint) and is_atom(signer) do
     issuer = Keyword.fetch!(opts, :issuer)
-    issued_at = Keyword.get_lazy(opts, :issued_at, &timestamp/0)
+    issued_at = Keyword.get_lazy(opts, :issued_at, &SigilGuard.Clock.timestamp/0)
     unsigned = unsigned_checkpoint(checkpoint)
     signature = signer.sign(canonical_bytes(unsigned))
 
@@ -438,7 +438,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   defp valid_chain_id(_), do: {:error, :invalid_checkpoint}
 
   defp generated_at(opts) do
-    case Keyword.get_lazy(opts, :generated_at, &timestamp/0) do
+    case Keyword.get_lazy(opts, :generated_at, &SigilGuard.Clock.timestamp/0) do
       value when is_binary(value) and value != "" -> {:ok, value}
       _ -> {:error, :invalid_generated_at}
     end
@@ -698,10 +698,5 @@ defmodule SigilGuard.Audit.Checkpoint do
       {:ok, value} -> value
       :error -> Map.get(map, Map.fetch!(@atom_fields, key))
     end
-  end
-
-  defp timestamp do
-    DateTime.utc_now(:millisecond)
-    |> DateTime.to_iso8601()
   end
 end

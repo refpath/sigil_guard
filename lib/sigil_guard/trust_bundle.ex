@@ -331,10 +331,8 @@ defmodule SigilGuard.TrustBundle do
   end
 
   defp dev_now(opts) do
-    case Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:millisecond) end) do
-      %DateTime{} = now -> {:ok, DateTime.truncate(now, :millisecond)}
-      _ -> {:error, :invalid_bundle_format}
-    end
+    with {:ok, now} <- SigilGuard.Clock.now(opts, :invalid_bundle_format),
+         do: {:ok, DateTime.truncate(now, :millisecond)}
   end
 
   defp dev_ttl_ms(opts) do

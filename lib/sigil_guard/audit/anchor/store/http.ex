@@ -532,7 +532,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
       "uri" =>
         receipt_uri(receipt) || location_header(response_headers) || "#{request_url}##{digest}",
       "anchor_digest" => digest,
-      "stored_at" => field(receipt, "stored_at") || timestamp(),
+      "stored_at" => field(receipt, "stored_at") || SigilGuard.Clock.timestamp(),
       "worm" => field(receipt, "worm") == true,
       "metadata" => field(receipt, "metadata") || metadata
     })
@@ -690,9 +690,4 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   end
 
   defp nonempty_binary?(value), do: is_binary(value) and value != ""
-
-  defp timestamp do
-    DateTime.utc_now(:millisecond)
-    |> DateTime.to_iso8601()
-  end
 end

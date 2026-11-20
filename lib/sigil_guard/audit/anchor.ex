@@ -60,7 +60,7 @@ defmodule SigilGuard.Audit.Anchor do
     %{
       "kind" => @kind,
       "version" => @version,
-      "anchored_at" => Keyword.get_lazy(opts, :anchored_at, &timestamp/0),
+      "anchored_at" => Keyword.get_lazy(opts, :anchored_at, &SigilGuard.Clock.timestamp/0),
       "checkpoint_digest" => Checkpoint.digest(checkpoint),
       "checkpoint_kind" => field(checkpoint, "kind"),
       "chain_id" => field(checkpoint, "chain_id"),
@@ -211,11 +211,6 @@ defmodule SigilGuard.Audit.Anchor do
 
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value), do: value
-
-  defp timestamp do
-    DateTime.utc_now(:millisecond)
-    |> DateTime.to_iso8601()
-  end
 
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

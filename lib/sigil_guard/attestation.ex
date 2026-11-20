@@ -428,10 +428,7 @@ defmodule SigilGuard.Attestation do
   defp context_actor_id(_), do: {:error, :invalid_payload}
 
   defp attestation_now(opts) do
-    case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
-      %DateTime{} = now -> {:ok, millisecond(now)}
-      _ -> {:error, :invalid_payload}
-    end
+    with {:ok, now} <- SigilGuard.Clock.now(opts, :invalid_payload), do: {:ok, millisecond(now)}
   end
 
   # The profile writes three fractional digits. Truncating alone keeps a
@@ -876,12 +873,7 @@ defmodule SigilGuard.Attestation do
     end
   end
 
-  defp verify_now(opts) do
-    case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
-      %DateTime{} = now -> {:ok, now}
-      _ -> {:error, :invalid_payload}
-    end
-  end
+  defp verify_now(opts), do: SigilGuard.Clock.now(opts, :invalid_payload)
 
   defp max_skew_ms(opts) do
     configured_non_negative_integer(opts, :max_skew_ms, :max_skew_ms, 60_000)

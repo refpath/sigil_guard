@@ -399,12 +399,7 @@ defmodule SigilGuard.Confirmation do
     if Decision.confirm?(decision), do: :ok, else: {:error, :not_confirmable}
   end
 
-  defp issue_now(opts) do
-    case Keyword.get_lazy(opts, :now, fn -> DateTime.utc_now(:millisecond) end) do
-      %DateTime{} = now -> {:ok, now}
-      _ -> {:error, :invalid_now}
-    end
-  end
+  defp issue_now(opts), do: SigilGuard.Clock.now(opts, :invalid_now)
 
   defp issue_ttl_ms(opts) do
     case Keyword.get(opts, :ttl_ms, @default_ttl_ms) do

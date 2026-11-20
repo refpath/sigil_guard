@@ -232,12 +232,10 @@ defmodule SigilGuard.AgentCard do
     end
   end
 
+  # An explicit `now: nil` means the current time here, as it always has.
   defp freshness_now(opts) do
-    case Keyword.get(opts, :now) do
-      nil -> {:ok, DateTime.utc_now()}
-      %DateTime{} = now -> {:ok, now}
-      _ -> {:error, :invalid_agent_card}
-    end
+    opts = if Keyword.get(opts, :now) == nil, do: Keyword.delete(opts, :now), else: opts
+    SigilGuard.Clock.now(opts, :invalid_agent_card)
   end
 
   defp freshness_skew(opts) do

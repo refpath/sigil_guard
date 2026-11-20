@@ -79,7 +79,7 @@ defmodule SigilGuard.Audit.Export do
       base = %{
         "kind" => @kind,
         "version" => @version,
-        "generated_at" => Keyword.get_lazy(opts, :generated_at, &timestamp/0),
+        "generated_at" => Keyword.get_lazy(opts, :generated_at, &SigilGuard.Clock.timestamp/0),
         "checkpoint" => checkpoint,
         "anchor" => anchor
       }
@@ -165,7 +165,7 @@ defmodule SigilGuard.Audit.Export do
   defp signer_opts(opts) do
     opts
     |> Keyword.take([:issuer, :issued_at])
-    |> Keyword.put_new_lazy(:issued_at, &timestamp/0)
+    |> Keyword.put_new_lazy(:issued_at, &SigilGuard.Clock.timestamp/0)
   end
 
   defp maybe_anchor(checkpoint, opts) do
@@ -410,11 +410,6 @@ defmodule SigilGuard.Audit.Export do
       {:ok, value} -> value
       :error -> Map.get(map, Map.fetch!(@atom_fields, key))
     end
-  end
-
-  defp timestamp do
-    DateTime.utc_now(:millisecond)
-    |> DateTime.to_iso8601()
   end
 
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)

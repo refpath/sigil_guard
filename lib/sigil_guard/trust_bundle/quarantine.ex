@@ -178,7 +178,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   defp positive_integer(_), do: nil
 
   defp quarantined_at(%{now: %DateTime{} = now}), do: DateTime.to_iso8601(now)
-  defp quarantined_at(_), do: DateTime.utc_now(:millisecond) |> DateTime.to_iso8601()
+  defp quarantined_at(_), do: SigilGuard.Clock.timestamp()
 
   defp evidence(%{evidence: evidence}) when is_list(evidence) do
     evidence

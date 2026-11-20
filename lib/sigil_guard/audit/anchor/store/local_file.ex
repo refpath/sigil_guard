@@ -183,7 +183,7 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
        "storage" => "local_file",
        "uri" => file_uri(path, digest),
        "anchor_digest" => digest,
-       "stored_at" => timestamp(),
+       "stored_at" => SigilGuard.Clock.timestamp(),
        "worm" => false,
        "metadata" => metadata
      }}
@@ -387,10 +387,5 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
       |> Enum.map_join("/", &URI.encode(&1, fn char -> URI.char_unreserved?(char) end))
 
     "file://#{encoded_path}##{digest}"
-  end
-
-  defp timestamp do
-    DateTime.utc_now(:millisecond)
-    |> DateTime.to_iso8601()
   end
 end

@@ -213,7 +213,7 @@ defmodule SigilGuard.Audit do
       action: action,
       result: result,
       metadata: metadata,
-      timestamp: generate_timestamp()
+      timestamp: SigilGuard.Clock.timestamp()
     }
   end
 
@@ -604,9 +604,5 @@ defmodule SigilGuard.Audit do
 
   defp generate_event_id do
     Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
-  end
-
-  defp generate_timestamp do
-    DateTime.to_iso8601(DateTime.utc_now(:millisecond))
   end
 end
