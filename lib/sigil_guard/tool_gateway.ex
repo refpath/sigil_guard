@@ -351,8 +351,9 @@ defmodule SigilGuard.ToolGateway do
         {:ok, GatewayBase.jsonrpc_result(result, GatewayBase.request_id(result), opts), decision}
 
       :redact ->
-        {:ok, GatewayBase.response_for_decision(decision, GatewayBase.request_id(result), opts),
-         decision}
+        id = GatewayBase.request_id(result)
+
+        {:ok, GatewayBase.sanitized_result(result, decision, id, opts), decision}
 
       _ ->
         {:error, response_for_decision(decision, GatewayBase.request_id(result), opts), decision}

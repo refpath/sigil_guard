@@ -1810,6 +1810,33 @@ defmodule SigilGuard.ToolGatewayTest do
              ]
     end
 
+    test "a redacted result keeps the original result type and request id" do
+      typed =
+        put_in(result(), ["result"], %{
+          "resultType" => "input_required",
+          "content" => [%{"type" => "text", "text" => "secret=R7v9K2mQ4xZ8pL6n"}]
+        })
+
+      untyped = update_in(typed, ["result"], &Map.delete(&1, "resultType"))
+      context = [trust_level: :high]
+
+      assert {:ok, redacted, %Decision{action: :redact}} =
+               ToolGateway.guarded_result(typed, context, protocol_version: "2026-07-28")
+
+      assert redacted["id"] == typed["id"]
+      assert redacted["result"]["resultType"] == "input_required"
+      refute inspect(redacted) =~ "R7v9K2mQ4xZ8pL6n"
+
+      assert {:ok, completed, _} =
+               ToolGateway.guarded_result(untyped, context, protocol_version: "2026-07-28")
+
+      assert completed["result"]["resultType"] == "complete"
+
+      assert {:ok, earlier, _} = ToolGateway.guarded_result(untyped, context, [])
+
+      refute Map.has_key?(earlier["result"], "resultType")
+    end
+
     test "a confirmed result with nothing to redact is released as it is" do
       context = [trust_level: :low, actor: "did:web:approver"]
       pending = ToolGateway.guard_result(result(), context, [])

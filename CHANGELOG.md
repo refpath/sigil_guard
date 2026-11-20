@@ -5,6 +5,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.ToolGateway.guarded_result/3` builds a redacted response from the
+  original result, so an existing `resultType` such as `input_required`
+  survives redaction. It was replaced by the default.
 - A `tool_result` attestation built from a decision lists the built-in
   quarantine indicators that fired. `predicate.quarantine.indicator_ids` kept
   only string ids, and the built-in ids are atoms, so it was always empty.

@@ -737,7 +737,9 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp sanitized_result(result, %Decision{} = decision, id, opts) do
+  @doc false
+  @spec sanitized_result(term(), Decision.t(), term(), keyword()) :: map()
+  def sanitized_result(result, %Decision{} = decision, id, opts) do
     payload =
       decision
       |> sanitized_payload()
