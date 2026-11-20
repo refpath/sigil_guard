@@ -80,7 +80,7 @@ defmodule SigilGuard.Runtime do
   """
   @spec scanner_options(GenServer.server(), keyword()) :: {:ok, keyword()} | {:error, atom()}
   def scanner_options(server \\ __MODULE__, opts \\ []) do
-    config = configuration(server)
+    config = configuration(server, [:scanner_patterns, :trust_bundle])
 
     case Keyword.fetch!(config, :scanner_patterns) do
       :built_in ->
@@ -105,7 +105,7 @@ defmodule SigilGuard.Runtime do
   @doc since: "1.1.0"
   @spec attestation_options(GenServer.server()) :: keyword()
   def attestation_options(server \\ __MODULE__) do
-    config = configuration(server)
+    config = configuration(server, [:attestation_ttl_ms, :max_skew_ms, :replay_ttl_ms])
 
     [
       ttl_ms: Keyword.fetch!(config, :attestation_ttl_ms),
@@ -122,7 +122,12 @@ defmodule SigilGuard.Runtime do
   @doc since: "1.1.0"
   @spec trust_mappings(GenServer.server()) :: [{String.t(), SigilGuard.Identity.trust_level()}]
   def trust_mappings(server \\ __MODULE__),
-    do: Keyword.fetch!(configuration(server), :trust_mappings)
+    do: Keyword.fetch!(configuration(server, [:trust_mappings]), :trust_mappings)
+
+  # The helpers above run at each boundary; asking for their keys copies a
+  # few values out of the runtime instead of the whole configuration, which
+  # can hold an inline bundle source and the vault master key.
+  defp configuration(server, keys), do: GenServer.call(server, {:configuration, keys})
 
   @impl GenServer
   def init(opts) do
@@ -140,6 +145,9 @@ defmodule SigilGuard.Runtime do
 
   @impl GenServer
   def handle_call(:configuration, _, config), do: {:reply, config, config}
+
+  def handle_call({:configuration, keys}, _, config),
+    do: {:reply, Keyword.take(config, keys), config}
 
   defp runtime_config!(opts) do
     case Keyword.validate(opts, config: :application_env) do
