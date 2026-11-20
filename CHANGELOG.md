@@ -5,6 +5,12 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The runtime gate blocks invalid scanner hits and non-binary
+  `:default_replacement` values. A failed scan of empty text blocks with
+  `scanner_error: :scanner_failed` and an empty hit list.
+- Collect suspicious manifest parameter names without repeatedly copying
+  an accumulated list. Check stream capacity before combining pending bytes
+  with a new chunk.
 - `SigilGuard.Scanner.scan/2` raises `ArgumentError` and `scan_result/2`
   returns `{:error, :invalid_patterns}` when the built-in pipelines are given
   `:patterns` that are not compiled pattern maps. `scan/2` raised

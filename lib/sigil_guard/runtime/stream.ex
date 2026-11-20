@@ -107,12 +107,13 @@ defmodule SigilGuard.Runtime.Stream do
 
   def push(%__MODULE__{} = stream, chunk) when is_binary(chunk) do
     stream = %{stream | input: absorb(stream.input, chunk)}
-    combined = stream.pending <> chunk
     limit = Keyword.get(stream.opts, :max_stream_bytes, @default_max_pending_bytes)
 
-    if not is_integer(limit) or limit <= 0 or byte_size(combined) > limit do
+    if not is_integer(limit) or limit <= 0 or
+         byte_size(stream.pending) + byte_size(chunk) > limit do
       halt(stream, "stream capacity exceeded", :stream_holdback_overflow)
     else
+      combined = stream.pending <> chunk
       push_validated(stream, combined, :unicode.characters_to_binary(combined))
     end
   end

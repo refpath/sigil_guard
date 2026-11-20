@@ -32,7 +32,8 @@ defmodule SigilGuard.Scanner do
   @doc """
   Find the sensitive spans in `text` with the compiled `patterns`.
 
-  Each hit must lie inside `text`; `scan/2` checks the result.
+  Each hit must describe a nonempty byte span inside `text`. Its `match`
+  must equal the bytes at that span. `scan/2` checks the result.
   """
   @callback scan(
               text :: String.t(),
@@ -83,8 +84,9 @@ defmodule SigilGuard.Scanner do
   for text that is not a binary, `:invalid_options`, `:input_too_large` past
   `:max_input_bytes`, `:invalid_pipeline` for a `:pipeline` value that is not a
   pipeline, `:invalid_patterns` when a built-in pipeline is given `:patterns`
-  that are not compiled pattern maps, `:invalid_pipeline_result` for hits that do not describe the
-  text, and `:pipeline_failed` when the pipeline raises, throws, or exits.
+  that are not compiled pattern maps, `:invalid_pipeline_result` for hits
+  that do not describe the text, and `:pipeline_failed` when the pipeline
+  raises, throws, or exits.
   `SigilGuard.Runtime.Gate` and output contracts scan through this function,
   so a scan that cannot run fails their decision closed.
 
@@ -189,8 +191,6 @@ defmodule SigilGuard.Scanner do
   """
   @spec scan_and_redact(String.t(), keyword()) :: String.t()
   def scan_and_redact(text, opts \\ []) do
-    validate_options!(opts)
-
     case scan(text, opts) do
       {:ok, clean_text} -> clean_text
       {:hit, hits} -> redact(text, hits, opts)
@@ -288,13 +288,19 @@ defmodule SigilGuard.Scanner do
          } = hit,
          text
        )
-       when is_binary(name) and severity in [:low, :medium, :high] and
-              is_binary(match) and is_integer(offset) and is_integer(length) and
-              offset >= 0 and length >= 0 and offset + length <= byte_size(text) do
-    valid_category?(category) and valid_replacement_hint?(Map.get(hit, :replacement_hint))
+       when is_binary(name) and severity in [:low, :medium, :high] do
+    valid_category?(category) and valid_replacement_hint?(Map.get(hit, :replacement_hint)) and
+      matches_span?(text, offset, length, match)
   end
 
   defp valid_hit?(_, _), do: false
+
+  defp matches_span?(text, offset, length, match)
+       when is_integer(offset) and offset >= 0 and is_integer(length) and length > 0 and
+              offset + length <= byte_size(text),
+       do: match == binary_part(text, offset, length)
+
+  defp matches_span?(_, _, _, _), do: false
 
   # Built-in patterns emit the closed :secret/:injection/:poisoning atoms;
   # custom/compatibility-bundle patterns may carry a free-form string category.

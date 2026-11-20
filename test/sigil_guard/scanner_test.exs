@@ -5,6 +5,7 @@ defmodule SigilGuard.ScannerTest do
 
   doctest SigilGuard.Scanner
 
+  alias SigilGuard.Runtime.Gate
   alias SigilGuard.Scanner
 
   test "overlapping built-in matches redact once without leaking or crashing" do
@@ -271,6 +272,20 @@ defmodule SigilGuard.ScannerTest do
       def scan(_, _, _), do: [%{name: "x", offset: 99, length: 5}]
     end
 
+    defmodule ConfigurableHitPipeline do
+      @moduledoc false
+      @behaviour SigilGuard.Scanner
+
+      @impl SigilGuard.Scanner
+      @spec scan(String.t(), [map()], keyword()) :: [map()]
+      def scan(_, _, opts) do
+        [
+          %{name: "custom", category: :secret, severity: :high, offset: 0}
+          |> Map.merge(Keyword.fetch!(opts, :hit))
+        ]
+      end
+    end
+
     test "agrees with scan/2 where scan/2 returns" do
       for text <- ["safe text", "key AKIAIOSFODNN7EXAMPLE here"] do
         assert Scanner.scan_result(text) == Scanner.scan(text)
@@ -312,9 +327,41 @@ defmodule SigilGuard.ScannerTest do
 
     test "the gate fails closed when its scan cannot run" do
       context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
-      decision = SigilGuard.Runtime.Gate.evaluate("text", context, pipeline: RaisingPipeline)
+      decision = Gate.evaluate("text", context, pipeline: RaisingPipeline)
 
       assert decision.verdict == :blocked
+    end
+
+    test "a hit must cover positive bytes and report the bytes it covers" do
+      context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+
+      for hit <- [%{match: "", length: 0}, %{match: "other", length: 4}] do
+        opts = [pipeline: ConfigurableHitPipeline, hit: hit]
+        assert Scanner.scan_result("text", opts) == {:error, :invalid_pipeline_result}
+
+        decision = Gate.evaluate("text", context, opts)
+        assert decision.action == :block
+        assert decision.audit_metadata.scanner_error == :scanner_failed
+        assert decision.sanitized_text == "[SCANNER_ERROR]"
+      end
+
+      opts = [pipeline: ConfigurableHitPipeline, hit: %{match: "text", length: 4}]
+      assert Scanner.scan_and_redact("text", opts) == "[REDACTED]"
+
+      decision = Gate.evaluate("text", context, [{:default_replacement, 42} | opts])
+
+      assert decision.action == :block
+      assert decision.audit_metadata.runtime_input_error == :invalid_options
+    end
+
+    test "a failed scan of empty text blocks without creating a zero-byte redaction" do
+      context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+      decision = Gate.evaluate("", context, pipeline: RaisingPipeline)
+
+      assert decision.action == :block
+      assert decision.audit_metadata.scanner_error == :scanner_failed
+      assert decision.hits == []
+      assert decision.sanitized_text == ""
     end
   end
 end

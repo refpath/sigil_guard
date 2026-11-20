@@ -37,11 +37,11 @@ defmodule SigilGuard.Patterns do
           required(:severity) => :low | :medium | :high,
           required(:match) => String.t(),
           required(:offset) => non_neg_integer(),
-          required(:length) => non_neg_integer(),
-          required(:replacement_hint) => String.t() | nil,
+          required(:length) => pos_integer(),
+          optional(:replacement_hint) => String.t() | nil,
           optional(:confidence) => float(),
           optional(:signals) => [atom()],
-          optional(:span) => {non_neg_integer(), non_neg_integer()},
+          optional(:span) => {non_neg_integer(), pos_integer()},
           optional(:stage) => atom(),
           optional(:validated) => boolean()
         }

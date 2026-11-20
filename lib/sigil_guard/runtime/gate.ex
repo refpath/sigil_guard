@@ -40,6 +40,7 @@ defmodule SigilGuard.Runtime.Gate do
   ## Options
 
     * `:patterns` - scanner patterns
+    * `:default_replacement` - binary replacement for scanner hits without a hint
     * `:risk_level` - override policy risk
     * `:on_sensitive` - `:block` or `:redact` for sensitive content
     * `:strict_quarantine` - block medium quarantine indicators too
@@ -118,7 +119,7 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp validate_runtime_options(opts) do
     if Keyword.keyword?(opts) and BoundaryPolicy.valid_extension_options?(opts) and
-         valid_indicator_sets?(opts),
+         valid_indicator_sets?(opts) and is_binary(Keyword.get(opts, :default_replacement, "")),
        do: :ok,
        else: {:error, :invalid_options}
   end
@@ -148,7 +149,7 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp evaluate_checked(payload, context, text, action, opts) do
     {hits, scanner_error} = scan_hits(text, opts)
-    {quarantine, scanner_error} = inspect_quarantine(text, context, opts, scanner_error)
+    quarantine = Quarantine.inspect(text, context, opts)
     {repo_policy, repo_facts} = repo_policy_decision(payload, context, action, opts)
 
     risk =
@@ -249,8 +250,7 @@ defmodule SigilGuard.Runtime.Gate do
     end
   end
 
-  defp inspect_quarantine(text, context, opts, scanner_error),
-    do: {Quarantine.inspect(text, context, opts), scanner_error}
+  defp scanner_error_hit(""), do: []
 
   defp scanner_error_hit(text) do
     [

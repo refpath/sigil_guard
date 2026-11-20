@@ -2,13 +2,13 @@ defmodule SigilGuard.ScannerPipelineTestStub do
   @moduledoc false
 
   @spec scan(String.t(), [map()], keyword()) :: [map()]
-  def scan(_, _, _) do
+  def scan(<<first, _::binary>>, _, _) do
     [
       %{
         name: "stub",
         category: "test",
         severity: :low,
-        match: "x",
+        match: <<first>>,
         offset: 0,
         length: 1,
         replacement_hint: nil

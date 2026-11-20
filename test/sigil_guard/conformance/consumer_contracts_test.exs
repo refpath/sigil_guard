@@ -7,6 +7,18 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
   alias SigilGuard.Signer.Ed25519
   alias SigilGuard.Vault
 
+  test "a malformed scanner pattern is reported before a boundary can release text" do
+    opts = [patterns: [:invalid]]
+    context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+
+    assert SigilGuard.Scanner.scan_result("", opts) == {:error, :invalid_patterns}
+
+    decision = SigilGuard.guard("", context, opts)
+    assert decision.action == :block
+    assert decision.audit_metadata.scanner_error == :scanner_failed
+    assert decision.hits == []
+  end
+
   test "envelopes reject JSON key collisions beyond atom aliases" do
     alias SigilGuard.Attestation.Envelope
     {:ok, envelope} = Envelope.sign("{}", SigilGuard.TestSigner)

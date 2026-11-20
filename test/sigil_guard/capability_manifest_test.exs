@@ -127,17 +127,20 @@ defmodule SigilGuard.CapabilityManifestTest do
                CapabilityManifest.new(disclosed)
     end
 
-    test "walks nested required lists for suspicious parameters" do
+    test "sorts and deduplicates suspicious names across nested required lists" do
       nested_schema =
         manifest()["input_schema"]
-        |> Map.put("allOf", [%{"properties" => %{}, "required" => ["session-token"]}])
+        |> Map.put("allOf", [
+          %{"required" => ["session-token", "content"]},
+          %{"anyOf" => [%{"required" => ["session-token", "apiKey"]}]}
+        ])
 
       disclosed =
         manifest()
         |> Map.put("input_schema", nested_schema)
-        |> Map.put("suspicious_params", ["session-token"])
+        |> Map.put("suspicious_params", ["apiKey", "session-token"])
 
-      assert {:ok, %CapabilityManifest{suspicious_params: ["session-token"]}} =
+      assert {:ok, %CapabilityManifest{suspicious_params: ["apiKey", "session-token"]}} =
                CapabilityManifest.new(disclosed)
     end
 

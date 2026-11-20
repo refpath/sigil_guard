@@ -24,7 +24,7 @@ Requests with a physical effect are specified by
 the gateway records `action_digest` for every verdict on such a request.
 Otherwise only a `confirm` decision records it.
 
-## Executive Summary
+## Overview
 
 This spec documents the implemented runtime gate, context normalization,
 decision struct, staged scanner integration, quarantine indicators, and streaming
@@ -34,16 +34,6 @@ and by MCP helpers. In v3 this foundation is rewired behind
 two v3 contracts: the unified decision verdict enum (V3 Decision Contract)
 and the consumer-facing stability guarantees that hold unchanged through
 1.0.0 (Stability Guarantees).
-
-## Business Value
-
-- **Problem:** Tool and model boundaries need deterministic checks before data
-  crosses from one trust zone to another.
-- **Solution:** Normalize context, scan payloads, inspect quarantine indicators,
-  evaluate policy, and emit decisions without leaking raw sensitive values.
-- **Beneficiary:** Host applications embedding SigilGuard at runtime boundaries.
-- **Impact:** Consistent allow/block/redact/confirm behavior across direct API
-  calls, MCP helpers, and streams.
 
 ## Technical Architecture
 
@@ -357,7 +347,8 @@ boundary labels) are normative in the V3 Decision Contract section.
 | malformed context | blocked decision | fix caller context | request blocked. |
 | malformed option container | blocked decision | pass a keyword list | request blocked. |
 | invalid payload | blocked decision | pass supported payload | request blocked. |
-| scanner failure | high-risk hit | inspect scanner config | fail closed. |
+| scanner failure | blocked decision with `scanner_error: :scanner_failed` | inspect scanner configuration and hit spans | nonempty text also has a high-risk error hit. |
+| non-binary `:default_replacement` | blocked decision with `runtime_input_error: :invalid_options` | pass a binary or omit the option | request blocked. |
 | invalid risk options | blocked decision | fix policy options | request blocked. |
 | stream halt | halted stream state | drop/quarantine/request approval | no further chunks emitted. |
 

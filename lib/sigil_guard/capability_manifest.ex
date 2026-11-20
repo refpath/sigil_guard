@@ -779,16 +779,14 @@ defmodule SigilGuard.CapabilityManifest do
 
   defp suspicious_params(schema) do
     schema
-    |> required_names([])
-    |> Enum.filter(&suspicious_name?/1)
-    |> Enum.uniq()
+    |> required_names(MapSet.new())
     |> Enum.sort()
   end
 
   defp required_names(%{"required" => required} = schema, acc) when is_list(required) do
     schema
     |> Map.delete("required")
-    |> required_names(acc ++ Enum.filter(required, &is_binary/1))
+    |> required_names(Enum.reduce(required, acc, &collect_suspicious_name/2))
   end
 
   defp required_names(%{} = schema, acc) do
@@ -800,6 +798,12 @@ defmodule SigilGuard.CapabilityManifest do
   end
 
   defp required_names(_, acc), do: acc
+
+  defp collect_suspicious_name(name, acc) when is_binary(name) do
+    if suspicious_name?(name), do: MapSet.put(acc, name), else: acc
+  end
+
+  defp collect_suspicious_name(_, acc), do: acc
 
   defp suspicious_name?(name) do
     normalized =

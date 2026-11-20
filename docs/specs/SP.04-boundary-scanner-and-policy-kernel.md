@@ -15,7 +15,7 @@ sigil_guard:
 
 # SP.04 - Boundary Scanner And Policy Kernel
 
-## Executive Summary
+## Overview
 
 In v3 SigilGuard is a boundary-aware policy kernel. Regex remains a fast
 candidate extractor, but final decisions must bind source, sink, actor, tool
@@ -27,20 +27,6 @@ mismatch matrix; the full `SigilGuard.Hooks` contract; the advisory
 adaptive-detector behaviour (D5); the additive scanner-hit extension (D17); and
 the streaming holdback property-test specification. It realizes R.06 rows 1, 9,
 10, and 11 (test families TM.08 and TM.09).
-
-## Business Value
-
-- **Problem:** Regex-only or verdict-only security misses source-to-sink leaks,
-  prompt injection, tool poisoning, lifecycle hook abuse, and repo-governance
-  risks.
-- **Solution:** Treat scanning as staged signal generation and policy as a
-  deterministic decision kernel with digest-bound evidence.
-- **Beneficiary:** Host applications using SigilGuard at MCP, repo, CI,
-  tool-output, and model-ingress boundaries.
-- **Impact:** decisions that name their matched rules, staged validation that
-  discards placeholder and low-entropy candidates, a streaming holdback for
-  secrets split across chunks, and a reusable policy contract that encodes the
-  lethal-trifecta defense (R.06).
 
 ## Technical Architecture
 
@@ -814,9 +800,11 @@ end
 `scan_and_redact/1` returning a binary are unchanged contracts. `name` is the
 only load-bearing key for consumers (D17). The set `Scanner.scan/2` requires
 of every pipeline, custom ones included, is `name`, `category`, `severity`,
-`match`, `offset`, and `length`; a hit missing one of them, or whose `offset`
-and `length` fall outside the text, raises `ArgumentError`. The
-default `:staged` pipeline emits every field below plus `signals`, `stage`,
+`match`, `offset`, and `length`. The span must cover at least one byte inside
+the text, and `match` must equal those bytes. `Scanner.scan/2` raises
+`ArgumentError` for an invalid hit. `Scanner.scan_result/2` returns
+`{:error, :invalid_pipeline_result}`. The default `:staged` pipeline emits
+every field below plus `signals`, `stage`,
 and `validated`; the `:regex` pipeline emits no `confidence` or `span`.
 
 | Key | Type | Presence | Notes |
@@ -824,7 +812,7 @@ and `validated`; the `:regex` pipeline emits no `confidence` or `span`.
 | `name` | `String.t()` | required | Hard consumer contract (D17). |
 | `match` | `String.t()` | required | Raw matched bytes. |
 | `offset` | `non_neg_integer()` | required | Byte offset. |
-| `length` | `non_neg_integer()` | required | Byte length. |
+| `length` | `pos_integer()` | required | Byte length. |
 | `replacement_hint` | `String.t() \| nil` | optional | Redaction replacement. |
 | `category` | `atom() \| String.t()` | required | Built-in patterns and bundle `secret`-set entries emit `:secret`. `Patterns.compile/1` keeps the entry's own string and defaults to `"unknown"`. The gate's scanner-failure hit carries `"scanner"`. The vocabulary is open: the scanner accepts any atom or string, because a hit map may only grow (D17). `SigilGuard.Patterns.secret_category?/1` defines which categories count as a secret for the kernel's external-sink rule and the output contract re-scan: `:secret`, `:credential`, and their string forms. A hit of category `pii` is what `digest_only_pii` digests. |
 | `confidence` | `float()` in `0.0..1.0` | optional | Staged-pipeline score. |
@@ -1027,9 +1015,9 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
 | `:invalid_hook_options` | decision reason | pass a keyword list, module-atom hook list, and bounded integer timeout | blockable phase blocks; notify-only logged |
 | `:sandbox_required` | decision reason | supply sandbox identity or add an explicit `isolation:` rule | quarantine/block per the matrix |
 | `:invalid_isolation_level` | context validation | use a closed-enum value | request blocked |
-| `:scanner_failed` | gate audit metadata `scanner_error` | fix the scanner pipeline or its options | gate blocks; the hit list holds one `scanner_error` hit |
+| `:scanner_failed` | gate audit metadata `scanner_error` | fix the scanner pipeline or its options | gate blocks and adds one `scanner_error` hit for nonempty text |
 | `:stream_holdback_overflow` | `audit_metadata.deny_reason` of the halting stream decision | raise `:max_stream_bytes` or shorten the message | the stream halts with a `block` decision and emits nothing further. `:invalid_utf8` and `:incomplete_utf8` are the other two stream halt reasons. |
-| invalid scanner options | `ArgumentError` | pass a keyword list | direct scan rejected; runtime gate catches and blocks |
+| invalid scanner options | `ArgumentError` or error tuple | pass a keyword list with valid scanner options | direct scan rejected and the runtime gate blocks |
 | invalid policy options | blocked verdict | pass a keyword list | action blocked at highest risk |
 
 ## Security Considerations

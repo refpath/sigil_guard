@@ -628,6 +628,18 @@ context as empty, so the policy default decided the change.
 neither nil nor a map. Releases up to 1.0.5 ignored such a value and decided
 the boundary without a policy.
 
+### Custom Scanner Hits And Redaction Options
+
+Custom scanner hits must cover a nonempty byte span and carry its exact
+bytes in `match`. `Scanner.scan_result/2` returns
+`{:error, :invalid_pipeline_result}` for an invalid hit, and `Scanner.scan/2`
+raises `ArgumentError`. Derive `match` from the original input using `offset`
+and `length`. The runtime gate blocks failed scans with
+`scanner_error: :scanner_failed`. On empty input its hit list is empty.
+
+Pass a binary as `:default_replacement` or omit the option to use the default.
+The runtime gate blocks other values with `runtime_input_error: :invalid_options`.
+
 ### Policy File Errors
 
 `BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}` for a

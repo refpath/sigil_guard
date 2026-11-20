@@ -184,15 +184,17 @@ defmodule SigilGuard.Runtime.StreamTest do
     test "an overflow halts with a typed reason and what was released before it" do
       stream = Stream.new(@context, max_stream_bytes: 600, stream_window_bytes: 16)
       first = String.duplicate("a", 400)
+      overflow = String.duplicate("b", 400)
 
       {stream, _, released} = Stream.push(stream, first)
-      {stream, decision, ""} = Stream.push(stream, String.duplicate("b", 400))
+      {stream, decision, ""} = Stream.push(stream, overflow)
 
       assert stream.halted?
       assert decision.action == :block
       assert decision.reason == "stream capacity exceeded"
       assert decision.audit_metadata.deny_reason == :stream_holdback_overflow
       assert decision.audit_metadata.stream_input_bytes == 800
+      assert decision.audit_metadata.stream_input_sha256 == sha256_hex(first <> overflow)
       assert decision.audit_metadata.stream_emitted_bytes == byte_size(released)
       assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex(released)
 
