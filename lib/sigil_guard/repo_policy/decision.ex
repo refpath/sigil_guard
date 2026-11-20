@@ -8,8 +8,10 @@ defmodule SigilGuard.RepoPolicy.Decision do
   change was gated.
   """
 
+  @typedoc "A repository verdict."
   @type verdict :: :allow | :require_approval | :block
 
+  @typedoc "The outcome of evaluating a change against a repository policy."
   @type t :: %__MODULE__{
           verdict: verdict(),
           reason: String.t(),

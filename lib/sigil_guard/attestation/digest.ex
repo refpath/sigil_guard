@@ -24,6 +24,7 @@ defmodule SigilGuard.Attestation.Digest do
     agent_response
   )a
 
+  @typedoc "The statement types a digest is computed for."
   @type statement_type ::
           :tool_request
           | :tool_result
@@ -34,6 +35,7 @@ defmodule SigilGuard.Attestation.Digest do
           | :agent_request
           | :agent_response
 
+  @typedoc "Why a digest could not be computed."
   @type error_reason :: :invalid_payload | :unsupported_number_range | :unknown_statement_type
 
   @doc """

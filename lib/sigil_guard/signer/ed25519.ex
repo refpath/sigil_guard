@@ -40,6 +40,7 @@ defmodule SigilGuard.Signer.Ed25519 do
     ]
   ]
 
+  @typedoc "The key pair the signer process holds."
   @type t :: %__MODULE__{
           private_key: binary(),
           public_key: binary()

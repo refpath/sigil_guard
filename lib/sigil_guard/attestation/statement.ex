@@ -13,8 +13,11 @@ defmodule SigilGuard.Attestation.Statement do
   @subject_order ~w(action payload context manifest)
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
 
+  @typedoc "A subject name: `:action`, `:payload`, `:context`, `:manifest`, or a string."
   @type digest_name :: :action | :payload | :context | :manifest | String.t()
+  @typedoc "Subject digests by subject name."
   @type digests :: %{required(digest_name()) => String.t()}
+  @typedoc "An in-toto statement with string keys."
   @type statement :: %{required(String.t()) => String.t() | map() | [map()]}
 
   @doc """

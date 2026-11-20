@@ -20,6 +20,7 @@ defmodule SigilGuard.Audit.Action do
 
   """
 
+  @typedoc "What an audited action was and how policy treated it."
   @type t :: %__MODULE__{
           description: String.t() | nil,
           risk_level: SigilGuard.Policy.risk_level() | nil,

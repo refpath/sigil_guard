@@ -28,8 +28,10 @@ defmodule SigilGuard.Audit.Export do
     "version" => :version
   }
 
+  @typedoc "An audit export with string keys."
   @type t :: %{required(String.t()) => term()}
 
+  @typedoc "An export that verified, with its checkpoint and anchor results."
   @type verified :: %{
           export: t(),
           checkpoint: Checkpoint.verified(),

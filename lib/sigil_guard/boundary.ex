@@ -27,9 +27,12 @@ defmodule SigilGuard.Boundary do
   @list_fields [:hits, :indicators, :hook_results, :repo_changes]
   @digest_fields [:action_digest, :payload_digest, :context_digest]
 
+  @typedoc "The sandbox isolation a tool runs under."
   @type isolation_level :: :none | :container | :vm | :remote_attested
+  @typedoc "How sensitive the source of the content is."
   @type source_sensitivity :: :public | :internal | :private
 
+  @typedoc "Why `validate/1` refused a boundary."
   @type error ::
           :invalid_boundary
           | :invalid_phase
@@ -39,6 +42,7 @@ defmodule SigilGuard.Boundary do
           | :invalid_trust_level
           | :invalid_isolation_level
 
+  @typedoc "The facts of one boundary crossing that `SigilGuard.BoundaryPolicy` decides on."
   @type t :: %__MODULE__{
           phase: Lifecycle.phase() | nil,
           source: atom() | String.t() | nil,

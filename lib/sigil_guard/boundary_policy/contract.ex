@@ -48,6 +48,7 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
           credential_transform: transform()
         }
 
+  @typedoc "Why an output contract did not parse."
   @type parse_error :: :invalid_output_contract | :unknown_transform
 
   defstruct max_size: nil,

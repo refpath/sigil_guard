@@ -19,6 +19,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   @ed25519_signature_bytes 64
   @default_max_skew_ms 60_000
 
+  @typedoc "Why a bundle failed verification."
   @type verify_error :: TrustBundle.verify_error()
 
   @doc """

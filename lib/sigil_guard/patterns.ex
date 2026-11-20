@@ -30,6 +30,7 @@ defmodule SigilGuard.Patterns do
   """
   @type category :: :secret | :injection | :poisoning | String.t()
 
+  @typedoc "One match the scanner found."
   @type scan_hit :: %{
           required(:name) => String.t(),
           required(:category) => category(),
@@ -48,6 +49,7 @@ defmodule SigilGuard.Patterns do
   @typedoc "`secret` feeds the scanner; `injection` and `poisoning` feed quarantine."
   @type pattern_set :: :secret | :injection | :poisoning
 
+  @typedoc "A pattern ready for scanning."
   @type compiled_pattern :: %{
           name: String.t(),
           category: category(),

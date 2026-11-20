@@ -10,8 +10,10 @@ defmodule SigilGuard.Quarantine do
 
   alias SigilGuard.Context
 
+  @typedoc "How the inspector judged the text."
   @type verdict :: :safe | :suspicious | :blocked
 
+  @typedoc "What `inspect/3` found, with the sanitized text when it found indicators."
   @type result :: %{
           verdict: verdict(),
           indicators: [map()],

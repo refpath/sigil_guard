@@ -37,6 +37,7 @@ defmodule SigilGuard.Runtime.Stream do
   @default_max_pending_bytes 1_048_576
   @unbounded_prefix ~r/api[_-]?key|bearer|postgres:\/\/|mysql:\/\/|mongodb:\/\/|secret|password|token|ignore|system|developer|when|before|after|display|visibility/i
 
+  @typedoc "A stream in progress; pass it back to `push/2` and `finish/1`."
   @type t :: %__MODULE__{
           context: Context.t(),
           opts: keyword(),

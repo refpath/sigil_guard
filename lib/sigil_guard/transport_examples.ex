@@ -47,6 +47,7 @@ defmodule SigilGuard.TransportExamples do
 
   alias SigilGuard.Context
 
+  @typedoc "A JSON-RPC `tools/call` request with string keys."
   @type tool_call_request :: %{
           required(String.t()) =>
             String.t()

@@ -94,8 +94,10 @@ defmodule SigilGuard.AgentCard do
   @type trust_material ::
           %{optional(String.t()) => binary()} | SigilGuard.TrustBundle.t()
 
+  @typedoc "Why a map is not a valid agent card."
   @type card_error :: :invalid_agent_card | :unsupported_number_range
 
+  @typedoc "Why `verify/3` refused an agent card envelope."
   @type verify_error ::
           :invalid_envelope
           | :invalid_payload_type

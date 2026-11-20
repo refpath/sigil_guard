@@ -49,7 +49,9 @@ defmodule SigilGuard.TrustBundle.Schema do
   @revocation_fields ~w(kind id revoked_at)
   @revocation_kinds ~w(key bundle manifest actor)
 
+  @typedoc "The two signed document types."
   @type document_type :: :bundle | :rotation
+  @typedoc "Why a bundle or rotation document failed the schema."
   @type schema_error :: :invalid_bundle_format | :unsupported_profile_version | :unknown_role
 
   @doc """

@@ -11,6 +11,7 @@ defmodule SigilGuard.Canonical.JCS do
   @max_safe_integer 9_007_199_254_740_991
   @min_safe_integer -@max_safe_integer
 
+  @typedoc "Why a term has no RFC 8785 encoding."
   @type error_reason :: :unsupported_number_range | :invalid_map
 
   @doc """

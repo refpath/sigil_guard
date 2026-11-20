@@ -13,12 +13,14 @@ defmodule SigilGuard.TrustBundle.Cache do
 
   @table SigilGuard.Runtime.Tables.trust_bundle()
 
+  @typedoc "A pinned root: version, signature threshold, key ids and raw public keys."
   @type root_pin :: %{
           version: pos_integer(),
           threshold: pos_integer(),
           keyids: [String.t()],
           keys: %{String.t() => binary()}
         }
+  @typedoc "Why `put/1` refused a bundle."
   @type put_error ::
           :sequence_below_floor | :forked_root_chain | :revoked_key | :cache_unavailable
 

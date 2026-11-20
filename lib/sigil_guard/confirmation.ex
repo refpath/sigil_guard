@@ -45,6 +45,7 @@ defmodule SigilGuard.Confirmation do
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @nonce_regex ~r/\A[0-9a-f]{32}\z/
 
+  @typedoc "The decoded claims of a confirmation token."
   @type claims :: %{
           required(String.t()) => String.t() | integer()
         }

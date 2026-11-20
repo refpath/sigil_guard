@@ -37,6 +37,7 @@ defmodule SigilGuard.Vault do
 
   """
 
+  @typedoc "The id of a stored secret."
   @type vault_id :: String.t()
 
   @doc "Encrypt plaintext and store it, returning a vault ID for later retrieval."

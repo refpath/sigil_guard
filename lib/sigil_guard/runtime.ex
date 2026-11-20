@@ -57,6 +57,7 @@ defmodule SigilGuard.Runtime do
   alias SigilGuard.TrustBundle.Cache
   alias SigilGuard.TrustBundle.Quarantine
 
+  @typedoc "A `start_link/1` option."
   @type option :: {:config, keyword()} | {:name, GenServer.name()}
 
   @doc "Start the runtime and take ownership of SigilGuard's named ETS tables."

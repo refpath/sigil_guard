@@ -72,8 +72,10 @@ defmodule SigilGuard.RepoPolicy do
     "rules" => :rules
   }
 
+  @typedoc "A repository verdict."
   @type verdict :: Decision.verdict()
 
+  @typedoc "One compiled repository rule."
   @type rule :: %{
           id: String.t(),
           decision: verdict(),
@@ -85,6 +87,7 @@ defmodule SigilGuard.RepoPolicy do
           index: non_neg_integer()
         }
 
+  @typedoc "A compiled repository policy."
   @type t :: %__MODULE__{
           version: pos_integer(),
           default: verdict(),

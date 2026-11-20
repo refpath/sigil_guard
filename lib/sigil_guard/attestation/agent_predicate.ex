@@ -16,7 +16,9 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   @trust_levels ~w(low medium high)
   @response_statuses ~w(ok error)
 
+  @typedoc "The two agent-to-agent statement types."
   @type statement_type :: :agent_request | :agent_response
+  @typedoc "Why an agent predicate or digest could not be built."
   @type error_reason :: :invalid_payload | :unsupported_number_range
 
   @doc """

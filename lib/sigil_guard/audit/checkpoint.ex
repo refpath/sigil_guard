@@ -54,9 +54,12 @@ defmodule SigilGuard.Audit.Checkpoint do
     "version" => :version
   }
 
+  @typedoc "`:verified` for a checkpoint with a valid signature, `:unsigned` for one without."
   @type status :: :verified | :unsigned
+  @typedoc "An audit checkpoint."
   @type t :: map()
 
+  @typedoc "A checkpoint that verified: its digest, signature status and issuer."
   @type verified :: %{
           checkpoint: t(),
           status: status(),

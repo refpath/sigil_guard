@@ -25,13 +25,17 @@ defmodule SigilGuard.Decision do
   the statement.
   """
 
+  @typedoc "What the host does with the crossing."
   @type action :: :allow | :redact | :quarantine | :block | :confirm
+  @typedoc "The action that runs if the decision is carried out: for a confirm decision, after acceptance; nil for a block."
   @type effect :: :allow | :redact | :quarantine | nil
+  @typedoc "The three-way verdict, kept for compatibility beside `action`."
   @type verdict :: SigilGuard.Policy.verdict()
 
   @typedoc "A rule that contributed to the verdict; mirrors attestation matched rules."
   @type matched_rule :: %{rule_id: String.t(), explanation: String.t()}
 
+  @typedoc "The outcome of a boundary evaluation."
   @type t :: %__MODULE__{
           verdict: verdict(),
           action: action(),

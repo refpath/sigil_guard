@@ -22,6 +22,7 @@ defmodule SigilGuard.Identity.Binding do
 
   """
 
+  @typedoc "An identity a provider bound to an actor, with its trust level."
   @type t :: %__MODULE__{
           provider: String.t() | nil,
           id: String.t() | nil,

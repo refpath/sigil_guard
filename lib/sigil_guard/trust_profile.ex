@@ -30,6 +30,7 @@ defmodule SigilGuard.TrustProfile do
               {type, "https://sigilguard.dev/attestation/#{type_string}/v1", type_string}
             end)
 
+  @typedoc "The statement types the profile registers."
   @type statement_type ::
           :tool_request
           | :tool_result
@@ -40,6 +41,7 @@ defmodule SigilGuard.TrustProfile do
           | :agent_request
           | :agent_response
 
+  @typedoc "Why a statement failed profile validation."
   @type validate_error ::
           :invalid_profile
           | :unsupported_profile_version

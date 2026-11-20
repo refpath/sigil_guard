@@ -20,6 +20,7 @@ defmodule SigilGuard.Audit.ExecutionResult do
 
   """
 
+  @typedoc "The outcome of an executed command."
   @type t :: %__MODULE__{
           success: boolean() | nil,
           exit_code: integer() | nil,

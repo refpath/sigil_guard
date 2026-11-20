@@ -18,6 +18,7 @@ defmodule SigilGuard.Audit.Actor do
 
   """
 
+  @typedoc "Who performed an audited action, as the host identified them."
   @type t :: %__MODULE__{
           channel: String.t() | nil,
           user_id: String.t() | nil,

@@ -62,8 +62,11 @@ defmodule SigilGuard.Attestation do
     "agent_response" => :agent_response
   }
 
+  @typedoc "A decoded Agent Trust statement."
   @type payload :: map()
+  @typedoc "A DSSE envelope: `payloadType`, base64url `payload` and `signatures`."
   @type envelope :: map()
+  @typedoc "Why `sign/3` could not sign a statement."
   @type sign_error ::
           :invalid_profile
           | :unknown_statement_type
@@ -72,6 +75,7 @@ defmodule SigilGuard.Attestation do
           | :invalid_signer
           | :invalid_envelope
 
+  @typedoc "Why `verify/3` refused an envelope."
   @type verify_error ::
           :invalid_envelope
           | :invalid_payload_type
@@ -93,6 +97,7 @@ defmodule SigilGuard.Attestation do
           | :replay_capacity_exceeded
           | :replay_store_unavailable
 
+  @typedoc "Why `from_decision/3` could not build a statement."
   @type from_decision_error ::
           :unknown_statement_type
           | :invalid_payload

@@ -66,6 +66,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
           matchers: %{String.t() => [String.t()]}
         }
 
+  @typedoc "Why a policy file did not load or parse."
   @type parse_error ::
           :invalid_policy_file
           | :invalid_options
@@ -73,6 +74,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
           | :invalid_output_contract
           | :unknown_transform
 
+  @typedoc "A parsed policy file: rules, default verdict, output contracts and repository policy."
   @type t :: %__MODULE__{
           rules: [rule()],
           default: Verdict.t() | nil,

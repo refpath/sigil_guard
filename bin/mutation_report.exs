@@ -1,6 +1,6 @@
 defmodule SigilGuard.MutationReport do
   @moduledoc false
-  @source_hash "78fbc726abf4e730b44cfc1f8d4c86595c82e82a62023176f06bb95a68322837"
+  @source_hash "11a0e0e2e55168434933b521083033432f0c4dc3a7152dd666a451280734db4d"
   @equivalents [
     {"%{allow: 0, redact: 1, confirm: 2, quarantine: 3, block: 4}",
      "%{redact: 1, allow: 0, confirm: 2, quarantine: 3, block: 4}"},

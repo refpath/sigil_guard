@@ -31,6 +31,7 @@ defmodule SigilGuard.Context do
       :ok
   """
 
+  @typedoc "Where in an agent exchange the boundary sits."
   @type phase ::
           :inbound_user
           | :tool_request
@@ -38,13 +39,19 @@ defmodule SigilGuard.Context do
           | :outbound_model
           | :repo_change
 
+  @typedoc "How far the source of the content is trusted."
   @type trust_zone :: :trusted | :semi_trusted | :untrusted
+  @typedoc "Where the content goes."
   @type sink :: :internal | :model | :user | :tool | :external | :network | :log | :repo
+  @typedoc "Where the content comes from."
   @type origin ::
           :unknown | :user | :model | :tool | :app | :resource | :repo | :registry | atom()
+  @typedoc "The sandbox isolation a tool runs under."
   @type isolation_level :: :none | :container | :vm | :remote_attested
+  @typedoc "The network access the sandbox allows."
   @type network_posture :: :none | :outbound | :bidirectional
 
+  @typedoc "The host's description of a boundary: phase, origin, sink, actor, trust and sandbox."
   @type t :: %__MODULE__{
           phase: phase(),
           actor: String.t() | nil,

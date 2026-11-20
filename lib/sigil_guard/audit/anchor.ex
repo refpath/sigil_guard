@@ -35,8 +35,10 @@ defmodule SigilGuard.Audit.Anchor do
     "worm" => :worm
   }
 
+  @typedoc "An audit anchor record with string keys."
   @type t :: %{required(String.t()) => term()}
 
+  @typedoc "An anchor record that verified, with its digest."
   @type verified :: %{
           record: t(),
           digest: String.t()

@@ -3,8 +3,10 @@ defmodule SigilGuard.ConfigError do
   Raised when SigilGuard configuration fails closed validation.
   """
 
+  @typedoc "What was wrong with the configuration."
   @type reason :: :legacy_contract_removed | :unknown_config_key | :invalid_config
 
+  @typedoc "A configuration error naming the offending key."
   @type t :: %__MODULE__{
           key: atom(),
           reason: reason(),

@@ -22,6 +22,7 @@ defmodule SigilGuard.Vault.Entry do
 
   """
 
+  @typedoc "One stored secret with its metadata."
   @type t :: %__MODULE__{
           id: SigilGuard.Vault.vault_id() | nil,
           ciphertext: binary() | nil,

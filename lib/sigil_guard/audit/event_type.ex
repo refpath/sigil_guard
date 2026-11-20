@@ -32,6 +32,7 @@ defmodule SigilGuard.Audit.EventType do
 
   """
 
+  @typedoc "The structured audit event types."
   @type t ::
           :command_execution
           | :file_access

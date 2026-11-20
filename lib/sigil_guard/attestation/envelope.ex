@@ -12,13 +12,17 @@ defmodule SigilGuard.Attestation.Envelope do
   @ed25519_public_key_bytes 32
   @ed25519_signature_bytes 64
 
+  @typedoc "A DSSE envelope with string keys."
   @type envelope :: %{
           required(String.t()) => String.t() | [signature_entry()]
         }
+  @typedoc "One envelope signature: `keyid` and base64url `sig`."
   @type signature_entry :: %{
           required(String.t()) => String.t()
         }
+  @typedoc "A `SigilGuard.Signer` module, or one with the key id to record."
   @type signer :: module() | {module(), String.t()}
+  @typedoc "Why an envelope signature check failed."
   @type verify_error ::
           :invalid_envelope
           | :invalid_payload_type

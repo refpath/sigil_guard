@@ -51,8 +51,10 @@ defmodule SigilGuard.Audit do
   alias SigilGuard.Crypto
   alias SigilGuard.Telemetry
 
+  @typedoc "The event type string recorded on an event."
   @type event_type :: String.t()
 
+  @typedoc "One audit event; `hmac` and `prev_hmac` link it into the chain."
   @type t :: %__MODULE__{
           id: String.t(),
           type: event_type(),

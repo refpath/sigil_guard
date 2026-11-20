@@ -13,6 +13,7 @@ defmodule SigilGuard.Verdict do
   @verdicts [:allow, :redact, :confirm, :quarantine, :block]
   @rank %{allow: 0, redact: 1, confirm: 2, quarantine: 3, block: 4}
 
+  @typedoc "A verdict in the unified vocabulary; `rank/1` orders them by strength."
   @type t :: :allow | :redact | :confirm | :quarantine | :block
 
   @doc "Return the five verdicts from weakest to strongest."

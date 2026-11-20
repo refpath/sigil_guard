@@ -49,6 +49,7 @@ defmodule SigilGuard.AgentTrust do
     "explanation" => "no bundle-declared issuer matched the peer card"
   }
 
+  @typedoc "Why an agent request or response could not be attested."
   @type attest_error ::
           AgentCard.verify_error()
           | :unknown_agent
@@ -59,6 +60,7 @@ defmodule SigilGuard.AgentTrust do
           | Attestation.sign_error()
           | Attestation.from_decision_error()
 
+  @typedoc "Why `verify_agent_response/3` refused a response statement."
   @type verify_response_error ::
           attest_error() | Attestation.verify_error() | :invalid_payload | :invalid_audience
 

@@ -48,6 +48,7 @@ defmodule SigilGuard.Lifecycle do
     tool_result: :tool_result
   }
 
+  @typedoc "The agent lifecycle phases hooks run at."
   @type phase ::
           :session_start
           | :tool_request

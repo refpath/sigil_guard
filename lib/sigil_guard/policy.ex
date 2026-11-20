@@ -42,7 +42,9 @@ defmodule SigilGuard.Policy do
 
   alias SigilGuard.Identity
 
+  @typedoc "How risky an action is."
   @type risk_level :: :low | :medium | :high
+  @typedoc "The three-way policy verdict."
   @type verdict :: :allowed | :blocked | {:confirm, String.t()}
 
   @doc "Evaluate an action against a trust level and return a verdict."

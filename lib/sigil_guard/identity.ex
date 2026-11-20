@@ -35,6 +35,7 @@ defmodule SigilGuard.Identity do
 
   """
 
+  @typedoc "How far an actor is trusted."
   @type trust_level :: :low | :medium | :high
 
   @doc "Return the identity string (e.g., DID, principal ID) for the given context."
