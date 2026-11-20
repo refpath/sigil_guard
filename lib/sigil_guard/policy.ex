@@ -84,9 +84,9 @@ defmodule SigilGuard.Policy do
 
   ## Options
 
-    * `:risk_level` — override the risk classification (default: look up via `:risk_mappings`)
-    * `:risk_mappings` — map of exact action name to risk level
-    * `:trust_thresholds` — override default trust thresholds per risk level
+    * `:risk_level` - override the risk classification (default: look up via `:risk_mappings`)
+    * `:risk_mappings` - map of exact action name to risk level
+    * `:trust_thresholds` - override default trust thresholds per risk level
 
   ## Examples
 
@@ -175,9 +175,9 @@ defmodule SigilGuard.Policy do
 
   ## Options
 
-    * `:max_requests` — maximum requests per window (default: 100)
-    * `:window_ms` — time window in milliseconds (default: 60_000)
-    * `:rate_store` — ETS table name for rate tracking (default: `:sigil_guard_rates`)
+    * `:max_requests` - maximum requests per window (default: 100)
+    * `:window_ms` - time window in milliseconds (default: 60_000)
+    * `:rate_store` - ETS table name for rate tracking (default: `:sigil_guard_rates`)
 
   The default table is created and owned by `SigilGuard.Runtime`; without a
   running runtime every check fails with `:rate_limited`. A custom `:rate_store`

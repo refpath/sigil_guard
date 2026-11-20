@@ -4,11 +4,11 @@ defmodule SigilGuard.Vault.Entry do
 
   ## Fields
 
-    * `:id` — unique vault identifier
-    * `:ciphertext` — opaque encrypted data (binary)
-    * `:description` — human-readable label for the secret
-    * `:created_at` — ISO 8601 timestamp when the entry was created
-    * `:tags` — list of categorization strings
+    * `:id` - unique vault identifier
+    * `:ciphertext` - opaque encrypted data (binary)
+    * `:description` - human-readable label for the secret
+    * `:created_at` - ISO 8601 timestamp when the entry was created
+    * `:tags` - list of categorization strings
 
   ## Example
 

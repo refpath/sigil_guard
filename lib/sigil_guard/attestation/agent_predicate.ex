@@ -4,9 +4,8 @@ defmodule SigilGuard.Attestation.AgentPredicate do
 
   This module covers the `agent_request` and `agent_response` fields owned by
   Agent Trust and the attestation action-digest preimage rows for those statement types.
-  It deliberately stays below full attestation orchestration; card resolution,
-  signing, and digest recomputation are handled by `SigilGuard.Attestation` and
-  `SigilGuard.AgentTrust`.
+  Card resolution, signing and digest recomputation live in
+  `SigilGuard.Attestation` and `SigilGuard.AgentTrust`.
   """
 
   alias SigilGuard.Canonical.JCS

@@ -274,8 +274,8 @@ changed =
 
 ## Attest What Was Allowed
 
-Confirmation answers “may this run?” Attestation answers “what did this host
-observe and decide?” This deterministic signer keeps the tutorial repeatable.
+Confirmation answers "may this run?" Attestation answers "what did this host
+observe and decide?" This deterministic signer keeps the tutorial repeatable.
 Real deployments should use a protected Ed25519 key and publish its trust
 material through their normal identity system.
 
@@ -361,21 +361,6 @@ missing_attestation =
   signed: accepted_attestation.verdict,
   unsigned: missing_attestation.verdict,
   unsigned_reason: missing_attestation.audit_metadata.deny_reason
-}
-```
-
-## What To Take Away
-
-None of the three objects transfers callback ownership to the model or replaces
-the runtime boundary gate.
-
-```elixir
-%{
-  pinned_manifest: capability.digest,
-  drift: drifted.verdict,
-  explicit_approval: approved.verdict,
-  replay: replay.verdict,
-  signed_evidence: accepted_attestation.verdict
 }
 ```
 
@@ -663,5 +648,20 @@ false = String.contains?(released_output.sanitized_text, "Ignore previous instru
   token_under_another_manifest: under_another_pin.audit_metadata.confirmation_reason,
   accepted: {released_output.verdict, released_output.action},
   release_status: released_output.audit_metadata.release_status
+}
+```
+
+## What To Take Away
+
+None of the three objects transfers callback ownership to the model or replaces
+the runtime boundary gate.
+
+```elixir
+%{
+  pinned_manifest: capability.digest,
+  drift: drifted.verdict,
+  explicit_approval: approved.verdict,
+  replay: replay.verdict,
+  signed_evidence: accepted_attestation.verdict
 }
 ```

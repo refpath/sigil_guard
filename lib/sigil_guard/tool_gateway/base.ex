@@ -9,7 +9,7 @@ defmodule SigilGuard.ToolGateway.Base do
 
   Most applications should call `SigilGuard.MCP.Gateway` or
   `SigilGuard.ToolGateway`. This lower-level module exists for their shared
-  mechanics and for adapters that intentionally do not use capability
+  mechanics and for adapters that do not use capability
   manifests.
 
   Confirmation tokens bind the structured payload, protocol revision, and
@@ -390,7 +390,7 @@ defmodule SigilGuard.ToolGateway.Base do
   @doc """
   Convert a runtime decision into an audit-safe JSON-RPC response.
 
-  The response intentionally omits raw payload text. Metadata includes hashes,
+  The response omits raw payload text. Metadata includes hashes,
   counts, indicator identifiers, and confirmation digests when available.
   """
   @spec response_for_decision(Decision.t(), term(), keyword()) :: map()

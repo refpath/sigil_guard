@@ -6,7 +6,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGate do
 
       mix sigil_guard.migration_gate
 
-  The gate is intentionally static: M6 owns the deletion list, and future
+  The gate is static: M6 owns the deletion list, and future
   deletion work must extend this required mapping list in the same commit as the
   deletion and migration docs.
   """

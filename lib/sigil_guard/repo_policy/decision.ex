@@ -2,7 +2,7 @@ defmodule SigilGuard.RepoPolicy.Decision do
   @moduledoc """
   Deterministic result from `SigilGuard.RepoPolicy.evaluate/2`.
 
-  The verdict vocabulary intentionally mirrors deterministic repo governance:
+  The verdict vocabulary mirrors deterministic repo governance:
   allow, require approval, or block. Decisions also carry the matched rule IDs,
   normalized changed paths, and unmatched paths so callers can audit why a repo
   change was gated.

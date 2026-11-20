@@ -327,8 +327,6 @@ true = Map.has_key?(span_attributes, "sigilguard.payload.digest")
 %{metrics_safe: bounded_attributes, span_detail: span_attributes}
 ```
 
-## Takeaway
-
 ## Evidence Digests, Decision Ids, And Advisory Risk
 
 `Runtime.Stream` records the byte count and SHA-256 of what it received and what

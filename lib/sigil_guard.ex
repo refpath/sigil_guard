@@ -61,7 +61,7 @@ defmodule SigilGuard do
 
   ## Options
 
-    * `:patterns` — compiled patterns to use (default: built-in patterns)
+    * `:patterns` - compiled patterns to use (default: built-in patterns)
 
   ## Examples
 
@@ -81,7 +81,7 @@ defmodule SigilGuard do
 
   ## Options
 
-    * `:default_replacement` — fallback when a hit has no hint (default: `"[REDACTED]"`)
+    * `:default_replacement` - fallback when a hit has no hint (default: `"[REDACTED]"`)
 
   """
   @spec redact(String.t(), [Patterns.scan_hit()], keyword()) :: String.t()
@@ -134,9 +134,9 @@ defmodule SigilGuard do
 
   ## Options
 
-    * `:risk_level` — override the risk classification
-    * `:risk_mappings` — map of action to risk level
-    * `:trust_thresholds` — override default trust thresholds
+    * `:risk_level` - override the risk classification
+    * `:risk_mappings` - map of action to risk level
+    * `:trust_thresholds` - override default trust thresholds
 
   ## Examples
 

@@ -4,10 +4,10 @@ defmodule SigilGuard.Audit.ExecutionResult do
 
   ## Fields
 
-    * `:success` — whether execution completed successfully
-    * `:exit_code` — process exit code (if applicable)
-    * `:duration_ms` — execution duration in milliseconds
-    * `:error` — error message (if failed)
+    * `:success` - whether execution completed successfully
+    * `:exit_code` - process exit code (if applicable)
+    * `:duration_ms` - execution duration in milliseconds
+    * `:error` - error message (if failed)
 
   ## Example
 

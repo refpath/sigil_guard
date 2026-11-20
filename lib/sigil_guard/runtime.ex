@@ -39,7 +39,7 @@ defmodule SigilGuard.Runtime do
       mappings = SigilGuard.Runtime.trust_mappings()
       SigilGuard.Identity.Static.trust_level(actor, mappings)
 
-  SigilGuard's tables are intentionally process-global named tables, so a host
+  SigilGuard's tables are process-global named tables, so a host
   should run exactly one runtime. Only the runtime creates them. Without a
   running runtime the stateful functions fail closed: a nonce cannot be
   recorded (`:replay_store_unavailable`), the default rate limiter refuses,

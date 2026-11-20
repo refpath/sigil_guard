@@ -19,7 +19,7 @@
 
 SigilGuard is an embedded security runtime for MCP v2 and agent-tool boundaries,
 in native Elixir. MCP specifications are date-versioned; throughout this
-project, “MCP v2” means the final `2026-07-28` revision. SigilGuard sits between
+project, "MCP v2" means the final `2026-07-28` revision. SigilGuard sits between
 a language model and the tools it can reach, decides whether a tool call, a tool
 result, or a model output may cross a boundary, and can produce signed,
 tamper-evident evidence of each decision through attestations and the audit

@@ -266,7 +266,7 @@ defmodule SigilGuard.Audit do
 
   ## Options
 
-    * `:prev_hmac` — verify a segment that continues from a known tip
+    * `:prev_hmac` - verify a segment that continues from a known tip
       rather than from genesis. Pass the `hmac` of the event immediately
       preceding the segment (default: `nil`, the chain starts at genesis).
 

@@ -243,16 +243,12 @@ true = String.ends_with?(constrained, "[TRUNCATED]")
 ```
 
 A structured payload is blocked here because this contract admits only text.
-There is no lossy conversion to “make it fit.”
+There is no lossy conversion to "make it fit."
 
 ```elixir
 {:block, "contract.external.class"} =
   Contract.enforce(contract, "external", %{"status" => "ok"}, verdict: :allow)
 ```
-
-## Takeaway
-
-Next: [An AI Agent Under Attack](ai-agent-under-attack.livemd).
 
 ## The Gate Applies The Policy File
 
@@ -375,3 +371,5 @@ true = "contract.external.class" in structured_through_gate.audit_metadata.match
   structured: structured_through_gate.reason
 }
 ```
+
+Next: [An AI Agent Under Attack](ai-agent-under-attack.livemd).

@@ -2,7 +2,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   @moduledoc """
   In-memory quarantine records for failed trust-bundle loads and verifies.
 
-  Records are per-boot diagnostic metadata. They deliberately store reasons,
+  Records are per-boot diagnostic metadata. They store reasons,
   bundle ids, digests, sequences, timestamps, and evidence references only;
   they do not retain payload bytes or signature material. Retention is capped
   at 1,000 records and 16 evidence references per record. Identifiers or evidence

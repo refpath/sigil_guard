@@ -2,7 +2,7 @@ defmodule SigilGuard.MCP.Protocol do
   @moduledoc """
   Selects MCP protocol semantics and reads result discriminators.
 
-  SigilGuard is deliberately transport-neutral. It neither calls
+  SigilGuard is transport-neutral. It neither calls
   `server/discover` nor negotiates protocol revisions; the host adapter does
   that work and passes the selected revision to this module. When no explicit
   revision is supplied, `version/2` reads
@@ -15,8 +15,8 @@ defmodule SigilGuard.MCP.Protocol do
   use `-32021`; SigilGuard does not emit those protocol errors.
 
   Only `2026-07-28` is treated as the modern revision. An unknown future date
-  is not assumed to be compatible: the adapter must first establish support
-  and SigilGuard must deliberately add that revision.
+  is not assumed to be compatible: the adapter must first establish support,
+  and SigilGuard needs a release that adds the revision.
 
   Result helpers understand the final protocol's `resultType` discriminator
   and its `"input_required"` multi-round-trip result. They preserve any

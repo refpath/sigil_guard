@@ -4,10 +4,10 @@ defmodule SigilGuard.Audit.Action do
 
   ## Fields
 
-    * `:description` — command or tool name being executed
-    * `:risk_level` — classified risk level (`:low`, `:medium`, `:high`)
-    * `:approved` — whether the user/policy authorized the action
-    * `:allowed` — whether the security policy enforcement allowed it
+    * `:description` - command or tool name being executed
+    * `:risk_level` - classified risk level (`:low`, `:medium`, `:high`)
+    * `:approved` - whether the user/policy authorized the action
+    * `:allowed` - whether the security policy enforcement allowed it
 
   ## Example
 

@@ -23,7 +23,7 @@ defmodule SigilGuard.Audit.CloudEvents do
   @default_source "urn:sigilguard"
 
   # These reserved clear-class keys project into `data.metadata`.
-  # `trace_id`/`span_id` are deliberately excluded - they become `traceparent`.
+  # `trace_id`/`span_id` are excluded: they become `traceparent`.
   @reserved_metadata_keys ~w(
     evidence decision_id decision scanner_summary
     action_digest payload_digest context_digest manifest_digest policy_digest

@@ -4,9 +4,9 @@ defmodule SigilGuard.Audit.Actor do
 
   ## Fields
 
-    * `:channel` — interaction channel (`"cli"`, `"web"`, `"mcp"`, etc.)
-    * `:user_id` — machine-readable identity (DID, principal ID)
-    * `:username` — human-readable display name
+    * `:channel` - interaction channel (`"cli"`, `"web"`, `"mcp"`, etc.)
+    * `:user_id` - machine-readable identity (DID, principal ID)
+    * `:username` - human-readable display name
 
   ## Example
 

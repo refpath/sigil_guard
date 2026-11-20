@@ -312,5 +312,3 @@ from_other_server = guard_as.(:app, "other-mcp")
   browser_enforcement: "host-owned"
 }
 ```
-
-## Takeaway

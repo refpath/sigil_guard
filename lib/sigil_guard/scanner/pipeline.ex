@@ -14,7 +14,7 @@ defmodule SigilGuard.Scanner.Pipeline do
     * `:enrich` - add confidence and non-sensitive signal metadata
     * `:sort` - return hits in source order
 
-  The pipeline is intentionally rule-based and local. It does not send content
+  The pipeline is rule-based and local. It does not send content
   to an external classifier or probabilistic model.
   """
 

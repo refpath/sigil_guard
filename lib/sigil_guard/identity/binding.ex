@@ -6,10 +6,10 @@ defmodule SigilGuard.Identity.Binding do
 
   ## Fields
 
-    * `:provider` — identity provider name (`"google"`, `"eidas"`, `"did:key"`, etc.)
-    * `:id` — provider-specific user identifier
-    * `:trust_level` — trust level granted by this binding (`:low`, `:medium`, `:high`)
-    * `:bound_at` — ISO 8601 timestamp when the binding was established
+    * `:provider` - identity provider name (`"google"`, `"eidas"`, `"did:key"`, etc.)
+    * `:id` - provider-specific user identifier
+    * `:trust_level` - trust level granted by this binding (`:low`, `:medium`, `:high`)
+    * `:bound_at` - ISO 8601 timestamp when the binding was established
 
   ## Example
 

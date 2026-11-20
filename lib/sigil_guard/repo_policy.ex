@@ -18,7 +18,7 @@ defmodule SigilGuard.RepoPolicy do
       require_approval agent:* config/** .github/**
       block agent:* priv/secrets/**
 
-  Matching is intentionally deterministic and conservative:
+  Matching rules:
 
     * changed paths must be safe relative paths; absolute paths and `..` are
       blocked before rule matching

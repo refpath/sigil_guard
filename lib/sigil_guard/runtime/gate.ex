@@ -39,15 +39,15 @@ defmodule SigilGuard.Runtime.Gate do
 
   ## Options
 
-    * `:patterns` — scanner patterns
-    * `:risk_level` — override policy risk
-    * `:on_sensitive` — `:block` or `:redact` for sensitive content
-    * `:strict_quarantine` — block medium quarantine indicators too
-    * `:decision_id` — a correlation id the host chooses: 1 to 128 visible
+    * `:patterns` - scanner patterns
+    * `:risk_level` - override policy risk
+    * `:on_sensitive` - `:block` or `:redact` for sensitive content
+    * `:strict_quarantine` - block medium quarantine indicators too
+    * `:decision_id` - a correlation id the host chooses: 1 to 128 visible
       ASCII characters. It is copied to `audit_metadata.decision_id` and the
       telemetry event so a span, an audit event and an attestation can name
       the same decision. Any other value is ignored. The gate generates none.
-    * `:manifest_facts` — `%{manifest_digest: sha256, side_effects: [name]}` from
+    * `:manifest_facts` - `%{manifest_digest: sha256, side_effects: [name]}` from
       a capability manifest the caller verified. The sandbox matrix and
       `effect:` policy rules use the classes it declares; without it a tool is
       class `execute`. `SigilGuard.ToolGateway` sets it from the pinned manifest.

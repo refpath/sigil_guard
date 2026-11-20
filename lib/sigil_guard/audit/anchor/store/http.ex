@@ -2,7 +2,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   @moduledoc """
   HTTP store adapter for external audit anchor records.
 
-  This adapter is intentionally service-neutral. It posts compact anchor records
+  This adapter is service-neutral. It posts compact anchor records
   to an append-only or WORM-backed service and fetches them later by receipt or
   digest. The remote service can be an internal audit endpoint, object-lock
   gateway, or transparency-log facade.

@@ -148,8 +148,8 @@ true = poisoned_decision.action in [:confirm, :quarantine, :block]
 ```
 
 Authenticating the tool that returned this text would not make the instruction
-safe. Provenance answers “who said it”; the result boundary still answers
-“should these bytes reach the model?”
+safe. Provenance answers "who said it"; the result boundary still answers
+"should these bytes reach the model?"
 
 ## The Closed Decision Vocabulary
 

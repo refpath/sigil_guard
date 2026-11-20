@@ -7,10 +7,10 @@ defmodule SigilGuard.Config do
 
   ## Options
 
-    * `:trust_bundle` — Local trust-bundle source.
+    * `:trust_bundle` - Local trust-bundle source.
       Default: `:none`
 
-    * `:scanner_patterns` — Pattern source: `:built_in` or `:bundle`.
+    * `:scanner_patterns` - Pattern source: `:built_in` or `:bundle`.
       Default: `:built_in`
 
   """

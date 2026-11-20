@@ -305,7 +305,7 @@ defmodule SigilGuard.BoundaryPolicy do
 
   # Apply the side-effect mismatch matrix only at tool phases and
   # only when no matching `[rules]` line carries an `isolation:` matcher. That
-  # explicit override weakens the matrix deliberately, and the
+  # explicit override is how a policy weakens the matrix, and the
   # overriding rule's verdict flows through the normal policy contribution.
   defp sandbox_matrix(%Boundary{phase: phase} = boundary, matching, opts)
        when phase in @sandbox_phases do

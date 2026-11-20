@@ -360,12 +360,6 @@ true = result_gate.action in [:block, :confirm, :quarantine]
 }
 ```
 
-## Takeaway
-
-Verify the card through issuer trust, verify the response through the key in
-that card, bind it to the request, and then treat the result as untrusted
-content. A verified peer can still return a prompt injection.
-
 ## Audience, Capability, And Peer Trust Zone
 
 Pass `audience:` when you attest and verify a response to address it to one
@@ -491,3 +485,9 @@ false = response_statement["predicate"]["quarantined"]
   attested_quarantined: flagged_statement["predicate"]["quarantined"]
 }
 ```
+
+## Takeaway
+
+Verify the card through issuer trust, verify the response through the key in
+that card, bind it to the request, and then treat the result as untrusted
+content. A verified peer can still return a prompt injection.

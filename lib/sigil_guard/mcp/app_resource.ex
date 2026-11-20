@@ -67,7 +67,7 @@ defmodule SigilGuard.MCP.AppResource do
   @typedoc """
   A digest-verified MCP Apps resource and its reviewed browser metadata.
 
-  The struct intentionally carries the digest rather than duplicating the HTML
+  The struct carries the digest rather than duplicating the HTML
   bytes. The caller already owns the original `resources/read` content.
   """
   @type t :: %__MODULE__{

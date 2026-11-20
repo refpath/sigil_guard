@@ -235,8 +235,8 @@ undisclosed_result =
 
 An agent may be authorized to call the repository server without being
 authorized to forward a credential meant for the host application. Resource
-and audience checks keep “who may call” separate from “where this token was
-issued to be used.”
+and audience checks keep "who may call" separate from "where this token was
+issued to be used."
 
 ```elixir
 authority_context = [

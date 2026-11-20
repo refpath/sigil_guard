@@ -47,11 +47,11 @@ defmodule SigilGuard.Scanner do
 
   ## Options
 
-    * `:max_input_bytes` — binary-data budget (default: 1 MiB); exhaustion raises `ArgumentError`.
-    * `:patterns` — compiled patterns to use. Defaults to built-in patterns.
-    * `:pipeline` — `:staged` (default), `:regex`, or a module with `scan/3`.
-    * `:validate` — set to `false` to keep all regex candidates in staged mode.
-    * `:min_confidence` — discard staged hits below this score. Defaults to `0.0`.
+    * `:max_input_bytes` - binary-data budget (default: 1 MiB); exhaustion raises `ArgumentError`.
+    * `:patterns` - compiled patterns to use. Defaults to built-in patterns.
+    * `:pipeline` - `:staged` (default), `:regex`, or a module with `scan/3`.
+    * `:validate` - set to `false` to keep all regex candidates in staged mode.
+    * `:min_confidence` - discard staged hits below this score. Defaults to `0.0`.
 
   ## Examples
 
@@ -130,7 +130,7 @@ defmodule SigilGuard.Scanner do
 
   ## Options
 
-    * `:default_replacement` — fallback replacement when a hit has no
+    * `:default_replacement` - fallback replacement when a hit has no
       `replacement_hint`. Default: `"[REDACTED]"`
 
   ## Examples

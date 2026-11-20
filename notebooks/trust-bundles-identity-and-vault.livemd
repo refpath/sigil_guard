@@ -280,8 +280,6 @@ false = Vault.exists?(vault_id, InMemory)
 %{resolved_inside_host_callback?: true, deleted_after_use?: true}
 ```
 
-## Takeaway
-
 ## Bundle Roles, Identity Helpers, And Vault Failure
 
 `Attestation.verify/3` accepts a verified `%TrustBundle{}` and trusts only keys

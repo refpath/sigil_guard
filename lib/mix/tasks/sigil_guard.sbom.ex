@@ -4,7 +4,7 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   @moduledoc """
   Generate or verify an SPDX 2.3 JSON SBOM from the Mix project and lockfile.
 
-  The generated document is intentionally dependency-light: it uses Mix project
+  The generated document is dependency-light: it uses Mix project
   metadata, production dependencies, `mix.lock`, and Jason to produce a
   package-level SBOM suitable for release artifact attestation.
 
