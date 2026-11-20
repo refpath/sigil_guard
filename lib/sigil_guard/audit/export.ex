@@ -148,13 +148,16 @@ defmodule SigilGuard.Audit.Export do
     end
   end
 
+  # The issuer is checked before the signer is called. Rescuing the
+  # `KeyError` that `Checkpoint.sign/3` raises for a missing issuer would
+  # also catch one raised inside the host's signer and report it as a
+  # missing issuer.
   defp maybe_sign_checkpoint(checkpoint, opts) do
-    case Keyword.fetch(opts, :signer) do
-      {:ok, signer} -> {:ok, Checkpoint.sign(checkpoint, signer, signer_opts(opts))}
-      :error -> {:ok, checkpoint}
+    case {Keyword.fetch(opts, :signer), Keyword.has_key?(opts, :issuer)} do
+      {:error, _} -> {:ok, checkpoint}
+      {{:ok, _}, false} -> {:error, :missing_issuer}
+      {{:ok, signer}, true} -> {:ok, Checkpoint.sign(checkpoint, signer, signer_opts(opts))}
     end
-  rescue
-    KeyError -> {:error, :missing_issuer}
   end
 
   defp signer_opts(opts) do

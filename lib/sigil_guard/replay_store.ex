@@ -16,7 +16,13 @@ defmodule SigilGuard.ReplayStore do
   @prune_interval_ms 60_000
   @capacity_key {__MODULE__, :meta, :entries}
 
-  @doc "Create the replay table if it does not already exist."
+  @doc """
+  Create the replay table if it does not already exist.
+
+  `SigilGuard.Runtime` calls this when it starts, which makes the runtime the
+  table's owner. The table lives as long as the process that created it, so
+  call this only from a supervised process that outlives every caller.
+  """
   @spec ensure_table() :: :ok
   def ensure_table do
     if :ets.whereis(@table) == :undefined do
@@ -46,14 +52,23 @@ defmodule SigilGuard.ReplayStore do
   Record a nonce if it has not been seen within its TTL.
 
   Returns `{:error, :replay_detected}` when the same identity/nonce pair is
-  still live.
+  still live, and `{:error, :replay_store_unavailable}` when the table does
+  not exist because no `SigilGuard.Runtime` is running. The function does not
+  create the table: one created here would belong to the calling process and
+  vanish with it, and the nonce with it.
   """
   @spec check_and_put(String.t(), String.t(), pos_integer(), pos_integer()) ::
-          :ok | {:error, :replay_detected | :replay_capacity_exceeded}
+          :ok
+          | {:error, :replay_detected | :replay_capacity_exceeded | :replay_store_unavailable}
   def check_and_put(identity, nonce, ttl_ms, max_entries \\ 100_000)
       when is_binary(identity) and is_binary(nonce) and is_integer(ttl_ms) and ttl_ms > 0 and
              is_integer(max_entries) and max_entries > 0 do
-    ensure_table()
+    if :ets.whereis(@table) == :undefined,
+      do: {:error, :replay_store_unavailable},
+      else: check_and_put_entry(identity, nonce, ttl_ms, max_entries)
+  end
+
+  defp check_and_put_entry(identity, nonce, ttl_ms, max_entries) do
     now = System.monotonic_time(:millisecond)
     key = {:crypto.hash(:sha256, identity), :crypto.hash(:sha256, nonce)}
     expires_at = now + ttl_ms
@@ -85,9 +100,12 @@ defmodule SigilGuard.ReplayStore do
   @doc "Delete all replay entries. Intended for tests and controlled resets."
   @spec clear() :: :ok
   def clear do
-    ensure_table()
-    :ets.delete_all_objects(@table)
-    ensure_table()
+    if :ets.whereis(@table) != :undefined do
+      :ets.delete_all_objects(@table)
+      ensure_table()
+    end
+
+    :ok
   end
 
   defp live?(key, now) do

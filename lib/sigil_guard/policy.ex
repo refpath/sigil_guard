@@ -172,7 +172,8 @@ defmodule SigilGuard.Policy do
     * `:window_ms` — time window in milliseconds (default: 60_000)
     * `:rate_store` — ETS table name for rate tracking (default: `:sigil_guard_rates`)
 
-  The default table is created and owned by `SigilGuard.Runtime`. A custom
+  The default table is created and owned by `SigilGuard.Runtime`; without a
+  running runtime every check fails with `:rate_limited`. A custom
   `:rate_store` table is created on first use
   and owned by the first calling process — its rate state is lost if that
   process exits.
@@ -365,12 +366,21 @@ defmodule SigilGuard.Policy do
     identity = :crypto.hash(:sha256, identity)
     now = System.monotonic_time(:millisecond)
 
-    ensure_rate_table(table)
-
-    :ets.insert_new(table, {@rate_count, 0})
-    prune_rates(table, now)
-    claim_rate(identity, table, max_requests, now, now + window_ms)
+    if rate_table?(table) do
+      :ets.insert_new(table, {@rate_count, 0})
+      prune_rates(table, now)
+      claim_rate(identity, table, max_requests, now, now + window_ms)
+    else
+      {:error, :rate_limited}
+    end
   end
+
+  # The default table belongs to `SigilGuard.Runtime`. Without the runtime
+  # there is no table, and creating one here would tie the counters to the
+  # calling process, so the check refuses. A custom table is the caller's and
+  # is created on first use, as documented.
+  defp rate_table?(@default_rate_table), do: :ets.whereis(@default_rate_table) != :undefined
+  defp rate_table?(table), do: ensure_rate_table(table) == :ok
 
   defp prune_rates(table, now) do
     previous = :ets.lookup(table, @rate_prune)

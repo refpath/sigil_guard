@@ -988,8 +988,11 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp put_repo_policy_metadata(metadata, _), do: metadata
 
-  defp put_repo_facts_metadata(metadata, %{policy_file_digest: digest, default_decision: default}) do
-    Map.merge(metadata, %{repo_policy_digest: digest, repo_policy_default: default})
+  defp put_repo_facts_metadata(metadata, %{policy_file_digest: digest} = facts) do
+    Map.merge(metadata, %{
+      repo_policy_digest: digest,
+      repo_policy_default: facts.default_decision
+    })
   end
 
   defp put_repo_facts_metadata(metadata, _), do: metadata

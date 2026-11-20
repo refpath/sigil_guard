@@ -40,7 +40,6 @@ defmodule SigilGuard.BoundaryPolicy.File do
   @load_option_keys [:candidates, :legacy_replacements, :max_bytes]
   @sections ~w([rules] [repo] [contracts])
   @section_regex ~r/^\[[a-z_]+\]$/
-  @decisions ~w(allow redact confirm quarantine block)
 
   @string_matchers ~w(source tool actor)
   @none_sole_matchers ~w(hits indicator)
@@ -162,7 +161,9 @@ defmodule SigilGuard.BoundaryPolicy.File do
     if Keyword.keyword?(opts) and
          Enum.all?(Keyword.keys(opts), &(&1 in @load_option_keys)) and
          valid_candidates?(Keyword.get(opts, :candidates, @default_candidates)) and
-         valid_legacy_replacements?(Keyword.get(opts, :legacy_replacements, @legacy_replacements)) and
+         opts
+         |> Keyword.get(:legacy_replacements, @legacy_replacements)
+         |> valid_legacy_replacements?() and
          valid_max_bytes?(Keyword.get(opts, :max_bytes, @max_bytes)) do
       :ok
     else
@@ -332,25 +333,36 @@ defmodule SigilGuard.BoundaryPolicy.File do
     end
   end
 
-  defp rules_line("default " <> rest, _, acc) do
-    cond do
-      acc.default != nil -> {:error, :invalid_policy_file}
-      strip(rest) in @decisions -> {:ok, %{acc | default: String.to_existing_atom(strip(rest))}}
-      true -> {:error, :invalid_policy_file}
+  defp rules_line("default " <> rest, _, %{default: nil} = acc) do
+    case decision(strip(rest)) do
+      {:ok, default} -> {:ok, %{acc | default: default}}
+      :error -> {:error, :invalid_policy_file}
     end
   end
 
-  defp rules_line(text, n, acc) do
-    [decision | matcher_tokens] = String.split(text, " ", trim: true)
+  defp rules_line("default " <> _, _, _), do: {:error, :invalid_policy_file}
 
-    with true <- decision in @decisions,
+  defp rules_line(text, n, acc) do
+    [name | matcher_tokens] = String.split(text, " ", trim: true)
+
+    with {:ok, decision} <- decision(name),
          {:ok, matchers} <- parse_matchers(matcher_tokens) do
-      rule = %{id: "line_#{n}", decision: String.to_existing_atom(decision), matchers: matchers}
+      rule = %{id: "line_#{n}", decision: decision, matchers: matchers}
       {:ok, %{acc | rules: [rule | acc.rules]}}
     else
       _ -> {:error, :invalid_policy_file}
     end
   end
+
+  # The decisions are spelled out here so that their atoms exist whenever
+  # this module is loaded. A conversion from the string would depend on some
+  # other module having created `:redact` and `:quarantine` first.
+  defp decision("allow"), do: {:ok, :allow}
+  defp decision("redact"), do: {:ok, :redact}
+  defp decision("confirm"), do: {:ok, :confirm}
+  defp decision("quarantine"), do: {:ok, :quarantine}
+  defp decision("block"), do: {:ok, :block}
+  defp decision(_), do: :error
 
   defp parse_matchers(tokens) do
     Enum.reduce_while(tokens, {:ok, %{}}, fn token, {:ok, matchers} ->

@@ -99,6 +99,7 @@ defmodule SigilGuard.Attestation do
           | :expired_attestation
           | :replay_detected
           | :replay_capacity_exceeded
+          | :replay_store_unavailable
 
   @type from_decision_error ::
           :unknown_statement_type
@@ -621,10 +622,17 @@ defmodule SigilGuard.Attestation do
     |> maybe_put("uri", Keyword.get(source.opts, :resource) || source.context.resource_uri)
     |> maybe_put(
       "audience",
-      Keyword.get(source.opts, :audience) || source.context.intended_audience
+      audience_string(Keyword.get(source.opts, :audience) || source.context.intended_audience)
     )
     |> maybe_put("scope", scope)
   end
+
+  # A statement holds JSON values. The context's intended audience is an
+  # atom, and written as one it would differ from the string a verifier
+  # decodes.
+  defp audience_string(nil), do: nil
+  defp audience_string(audience) when is_atom(audience), do: Atom.to_string(audience)
+  defp audience_string(audience), do: audience
 
   defp scope_string(scopes) when is_list(scopes) do
     scopes

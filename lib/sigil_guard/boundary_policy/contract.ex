@@ -48,13 +48,13 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
           credential_transform: transform()
         }
 
+  @type parse_error :: :invalid_output_contract | :unknown_transform
+
   defstruct max_size: nil,
             no_raw_credentials: false,
             digest_only_pii: false,
             classes: nil,
             credential_transform: :mask
-
-  @type parse_error :: :invalid_output_contract | :unknown_transform
 
   @doc """
   Compile folded `[contracts]` lines into a `%{sink => %Contract{}}` map.

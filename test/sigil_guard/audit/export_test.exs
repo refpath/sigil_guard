@@ -182,6 +182,27 @@ defmodule SigilGuard.Audit.ExportTest do
                  signer: TestSigner
                )
     end
+
+    test "a failure inside the signer is not reported as a missing issuer" do
+      defmodule FailingSigner do
+        @moduledoc false
+        @behaviour SigilGuard.Signer
+
+        @impl SigilGuard.Signer
+        def sign(_), do: Map.fetch!(%{}, :key_handle)
+
+        @impl SigilGuard.Signer
+        def public_key, do: <<0::256>>
+      end
+
+      assert_raise KeyError, fn ->
+        Export.create(build_signed_chain(1),
+          generated_at: @generated_at,
+          signer: FailingSigner,
+          issuer: "did:example:issuer"
+        )
+      end
+    end
   end
 
   describe "verify/3" do

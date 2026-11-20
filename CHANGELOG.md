@@ -5,6 +5,50 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The replay, rate and bundle tables are created by `SigilGuard.Runtime`
+  only. A stateful call used to create a missing table in the calling
+  process, where it vanished with that process: without a running runtime
+  one confirmation token verified from several processes. Those calls now
+  fail closed (`:replay_store_unavailable`, `:rate_limited`,
+  `:cache_unavailable`), and readers of the bundle cache see it as empty.
+- `SigilGuard.Confirmation.verify/5` accepts `consume: true | false` and
+  returns `{:error, :invalid_consume}` for anything else. A `nil` switched
+  single use off.
+- `SigilGuard.BoundaryPolicy.File.parse/1` no longer raises on a `redact`
+  or `quarantine` rule in a VM that has not loaded another module using
+  those atoms. Decision names, matcher fields and context keys are resolved
+  through closed lookups, and the gateway finds an atom-keyed manifest
+  without turning the tool name into an atom.
+- `SigilGuard.Audit.Export.create/2` checks for `:issuer` before it calls
+  the signer. A `KeyError` raised inside a host signer was reported as
+  `:missing_issuer`.
+- A hook or adaptive detector callback now stops when its caller does. It
+  ran in an unlinked process that only the caller could stop.
+- Add `SigilGuard.Patterns.compile_all/1`, which refuses a list with an
+  entry that does not compile. `compile/1` drops such entries, and its
+  documentation says so.
+- Add `SigilGuard.Runtime.attestation_options/1` and `trust_mappings/1`, and
+  `SigilGuard.Identity.Static.trust_level/2`. Values given to the runtime as
+  explicit `config:` were validated and then not used by `Attestation` and
+  `Identity.Static`, which read the application environment; these functions
+  hand them to those calls.
+- Credo runs 102 checks over `lib/`, `test/`, `bench/`, `bin/`, `config/`,
+  `mix.exs` and the tool configuration files.
+- `SigilGuard.ToolGateway.attest_request/3` and `attest_result/3` write the
+  statement for the boundary the guard function evaluated. They digested the
+  host context as given, so the gateway refused its own attestation unless
+  that context named the origin, sink and tool, and the statement described
+  another boundary than the decision.
+- `SigilGuard.Attestation.from_decision/3` writes `resource.audience` as a
+  string when it comes from the context. It was an atom in the returned
+  map and a string in the signed bytes.
+- Benchmarks are ten suites, one per area, each with a report in the
+  documentation: scanner, gate, stream, gateway, confirmation, attestation,
+  trust bundle, agent trust, audit and primitives (BM.01 to BM.31).
+  `mix bench.<suite>` runs one. A smoke run writes under
+  `bench/output/smoke/` and no longer replaces the published reports. Each
+  suite checks its fixtures before timing; that check found the earlier
+  BM.05 verification timing an expired statement.
 - `SigilGuard.ToolGateway.guard_result/3` takes the manifest of the tool
   the host context names and never of a tool the result names. A result is
   the tool's own output, and a name inside it could otherwise select a

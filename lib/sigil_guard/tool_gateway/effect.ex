@@ -6,13 +6,6 @@ defmodule SigilGuard.ToolGateway.Effect do
   alias SigilGuard.Context
   alias SigilGuard.EffectAuthority
 
-  defstruct mode: :off,
-            replay_protected?: true,
-            digests: :error,
-            record: {:error, :effect_binding_required},
-            binding_digest: nil,
-            operation_key: nil
-
   @type digests :: %{
           action_digest: String.t(),
           payload_digest: String.t(),
@@ -33,6 +26,13 @@ defmodule SigilGuard.ToolGateway.Effect do
           | :effect_binding_required
           | :effect_replay_protection_required
           | :invalid_payload
+
+  defstruct mode: :off,
+            replay_protected?: true,
+            digests: :error,
+            record: {:error, :effect_binding_required},
+            binding_digest: nil,
+            operation_key: nil
 
   @doc false
   @spec new(term(), map(), Context.t(), keyword()) :: t()

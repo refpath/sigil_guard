@@ -252,6 +252,18 @@ the same value `guard_request/3` verifies an inbound attestation against.
 The action preimage reads through that gate payload to the MCP message it
 wraps (SP.01, Action Digest). The tables fix where each bound item lives.
 
+Both helpers write the statement for the boundary the guard function
+evaluated, not for the host context alone. `attest_request/3` uses
+`MCP.SecurityPayload.context(payload, :request, context)` and
+`attest_result/3` the same with `:result`: the gateway's defaults for phase,
+origin, and sink, and the tool, action, and server it reads from the
+message, fill the fields the host context leaves unset, and a host value
+wins. The context digest and the `boundary` mirror therefore describe the
+decision's boundary, and a gateway that guards the request under the same
+host context accepts the attestation, also when that context names only the
+actor. A verifier that calls `Attestation.verify/3` directly with `:context`
+passes that derived context.
+
 ### tool_request Binding
 
 `attest_request/3` writes the SP.01 predicate fields `profile`,
@@ -509,13 +521,17 @@ defmodule SigilGuard.ToolGateway do
   # :manifest_digest, :resource, :audience, :scopes, :ttl_ms, :now, :nonce
   # (generated when absent), :evidence. Builds and signs a tool_request
   # statement via Attestation.from_decision/3 + Attestation.sign/3 (SP.01);
-  # both receive the options. The context must name the tool and an actor
-  # or identity.
+  # both receive the options. The statement is written for the context
+  # guard_request/3 evaluates: SecurityPayload.context(payload, :request,
+  # ctx), in which the gateway's defaults for origin and sink and the tool
+  # and server it reads from the request fill what ctx leaves unset. The
+  # result must name a tool and an actor or identity.
 
   @spec attest_result(SigilGuard.Decision.t(), ctx(), keyword()) ::
           {:ok, envelope :: map()} | {:error, attest_error()}
-  # As attest_request/3 plus required :request_action_digest (missing
-  # fails with {:error, :invalid_payload}) and :output_schema_sha256. Both
+  # As attest_request/3, for the context guard_result/3 evaluates, plus
+  # required :request_action_digest (missing fails with
+  # {:error, :invalid_payload}) and :output_schema_sha256. Both
   # helpers return {:error, :schema_digest_mismatch} when that option
   # differs from the digest a :manifest struct declares.
 

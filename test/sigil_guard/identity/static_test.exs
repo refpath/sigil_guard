@@ -7,6 +7,8 @@ defmodule SigilGuard.Identity.StaticTest do
 
   alias SigilGuard.Identity.Static
 
+  doctest SigilGuard.Identity.Static
+
   setup do
     on_exit(fn -> Application.delete_env(:sigil_guard, :trust_mappings) end)
     :ok
@@ -73,6 +75,34 @@ defmodule SigilGuard.Identity.StaticTest do
           ) do
       put_mappings(mappings)
       assert Static.trust_level(actor) in [:low, :medium, :high]
+    end
+  end
+
+  describe "trust_level/2" do
+    test "resolves against the table it is given, not the application environment" do
+      mappings = [{"spiffe://prod/*", :high}, {"user:*", :medium}, {"user:root", :high}]
+
+      assert Static.trust_level("spiffe://prod/agents/a", mappings) == :high
+      assert Static.trust_level("user:alice", mappings) == :medium
+      # First match wins.
+      assert Static.trust_level("user:root", mappings) == :medium
+      assert Static.trust_level("guest", mappings) == :low
+      assert Static.trust_level("user:alice", []) == :low
+    end
+
+    test "floors anything that is not an actor string or a table at low" do
+      mappings = [{"user:*", :high}]
+
+      for actor <- [nil, :user, 7, %{}] do
+        assert Static.trust_level(actor, mappings) == :low
+      end
+
+      for table <- [nil, %{}, "user:*", :high] do
+        assert Static.trust_level("user:alice", table) == :low
+      end
+
+      assert Static.trust_level("user:alice", [:not_a_pair, {7, :high}, {"user:*", :medium}]) ==
+               :medium
     end
   end
 end

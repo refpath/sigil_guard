@@ -85,7 +85,7 @@ defmodule SigilGuard.AdaptiveDetector do
     timeout = Keyword.get(opts, :hook_timeout_ms, @default_timeout_ms)
 
     fn -> detector.analyze(text, boundary, opts) end
-    |> run_bounded(timeout)
+    |> SigilGuard.BoundedCall.run(timeout)
     |> interpret(detector)
   end
 
@@ -134,40 +134,6 @@ defmodule SigilGuard.AdaptiveDetector do
 
   defp strongest_risk(severities) do
     Enum.max_by(severities, &Map.fetch!(@risk_rank, &1))
-  end
-
-  defp run_bounded(fun, timeout) do
-    parent = self()
-    ref = make_ref()
-    {pid, monitor} = spawn_monitor(fn -> send(parent, {ref, safe_call(fun)}) end)
-
-    receive do
-      {^ref, {:ok, value}} ->
-        Process.demonitor(monitor, [:flush])
-        {:ok, value}
-
-      {^ref, :crash} ->
-        Process.demonitor(monitor, [:flush])
-        :crash
-
-      {:DOWN, ^monitor, :process, ^pid, _} ->
-        :crash
-    after
-      timeout ->
-        Process.exit(pid, :kill)
-        Process.demonitor(monitor, [:flush])
-        :timeout
-    end
-  end
-
-  # Catch in-process so a crashing detector degrades to zero indicators without
-  # emitting a SASL error report; uncatchable exits still surface via `:DOWN`.
-  defp safe_call(fun) do
-    {:ok, fun.()}
-  rescue
-    _ -> :crash
-  catch
-    _, _ -> :crash
   end
 
   defp emit(detector, indicator_count, error) do

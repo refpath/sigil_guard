@@ -342,11 +342,14 @@ defmodule SigilGuard.Confirmation do
     end
   end
 
+  # A token is single use unless the caller passes `consume: false`. Any
+  # other value is refused: read by truthiness, a `nil` forwarded from an
+  # unset host option would switch replay protection off.
   defp maybe_consume_nonce(claims, opts) do
-    if Keyword.get(opts, :consume, true) do
-      consume_nonce(claims, opts)
-    else
-      :ok
+    case Keyword.get(opts, :consume, true) do
+      true -> consume_nonce(claims, opts)
+      false -> :ok
+      _ -> {:error, :invalid_consume}
     end
   end
 

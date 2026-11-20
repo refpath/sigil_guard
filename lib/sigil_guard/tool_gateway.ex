@@ -240,37 +240,59 @@ defmodule SigilGuard.ToolGateway do
 
   @doc """
   Build and sign a `tool_request` attestation envelope.
+
+  `context` is the host context that was given to `guard_request/3`, and
+  `:payload` is the request. The statement is written for the boundary that
+  `guard_request/3` evaluated: the origin, sink, tool and server the gateway
+  reads from the request, with the host's own values taking precedence. A
+  gateway that guards the request under the same host context therefore
+  accepts the attestation.
   """
   @spec attest_request(Decision.t(), Context.t() | map() | keyword(), keyword()) ::
           {:ok, map()} | {:error, attest_error()}
   def attest_request(decision, context, opts \\ [])
 
-  def attest_request(%Decision{} = decision, context, opts) when is_list(opts) do
-    with {:ok, signer} <- required_attestation_signer(opts),
-         {:ok, opts} <- attestation_opts(opts, :tool_request),
-         {:ok, statement} <- Attestation.from_decision(decision, context, opts) do
-      Attestation.sign(statement, signer, opts)
-    end
-  end
+  def attest_request(%Decision{} = decision, context, opts) when is_list(opts),
+    do: attest(decision, context, opts, :request)
 
   def attest_request(_, _, _), do: {:error, :invalid_payload}
 
   @doc """
   Build and sign a `tool_result` attestation envelope.
+
+  `context` is the host context that was given to `guard_result/3`, and
+  `:payload` is the result. The statement is written for the boundary that
+  `guard_result/3` evaluated.
   """
   @spec attest_result(Decision.t(), Context.t() | map() | keyword(), keyword()) ::
           {:ok, map()} | {:error, attest_error()}
   def attest_result(decision, context, opts \\ [])
 
-  def attest_result(%Decision{} = decision, context, opts) when is_list(opts) do
+  def attest_result(%Decision{} = decision, context, opts) when is_list(opts),
+    do: attest(decision, context, opts, :result)
+
+  def attest_result(_, _, _), do: {:error, :invalid_payload}
+
+  # The statement describes the boundary the decision was made at. That is
+  # the context the guard functions derive from the message and the host
+  # context, not the host context alone, whose unset fields would otherwise
+  # be written with other defaults than the gateway decided under.
+  defp attest(decision, context, opts, direction) do
     with {:ok, signer} <- required_attestation_signer(opts),
-         {:ok, opts} <- attestation_opts(opts, :tool_result),
-         {:ok, statement} <- Attestation.from_decision(decision, context, opts) do
+         {:ok, message} <- attestation_message(opts),
+         {:ok, opts} <- attestation_opts(opts, message, direction),
+         boundary = SecurityPayload.context(message, direction, context),
+         {:ok, statement} <- Attestation.from_decision(decision, boundary, opts) do
       Attestation.sign(statement, signer, opts)
     end
   end
 
-  def attest_result(_, _, _), do: {:error, :invalid_payload}
+  defp attestation_message(opts) do
+    case Keyword.fetch(opts, :payload) do
+      {:ok, message} when is_map(message) -> {:ok, message}
+      _ -> {:error, :invalid_payload}
+    end
+  end
 
   @doc """
   Issue a confirmation token for a confirm-required tool request or result.
@@ -499,13 +521,6 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp fetch_manifest(manifests, tool, server) when is_map(manifests) do
-    atom_tool =
-      try do
-        {:ok, String.to_existing_atom(tool)}
-      rescue
-        ArgumentError -> :error
-      end
-
     cond do
       present?(server) and Map.has_key?(manifests, {server, tool}) ->
         {:ok, Map.fetch!(manifests, {server, tool})}
@@ -513,15 +528,22 @@ defmodule SigilGuard.ToolGateway do
       Map.has_key?(manifests, tool) ->
         {:ok, Map.fetch!(manifests, tool)}
 
-      match?({:ok, _}, atom_tool) and Map.has_key?(manifests, elem(atom_tool, 1)) ->
-        {:ok, Map.fetch!(manifests, elem(atom_tool, 1))}
-
       true ->
-        :error
+        fetch_atom_keyed_manifest(manifests, tool)
     end
   end
 
   defp fetch_manifest(_, _, _), do: :error
+
+  # A host may key its manifests by atom. The tool name is a string from the
+  # request, so the atom keys are compared as strings and the name is never
+  # turned into an atom.
+  defp fetch_atom_keyed_manifest(manifests, tool) do
+    Enum.find_value(manifests, :error, fn
+      {key, manifest} when is_atom(key) -> Atom.to_string(key) == tool && {:ok, manifest}
+      _ -> nil
+    end)
+  end
 
   defp fetch_bundle_manifest(%TrustBundle{} = bundle, tool, server) do
     bundle
@@ -1140,19 +1162,13 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
-  defp attestation_opts(opts, statement_type) do
-    direction = if statement_type == :tool_result, do: :result, else: :request
+  defp attestation_opts(opts, message, direction) do
+    statement_type = if direction == :result, do: :tool_result, else: :tool_request
 
-    case Keyword.fetch(opts, :payload) do
-      {:ok, payload} when is_map(payload) ->
-        opts
-        |> Keyword.put(:payload, SecurityPayload.for_gate(payload, direction, opts))
-        |> Keyword.put(:statement_type, statement_type)
-        |> normalize_attestation_manifest()
-
-      _ ->
-        {:error, :invalid_payload}
-    end
+    opts
+    |> Keyword.put(:payload, SecurityPayload.for_gate(message, direction, opts))
+    |> Keyword.put(:statement_type, statement_type)
+    |> normalize_attestation_manifest()
   end
 
   defp normalize_attestation_manifest(opts) do

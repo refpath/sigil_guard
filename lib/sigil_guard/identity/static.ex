@@ -37,8 +37,32 @@ defmodule SigilGuard.Identity.Static do
   """
   @impl SigilGuard.Identity
   @spec trust_level(term()) :: SigilGuard.Identity.trust_level()
-  def trust_level(actor) when is_binary(actor), do: resolve(actor, Config.trust_mappings())
-  def trust_level(_), do: :low
+  def trust_level(actor), do: trust_level(actor, Config.trust_mappings())
+
+  @doc """
+  Return the trust level of the first entry of `mappings` whose pattern
+  matches `actor`, or `:low`.
+
+  This is `trust_level/1` without the application environment: the caller
+  supplies the table. A host that gives its configuration to
+  `SigilGuard.Runtime` passes the runtime's own table.
+
+  ## Examples
+
+      iex> mappings = [{"spiffe://prod/*", :high}, {"user:*", :medium}]
+      ...> SigilGuard.Identity.Static.trust_level("user:alice", mappings)
+      :medium
+      iex> SigilGuard.Identity.Static.trust_level("guest", mappings)
+      :low
+
+  """
+  @doc since: "1.1.0"
+  @spec trust_level(term(), [{String.t(), SigilGuard.Identity.trust_level()}]) ::
+          SigilGuard.Identity.trust_level()
+  def trust_level(actor, mappings) when is_binary(actor) and is_list(mappings),
+    do: resolve(actor, mappings)
+
+  def trust_level(_, _), do: :low
 
   @doc "Static identities carry no additional bindings."
   @impl SigilGuard.Identity

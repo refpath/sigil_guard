@@ -8,6 +8,7 @@ defmodule SigilGuard.ToolGatewayTest do
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.Context
   alias SigilGuard.Decision
+  alias SigilGuard.MCP.SecurityPayload
   alias SigilGuard.ReplayStore
   alias SigilGuard.ToolGateway
   alias SigilGuard.TrustBundle
@@ -1711,7 +1712,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
       {:ok, statement} =
         SigilGuard.Attestation.from_decision(decision, context,
-          payload: SigilGuard.MCP.SecurityPayload.for_gate(request(), :request),
+          payload: SecurityPayload.for_gate(request(), :request),
           now: @now
         )
 
@@ -1733,6 +1734,86 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert refused.audit_metadata.deny_reason == :invalid_attestation
       assert refused.audit_metadata.attestation_error == :actor_mismatch
+    end
+
+    test "the gateway accepts its own attestation for a host context that names only the actor" do
+      context = [actor: "spiffe://agents/requester", trust_level: :high]
+      decision = ToolGateway.guard_request(request(), context, [])
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, context,
+          payload: request(),
+          signer: TrustedSigner,
+          keyid: "trusted",
+          now: @now
+        )
+
+      trust = %{"trusted" => TrustedSigner.public_key()}
+
+      accepted =
+        ToolGateway.guard_request(Map.put(request(), "_agent_trust", envelope), context,
+          attestation: :required,
+          trust_material: trust,
+          now: @now
+        )
+
+      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
+
+      # The statement describes the boundary the gateway decided at.
+      {:ok, statement} = Attestation.verify(envelope, trust, now: @now)
+
+      assert Map.take(statement["predicate"]["boundary"], ~w(phase origin sink)) == %{
+               "phase" => Atom.to_string(decision.phase),
+               "origin" => Atom.to_string(decision.audit_metadata.origin),
+               "sink" => Atom.to_string(decision.audit_metadata.sink)
+             }
+
+      assert statement["predicate"]["tool"]["name"] == "repo_file_write"
+
+      # A host value still wins over the one read from the request.
+      {:ok, overridden} =
+        ToolGateway.attest_request(decision, Keyword.put(context, :sink, :external),
+          payload: request(),
+          signer: TrustedSigner,
+          keyid: "trusted",
+          now: @now
+        )
+
+      {:ok, other} = Attestation.verify(overridden, trust, now: @now)
+
+      assert other["predicate"]["boundary"]["sink"] == "external"
+    end
+
+    test "a result attestation describes the boundary guard_result/3 decided at" do
+      context = [actor: "spiffe://agents/requester", trust_level: :high, tool: "repo_file_write"]
+
+      decision =
+        ToolGateway.guard_result(result(), context, request_action_digest: @request_action_digest)
+
+      {:ok, envelope} =
+        ToolGateway.attest_result(decision, context,
+          payload: result(),
+          signer: TrustedSigner,
+          keyid: "trusted",
+          now: @now,
+          request_action_digest: @request_action_digest
+        )
+
+      {:ok, statement} =
+        Attestation.verify(envelope, %{"trusted" => TrustedSigner.public_key()},
+          payload: SecurityPayload.for_gate(result(), :result),
+          context: SecurityPayload.context(result(), :result, context),
+          request_action_digest: @request_action_digest,
+          now: @now
+        )
+
+      assert Map.take(statement["predicate"]["boundary"], ~w(phase origin sink)) == %{
+               "phase" => "tool_result",
+               "origin" => Atom.to_string(decision.audit_metadata.origin),
+               "sink" => Atom.to_string(decision.audit_metadata.sink)
+             }
+
+      assert decision.phase == :tool_result
     end
 
     test "a context with an empty actor is attested and checked by its identity" do
@@ -1846,7 +1927,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert {:ok, statement} =
                Attestation.verify(envelope, trust_material,
-                 payload: SigilGuard.MCP.SecurityPayload.for_gate(request(), :request),
+                 payload: SecurityPayload.for_gate(request(), :request),
                  context: context,
                  manifest_digest: capability.digest,
                  now: @now
@@ -1890,7 +1971,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert {:ok, statement} =
                Attestation.verify(envelope, trust_material,
-                 payload: SigilGuard.MCP.SecurityPayload.for_gate(result(), :result),
+                 payload: SecurityPayload.for_gate(result(), :result),
                  context: context,
                  manifest_digest: capability.digest,
                  request_action_digest: @request_action_digest,
@@ -2037,7 +2118,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert {:ok, statement} =
                Attestation.verify(envelope, %{"trusted" => TrustedSigner.public_key()},
-                 payload: SigilGuard.MCP.SecurityPayload.for_gate(result(), :result),
+                 payload: SecurityPayload.for_gate(result(), :result),
                  context: attestation_result_context(),
                  request_action_digest: @request_action_digest,
                  now: @now

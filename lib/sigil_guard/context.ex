@@ -269,31 +269,23 @@ defmodule SigilGuard.Context do
   defp first_string(_, _, _), do: {:ok, nil}
 
   defp atomize_known_keys(context) do
-    known =
-      __MODULE__.__struct__()
-      |> Map.keys()
-      |> MapSet.new()
+    fields = field_atoms()
 
-    Map.new(context, &atomize_known_key(&1, known))
+    Map.new(context, &atomize_known_key(&1, fields))
   end
 
-  defp atomize_known_key({key, value}, known) when is_binary(key) do
-    case existing_atom(key) do
-      {:ok, atom_key} -> {known_key(atom_key, key, known), value}
-      :error -> {key, value}
-    end
-  end
+  # A string key that names a field becomes that field's atom. The lookup is
+  # a map of the struct's own fields, so no string is tried against the
+  # global atom table.
+  defp atomize_known_key({key, value}, fields) when is_binary(key),
+    do: {Map.get(fields, key, key), value}
 
   defp atomize_known_key(pair, _), do: pair
 
-  defp known_key(atom_key, key, known) do
-    if MapSet.member?(known, atom_key), do: atom_key, else: key
-  end
-
-  defp existing_atom(key) do
-    {:ok, String.to_existing_atom(key)}
-  rescue
-    ArgumentError -> :error
+  defp field_atoms do
+    for field <- Map.keys(__MODULE__.__struct__()), field != :__struct__, into: %{} do
+      {Atom.to_string(field), field}
+    end
   end
 
   defp normalize_known_values(context) do

@@ -125,6 +125,31 @@ defmodule SigilGuard.ConfirmationTest do
     end
   end
 
+  describe "the consume option" do
+    test "only false switches single use off, and any other value is refused" do
+      context = [phase: :tool_result, sink: :model, trust_level: :low]
+      decision = Gate.evaluate("result text", context, risk_level: :medium)
+
+      verify = fn opts ->
+        {:ok, token} = Confirmation.issue("result text", context, decision, @key, now: @now)
+
+        check = fn ->
+          Confirmation.verify(token, "result text", context, @key, [{:now, @now} | opts])
+        end
+
+        {check.(), check.()}
+      end
+
+      assert {{:ok, _}, {:error, :replay_detected}} = verify.([])
+      assert {{:ok, _}, {:error, :replay_detected}} = verify.(consume: true)
+      assert {{:ok, _}, {:ok, _}} = verify.(consume: false)
+
+      for value <- [nil, 0, "false", :no, []] do
+        assert verify.(consume: value) == {{:error, :invalid_consume}, {:error, :invalid_consume}}
+      end
+    end
+  end
+
   describe "manifest binding" do
     @manifest String.duplicate("a", 64)
     @other String.duplicate("b", 64)

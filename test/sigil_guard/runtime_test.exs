@@ -32,6 +32,70 @@ defmodule SigilGuard.RuntimeTest do
     assert {:ok, []} = Runtime.scanner_options()
   end
 
+  test "an explicitly configured runtime hands out the values its consumers do not read" do
+    alias SigilGuard.Attestation
+    alias SigilGuard.Identity.Static
+
+    previous = Runtime.configuration()
+
+    config =
+      SigilGuard.Config.validate!(
+        trust_mappings: [{"user:*", :high}],
+        attestation_ttl_ms: 10_000,
+        max_skew_ms: 5_000,
+        replay_ttl_ms: 20_000
+      )
+
+    :sys.replace_state(Runtime, fn _ -> config end)
+    on_exit(fn -> :sys.replace_state(Runtime, fn _ -> previous end) end)
+
+    assert Runtime.attestation_options() == [
+             ttl_ms: 10_000,
+             max_skew_ms: 5_000,
+             replay_ttl_ms: 20_000
+           ]
+
+    assert Runtime.trust_mappings() == [{"user:*", :high}]
+
+    # The application environment holds none of this, so the plain calls
+    # answer from their defaults.
+    assert Static.trust_level("user:alice") == :low
+    assert Static.trust_level("user:alice", Runtime.trust_mappings()) == :high
+
+    now = ~U[2026-07-03 12:00:00.000Z]
+
+    decision = %SigilGuard.Decision{
+      verdict: :allowed,
+      action: :allow,
+      phase: :tool_request,
+      risk_level: :low,
+      trust_level: :low
+    }
+
+    context = [phase: :tool_request, actor: "user:alice", tool: "read_file"]
+    payload = %{"method" => "tools/call", "params" => %{"name" => "read_file"}}
+    opts = Runtime.attestation_options()
+
+    {:ok, statement} =
+      Attestation.from_decision(decision, context, [{:payload, payload}, {:now, now} | opts])
+
+    assert statement["predicate"]["expires_at"] == "2026-07-03T12:00:10.000Z"
+
+    {:ok, envelope} = Attestation.sign(statement, SigilGuard.TestSigner, keyid: "runtime")
+    trust = %{"runtime" => SigilGuard.TestSigner.public_key()}
+    late = DateTime.add(now, 20, :second)
+
+    # Six seconds past expiry: inside the default 60 s skew, outside the
+    # configured 5 s.
+    assert {:ok, _} = Attestation.verify(envelope, trust, now: DateTime.add(now, 16, :second))
+
+    assert Attestation.verify(envelope, trust, [{:now, DateTime.add(now, 16, :second)} | opts]) ==
+             {:error, :expired_attestation}
+
+    assert Attestation.verify(envelope, trust, [{:now, late} | opts]) ==
+             {:error, :expired_attestation}
+  end
+
   test "bundle pattern selection resolves explicitly and rejects an expired source" do
     alias SigilGuard.TrustBundle
     now = DateTime.utc_now(:millisecond)

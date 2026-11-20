@@ -69,6 +69,22 @@ defmodule SigilGuard.Audit do
           result_info: SigilGuard.Audit.ExecutionResult.t() | nil
         }
 
+  @typedoc "The chain tip's coordinates (`tip/1`)."
+  @type tip :: %{
+          index: non_neg_integer(),
+          event_id: String.t(),
+          hmac: String.t(),
+          timestamp: String.t()
+        }
+
+  @typedoc "One checkpoint's located event span (`checkpoint_boundaries/2`)."
+  @type boundary :: %{
+          checkpoint_digest: String.t(),
+          tree_size: non_neg_integer(),
+          first_index: non_neg_integer() | nil,
+          last_index: non_neg_integer() | nil
+        }
+
   @enforce_keys [:id, :type, :actor, :action, :result, :timestamp]
   defstruct [
     :id,
@@ -301,22 +317,6 @@ defmodule SigilGuard.Audit do
   def canonical_bytes(%__MODULE__{} = event) do
     IO.iodata_to_binary(canonical_iodata(event))
   end
-
-  @typedoc "The chain tip's coordinates (`tip/1`)."
-  @type tip :: %{
-          index: non_neg_integer(),
-          event_id: String.t(),
-          hmac: String.t(),
-          timestamp: String.t()
-        }
-
-  @typedoc "One checkpoint's located event span (`checkpoint_boundaries/2`)."
-  @type boundary :: %{
-          checkpoint_digest: String.t(),
-          tree_size: non_neg_integer(),
-          first_index: non_neg_integer() | nil,
-          last_index: non_neg_integer() | nil
-        }
 
   @query_keys [:from_index, :to_index, :id, :type, :from_time, :to_time]
 

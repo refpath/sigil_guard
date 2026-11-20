@@ -106,8 +106,11 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
                args
              ) === {:cont, value}
 
-      assert SigilGuard.GuideFixture.call(MyApp.MCP.SigilGuardInterceptor, :after_tool_call, args) ===
-               {:cont, value}
+      assert SigilGuard.GuideFixture.call(
+               MyApp.MCP.SigilGuardInterceptor,
+               :after_tool_call,
+               args
+             ) === {:cont, value}
 
       context = %{agent_id: "fixture:actor", trust_level: :high}
 
@@ -499,6 +502,29 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       assert guard.(Map.put(result, "tool", tool), sandbox) == {:confirm, nil}
     end
 
+    test "a gateway accepts the attestation it built under a minimal host context" do
+      context = [actor: "spiffe://agents/planner", trust_level: :high]
+      request = tool_call(%{"path" => "docs/a.md"})
+      decision = ToolGateway.guard_request(request, context, require_manifest: false)
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, context,
+          payload: request,
+          signer: SigilGuard.TestSigner,
+          keyid: "consumer"
+        )
+
+      accepted =
+        ToolGateway.guard_request(Map.put(request, "_agent_trust", envelope), context,
+          require_manifest: false,
+          attestation: :required,
+          trust_material: %{"consumer" => SigilGuard.TestSigner.public_key()}
+        )
+
+      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
+      assert accepted.verdict == decision.verdict
+    end
+
     test "a statement states the boundary its context subject binds" do
       boundary = attested_statement(tool_call(%{}))["predicate"]["boundary"]
 
@@ -575,6 +601,32 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       assert injected["quarantined"] == true
       assert injected["resource"] == %{"audience" => "spiffe://agents/planner"}
       assert attest.("A plain summary.")["quarantined"] == false
+    end
+  end
+
+  describe "stateful contracts" do
+    alias SigilGuard.Confirmation
+    alias SigilGuard.Runtime.Gate
+
+    test "a confirmation token is single use, and only false switches that off" do
+      key = :crypto.hash(:sha256, "consumer-confirmation-key")
+      context = [phase: :tool_result, sink: :model, trust_level: :low]
+      decision = Gate.evaluate("result text", context, risk_level: :medium)
+      {:ok, token} = Confirmation.issue("result text", context, decision, key)
+      verify = &Confirmation.verify(token, "result text", context, key, &1)
+
+      assert {:ok, _} = verify.(consume: false)
+      assert verify.(consume: nil) == {:error, :invalid_consume}
+      assert {:ok, _} = verify.([])
+      assert verify.([]) == {:error, :replay_detected}
+    end
+
+    test "the runtime owns the state tables the stateful calls use" do
+      runtime = Process.whereis(SigilGuard.Runtime)
+
+      for table <- [:sigil_guard_rates, :sigil_guard_replay, :sigil_guard_trust_bundle] do
+        assert :ets.info(table, :owner) == runtime
+      end
     end
   end
 

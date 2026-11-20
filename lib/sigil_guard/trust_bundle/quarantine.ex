@@ -53,8 +53,6 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   """
   @spec record(reason :: atom(), info :: map()) :: t()
   def record(reason, info) when is_atom(reason) and is_map(info) do
-    ensure_table()
-
     info = decoded_info(info)
 
     record = %{
@@ -66,10 +64,18 @@ defmodule SigilGuard.TrustBundle.Quarantine do
       evidence: evidence(info)
     }
 
-    :ets.insert(@table, {System.unique_integer([:monotonic, :positive]), record})
-    trim_records()
+    store(record)
     emit_telemetry(record, info)
     record
+  end
+
+  # The table belongs to `SigilGuard.Runtime`. Without it the record is still
+  # returned and reported through telemetry; it is not kept.
+  defp store(record) do
+    if :ets.whereis(@table) != :undefined do
+      :ets.insert(@table, {System.unique_integer([:monotonic, :positive]), record})
+      trim_records()
+    end
   end
 
   defp trim_records do
@@ -84,8 +90,10 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   """
   @spec list() :: [t()]
   def list do
-    ensure_table()
+    if :ets.whereis(@table) == :undefined, do: [], else: stored_records()
+  end
 
+  defp stored_records do
     @table
     |> :ets.tab2list()
     |> Enum.sort_by(fn {id, _} -> id end)
@@ -103,8 +111,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   @doc false
   @spec clear() :: :ok
   def clear do
-    ensure_table()
-    :ets.delete_all_objects(@table)
+    if :ets.whereis(@table) != :undefined, do: :ets.delete_all_objects(@table)
     :ok
   end
 

@@ -20,15 +20,32 @@ defmodule SigilGuard.Runtime do
   or stream. Selecting `:bundle` in configuration alone does not alter standalone
   scanner calls.
 
-  Passing `:config` avoids global application environment. Include
-  `runtime: false` in explicit configuration to describe that posture. When
-  `:config` is omitted,
-  the runtime validates configuration from `config :sigil_guard, ...` for
-  backwards-compatible host configuration.
+  Passing `:config` keeps the runtime's own behaviour out of the global
+  application environment: which bundle it loads and what `scanner_options/2`
+  returns. Include `runtime: false` in explicit configuration to describe that
+  posture. When `:config` is omitted, the runtime validates configuration from
+  `config :sigil_guard, ...` for backwards-compatible host configuration.
+
+  The other keys are validated here and read elsewhere. `SigilGuard.Attestation`
+  takes `:ttl_ms`, `:max_skew_ms` and `:replay_ttl_ms` per call and falls back
+  to the application environment, and `SigilGuard.Identity.Static.trust_level/1`
+  reads `:trust_mappings` from the application environment. Neither asks the
+  runtime. A host that configures the runtime explicitly applies those values
+  with `attestation_options/1` and `trust_mappings/1`:
+
+      opts = SigilGuard.Runtime.attestation_options()
+      SigilGuard.Attestation.verify(envelope, trust_material, opts ++ [payload: payload])
+
+      mappings = SigilGuard.Runtime.trust_mappings()
+      SigilGuard.Identity.Static.trust_level(actor, mappings)
 
   SigilGuard's tables are intentionally process-global named tables, so a host
-  should run exactly one runtime. The runtime fails fast if a stateful API was
-  called first and caused another process to become a table owner.
+  should run exactly one runtime. Only the runtime creates them. Without a
+  running runtime the stateful functions fail closed: a nonce cannot be
+  recorded (`:replay_store_unavailable`), the default rate limiter refuses,
+  and the bundle cache reads as empty and refuses a write
+  (`:cache_unavailable`). The runtime fails fast when another process has
+  created one of the tables first.
   """
 
   use GenServer
@@ -82,6 +99,36 @@ defmodule SigilGuard.Runtime do
         end
     end
   end
+
+  @doc """
+  Return the attestation options of this runtime's configuration.
+
+  The result is `[ttl_ms: _, max_skew_ms: _, replay_ttl_ms: _]`, from the
+  `:attestation_ttl_ms`, `:max_skew_ms` and `:replay_ttl_ms` keys. Pass it to
+  `SigilGuard.Attestation.from_decision/3`, `sign/3` and `verify/3`, which
+  otherwise read the application environment.
+  """
+  @doc since: "1.1.0"
+  @spec attestation_options(GenServer.server()) :: keyword()
+  def attestation_options(server \\ __MODULE__) do
+    config = configuration(server)
+
+    [
+      ttl_ms: Keyword.fetch!(config, :attestation_ttl_ms),
+      max_skew_ms: Keyword.fetch!(config, :max_skew_ms),
+      replay_ttl_ms: Keyword.fetch!(config, :replay_ttl_ms)
+    ]
+  end
+
+  @doc """
+  Return the actor-to-trust table of this runtime's configuration.
+
+  Pass it to `SigilGuard.Identity.Static.trust_level/2`.
+  """
+  @doc since: "1.1.0"
+  @spec trust_mappings(GenServer.server()) :: [{String.t(), SigilGuard.Identity.trust_level()}]
+  def trust_mappings(server \\ __MODULE__),
+    do: Keyword.fetch!(configuration(server), :trust_mappings)
 
   @impl GenServer
   def init(opts) do

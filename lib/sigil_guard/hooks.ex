@@ -285,33 +285,11 @@ defmodule SigilGuard.Hooks do
   end
 
   defp run_bounded(fun, timeout) do
-    parent = self()
-    ref = make_ref()
-    {pid, monitor} = spawn_monitor(fn -> send(parent, {ref, safe_call(fun)}) end)
-
-    receive do
-      {^ref, outcome} ->
-        Process.demonitor(monitor, [:flush])
-        outcome
-
-      {:DOWN, ^monitor, :process, ^pid, _} ->
-        {:error, :hook_crash}
-    after
-      timeout ->
-        Process.exit(pid, :kill)
-        Process.demonitor(monitor, [:flush])
-        {:error, :hook_timeout}
+    case SigilGuard.BoundedCall.run(fun, timeout) do
+      {:ok, value} -> {:ok, value}
+      :crash -> {:error, :hook_crash}
+      :timeout -> {:error, :hook_timeout}
     end
-  end
-
-  # Catch in-process so a crashing hook fails closed to `:hook_crash` without
-  # emitting a SASL error report; uncatchable exits still surface via `:DOWN`.
-  defp safe_call(fun) do
-    {:ok, fun.()}
-  rescue
-    _ -> {:error, :hook_crash}
-  catch
-    _, _ -> {:error, :hook_crash}
   end
 
   defp exports?(module, callback), do: function_exported?(module, callback, 2)

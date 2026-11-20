@@ -61,7 +61,7 @@ defmodule SigilGuard.TrustBundle do
           | :rotation_below_threshold
 
   @typedoc "Trust-bundle loading errors."
-  @type load_error :: verify_error() | :invalid_source
+  @type load_error :: verify_error() | :invalid_source | :cache_unavailable
 
   @typedoc "Verified embedded trust-bundle snapshot."
   @type t :: %__MODULE__{

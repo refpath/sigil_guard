@@ -83,6 +83,47 @@ defmodule SigilGuard.PatternsTest do
     end
   end
 
+  describe "compile_all/1" do
+    @ticket %{name: "ticket", category: "internal", severity: :low, pattern: "TICKET-[0-9]+"}
+
+    test "compiles every entry, in order" do
+      second = %{
+        "name" => "order",
+        "category" => "internal",
+        "severity" => "low",
+        "regex" => "ORD-[0-9]+"
+      }
+
+      assert {:ok, [first, last]} = Patterns.compile_all([@ticket, second])
+      assert {first.name, last.name} == {"ticket", "order"}
+      assert Patterns.compile_all([]) == {:ok, []}
+      assert Regex.match?(first.regex, "TICKET-42")
+      assert SigilGuard.scan("see ORD-7", patterns: [first, last]) |> elem(0) == :hit
+    end
+
+    test "names the first entry that does not compile, where compile/1 drops it" do
+      broken = %{@ticket | name: "broken", pattern: "sk-(unclosed"}
+      unnamed = %{@ticket | name: 7}
+
+      for {entries, index} <- [
+            {[broken], 0},
+            {[@ticket, broken], 1},
+            {[@ticket, unnamed, broken], 1},
+            {[@ticket, "not a map"], 1},
+            {[@ticket, Map.delete(@ticket, :pattern)], 1}
+          ] do
+        assert Patterns.compile_all(entries) == {:error, {:invalid_pattern, index}}
+        assert length(Patterns.compile(entries)) < length(entries)
+      end
+    end
+
+    test "refuses anything that is not a proper list" do
+      for input <- [nil, %{}, "TICKET", @ticket, [@ticket | :tail]] do
+        assert Patterns.compile_all(input) == {:error, :invalid_pattern_format}
+      end
+    end
+  end
+
   describe "compile/1" do
     test "compiles patterns from atom-keyed maps" do
       raw = [

@@ -177,12 +177,64 @@ defmodule SigilGuard.Patterns do
 
   Accepts both built-in format (with `:pattern` key) and compatibility bundle
   format (with `"regex"` key).
+
+  An entry that cannot be compiled is left out of the result: one with a
+  regular expression that does not compile, without a name, or with malformed
+  metadata. Nothing reports the omission, and the scanner then runs without
+  that detection. Use `compile_all/1` for patterns a host writes, so that a
+  mistyped expression is an error.
   """
   @spec compile([map()]) :: [compiled_pattern()]
   def compile(raw_patterns) do
     raw_patterns
     |> Enum.map(&compile_pattern/1)
     |> Enum.reject(&is_nil/1)
+  end
+
+  @doc """
+  Compile every raw pattern map, or refuse the list.
+
+  Returns `{:ok, patterns}` when each entry compiles, and
+  `{:error, {:invalid_pattern, index}}` with the zero-based position of the
+  first entry that does not. Anything that is not a list is
+  `{:error, :invalid_pattern_format}`.
+
+  ## Examples
+
+      iex> {:ok, [pattern]} =
+      ...>   SigilGuard.Patterns.compile_all([
+      ...>     %{name: "ticket", category: "internal", severity: :low, pattern: "TICKET-[0-9]+"}
+      ...>   ])
+      ...>
+      ...> pattern.name
+      "ticket"
+
+      iex> SigilGuard.Patterns.compile_all([
+      ...>   %{name: "ticket", category: "internal", severity: :low, pattern: "TICKET-[0-9]+"},
+      ...>   %{name: "broken", category: "internal", severity: :low, pattern: "sk-(unclosed"}
+      ...> ])
+      {:error, {:invalid_pattern, 1}}
+
+  """
+  @doc since: "1.1.0"
+  @spec compile_all(term()) ::
+          {:ok, [compiled_pattern()]}
+          | {:error, {:invalid_pattern, non_neg_integer()} | :invalid_pattern_format}
+  def compile_all(raw_patterns) when is_list(raw_patterns) do
+    if List.improper?(raw_patterns),
+      do: {:error, :invalid_pattern_format},
+      else: compile_each(raw_patterns, 0, [])
+  end
+
+  def compile_all(_), do: {:error, :invalid_pattern_format}
+
+  defp compile_each([], _, compiled), do: {:ok, Enum.reverse(compiled)}
+
+  defp compile_each([raw | rest], index, compiled) do
+    case compile_pattern(raw) do
+      nil -> {:error, {:invalid_pattern, index}}
+      pattern -> compile_each(rest, index + 1, [pattern | compiled])
+    end
   end
 
   @doc """

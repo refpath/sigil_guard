@@ -77,6 +77,36 @@ defmodule SigilGuard.BoundaryPolicy.FileTest do
     end
   end
 
+  describe "parse/1 in a VM that has loaded nothing else" do
+    # The parser once turned decision names into atoms with
+    # `String.to_existing_atom/1`, which works only when another module has
+    # created `:redact` and `:quarantine`. This suite's VM always has, so the
+    # check runs in a peer that loads modules on first use.
+    test "every decision parses" do
+      paths = Enum.flat_map(:code.get_path(), &[~c"-pa", &1])
+      {:ok, peer, _} = :peer.start_link(%{connection: :standard_io, args: paths})
+
+      text = """
+      version 3
+      [rules]
+      default allow
+      redact phase:tool_result
+      quarantine phase:model_ingress
+      confirm sink:network
+      block sink:external
+      """
+
+      try do
+        assert {:ok, policy} = :peer.call(peer, SigilGuard.BoundaryPolicy.File, :parse, [text])
+
+        assert Enum.map(policy.rules, & &1.decision) == [:redact, :quarantine, :confirm, :block]
+        assert policy.default == :allow
+      after
+        :peer.stop(peer)
+      end
+    end
+  end
+
   describe "parse/1 grammar errors" do
     # boundary policy: invalid/ holds one minimal file per parse-error atom. Fixtures
     # named after a contract atom fail with that atom; the rest are grammar

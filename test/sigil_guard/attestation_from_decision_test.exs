@@ -155,7 +155,7 @@ defmodule SigilGuard.AttestationFromDecisionTest do
 
       predicate = statement["predicate"]
       refute Map.has_key?(predicate, "tool")
-      assert predicate["resource"] == %{"audience" => :internal}
+      assert predicate["resource"] == %{"audience" => "internal"}
     end
 
     test "explicit statement type wins over phase-derived type" do
@@ -429,6 +429,33 @@ defmodule SigilGuard.AttestationFromDecisionTest do
                build(decision(evidence_refs: evidence), evidence: other)
 
       assert overridden["predicate"]["evidence"] == other
+    end
+
+    test "a statement is equal to its decoded canonical bytes" do
+      contexts = [
+        @context,
+        %{@context | intended_audience: :external, resource_uri: "mcp://repo", mcp_server: "repo"}
+      ]
+
+      for context <- contexts,
+          opts <- [[], [audience: "spiffe://agents/reviewer", scopes: ["b", "a"]]] do
+        {:ok, statement} =
+          Attestation.from_decision(
+            decision(matched_rules: [%{rule_id: "line_3", explanation: nil}]),
+            context,
+            Keyword.merge([payload: @payload, now: @now], opts)
+          )
+
+        {:ok, bytes} = SigilGuard.Canonical.JCS.encode(statement)
+
+        assert SigilGuard.Canonical.JSON.decode(bytes) == {:ok, statement}
+      end
+
+      {:ok, statement} =
+        Attestation.from_decision(decision(), @context, payload: @payload, now: @now)
+
+      assert statement["predicate"]["resource"]["audience"] ==
+               Atom.to_string(@context.intended_audience)
     end
 
     test "the boundary mirror states the fields the context digest binds" do

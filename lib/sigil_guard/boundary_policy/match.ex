@@ -88,14 +88,14 @@ defmodule SigilGuard.BoundaryPolicy.Match do
   defp category_value_matches?(value, present), do: value in present
 
   defp isolation(%Boundary{sandbox: sandbox}) when is_map(sandbox) do
-    fetch(sandbox, "isolation_level")
+    fetch(sandbox, "isolation_level", :isolation_level)
   end
 
   defp isolation(_), do: nil
 
   defp side_effects(%Boundary{tool: tool}) when is_map(tool) do
     tool
-    |> fetch("side_effects")
+    |> fetch("side_effects", :side_effects)
     |> List.wrap()
     |> effect_classes()
     |> Enum.map(&Atom.to_string/1)
@@ -103,10 +103,10 @@ defmodule SigilGuard.BoundaryPolicy.Match do
 
   defp side_effects(_), do: []
 
-  defp tool_name(%Boundary{tool: tool}) when is_map(tool), do: str(fetch(tool, "name"))
+  defp tool_name(%Boundary{tool: tool}) when is_map(tool), do: str(fetch(tool, "name", :name))
   defp tool_name(_), do: nil
 
-  defp actor_id(%Boundary{actor: actor}) when is_map(actor), do: str(fetch(actor, "id"))
+  defp actor_id(%Boundary{actor: actor}) when is_map(actor), do: str(fetch(actor, "id", :id))
   defp actor_id(_), do: nil
 
   defp hit_categories(%Boundary{hits: hits}), do: categories(hits)
@@ -121,10 +121,12 @@ defmodule SigilGuard.BoundaryPolicy.Match do
 
   defp categories(_), do: []
 
-  defp entry_category(entry) when is_map(entry), do: str(fetch(entry, "category"))
+  defp entry_category(entry) when is_map(entry), do: str(fetch(entry, "category", :category))
   defp entry_category(_), do: nil
 
-  defp fetch(map, key), do: Map.get(map, key) || Map.get(map, String.to_existing_atom(key))
+  # A boundary field arrives with string keys from JSON and with atom keys
+  # from Elixir code. Both spellings are passed in, so no atom is looked up.
+  defp fetch(map, string_key, atom_key), do: Map.get(map, string_key) || Map.get(map, atom_key)
 
   defp str(nil), do: nil
   defp str(value) when is_atom(value), do: Atom.to_string(value)

@@ -8,6 +8,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   """
 
   alias SigilGuard.Attestation.Envelope
+  alias SigilGuard.Canonical
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
   alias SigilGuard.TrustBundle
@@ -75,7 +76,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     valid? =
       is_binary(payload) and is_binary(payload_type) and is_list(signatures) and
         signatures != [] and SigilGuard.Limits.check(envelope) == :ok and
-        SigilGuard.Canonical.JSON.unique_keys?(envelope) and length(signatures) <= 64
+        Canonical.JSON.unique_keys?(envelope) and length(signatures) <= 64
 
     if valid? do
       {:ok, %{payload: payload, payload_type: payload_type, signatures: signatures}}
@@ -125,7 +126,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     sig = field(signature, "sig")
 
     if is_binary(keyid) and keyid != "" and is_binary(sig) and
-         SigilGuard.Canonical.JSON.unique_keys?(signature) do
+         Canonical.JSON.unique_keys?(signature) do
       {:ok, %{keyid: keyid, sig: sig}}
     else
       {:error, :invalid_envelope}
@@ -156,7 +157,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   defp decode_base64(_), do: {:error, :invalid_base64}
 
   defp decode_document(payload) do
-    case SigilGuard.Canonical.JSON.decode(payload) do
+    case Canonical.JSON.decode(payload) do
       {:ok, %{} = document} ->
         if SigilGuard.Limits.check(document) == :ok,
           do: {:ok, document},

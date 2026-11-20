@@ -8,7 +8,10 @@ defmodule SigilGuard.MutationReport do
     {"rank(a) >= rank(b)", "rank(a) > rank(b)"}
   ]
 
-  @doc false
+  @doc "Account for every mutant of a Muex report: killed, equivalent, or invalid."
+  @spec validate(term(), binary()) ::
+          {:ok, %{required(atom()) => non_neg_integer()}}
+          | {:error, :unaccounted_mutations | :invalid_report}
   def validate(%{"mutations" => mutations}, source) when is_list(mutations) do
     hash = Base.encode16(:crypto.hash(:sha256, source), case: :lower)
     killed = Enum.count(mutations, &(&1["status"] == "killed"))
@@ -44,12 +47,12 @@ case System.argv() do
     log = File.read!(path)
     {start, _} = :binary.match(log, "{\n  \"summary\"")
     # Muex appends its threshold failure after the JSON object.
-    json = binary_part(log, start, byte_size(log) - start) |> String.split("\n** (Mix)") |> hd()
+    [json | _] = String.split(binary_part(log, start, byte_size(log) - start), "\n** (Mix)")
     report = Jason.decode!(String.trim(json))
     source = File.read!("lib/sigil_guard/verdict.ex")
 
     case SigilGuard.MutationReport.validate(report, source) do
-      {:ok, result} -> IO.inspect(result, label: "Verified verdict mutation accounting")
+      {:ok, result} -> Mix.shell().info("Verified verdict mutation accounting: #{inspect(result)}")
       {:error, reason} -> Mix.raise("mutation gate failed: #{reason}; inspect #{path}")
     end
 

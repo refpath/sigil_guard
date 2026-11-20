@@ -566,6 +566,36 @@ failure. Removed keys raise `SigilGuard.ConfigError` with reason
 `:legacy_contract_removed`; unknown keys raise `SigilGuard.ConfigError` with
 reason `:unknown_config_key`. Both error messages name `MIGRATING-1.0.md`.
 
+### Errors Without A Running Runtime
+
+The replay, rate, and bundle tables belong to `SigilGuard.Runtime`. Releases
+up to 1.0.5 created a missing table in whichever process asked first, and the
+table vanished when that process exited. With `runtime: false` and no runtime
+in the host's supervision tree, one confirmation token then verified from
+several short-lived processes. The stateful functions no longer create
+tables, and they fail closed when the runtime is not running:
+
+| Call | Result without a runtime |
+|------|--------------------------|
+| `Confirmation.verify/5` (single use), `Attestation.verify/3` with `replay: true`, `ReplayStore.check_and_put/4` | `{:error, :replay_store_unavailable}` |
+| `Policy.rate_check/2` with the default table | `{:error, :rate_limited}` |
+| `TrustBundle.load/2` with caching, `TrustBundle.Cache.put/1` | `{:error, :cache_unavailable}` |
+| `TrustBundle.Cache.get/1`, `floor/1`, `TrustBundle.verify/2` | as for an empty cache |
+
+A host that sets `runtime: false` adds `SigilGuard.Runtime` to its own
+supervision tree. Stateless verification (`consume: false`,
+`TrustBundle.load/2` with `cache: false`) needs no table.
+
+### Confirmation Option Values
+
+`Confirmation.verify/5` reads `consume:` as a boolean. `false` skips the
+replay store, `true` or no option consumes the nonce, and any other value
+returns `{:error, :invalid_consume}`. Releases up to 1.0.5 read the option by
+truthiness, so a `nil` forwarded from an unset host option switched single
+use off. The gateway's `consume_confirmation:` follows the same rule; a
+gateway decision for another value is blocked with
+`confirmation_reason: :invalid_consume`.
+
 ## Version Pinning
 
 `~> 0.2` users do not auto-upgrade to 1.0. The 1.0 release is intentionally a
@@ -652,6 +682,18 @@ attestation signed by such a release fails digest recomputation:
 `guard_request/3` with `attestation: :required` blocks the request with
 `:invalid_attestation`. The `request_action_digest` a result names changes
 with it. Upgrade both sides of a gateway together and sign again.
+
+`ToolGateway.attest_request/3` and `attest_result/3` write the statement for
+the boundary the guard function evaluated: the origin, sink, tool, and
+server the gateway reads from the message fill what the host context leaves
+unset. Releases up to 1.0.5 digested the host context as given, so a
+gateway refused its own attestation unless the host context spelled out the
+origin, the sink, and the tool, and the statement described another
+boundary than the decision. A host context that names those fields gives
+the same context digest as before. One that does not gives a different one:
+verify such a statement through `guard_request/3`, or pass
+`SigilGuard.MCP.SecurityPayload.context(request, :request, context)` as
+`context:` to `Attestation.verify/3`.
 
 ### Protocol Version And Results
 

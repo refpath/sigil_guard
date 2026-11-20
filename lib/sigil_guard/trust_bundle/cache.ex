@@ -19,10 +19,15 @@ defmodule SigilGuard.TrustBundle.Cache do
           keyids: [String.t()],
           keys: %{String.t() => binary()}
         }
-  @type put_error :: :sequence_below_floor | :forked_root_chain | :revoked_key
+  @type put_error ::
+          :sequence_below_floor | :forked_root_chain | :revoked_key | :cache_unavailable
 
   @doc """
   Create the trust-bundle ETS table if it does not already exist.
+
+  `SigilGuard.Runtime` calls this when it starts and thereby owns the table.
+  No other function creates it. Without the table, readers find nothing and
+  `put/1` returns `{:error, :cache_unavailable}`.
   """
   @spec ensure_table() :: :ok
   def ensure_table do
@@ -52,9 +57,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   """
   @spec get(bundle_id :: String.t()) :: {:ok, TrustBundle.t()} | :error
   def get(bundle_id) when is_binary(bundle_id) do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [{^bundle_id, bundle, _, _, _, _}] -> {:ok, bundle}
       [] -> :error
     end
@@ -63,9 +66,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   @doc false
   @spec root_pin(bundle_id :: String.t()) :: {:ok, root_pin()} | :error
   def root_pin(bundle_id) when is_binary(bundle_id) do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [{^bundle_id, _, _, nil, _, _}] -> :error
       [{^bundle_id, _, _, pin, _, _}] -> {:ok, pin}
       [] -> :error
@@ -75,9 +76,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   @doc false
   @spec revoked_keyids(bundle_id :: String.t()) :: MapSet.t(String.t())
   def revoked_keyids(bundle_id) when is_binary(bundle_id) do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [{^bundle_id, _, _, _, _, revoked}] -> revoked
       [] -> MapSet.new()
     end
@@ -88,9 +87,7 @@ defmodule SigilGuard.TrustBundle.Cache do
           {:ok, String.t()} | :error
   def rotation_digest(bundle_id, root_version)
       when is_binary(bundle_id) and is_integer(root_version) do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [{^bundle_id, _, _, _, digests, _}] -> Map.fetch(digests, root_version)
       [] -> :error
     end
@@ -107,9 +104,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   @spec check(TrustBundle.t()) :: :ok | {:error, put_error()}
   def check(%TrustBundle{bundle_id: bundle_id, sequence: sequence} = bundle)
       when is_binary(bundle_id) and is_integer(sequence) and sequence > 0 do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [] -> :ok
       [row] -> rejection(bundle, row)
     end
@@ -128,9 +123,8 @@ defmodule SigilGuard.TrustBundle.Cache do
   @spec put(TrustBundle.t()) :: {:ok, TrustBundle.t()} | {:error, put_error()}
   def put(%TrustBundle{bundle_id: bundle_id, sequence: sequence} = bundle)
       when is_binary(bundle_id) and is_integer(sequence) and sequence > 0 do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case table_lookup(bundle_id) do
+      :unavailable -> {:error, :cache_unavailable}
       [] -> put_new(bundle)
       [row] -> put_existing(bundle, row)
     end
@@ -143,9 +137,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   """
   @spec floor(bundle_id :: String.t()) :: non_neg_integer()
   def floor(bundle_id) when is_binary(bundle_id) do
-    ensure_table()
-
-    case :ets.lookup(@table, bundle_id) do
+    case lookup(bundle_id) do
       [{^bundle_id, _, floor, _, _, _}] -> floor
       [] -> 0
     end
@@ -154,9 +146,24 @@ defmodule SigilGuard.TrustBundle.Cache do
   @doc false
   @spec clear() :: :ok
   def clear do
-    ensure_table()
-    :ets.delete_all_objects(@table)
+    if :ets.whereis(@table) != :undefined, do: :ets.delete_all_objects(@table)
     :ok
+  end
+
+  # A reader sees a missing table as an empty one: nothing has been accepted
+  # in this boot. Only `ensure_table/0` creates the table, so that its owner
+  # is the runtime and not whichever process asked first.
+  defp lookup(bundle_id) do
+    case table_lookup(bundle_id) do
+      :unavailable -> []
+      rows -> rows
+    end
+  end
+
+  defp table_lookup(bundle_id) do
+    if :ets.whereis(@table) == :undefined,
+      do: :unavailable,
+      else: :ets.lookup(@table, bundle_id)
   end
 
   defp put_new(bundle) do

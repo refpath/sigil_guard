@@ -22,6 +22,7 @@ defmodule SigilGuard.Audit.Checkpoint do
 
   alias SigilGuard.Attestation.Statement
   alias SigilGuard.Audit
+  alias SigilGuard.Canonical.LegacyJSON
   alias SigilGuard.Crypto
 
   @kind "sigil_guard.audit.checkpoint"
@@ -95,7 +96,7 @@ defmodule SigilGuard.Audit.Checkpoint do
           generated_at: generated_at
         })
 
-      if SigilGuard.Canonical.LegacyJSON.valid?(checkpoint),
+      if LegacyJSON.valid?(checkpoint),
         do: {:ok, checkpoint},
         else: {:error, :invalid_checkpoint}
     end
@@ -250,7 +251,7 @@ defmodule SigilGuard.Audit.Checkpoint do
         } = statement
       ) do
     with :ok <- SigilGuard.Limits.check(statement),
-         true <- SigilGuard.Canonical.LegacyJSON.valid?(statement),
+         true <- LegacyJSON.valid?(statement),
          true <- hex_digest?(root) and hex_digest?(digest),
          true <- is_binary(generated_at) and generated_at != "",
          true <- is_binary(size),
@@ -426,7 +427,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp json_metadata(value, reason) do
-    if SigilGuard.Canonical.LegacyJSON.valid?(value), do: {:ok, value}, else: {:error, reason}
+    if LegacyJSON.valid?(value), do: {:ok, value}, else: {:error, reason}
   end
 
   defp checkpoint_prev_hmac(checkpoint) do
@@ -657,7 +658,7 @@ defmodule SigilGuard.Audit.Checkpoint do
     Map.drop(checkpoint, @metadata_keys ++ @metadata_atom_keys)
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: LegacyJSON.encode(value)
 
   defp digest_canonical_bytes(canonical) do
     canonical
