@@ -206,7 +206,7 @@ corrections. Its rows for BM.02 at 1 KiB, the BM.03 quarantine path, BM.04,
 BM.05 verify, BM.06, and BM.07 describe the earlier fixtures until a
 baseline refresh replaces them, and it has no row for BM.09 to BM.31. A
 refresh needs three runs within +/-5% on a quiet runner. On a workstation
-on 2026-11-20, three sets of three runs kept 38, 56 and 41 of the 79
+on 2026-11-20, four sets of three runs kept 38, 56, 41 and 42 of the 79
 scenario medians within that band, so the baseline was not replaced. The
 published reports under `bench/output/` are from the last of those runs
 and state their environment.

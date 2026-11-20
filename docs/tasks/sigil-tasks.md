@@ -3452,10 +3452,11 @@ traced every line no test executed.
 - [ ] M15.10 Benchmark baseline refresh (`SP.15`).
   - AC: three full runs on one quiet runner with every scenario median
     within +/-5%; `bench/baseline.json` replaced in its own commit.
-  - Open: on the workstation, three sets of three runs on 2026-11-20 kept
-    38, 56 and 41 of 79 medians within +/-5%, the last with sub-10 us
-    scenarios timed in batches; the widest spreads were 58%, 22.5% and
-    28.2%. The rule needs a quiet runner.
+  - Open: on the workstation, four sets of three runs on 2026-11-20 kept
+    38, 56, 41 and 42 of 79 medians within +/-5%, the last two with sub-10
+    us scenarios timed in batches; the widest spreads were 58%, 22.5%,
+    28.2% and 130%. Load averages stayed between 10 and 20 from other
+    processes during the last set. The rule needs a quiet runner.
 - [x] M15.11 Intermittent failure of the untrusted-input gateway property.
   - AC: the property "a mutated context or option value is answered, not
     raised" passes in every full run, or the input that raises is fixed.
