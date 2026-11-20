@@ -126,10 +126,10 @@ defmodule SigilGuard.MCP.AppResource do
          {:ok, uri} <- required_string(resource, "uri", :uri),
          :ok <- validate_uri(uri, opts),
          {:ok, mime_type} <- required_string(resource, "mimeType", :mime_type),
-         true <- mime_type == @mime_type,
+         :ok <- require_mime_type(mime_type),
          {:ok, content} <- resource_content(resource),
          :ok <- validate_content(content, opts),
-         sha256 <- SigilGuard.Crypto.sha256_hex(content),
+         sha256 = SigilGuard.Crypto.sha256_hex(content),
          :ok <- validate_digest(sha256, opts),
          {:ok, csp, permissions, domain, prefers_border} <- ui_security_metadata(resource),
          :ok <- validate_csp(csp, opts),
@@ -145,9 +145,6 @@ defmodule SigilGuard.MCP.AppResource do
          domain: domain,
          prefers_border: prefers_border
        }}
-    else
-      false -> {:error, :invalid_app_resource}
-      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -373,6 +370,9 @@ defmodule SigilGuard.MCP.AppResource do
     do: SigilGuard.Crypto.sha256_hex?(digest)
 
   defp valid_expected_digest?(_), do: false
+
+  defp require_mime_type(@mime_type), do: :ok
+  defp require_mime_type(_), do: {:error, :invalid_app_resource}
 
   defp positive_max_bytes?(value), do: is_integer(value) and value > 0
 

@@ -326,10 +326,7 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
         {:ok, :mask}
 
       {:ok, value} ->
-        case Map.fetch(@transforms, value) do
-          {:ok, atom} -> {:ok, atom}
-          :error -> {:error, :unknown_transform}
-        end
+        with :error <- Map.fetch(@transforms, value), do: {:error, :unknown_transform}
     end
   end
 

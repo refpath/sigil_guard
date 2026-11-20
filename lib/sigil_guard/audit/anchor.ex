@@ -98,10 +98,7 @@ defmodule SigilGuard.Audit.Anchor do
   """
   @spec validate(t()) :: :ok | {:error, atom()}
   def validate(record) when is_map(record) do
-    case verify_record(record) do
-      {:ok, _} -> :ok
-      error -> error
-    end
+    with {:ok, _} <- verify_record(record), do: :ok
   end
 
   def validate(_), do: {:error, :invalid_anchor}
@@ -196,10 +193,7 @@ defmodule SigilGuard.Audit.Anchor do
   end
 
   defp safe_checkpoint_digest(checkpoint) do
-    case Checkpoint.fetch_digest(checkpoint) do
-      {:ok, digest} -> {:ok, digest}
-      :error -> {:error, :invalid_checkpoint}
-    end
+    with :error <- Checkpoint.fetch_digest(checkpoint), do: {:error, :invalid_checkpoint}
   end
 
   defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)

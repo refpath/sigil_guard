@@ -177,10 +177,7 @@ defmodule SigilGuard.TrustBundle.Schema do
   end
 
   defp timestamp_field(map, key) do
-    case parse_timestamp(Map.get(map, key)) do
-      {:ok, _} -> :ok
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, _} <- parse_timestamp(Map.get(map, key)), do: :ok
   end
 
   defp parse_timestamp(value) do
@@ -262,12 +259,12 @@ defmodule SigilGuard.TrustBundle.Schema do
   end
 
   defp validate_delegates(delegates, keys) when delegates != [] do
-    case Enum.reduce_while(delegates, {:ok, MapSet.new()}, fn delegate, {:ok, names} ->
-           reduce_delegate(delegate, keys, names)
-         end) do
-      {:ok, _} -> :ok
-      {:error, reason} -> {:error, reason}
-    end
+    result =
+      Enum.reduce_while(delegates, {:ok, MapSet.new()}, fn delegate, {:ok, names} ->
+        reduce_delegate(delegate, keys, names)
+      end)
+
+    with {:ok, _} <- result, do: :ok
   end
 
   defp validate_delegates(_, _), do: {:error, :invalid_bundle_format}

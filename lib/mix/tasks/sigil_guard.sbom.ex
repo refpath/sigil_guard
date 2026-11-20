@@ -358,10 +358,7 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   end
 
   defp fetch_dependency_lock(locks, name) do
-    case Map.fetch(locks, name) do
-      {:ok, lock} -> {:ok, lock}
-      :error -> {:error, {:missing_runtime_dependency_lock, name}}
-    end
+    with :error <- Map.fetch(locks, name), do: {:error, {:missing_runtime_dependency_lock, name}}
   end
 
   defp dependency_package({:hex, package, version, checksum, _, _, repo, outer}) do

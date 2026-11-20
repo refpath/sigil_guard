@@ -76,10 +76,8 @@ defmodule SigilGuard.Audit.Anchor.Store do
 
   def verify(store, receipt_or_digest, checkpoint, opts) when is_map(checkpoint) do
     span(:verify, store, fn ->
-      case fetch(store, receipt_or_digest, opts) do
-        {:ok, record} -> Anchor.verify(record, checkpoint)
-        {:error, reason} -> {:error, reason}
-      end
+      with {:ok, record} <- fetch(store, receipt_or_digest, opts),
+           do: Anchor.verify(record, checkpoint)
     end)
   end
 

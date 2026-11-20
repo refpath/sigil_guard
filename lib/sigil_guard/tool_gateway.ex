@@ -1326,10 +1326,8 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp fetch_confirmation_token(token_source) when is_map(token_source) do
-    case Attestation.fetch_confirmation(token_source) do
-      {:ok, token} -> {:ok, token}
-      :error -> GatewayBase.nested_confirmation_token(token_source)
-    end
+    with :error <- Attestation.fetch_confirmation(token_source),
+         do: GatewayBase.nested_confirmation_token(token_source)
   end
 
   defp fetch_confirmation_token(_), do: :error

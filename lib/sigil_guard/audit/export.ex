@@ -194,10 +194,7 @@ defmodule SigilGuard.Audit.Export do
   defp create_anchor(checkpoint, opts) do
     anchor = Anchor.create(checkpoint, opts)
 
-    case Anchor.validate(anchor) do
-      :ok -> {:ok, anchor}
-      {:error, reason} -> {:error, reason}
-    end
+    with :ok <- Anchor.validate(anchor), do: {:ok, anchor}
   end
 
   # Adding only present evidence keys keeps packages without references

@@ -52,16 +52,19 @@ defmodule SigilGuard.Audit.SignatureMetadata do
          :ok <- require_algorithm(fields.algorithm),
          :ok <- require_binary(fields.digest, :missing_digest),
          :ok <- require_binary(fields.signature, :missing_signature),
-         true <- SigilGuard.Canonical.JSON.unique_keys?(signature) do
+         :ok <- require_unique_keys(signature) do
       {:ok, fields}
-    else
-      false -> {:error, :invalid_signature_metadata}
-      error -> error
     end
   end
 
   defp require_binary(value, _) when is_binary(value) and value != "", do: :ok
   defp require_binary(_, reason), do: {:error, reason}
+
+  defp require_unique_keys(signature) do
+    if SigilGuard.Canonical.JSON.unique_keys?(signature),
+      do: :ok,
+      else: {:error, :invalid_signature_metadata}
+  end
 
   defp require_algorithm(@algorithm), do: :ok
   defp require_algorithm(_), do: {:error, :unsupported_algorithm}

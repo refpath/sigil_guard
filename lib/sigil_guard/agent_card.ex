@@ -391,9 +391,8 @@ defmodule SigilGuard.AgentCard do
 
   defp encode_card(card) do
     case JCS.encode(card) do
-      {:ok, canonical} -> {:ok, canonical}
-      {:error, :unsupported_number_range} -> {:error, :unsupported_number_range}
-      {:error, _} -> {:error, :invalid_agent_card}
+      {:error, reason} when reason != :unsupported_number_range -> {:error, :invalid_agent_card}
+      result -> result
     end
   end
 

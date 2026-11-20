@@ -239,10 +239,8 @@ defmodule SigilGuard.Audit.Proof do
   defp verify_path(hmac, leaf_index, tree_size, path, merkle_root) do
     seed = {:ok, {Checkpoint.leaf_hash(hmac), leaf_index, tree_size - 1}}
 
-    case Enum.reduce_while(path, seed, &fold_node/2) do
-      {:ok, {root, _, sn}} -> finalize(root, sn, merkle_root)
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, {root, _, sn}} <- Enum.reduce_while(path, seed, &fold_node/2),
+         do: finalize(root, sn, merkle_root)
   end
 
   defp fold_node(_, {:ok, {_, _, 0}}), do: {:halt, {:error, :proof_verification_failed}}
@@ -318,10 +316,8 @@ defmodule SigilGuard.Audit.Proof do
     {fn0, sn0} = shift_while_odd(first_size - 1, second_size - 1)
     seed = {:ok, {first_node, first_node, fn0, sn0}}
 
-    case Enum.reduce_while(rest, seed, &fold_consistency/2) do
-      {:ok, {fr, sr, _, sn}} -> finalize_consistency(fr, sr, sn, first_root, second_root)
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, {fr, sr, _, sn}} <- Enum.reduce_while(rest, seed, &fold_consistency/2),
+         do: finalize_consistency(fr, sr, sn, first_root, second_root)
   end
 
   defp fold_consistency(_, {:ok, {_, _, _, 0}}), do: {:halt, {:error, :invalid_proof}}

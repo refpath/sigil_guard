@@ -225,10 +225,7 @@ defmodule SigilGuard.Assessment.OSCAL do
         end
       end)
 
-    case result do
-      {:ok, _} -> :ok
-      error -> error
-    end
+    with {:ok, _} <- result, do: :ok
   end
 
   defp validate_export_data(_), do: {:error, :invalid_export}
@@ -378,12 +375,8 @@ defmodule SigilGuard.Assessment.OSCAL do
   end
 
   defp validate_subjects(subjects) when is_list(subjects) and subjects != [] do
-    with {:ok, normalized} <- map_validated(subjects, &validate_subject/1),
-         true <- unique_subjects?(normalized) do
-      {:ok, normalized}
-    else
-      false -> {:error, :invalid_observation}
-      {:error, reason} -> {:error, reason}
+    with {:ok, normalized} <- map_validated(subjects, &validate_subject/1) do
+      if unique_subjects?(normalized), do: {:ok, normalized}, else: {:error, :invalid_observation}
     end
   end
 
@@ -411,12 +404,10 @@ defmodule SigilGuard.Assessment.OSCAL do
   defp validate_methods(_), do: {:error, :invalid_observation}
 
   defp validate_sigilguard(properties) when is_map(properties) do
-    with :ok <- closed_map(properties, @sigilguard_keys, [], :invalid_observation),
-         true <- Enum.all?(properties, fn {_, value} -> valid_scalar_text?(value) end) do
-      {:ok, properties}
-    else
-      false -> {:error, :invalid_observation}
-      {:error, reason} -> {:error, reason}
+    with :ok <- closed_map(properties, @sigilguard_keys, [], :invalid_observation) do
+      if Enum.all?(Map.values(properties), &valid_scalar_text?/1),
+        do: {:ok, properties},
+        else: {:error, :invalid_observation}
     end
   end
 

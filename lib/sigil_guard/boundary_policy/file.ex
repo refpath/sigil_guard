@@ -100,16 +100,8 @@ defmodule SigilGuard.BoundaryPolicy.File do
   def parse(_), do: {:error, :invalid_policy_file}
 
   defp parse_within_limit(bytes) do
-    result =
-      bytes
-      |> String.split("\n")
-      |> Enum.with_index(1)
-      |> parse_lines()
-
-    case result do
-      {:ok, compiled} -> {:ok, %{compiled | digest: digest(bytes)}}
-      error -> error
-    end
+    numbered = Enum.with_index(String.split(bytes, "\n"), 1)
+    with {:ok, compiled} <- parse_lines(numbered), do: {:ok, %{compiled | digest: digest(bytes)}}
   end
 
   @doc """
@@ -312,10 +304,8 @@ defmodule SigilGuard.BoundaryPolicy.File do
   end
 
   defp ingest_section("[contracts]", logical, acc) do
-    case Contract.parse(Enum.map(logical, fn {text, _} -> text end)) do
-      {:ok, contracts} -> {:ok, %{acc | contracts: contracts}}
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, contracts} <- Contract.parse(Enum.map(logical, fn {text, _} -> text end)),
+         do: {:ok, %{acc | contracts: contracts}}
   end
 
   defp rules_line("default " <> rest, _, %{default: nil} = acc) do

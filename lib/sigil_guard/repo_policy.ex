@@ -150,10 +150,7 @@ defmodule SigilGuard.RepoPolicy do
       |> Enum.with_index(1)
       |> Enum.reduce_while({:ok, %{default: @default_decision, rules: []}}, &parse_line/2)
 
-    case result do
-      {:ok, policy} -> compile(%{policy | rules: Enum.reverse(policy.rules)})
-      error -> error
-    end
+    with {:ok, policy} <- result, do: compile(%{policy | rules: Enum.reverse(policy.rules)})
   end
 
   @doc """

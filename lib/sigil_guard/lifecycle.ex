@@ -97,12 +97,7 @@ defmodule SigilGuard.Lifecycle do
   @spec cast(term()) :: {:ok, phase()} | :error
   def cast(phase) when phase in @phases, do: {:ok, phase}
 
-  def cast(phase) when is_binary(phase) do
-    case Map.fetch(@phase_strings, phase) do
-      {:ok, phase} -> {:ok, phase}
-      :error -> :error
-    end
-  end
+  def cast(phase) when is_binary(phase), do: Map.fetch(@phase_strings, phase)
 
   def cast(_), do: :error
 
@@ -112,10 +107,5 @@ defmodule SigilGuard.Lifecycle do
   Returns `:error` for unknown context phases.
   """
   @spec from_context_phase(term()) :: {:ok, phase()} | :error
-  def from_context_phase(phase) do
-    case Map.fetch(@context_phase_map, phase) do
-      {:ok, phase} -> {:ok, phase}
-      :error -> :error
-    end
-  end
+  def from_context_phase(phase), do: Map.fetch(@context_phase_map, phase)
 end

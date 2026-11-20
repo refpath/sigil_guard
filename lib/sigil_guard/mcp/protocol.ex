@@ -155,10 +155,7 @@ defmodule SigilGuard.MCP.Protocol do
   defp fetch_path(value, []), do: {:ok, value}
 
   defp fetch_path(value, [key | rest]) when is_map(value) do
-    case Map.fetch(value, key) do
-      {:ok, next} -> fetch_path(next, rest)
-      :error -> :error
-    end
+    with {:ok, next} <- Map.fetch(value, key), do: fetch_path(next, rest)
   end
 
   defp fetch_path(_, _), do: :error

@@ -317,10 +317,8 @@ defmodule SigilGuard.Attestation.Envelope do
     result =
       Enum.reduce_while(signatures, {:ok, 0}, &verify_signature(&1, &2, public_keys, pae))
 
-    case result do
-      {:ok, resolved} when resolved > 0 -> {:ok, payload}
-      {:ok, 0} -> {:error, :unknown_key_id}
-      {:error, reason} -> {:error, reason}
+    with {:ok, resolved} <- result do
+      if resolved > 0, do: {:ok, payload}, else: {:error, :unknown_key_id}
     end
   end
 

@@ -228,7 +228,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   defp peer_agent(peer_agent_id, opts) do
     peer_agent = %{"id" => peer_agent_id}
 
-    case fetch_option(opts, :card_digest) do
+    case Keyword.fetch(opts, :card_digest) do
       {:ok, digest} ->
         with {:ok, digest} <- validate_sha256(digest) do
           {:ok, Map.put(peer_agent, "card_digest", digest)}
@@ -271,7 +271,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   end
 
   defp peer_trust(opts) do
-    case fetch_option(opts, :peer_trust) do
+    case Keyword.fetch(opts, :peer_trust) do
       {:ok, trust} -> validate_peer_trust(normalize_atom_value(trust))
       :error -> {:error, :invalid_payload}
     end
@@ -281,24 +281,21 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   defp validate_peer_trust(_), do: {:error, :invalid_payload}
 
   defp response_status(payload) do
-    case required_string(payload, "status") do
-      {:ok, status} -> validate_status(status)
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, status} <- required_string(payload, "status"), do: validate_status(status)
   end
 
   defp validate_status(value) when value in @response_statuses, do: {:ok, value}
   defp validate_status(_), do: {:error, :invalid_payload}
 
   defp request_action_digest(opts) do
-    case fetch_option(opts, :request_action_digest) do
+    case Keyword.fetch(opts, :request_action_digest) do
       {:ok, digest} -> validate_sha256(digest)
       :error -> {:error, :invalid_payload}
     end
   end
 
   defp quarantined(opts) do
-    case fetch_option(opts, :quarantined) do
+    case Keyword.fetch(opts, :quarantined) do
       {:ok, value} -> validate_boolean(value)
       :error -> {:error, :invalid_payload}
     end
@@ -352,13 +349,6 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   defp field(map, key), do: Field.get(map, key, @atom_fields)
 
   defp fetch_field(map, key), do: Field.fetch(map, key, @atom_fields)
-
-  defp fetch_option(opts, key) do
-    case Keyword.fetch(opts, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> :error
-    end
-  end
 
   defp verdict(opts) when is_list(opts), do: normalize_atom_value(Keyword.get(opts, :verdict))
   defp verdict(map) when is_map(map), do: normalize_atom_value(field(map, "verdict"))

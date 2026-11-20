@@ -121,10 +121,7 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
   defp validate_receipt_uri(%{} = receipt) do
     case fetch_field(receipt, "uri") do
       {:ok, "file://" <> _ = uri} ->
-        case path_from_uri(uri) do
-          {:ok, _} -> :ok
-          {:error, reason} -> {:error, reason}
-        end
+        with {:ok, _} <- path_from_uri(uri), do: :ok
 
       {:ok, _} ->
         {:error, :missing_path}

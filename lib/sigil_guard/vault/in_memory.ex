@@ -238,10 +238,8 @@ defmodule SigilGuard.Vault.InMemory do
   defp validate_start_options(_), do: {:error, :invalid_options}
 
   defp validate_start_keyword_options(opts) do
-    case NimbleOptions.validate(opts, @start_schema) do
-      {:ok, validated} -> {:ok, validated}
-      {:error, %NimbleOptions.ValidationError{}} -> {:error, :invalid_options}
-    end
+    with {:error, %NimbleOptions.ValidationError{}} <- NimbleOptions.validate(opts, @start_schema),
+         do: {:error, :invalid_options}
   end
 
   defp master_key(opts) do

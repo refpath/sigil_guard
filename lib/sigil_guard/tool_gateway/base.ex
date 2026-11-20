@@ -671,10 +671,7 @@ defmodule SigilGuard.ToolGateway.Base do
   defp fetch_payload_path(payload, []), do: {:ok, payload}
 
   defp fetch_payload_path(payload, [key | rest]) when is_map(payload) do
-    case Map.fetch(payload, key) do
-      {:ok, value} -> fetch_payload_path(value, rest)
-      :error -> :error
-    end
+    with {:ok, value} <- Map.fetch(payload, key), do: fetch_payload_path(value, rest)
   end
 
   defp fetch_payload_path(_, _), do: :error

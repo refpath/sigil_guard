@@ -197,9 +197,7 @@ defmodule SigilGuard.Identity do
   defp base58_integer([], acc), do: {:ok, acc}
 
   defp base58_integer([char | rest], acc) do
-    case Map.fetch(@base58_index, char) do
-      {:ok, digit} -> base58_integer(rest, acc * 58 + digit)
-      :error -> :error
-    end
+    with {:ok, digit} <- Map.fetch(@base58_index, char),
+         do: base58_integer(rest, acc * 58 + digit)
   end
 end

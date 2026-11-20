@@ -119,11 +119,8 @@ defmodule SigilGuard.TrustBundle.Issuers do
   defp verify_signatures(envelope, authorized, resolver) do
     usable = Map.reject(authorized, fn {_, value} -> is_nil(value) end)
 
-    case Envelope.verify(envelope, usable) do
-      {:ok, payload} -> {:ok, payload}
-      {:error, :unknown_key_id} -> unresolved(envelope, resolver)
-      {:error, reason} -> {:error, reason}
-    end
+    with {:error, :unknown_key_id} <- Envelope.verify(envelope, usable),
+         do: unresolved(envelope, resolver)
   end
 
   defp unresolved(_, :map), do: {:error, :unknown_key_id}

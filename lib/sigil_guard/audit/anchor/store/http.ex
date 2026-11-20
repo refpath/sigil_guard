@@ -563,10 +563,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   defp normalize_record(%{"anchor" => record}) when is_map(record), do: normalize_record(record)
 
   defp normalize_record(record) when is_map(record) do
-    case Store.validate_anchor(record) do
-      :ok -> {:ok, record}
-      {:error, reason} -> {:error, reason}
-    end
+    with :ok <- Store.validate_anchor(record), do: {:ok, record}
   end
 
   defp verify_digest(record, digest) do

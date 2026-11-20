@@ -252,10 +252,8 @@ defmodule SigilGuard.TrustBundle do
   def verify(_, _), do: {:error, :invalid_bundle_format}
 
   defp do_verify(envelope, opts) do
-    case Verify.verify(envelope, opts) do
-      {:ok, bundle} -> {:ok, bundle}
-      {:error, reason} -> quarantine_error(reason, %{envelope: envelope}, opts)
-    end
+    with {:error, reason} <- Verify.verify(envelope, opts),
+         do: quarantine_error(reason, %{envelope: envelope}, opts)
   end
 
   @doc """

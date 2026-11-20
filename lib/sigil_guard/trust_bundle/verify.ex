@@ -178,10 +178,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp cached_or_current_root(%{"bundle_id" => bundle_id} = document) do
-    case Cache.root_pin(bundle_id) do
-      {:ok, pin} -> {:ok, pin}
-      :error -> current_root(document)
-    end
+    with :error <- Cache.root_pin(bundle_id), do: current_root(document)
   end
 
   defp current_root(document) do
@@ -257,10 +254,7 @@ defmodule SigilGuard.TrustBundle.Verify do
         end
       end)
 
-    case result do
-      {:ok, terminal, _} -> {:ok, terminal}
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, terminal, _} <- result, do: {:ok, terminal}
   end
 
   defp rotation_version_digest(envelope) do
@@ -425,10 +419,7 @@ defmodule SigilGuard.TrustBundle.Verify do
         verify_counted_signature(signature, authorized, context.public_keys, pae, verified)
       end)
 
-    case result do
-      {:ok, verified} -> check_threshold(verified, context.threshold)
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, verified} <- result, do: check_threshold(verified, context.threshold)
   end
 
   defp check_threshold(verified, threshold) do

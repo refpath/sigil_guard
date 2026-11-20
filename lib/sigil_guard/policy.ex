@@ -285,8 +285,7 @@ defmodule SigilGuard.Policy do
 
     case mapped_risk(action, mappings) do
       {:ok, nil} -> {:ok, classify_by_prefix(action)}
-      {:ok, level} -> {:ok, level}
-      {:error, reason} -> {:error, reason}
+      result -> result
     end
   end
 

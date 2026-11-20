@@ -460,14 +460,11 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp verify_event_summary(checkpoint, events) do
-    with {:ok, root} <- merkle_root(events),
-         true <- field(checkpoint, "event_count") === length(events),
-         true <- field(checkpoint, "merkle_root") === root,
-         true <- endpoints_match?(checkpoint, events) do
-      :ok
-    else
-      {:error, reason} -> {:error, reason}
-      false -> {:error, :checkpoint_mismatch}
+    with {:ok, root} <- merkle_root(events) do
+      if field(checkpoint, "event_count") === length(events) and
+           field(checkpoint, "merkle_root") === root and endpoints_match?(checkpoint, events),
+         do: :ok,
+         else: {:error, :checkpoint_mismatch}
     end
   end
 

@@ -345,17 +345,11 @@ defmodule SigilGuard.Attestation.Digest do
   defp put_method(message, _), do: message
 
   defp normalized_payload_map(payload) when is_map(payload) do
-    result =
-      with :ok <- SigilGuard.Limits.check(payload),
-           :ok <- unambiguous_payload(payload) do
-        payload
-        |> Attestation.strip_metadata()
-        |> normalize()
-      end
-
-    case result do
-      {:ok, map} -> {:ok, map}
-      {:error, reason} -> {:error, reason}
+    with :ok <- SigilGuard.Limits.check(payload),
+         :ok <- unambiguous_payload(payload) do
+      payload
+      |> Attestation.strip_metadata()
+      |> normalize()
     end
   end
 
@@ -441,21 +435,15 @@ defmodule SigilGuard.Attestation.Digest do
   defp normalize_value(%_{}), do: {:error, :invalid_payload}
 
   defp normalize_value(value) when is_map(value) do
-    result =
-      Enum.reduce_while(value, {:ok, %{}}, fn {key, raw_value}, {:ok, normalized} ->
-        with {:ok, key} <- normalize_key(key),
-             {:ok, value} <- normalize_value(raw_value),
-             :ok <- unique_key(normalized, key) do
-          {:cont, {:ok, put_normalized_value(normalized, key, value)}}
-        else
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, normalized} -> {:ok, normalized}
-      {:error, reason} -> {:error, reason}
-    end
+    Enum.reduce_while(value, {:ok, %{}}, fn {key, raw_value}, {:ok, normalized} ->
+      with {:ok, key} <- normalize_key(key),
+           {:ok, value} <- normalize_value(raw_value),
+           :ok <- unique_key(normalized, key) do
+        {:cont, {:ok, put_normalized_value(normalized, key, value)}}
+      else
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
   end
 
   defp normalize_value(_), do: {:error, :invalid_payload}
@@ -662,10 +650,7 @@ defmodule SigilGuard.Attestation.Digest do
   defp raw_map(_), do: %{}
 
   defp fetch_flexible(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(map, atom_key(key))
-    end
+    with :error <- Map.fetch(map, key), do: Map.fetch(map, atom_key(key))
   end
 
   defp ok(value), do: {:ok, value}

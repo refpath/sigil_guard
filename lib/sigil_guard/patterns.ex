@@ -375,10 +375,7 @@ defmodule SigilGuard.Patterns do
   end
 
   defp flex_fetch(raw, key) do
-    case Map.fetch(raw, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(raw, Atom.to_string(key))
-    end
+    with :error <- Map.fetch(raw, key), do: Map.fetch(raw, Atom.to_string(key))
   end
 
   defp parse_severity(severity) when severity in [:low, :medium, :high], do: severity

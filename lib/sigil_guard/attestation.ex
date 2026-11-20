@@ -310,10 +310,7 @@ defmodule SigilGuard.Attestation do
   end
 
   defp fetch_metadata(payload, string_key, atom_key) do
-    case Map.fetch(payload, string_key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(payload, atom_key)
-    end
+    with :error <- Map.fetch(payload, string_key), do: Map.fetch(payload, atom_key)
   end
 
   defp apply_sign_options(statement, opts) do
@@ -411,10 +408,8 @@ defmodule SigilGuard.Attestation do
   end
 
   defp normalize_statement_type(statement_type) when is_binary(statement_type) do
-    case Map.fetch(@statement_types, statement_type) do
-      {:ok, statement_type} -> {:ok, statement_type}
-      :error -> {:error, :unknown_statement_type}
-    end
+    with :error <- Map.fetch(@statement_types, statement_type),
+         do: {:error, :unknown_statement_type}
   end
 
   defp normalize_statement_type(_), do: {:error, :unknown_statement_type}
@@ -817,10 +812,8 @@ defmodule SigilGuard.Attestation do
   end
 
   defp statement_type(statement) do
-    case Map.fetch(@statement_types, get_in(statement, ["predicate", "statement_type"])) do
-      {:ok, statement_type} -> {:ok, statement_type}
-      :error -> {:error, :unknown_statement_type}
-    end
+    with :error <- Map.fetch(@statement_types, get_in(statement, ["predicate", "statement_type"])),
+         do: {:error, :unknown_statement_type}
   end
 
   defp compare_subject_digests(statement, expected) do

@@ -46,10 +46,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
   def valid?(value), do: encode(value) != :error
 
   defp encode_scalar(value) do
-    case Jason.encode(value) do
-      {:ok, json} -> {:ok, json}
-      {:error, _} -> :error
-    end
+    with {:error, _} <- Jason.encode(value), do: :error
   end
 
   defp canonical_pairs(map) do
@@ -78,10 +75,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
   defp encode_items([], acc), do: {:ok, Enum.reverse(acc)}
 
   defp encode_items([head | tail], acc) do
-    case encode(head) do
-      {:ok, encoded} -> encode_items(tail, [encoded | acc])
-      :error -> :error
-    end
+    with {:ok, encoded} <- encode(head), do: encode_items(tail, [encoded | acc])
   end
 
   defp encode_items(_, _), do: :error
