@@ -373,9 +373,9 @@ defmodule SigilGuard.RepoPolicy do
   defp ensure_compiled_rule(_, index), do: compile_rule(nil, index)
 
   defp compile_rule(raw, index) when is_list(raw) do
-    raw
-    |> Map.new()
-    |> compile_rule(index)
+    if Keyword.keyword?(raw),
+      do: compile_rule(Map.new(raw), index),
+      else: {:error, :invalid_rule}
   end
 
   defp compile_rule(raw, index) when is_map(raw) do
@@ -774,6 +774,14 @@ defmodule SigilGuard.RepoPolicy do
   defp normalize_changed_paths(path) when is_binary(path), do: normalize_changed_paths([path])
 
   defp normalize_changed_paths(paths) when is_list(paths) do
+    if List.improper?(paths),
+      do: {:error, :invalid_changed_paths},
+      else: normalize_changed_path_list(paths)
+  end
+
+  defp normalize_changed_paths(_), do: {:error, :invalid_changed_paths}
+
+  defp normalize_changed_path_list(paths) do
     result =
       Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, acc} ->
         case normalize_changed_path(path) do
@@ -796,13 +804,11 @@ defmodule SigilGuard.RepoPolicy do
     end
   end
 
-  defp normalize_changed_paths(_), do: {:error, :invalid_changed_paths}
-
   defp normalize_changed_path(path) when is_binary(path) do
     path = normalize_separators(String.trim(path))
 
     cond do
-      path == "" -> {:error, :invalid_changed_path}
+      path == "" or not String.valid?(path) -> {:error, :invalid_changed_path}
       absolute_path?(path) -> {:error, :absolute_changed_path}
       traversal_path?(path) -> {:error, :path_traversal}
       true -> {:ok, collapse_relative(path)}
@@ -907,7 +913,9 @@ defmodule SigilGuard.RepoPolicy do
     field_or_default(context, ~w(changed_paths changed_files files paths), [])
   end
 
-  defp context_map(context) when is_list(context), do: Map.new(context)
+  defp context_map(context) when is_list(context),
+    do: if(Keyword.keyword?(context), do: Map.new(context), else: %{})
+
   defp context_map(context) when is_map(context), do: context
   defp context_map(_), do: %{}
 
@@ -946,8 +954,9 @@ defmodule SigilGuard.RepoPolicy do
 
   defp context_string_value(nil, _), do: {:cont, :missing}
 
-  defp context_string_value(value, _) when is_binary(value) and value != "",
-    do: {:halt, {:ok, value}}
+  defp context_string_value(value, invalid_reason) when is_binary(value) and value != "" do
+    if String.valid?(value), do: {:halt, {:ok, value}}, else: {:halt, {:error, invalid_reason}}
+  end
 
   defp context_string_value(value, _) when is_atom(value) and not is_boolean(value),
     do: {:halt, {:ok, Atom.to_string(value)}}

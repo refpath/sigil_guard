@@ -199,8 +199,7 @@ defmodule SigilGuard.AgentTrust do
 
   def verify_delegation_chain(payload, predicate, opts)
       when is_map(payload) and is_map(predicate) and is_list(opts) do
-    with {:ok, _} <- max_delegation_depth(opts),
-         :ok <- check_delegation_depth(payload, opts) do
+    with :ok <- check_delegation_depth(payload, opts) do
       compare_delegation_chains(payload, predicate)
     end
   end
@@ -576,7 +575,8 @@ defmodule SigilGuard.AgentTrust do
   end
 
   defp max_delegation_depth(opts) do
-    case Keyword.get(opts, :max_delegation_depth, @default_max_delegation_depth) do
+    case Keyword.keyword?(opts) and
+           Keyword.get(opts, :max_delegation_depth, @default_max_delegation_depth) do
       max when is_integer(max) and max > 0 -> {:ok, max}
       _ -> {:error, :invalid_payload}
     end
@@ -599,7 +599,7 @@ defmodule SigilGuard.AgentTrust do
   end
 
   defp required_digest(opts, key) do
-    case Keyword.fetch(opts, key) do
+    case Keyword.keyword?(opts) and Keyword.fetch(opts, key) do
       {:ok, digest} when is_binary(digest) ->
         if Regex.match?(@sha256_regex, digest),
           do: {:ok, digest},

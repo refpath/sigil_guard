@@ -38,9 +38,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   context that is not a map or keyword list, a foreign struct or an improper
   list in a request, result, boundary or payload, a non-map `metadata`, a
   non-integer `:max_skew_ms`, malformed `:indicator_sets`, a trust bundle
-  document whose `roles` is not a map, and a non-map envelope or key set in
-  `SigilGuard.Audit.Witness.verify_threshold/3` each raised; they now return
-  an error tuple or a blocked decision. `SigilGuard.Context.cast/1` is the total
+  document whose `roles` is not a map, a non-map envelope or key set in
+  `SigilGuard.Audit.Witness.verify_threshold/3`, a repo-policy context or rule
+  that is not a map or keyword list, invalid UTF-8 in a repo-policy agent,
+  action or path, and non-keyword options to `SigilGuard.AgentTrust` each
+  raised; they now return an error tuple or a blocked decision. `SigilGuard.Context.cast/1` is the total
   counterpart of `new/1`.
 - Fix two gateway crashes. `ToolGateway.guard_request/3` and `guard_result/3`
   raised `FunctionClauseError` for a non-map request or result that reached a

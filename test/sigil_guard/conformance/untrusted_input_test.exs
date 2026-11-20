@@ -12,6 +12,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   use ExUnitProperties
 
   alias SigilGuard.AgentCard
+  alias SigilGuard.AgentTrust
   alias SigilGuard.Attestation
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Attestation.Envelope
@@ -31,9 +32,11 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   alias SigilGuard.Decision
   alias SigilGuard.EffectAuthorityFixture, as: Fixture
   alias SigilGuard.FixturePath
+  alias SigilGuard.MCP.AppResource
   alias SigilGuard.MCP.SecurityPayload
   alias SigilGuard.Quarantine
   alias SigilGuard.ReplayStore
+  alias SigilGuard.RepoPolicy
   alias SigilGuard.Runtime.Gate
   alias SigilGuard.TestMutation, as: Mutation
   alias SigilGuard.TestSigner
@@ -315,6 +318,86 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
     end
   end
 
+  describe "peer documents" do
+    property "a mutated App resource is verified or refused" do
+      html = "<!doctype html><title>Repository review</title>"
+
+      resource = %{
+        "uri" => "ui://repo/review",
+        "mimeType" => "text/html;profile=mcp-app",
+        "text" => html
+      }
+
+      opts = [
+        expected_uri: "ui://repo/review",
+        expected_sha256: SigilGuard.Crypto.sha256_hex(html)
+      ]
+
+      assert {:ok, _} = AppResource.verify(resource, opts)
+
+      check all(
+              mutated <- one_of([Mutation.mutant(resource), Mutation.term()]),
+              key <- member_of([:expected_uri, :expected_sha256, :max_bytes, :require_digest]),
+              value <- Mutation.term()
+            ) do
+        assert tagged?(AppResource.verify(mutated, opts))
+        assert tagged?(AppResource.verify(resource, Keyword.put(opts, key, value)))
+        assert tagged?(AppResource.verify(mutated, value))
+      end
+    end
+
+    property "a mutated repo policy compiles or is refused, and decides on any context" do
+      raw = %{
+        default: :block,
+        rules: [
+          %{id: "docs", decision: :allow, agents: ["*"], actions: ["modify"], paths: ["docs/**"]},
+          %{
+            id: "config",
+            decision: :require_approval,
+            agents: ["did:web:codex"],
+            paths: ["config/**"]
+          }
+        ]
+      }
+
+      {:ok, policy} = RepoPolicy.compile(raw)
+      context = %{agent: "did:web:codex", action: "modify", changed_paths: ["docs/a.md"]}
+
+      assert %RepoPolicy.Decision{verdict: :allow} = RepoPolicy.evaluate(policy, context)
+
+      check all(
+              mutated <- one_of([Mutation.mutant(raw), Mutation.term()]),
+              mutated_context <- one_of([Mutation.mutant(context), Mutation.term()]),
+              text <- one_of([string(:printable), binary()])
+            ) do
+        assert tagged?(RepoPolicy.compile(mutated))
+        assert tagged?(RepoPolicy.parse(text))
+        assert %RepoPolicy.Decision{} = RepoPolicy.evaluate(policy, mutated_context)
+      end
+    end
+
+    property "an agent response or delegation chain of any shape is refused with a reason" do
+      check all(
+              envelope <- Mutation.term(),
+              material <- Mutation.term(),
+              payload <- Mutation.term(),
+              opts <-
+                one_of([
+                  constant(request_action_digest: @digest),
+                  constant([]),
+                  Mutation.term()
+                ])
+            ) do
+        assert {:error, _} = AgentTrust.verify_agent_response(envelope, material, opts)
+        assert outcome?(AgentTrust.verify_delegation_chain(payload, envelope, []))
+
+        assert outcome?(
+                 AgentTrust.verify_delegation_chain(%{"delegation_chain" => payload}, %{}, opts)
+               )
+      end
+    end
+  end
+
   describe "audit evidence" do
     property "a mutated checkpoint, export, or proof verifies or is refused" do
       checkpoint = FixturePath.read_json!("audit_proofs/checkpoint_5.json")
@@ -455,6 +538,37 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
 
       assert Digest.payload_digest(@improper) == {:error, :invalid_payload}
       assert Attestation.strip_metadata(@improper) == @improper
+    end
+
+    test "repo policy blocks a context it cannot read" do
+      {:ok, policy} =
+        RepoPolicy.compile(%{
+          default: :block,
+          rules: [%{id: "docs", decision: :allow, agents: ["*"], paths: ["docs/**"]}]
+        })
+
+      invalid_utf8 = <<128>>
+
+      for context <- [
+            %{agent: "did:web:codex", action: invalid_utf8, changed_paths: ["docs/a.md"]},
+            %{agent: invalid_utf8, changed_paths: ["docs/a.md"]},
+            %{agent: "did:web:codex", changed_paths: ["docs/" <> invalid_utf8]},
+            %{agent: "did:web:codex", changed_paths: ["docs/a.md" | "docs/b.md"]},
+            @improper,
+            [0]
+          ] do
+        assert %RepoPolicy.Decision{verdict: :block} = RepoPolicy.evaluate(policy, context)
+      end
+
+      assert RepoPolicy.compile(%{rules: [[0]]}) == {:error, {:invalid_rule, 0}}
+      assert RepoPolicy.compile(%{rules: [@improper]}) == {:error, {:invalid_rule, 0}}
+    end
+
+    test "agent trust refuses options that are not a keyword list" do
+      assert AgentTrust.verify_delegation_chain(%{}, %{}, @improper) == {:error, :invalid_payload}
+      assert AgentTrust.verify_delegation_chain(%{}, %{}, [0]) == {:error, :invalid_payload}
+      assert AgentTrust.verify_agent_response(%{}, %{}, @improper) == {:error, :invalid_payload}
+      assert AgentTrust.verify_agent_response(%{}, %{}, [0]) == {:error, :invalid_payload}
     end
 
     test "a bundle document whose roles are not a map is refused" do
