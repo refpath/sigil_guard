@@ -508,13 +508,23 @@ defmodule SigilGuard.ToolGateway.Base do
 
   def confirmed_action(%Decision{}), do: :allow
 
-  defp release_confirmed_result(
-         %Decision{
-           verdict: :allowed,
-           action: :quarantine,
-           audit_metadata: metadata
-         } = decision
-       ) do
+  @doc """
+  Release an accepted confirmation of a quarantined result as its sanitized
+  value.
+
+  A confirm decision whose effect is `:quarantine` becomes, once its token is
+  accepted, an allowed `:quarantine` decision; this turns it into a `:redact`
+  release with `release_status: :confirmed_sanitized`. Any other decision is
+  returned unchanged.
+  """
+  @spec release_confirmed_result(Decision.t()) :: Decision.t()
+  def release_confirmed_result(
+        %Decision{
+          verdict: :allowed,
+          action: :quarantine,
+          audit_metadata: metadata
+        } = decision
+      ) do
     released_metadata =
       Map.merge(metadata, %{
         action: :redact,
@@ -529,7 +539,7 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp release_confirmed_result(%Decision{} = decision), do: decision
+  def release_confirmed_result(%Decision{} = decision), do: decision
 
   defp stream_response({%Runtime.Stream{} = stream, %Decision{} = decision, emitted}, opts) do
     id = Keyword.get(opts, :id)
@@ -558,12 +568,21 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp confirmation_failure_decision(%Decision{} = decision, reason) do
+  @doc """
+  Block a decision whose confirmation token was refused.
+
+  The decision becomes `:blocked` with `deny_reason: :confirmation_failed`,
+  `confirmation_status: :invalid` and the refusal under
+  `confirmation_reason`.
+  """
+  @spec confirmation_failure_decision(Decision.t(), term()) :: Decision.t()
+  def confirmation_failure_decision(%Decision{} = decision, reason) do
     metadata =
       Map.merge(decision.audit_metadata, %{
         verdict: :blocked,
         action: :block,
         risk_level: :high,
+        deny_reason: :confirmation_failed,
         confirmation_status: :invalid,
         confirmation_reason: reason
       })
@@ -572,7 +591,7 @@ defmodule SigilGuard.ToolGateway.Base do
       decision
       | verdict: :blocked,
         action: :block,
-        reason: "MCP confirmation verification failed: #{format_reason(reason)}",
+        reason: "Confirmation verification failed: #{format_reason(reason)}",
         risk_level: :high,
         audit_metadata: metadata
     }

@@ -5,6 +5,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- A refused confirmation token through `SigilGuard.ToolGateway.Base` records
+  `deny_reason: :confirmation_failed`, as through `SigilGuard.ToolGateway`;
+  both now block with the reason "Confirmation verification failed".
 - A redacted result released by `ToolGateway.guarded_result/3` and the
   `MCP.Gateway` result helpers keeps its original shape: each string in
   `content` and `structuredContent` is redacted in place. It was released as

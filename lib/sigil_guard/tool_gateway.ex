@@ -1293,7 +1293,7 @@ defmodule SigilGuard.ToolGateway do
         decision
 
       {:error, reason} ->
-        confirmation_failure_decision(decision, reason)
+        GatewayBase.confirmation_failure_decision(decision, reason)
     end
   end
 
@@ -1308,7 +1308,7 @@ defmodule SigilGuard.ToolGateway do
        ) do
     decision
     |> maybe_apply_confirmation(payload, context, token_source, opts)
-    |> release_confirmed_result()
+    |> GatewayBase.release_confirmed_result()
   end
 
   defp maybe_apply_result_confirmation(%Decision{} = decision, _, _, _, _), do: decision
@@ -1355,7 +1355,7 @@ defmodule SigilGuard.ToolGateway do
            Confirmation.verify(token, payload, context, key, confirmation_opts(decision, opts)) do
       confirmed_decision(decision, claims)
     else
-      {:error, reason} -> confirmation_failure_decision(decision, reason)
+      {:error, reason} -> GatewayBase.confirmation_failure_decision(decision, reason)
     end
   end
 
@@ -1397,49 +1397,6 @@ defmodule SigilGuard.ToolGateway do
       | verdict: :allowed,
         action: action,
         reason: "Confirmation token accepted",
-        audit_metadata: metadata
-    }
-  end
-
-  defp release_confirmed_result(
-         %Decision{
-           verdict: :allowed,
-           audit_metadata: %{quarantine_status: :quarantined} = metadata
-         } = decision
-       ) do
-    released_metadata =
-      Map.merge(metadata, %{
-        action: :redact,
-        release_status: :confirmed_sanitized
-      })
-
-    %{
-      decision
-      | action: :redact,
-        reason: "Confirmation token accepted; sanitized result released",
-        audit_metadata: released_metadata
-    }
-  end
-
-  defp release_confirmed_result(%Decision{} = decision), do: decision
-
-  defp confirmation_failure_decision(%Decision{} = decision, reason) do
-    metadata =
-      Map.merge(decision.audit_metadata, %{
-        verdict: :blocked,
-        action: :block,
-        risk_level: :high,
-        deny_reason: :confirmation_failed,
-        confirmation_status: :invalid,
-        confirmation_reason: reason
-      })
-
-    %{
-      decision
-      | verdict: :blocked,
-        action: :block,
-        reason: "Tool gateway confirmation verification failed: #{format_reason(reason)}",
-        risk_level: :high,
         audit_metadata: metadata
     }
   end
