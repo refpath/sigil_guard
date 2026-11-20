@@ -74,12 +74,8 @@ defmodule SigilGuard.PatternSets do
   def resolve(_), do: {:error, :invalid_pattern_set}
 
   defp validate_entries(entries) do
-    Enum.reduce_while(entries, {:ok, []}, fn entry, {:ok, acc} ->
-      case validate_entry(entry) do
-        {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
-        :error -> {:halt, {:error, :invalid_pattern_set}}
-      end
-    end)
+    with :error <- SigilGuard.Result.map_ok(entries, &validate_entry/1),
+         do: {:error, :invalid_pattern_set}
   end
 
   defp validate_entry(entry) when is_map(entry) do

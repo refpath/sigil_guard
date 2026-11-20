@@ -232,18 +232,7 @@ defmodule SigilGuard.ToolGateway do
   @spec verify_list_changed([map()], keyword()) ::
           {:ok, [CapabilityManifest.t()]} | {:error, deny_reason()}
   def verify_list_changed(observed_tools, opts) when is_list(observed_tools) do
-    result =
-      Enum.reduce_while(observed_tools, {:ok, []}, fn observed, {:ok, capabilities} ->
-        case verify_manifest(observed, opts) do
-          {:ok, capability} -> {:cont, {:ok, [capability | capabilities]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, capabilities} -> {:ok, Enum.reverse(capabilities)}
-      {:error, reason} -> {:error, reason}
-    end
+    SigilGuard.Result.map_ok(observed_tools, fn observed -> verify_manifest(observed, opts) end)
   end
 
   def verify_list_changed(_, _), do: {:error, :invalid_manifest}

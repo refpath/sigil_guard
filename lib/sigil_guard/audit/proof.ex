@@ -78,19 +78,13 @@ defmodule SigilGuard.Audit.Proof do
   end
 
   defp proofs_for_indices(indices, levels, size) do
-    result =
-      Enum.reduce_while(indices, {:ok, []}, fn index, {:ok, acc} ->
-        if is_integer(index) and index >= 0 and index < size do
-          {:cont, {:ok, [inclusion_proof(levels, index, size) | acc]}}
-        else
-          {:halt, {:error, :out_of_range}}
-        end
-      end)
+    SigilGuard.Result.map_ok(Enum.to_list(indices), fn
+      index when is_integer(index) and index >= 0 and index < size ->
+        {:ok, inclusion_proof(levels, index, size)}
 
-    case result do
-      {:ok, proofs} -> {:ok, Enum.reverse(proofs)}
-      error -> error
-    end
+      _ ->
+        {:error, :out_of_range}
+    end)
   end
 
   defp inclusion_proof(levels, index, size) do
@@ -431,19 +425,11 @@ defmodule SigilGuard.Audit.Proof do
   end
 
   defp decode_hex_list(list) do
-    result =
-      Enum.reduce_while(list, {:ok, []}, fn entry, {:ok, acc} ->
-        if is_binary(entry) and SigilGuard.Crypto.sha256_hex?(entry) do
-          {:cont, {:ok, [Base.decode16!(entry, case: :lower) | acc]}}
-        else
-          {:halt, :error}
-        end
-      end)
-
-    case result do
-      {:ok, acc} -> {:ok, Enum.reverse(acc)}
-      :error -> :error
-    end
+    SigilGuard.Result.map_ok(list, fn entry ->
+      if SigilGuard.Crypto.sha256_hex?(entry),
+        do: Base.decode16(entry, case: :lower),
+        else: :error
+    end)
   end
 
   defp in_range(leaf_index, tree_size) when leaf_index < tree_size, do: :ok

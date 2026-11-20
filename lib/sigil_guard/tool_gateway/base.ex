@@ -832,16 +832,7 @@ defmodule SigilGuard.ToolGateway.Base do
   end
 
   defp redact_strings(list, opts) when is_list(list) do
-    Enum.reduce_while(list, {:ok, []}, fn item, {:ok, acc} ->
-      case redact_strings(item, opts) do
-        {:ok, redacted} -> {:cont, {:ok, [redacted | acc]}}
-        :error -> {:halt, :error}
-      end
-    end)
-    |> then(fn
-      {:ok, reversed} -> {:ok, Enum.reverse(reversed)}
-      :error -> :error
-    end)
+    SigilGuard.Result.map_ok(list, &redact_strings(&1, opts))
   end
 
   defp redact_strings(map, opts) when is_map(map) and not is_struct(map) do

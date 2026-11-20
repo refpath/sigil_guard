@@ -171,19 +171,10 @@ defmodule SigilGuard.Audit.Checkpoint do
   """
   @spec leaf_hashes([Audit.t()]) :: {:ok, [binary()]} | {:error, :unsigned_event}
   def leaf_hashes(events) when is_list(events) do
-    result =
-      Enum.reduce_while(events, {:ok, []}, fn
-        %Audit{hmac: hmac}, {:ok, acc} when is_binary(hmac) and byte_size(hmac) > 0 ->
-          {:cont, {:ok, [leaf_hash(hmac) | acc]}}
-
-        _, _ ->
-          {:halt, {:error, :unsigned_event}}
-      end)
-
-    case result do
-      {:ok, leaves} -> {:ok, Enum.reverse(leaves)}
-      error -> error
-    end
+    SigilGuard.Result.map_ok(events, fn
+      %Audit{hmac: hmac} when is_binary(hmac) and byte_size(hmac) > 0 -> {:ok, leaf_hash(hmac)}
+      _ -> {:error, :unsigned_event}
+    end)
   end
 
   @doc """

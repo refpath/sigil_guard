@@ -47,6 +47,17 @@ defmodule SigilGuard.PatternSetsTest do
       assert ids(sets.poisoning, :id) == ids(built_in.poisoning, :id)
     end
 
+    test "entries of one set keep the order they were supplied in" do
+      assert {:ok, sets} =
+               PatternSets.resolve([
+                 entry(%{"set" => "injection", "name" => "first", "regex" => "one"}),
+                 entry(%{"set" => "injection", "name" => "second", "regex" => "two"}),
+                 entry(%{"set" => "injection", "name" => "third", "regex" => "three"})
+               ])
+
+      assert ids(sets.injection, :id) == ["first", "second", "third"]
+    end
+
     test "a secret entry compiles to the scanner pattern shape" do
       assert {:ok, %{secret: [pattern]}} =
                PatternSets.resolve([

@@ -85,25 +85,17 @@ defmodule SigilGuard.Canonical.JCS do
   defp encode_list(_, _), do: {:error, :invalid_map}
 
   defp normalize_pairs(map) do
-    normalized =
-      Enum.reduce_while(map, {:ok, []}, fn {key, value}, {:ok, pairs} ->
-        case normalize_key(key) do
-          {:ok, normalized_key} -> {:cont, {:ok, [{normalized_key, value} | pairs]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case normalized do
-      {:ok, pairs} ->
-        if duplicate_normalized_keys?(pairs) do
-          {:error, :invalid_map}
-        else
-          {:ok, Enum.sort_by(pairs, fn {key, _} -> utf16_sort_key(key) end)}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with {:ok, pairs} <- SigilGuard.Result.map_ok(Map.to_list(map), &normalize_pair/1) do
+      if duplicate_normalized_keys?(pairs) do
+        {:error, :invalid_map}
+      else
+        {:ok, Enum.sort_by(pairs, fn {key, _} -> utf16_sort_key(key) end)}
+      end
     end
+  end
+
+  defp normalize_pair({key, value}) do
+    with {:ok, normalized_key} <- normalize_key(key), do: {:ok, {normalized_key, value}}
   end
 
   defp normalize_key(key) when is_atom(key), do: {:ok, Atom.to_string(key)}

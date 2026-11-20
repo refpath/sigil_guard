@@ -326,20 +326,11 @@ defmodule SigilGuard.RepoPolicy do
   defp compile_rules(_), do: {:error, :invalid_rules}
 
   defp compile_rule_list(rules) do
-    result =
-      rules
-      |> Enum.with_index()
-      |> Enum.reduce_while({:ok, []}, fn {rule, index}, {:ok, acc} ->
-        case compile_rule(rule, index) do
-          {:ok, compiled} -> {:cont, {:ok, [compiled | acc]}}
-          {:error, reason} -> {:halt, {:error, {reason, index}}}
-        end
-      end)
-
-    case result do
-      {:ok, compiled} -> {:ok, Enum.reverse(compiled)}
-      error -> error
-    end
+    rules
+    |> Enum.with_index()
+    |> SigilGuard.Result.map_ok(fn {rule, index} ->
+      with {:error, reason} <- compile_rule(rule, index), do: {:error, {reason, index}}
+    end)
   end
 
   defp ensure_compiled_rules(rules) when is_list(rules) do
@@ -349,20 +340,9 @@ defmodule SigilGuard.RepoPolicy do
   defp ensure_compiled_rules(_), do: {:error, :invalid_rules}
 
   defp ensure_compiled_rule_list(rules) do
-    result =
-      rules
-      |> Enum.with_index()
-      |> Enum.reduce_while({:ok, []}, fn {rule, index}, {:ok, acc} ->
-        case ensure_compiled_rule(rule, index) do
-          {:ok, compiled} -> {:cont, {:ok, [compiled | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, compiled} -> {:ok, Enum.reverse(compiled)}
-      error -> error
-    end
+    rules
+    |> Enum.with_index()
+    |> SigilGuard.Result.map_ok(fn {rule, index} -> ensure_compiled_rule(rule, index) end)
   end
 
   defp ensure_compiled_rule(%{path_matchers: path_matchers} = rule, _)
@@ -628,25 +608,12 @@ defmodule SigilGuard.RepoPolicy do
     do: normalize_matchers([value])
 
   defp normalize_matchers(values) when is_list(values) do
-    result =
-      Enum.reduce_while(values, {:ok, []}, fn value, {:ok, acc} ->
-        case normalize_matcher(value) do
-          {:ok, matcher} -> {:cont, {:ok, [matcher | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
+    case SigilGuard.Result.map_ok(values, &normalize_matcher/1) do
       {:ok, []} ->
         {:error, :invalid_matchers}
 
       {:ok, normalized} ->
-        normalized =
-          normalized
-          |> Enum.reverse()
-          |> Enum.uniq()
-
-        {:ok, normalized}
+        {:ok, Enum.uniq(normalized)}
 
       error ->
         error
@@ -670,36 +637,16 @@ defmodule SigilGuard.RepoPolicy do
   defp normalize_patterns(value) when is_binary(value), do: normalize_patterns([value])
 
   defp normalize_patterns(values) when is_list(values) do
-    result =
-      Enum.reduce_while(values, {:ok, []}, fn pattern, {:ok, acc} ->
-        case normalize_pattern(pattern) do
-          {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
+    case SigilGuard.Result.map_ok(values, &normalize_pattern/1) do
       {:ok, []} -> {:error, :missing_paths}
-      {:ok, patterns} -> {:ok, Enum.reverse(patterns)}
-      error -> error
+      result -> result
     end
   end
 
   defp normalize_patterns(_), do: {:error, :missing_paths}
 
   defp compile_path_matchers(paths) when is_list(paths) do
-    result =
-      Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, acc} ->
-        case compile_path_matcher(path) do
-          {:ok, matcher} -> {:cont, {:ok, [matcher | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, matchers} -> {:ok, Enum.reverse(matchers)}
-      error -> error
-    end
+    SigilGuard.Result.map_ok(paths, &compile_path_matcher/1)
   end
 
   defp compile_path_matchers(_), do: {:error, :missing_paths}
@@ -734,18 +681,9 @@ defmodule SigilGuard.RepoPolicy do
   defp normalize_policy_paths(paths) when is_binary(paths), do: normalize_policy_paths([paths])
 
   defp normalize_policy_paths(paths) when is_list(paths) do
-    result =
-      Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, acc} ->
-        case normalize_policy_path(path) do
-          {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
+    case SigilGuard.Result.map_ok(paths, &normalize_policy_path/1) do
       {:ok, []} -> {:error, :missing_policy_paths}
-      {:ok, normalized} -> {:ok, Enum.reverse(normalized)}
-      error -> error
+      result -> result
     end
   end
 
@@ -803,26 +741,8 @@ defmodule SigilGuard.RepoPolicy do
   defp normalize_changed_paths(_), do: {:error, :invalid_changed_paths}
 
   defp normalize_changed_path_list(paths) do
-    result =
-      Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, acc} ->
-        case normalize_changed_path(path) do
-          {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, normalized} ->
-        normalized =
-          normalized
-          |> Enum.reverse()
-          |> Enum.uniq()
-
-        {:ok, normalized}
-
-      error ->
-        error
-    end
+    with {:ok, normalized} <- SigilGuard.Result.map_ok(paths, &normalize_changed_path/1),
+         do: {:ok, Enum.uniq(normalized)}
   end
 
   defp normalize_changed_path(path) when is_binary(path) do

@@ -410,18 +410,9 @@ defmodule SigilGuard.Audit do
       when is_list(events) and is_list(checkpoints) do
     index_by_id = Map.new(Enum.with_index(events), fn {event, index} -> {event.id, index} end)
 
-    result =
-      Enum.reduce_while(checkpoints, {:ok, []}, fn checkpoint, {:ok, acc} ->
-        case checkpoint_boundary(checkpoint, index_by_id) do
-          {:ok, boundary} -> {:cont, {:ok, [boundary | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, boundaries} -> {:ok, Enum.reverse(boundaries)}
-      error -> error
-    end
+    SigilGuard.Result.map_ok(checkpoints, fn checkpoint ->
+      checkpoint_boundary(checkpoint, index_by_id)
+    end)
   end
 
   def checkpoint_boundaries(_, _), do: {:error, :invalid_query}

@@ -212,18 +212,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   end
 
   defp validate_delegation_chain(chain) when is_list(chain) and chain != [] do
-    result =
-      Enum.reduce_while(chain, {:ok, []}, fn hop, {:ok, hops} ->
-        case validate_delegation_hop(hop) do
-          {:ok, normalized} -> {:cont, {:ok, [normalized | hops]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, hops} -> {:ok, Enum.reverse(hops)}
-      {:error, reason} -> {:error, reason}
-    end
+    SigilGuard.Result.map_ok(chain, &validate_delegation_hop/1)
   end
 
   defp validate_delegation_chain(_), do: {:error, :invalid_payload}

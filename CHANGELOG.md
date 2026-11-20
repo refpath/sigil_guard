@@ -5,6 +5,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.PatternSets.resolve/1` keeps the entries of a set in the order
+  they were supplied. It returned them reversed.
 - `SigilGuard.Audit.Checkpoint.verify/3` reports a signature without an
   `algorithm` as `:missing_algorithm`, as receipt verification does. It
   reported `:unsupported_algorithm`, the reason for an algorithm other than

@@ -280,18 +280,7 @@ defmodule SigilGuard.Attestation.Envelope do
   defp require_payload_type(_), do: {:error, :invalid_payload_type}
 
   defp signature_fields(signatures) do
-    parsed =
-      Enum.reduce_while(signatures, {:ok, []}, fn signature, {:ok, parsed} ->
-        case signature_field(signature) do
-          {:ok, fields} -> {:cont, {:ok, [fields | parsed]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case parsed do
-      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
-      {:error, reason} -> {:error, reason}
-    end
+    SigilGuard.Result.map_ok(signatures, &signature_field/1)
   end
 
   defp signature_field(%{} = signature) do

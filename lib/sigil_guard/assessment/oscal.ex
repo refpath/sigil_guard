@@ -780,19 +780,7 @@ defmodule SigilGuard.Assessment.OSCAL do
     end
   end
 
-  defp map_validated(values, validator) do
-    values
-    |> Enum.reduce_while({:ok, []}, fn value, {:ok, accepted} ->
-      case validator.(value) do
-        {:ok, normalized} -> {:cont, {:ok, [normalized | accepted]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
-    |> reverse_validated()
-  end
-
-  defp reverse_validated({:ok, values}), do: {:ok, Enum.reverse(values)}
-  defp reverse_validated(error), do: error
+  defp map_validated(values, validator), do: SigilGuard.Result.map_ok(values, validator)
 
   defp field(map, key), do: Field.get(map, key, @export_atom_fields)
 end

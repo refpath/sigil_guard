@@ -91,18 +91,9 @@ defmodule SigilGuard.Attestation.Statement do
         @required_subjects
       end
 
-    result =
-      Enum.reduce_while(names, {:ok, []}, fn name, {:ok, subjects} ->
-        case fetch_digest(digests, name) do
-          {:ok, digest} -> {:cont, {:ok, [subject_entry(name, digest) | subjects]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, subjects} -> {:ok, Enum.reverse(subjects)}
-      {:error, reason} -> {:error, reason}
-    end
+    SigilGuard.Result.map_ok(names, fn name ->
+      with {:ok, digest} <- fetch_digest(digests, name), do: {:ok, subject_entry(name, digest)}
+    end)
   end
 
   defp present_digest?(digests, name) do
@@ -136,18 +127,7 @@ defmodule SigilGuard.Attestation.Statement do
   defp parse_subject(_), do: {:error, :invalid_profile}
 
   defp parse_subject_entries(subjects) do
-    result =
-      Enum.reduce_while(subjects, {:ok, []}, fn subject, {:ok, parsed} ->
-        case parse_subject_entry(subject) do
-          {:ok, entry} -> {:cont, {:ok, [entry | parsed]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
-      {:error, reason} -> {:error, reason}
-    end
+    SigilGuard.Result.map_ok(subjects, &parse_subject_entry/1)
   end
 
   defp parse_subject_entry(%{} = subject) do

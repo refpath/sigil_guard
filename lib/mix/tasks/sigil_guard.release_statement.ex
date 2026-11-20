@@ -91,18 +91,8 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatement do
   end
 
   defp artifacts(paths) do
-    result =
-      Enum.reduce_while(paths, {:ok, []}, fn path, {:ok, acc} ->
-        case artifact(path) do
-          {:ok, artifact} -> {:cont, {:ok, [artifact | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, artifacts} -> {:ok, Enum.sort_by(artifacts, & &1["name"])}
-      error -> error
-    end
+    with {:ok, artifacts} <- SigilGuard.Result.map_ok(paths, &artifact/1),
+         do: {:ok, Enum.sort_by(artifacts, & &1["name"])}
   end
 
   defp release_package(opts) do

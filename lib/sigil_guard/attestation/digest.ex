@@ -437,16 +437,8 @@ defmodule SigilGuard.Attestation.Digest do
     if String.valid?(value), do: {:ok, value}, else: {:error, :invalid_payload}
   end
 
-  defp normalize_value(value) when is_list(value) do
-    value
-    |> Enum.reduce_while({:ok, []}, fn item, {:ok, items} ->
-      case normalize_value(item) do
-        {:ok, normalized} -> {:cont, {:ok, [normalized | items]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
-    |> reverse_ok()
-  end
+  defp normalize_value(value) when is_list(value),
+    do: SigilGuard.Result.map_ok(value, &normalize_value/1)
 
   defp normalize_value(%_{}), do: {:error, :invalid_payload}
 
@@ -484,9 +476,6 @@ defmodule SigilGuard.Attestation.Digest do
   defp unique_key(map, key) do
     if Map.has_key?(map, key), do: {:error, :invalid_payload}, else: :ok
   end
-
-  defp reverse_ok({:ok, values}), do: {:ok, Enum.reverse(values)}
-  defp reverse_ok({:error, reason}), do: {:error, reason}
 
   # A term that is not a context has no context fields.
   defp context_map(context) do
@@ -595,18 +584,8 @@ defmodule SigilGuard.Attestation.Digest do
   end
 
   defp normalize_artifacts(artifacts) do
-    result =
-      Enum.reduce_while(artifacts, {:ok, []}, fn artifact, {:ok, acc} ->
-        case normalize_artifact(artifact) do
-          {:ok, normalized} -> {:cont, {:ok, [normalized | acc]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, normalized} -> {:ok, Enum.sort_by(normalized, &Map.fetch!(&1, "name"))}
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, normalized} <- SigilGuard.Result.map_ok(artifacts, &normalize_artifact/1),
+         do: {:ok, Enum.sort_by(normalized, &Map.fetch!(&1, "name"))}
   end
 
   defp normalize_artifact(%{} = artifact) do

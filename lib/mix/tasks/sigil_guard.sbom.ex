@@ -352,22 +352,9 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   end
 
   defp dependency_packages(locks, dependency_names) do
-    result =
-      Enum.reduce_while(dependency_names, {:ok, []}, &prepend_dependency_package(&1, &2, locks))
-
-    case result do
-      {:ok, packages} -> {:ok, Enum.reverse(packages)}
-      {:error, _} = error -> error
-    end
-  end
-
-  defp prepend_dependency_package(name, {:ok, packages}, locks) do
-    with {:ok, lock} <- fetch_dependency_lock(locks, name),
-         {:ok, package} <- dependency_package(lock) do
-      {:cont, {:ok, [package | packages]}}
-    else
-      {:error, _} = error -> {:halt, error}
-    end
+    SigilGuard.Result.map_ok(dependency_names, fn name ->
+      with {:ok, lock} <- fetch_dependency_lock(locks, name), do: dependency_package(lock)
+    end)
   end
 
   defp fetch_dependency_lock(locks, name) do
