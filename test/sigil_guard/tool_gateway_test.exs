@@ -1635,6 +1635,65 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "guard_result/3" do
+    test "a confirmed result that carries a secret is released redacted, never raw" do
+      secret = "R7v9K2mQ4xZ8pL6n"
+
+      result =
+        put_in(result(), ["result", "content"], [
+          %{"type" => "text", "text" => "secret=" <> secret}
+        ])
+
+      context = [trust_level: :low, actor: "did:web:approver"]
+
+      pending = ToolGateway.guard_result(result, context, [])
+
+      assert {:confirm, _} = pending.verdict
+      assert pending.effect == :redact
+
+      assert {:ok, token} =
+               ToolGateway.issue_confirmation(result, context, pending, @confirmation_key,
+                 direction: :result
+               )
+
+      assert {:ok, released, decision} =
+               ToolGateway.guarded_result(result, context,
+                 confirmation_key: @confirmation_key,
+                 confirmation_token: token
+               )
+
+      assert decision.verdict == :allowed
+      assert decision.action == :redact
+      assert decision.audit_metadata.action == :redact
+      assert decision.audit_metadata.confirmation_status == :accepted
+      refute inspect(released) =~ secret
+      assert inspect(released) =~ "[SECRET]"
+
+      unconfirmed = ToolGateway.guard_result(result, [trust_level: :high], [])
+
+      assert unconfirmed.action == :redact
+    end
+
+    test "a confirmed result with nothing to redact is released as it is" do
+      context = [trust_level: :low, actor: "did:web:approver"]
+      pending = ToolGateway.guard_result(result(), context, [])
+
+      assert {:confirm, _} = pending.verdict
+      assert pending.effect == :allow
+
+      assert {:ok, token} =
+               ToolGateway.issue_confirmation(result(), context, pending, @confirmation_key,
+                 direction: :result
+               )
+
+      assert {:ok, released, %Decision{action: :allow}} =
+               ToolGateway.guarded_result(result(), context,
+                 confirmation_key: @confirmation_key,
+                 confirmation_token: token
+               )
+
+      assert released["result"] == result()["result"]
+    end
+
     test "keeps guarded request tuple shapes" do
       assert {:ok, %Decision{} = allowed} =
                ToolGateway.guarded_request(request(), sandbox_context())

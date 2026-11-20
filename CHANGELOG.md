@@ -5,6 +5,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Security.** `SigilGuard.ToolGateway.guard_result/3` released a result
+  unredacted after a confirmation token was accepted. A result that carried a
+  detected secret from a caller below the required trust level got a confirm
+  decision with `effect: :redact`; acceptance set the action to `:allow`, and
+  `guarded_result/3` returned the original result. Acceptance now runs the
+  decision's `effect`, as `SigilGuard.MCP.Gateway` already did and SP.07
+  requires, so the released result is the sanitized one.
 - Add `SigilGuard.EffectAuthority` and the `:effect_binding` option of
   `SigilGuard.ToolGateway.guard_request/3` for tool requests that change the
   physical world (SP.19). A request carries a closed binding record under

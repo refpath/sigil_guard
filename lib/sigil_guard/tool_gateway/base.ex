@@ -485,10 +485,12 @@ defmodule SigilGuard.ToolGateway.Base do
 
   # A confirm decision uses `action: :confirm`; its `effect` is the action to run
   # after acceptance. Default to `:allow` when a bare confirm records no effect.
-  defp confirmed_action(%Decision{effect: effect}) when effect in [:allow, :redact, :quarantine],
+  @doc false
+  @spec confirmed_action(Decision.t()) :: :allow | :redact | :quarantine
+  def confirmed_action(%Decision{effect: effect}) when effect in [:allow, :redact, :quarantine],
     do: effect
 
-  defp confirmed_action(_), do: :allow
+  def confirmed_action(%Decision{}), do: :allow
 
   defp release_confirmed_result(
          %Decision{

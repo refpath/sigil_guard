@@ -1211,11 +1211,15 @@ defmodule SigilGuard.ToolGateway do
 
   defp maybe_put_confirmation_manifest(opts, _), do: opts
 
+  # Acceptance releases what the decision would have done without the
+  # confirmation requirement. A result the gate would redact stays redacted.
   defp confirmed_decision(%Decision{} = decision, claims) do
+    action = GatewayBase.confirmed_action(decision)
+
     metadata =
       Map.merge(decision.audit_metadata, %{
         verdict: :allowed,
-        action: :allow,
+        action: action,
         confirmation_status: :accepted,
         confirmation_actor: claims["actor"],
         confirmation_nonce_hash: Crypto.sha256_hex(claims["nonce"]),
@@ -1226,7 +1230,7 @@ defmodule SigilGuard.ToolGateway do
     %{
       decision
       | verdict: :allowed,
-        action: :allow,
+        action: action,
         reason: "Confirmation token accepted",
         audit_metadata: metadata
     }
