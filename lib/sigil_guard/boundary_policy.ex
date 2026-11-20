@@ -151,7 +151,8 @@ defmodule SigilGuard.BoundaryPolicy do
     hooks = Keyword.get(opts, :hooks, [])
     detector = Keyword.get(opts, :adaptive_detector)
 
-    is_list(hooks) and Enum.all?(hooks, &is_atom/1) and (is_nil(detector) or is_atom(detector)) and
+    is_list(hooks) and not List.improper?(hooks) and Enum.all?(hooks, &is_atom/1) and
+      (is_nil(detector) or is_atom(detector)) and
       SigilGuard.BoundedCall.timeout(opts) != :error
   end
 
@@ -205,7 +206,8 @@ defmodule SigilGuard.BoundaryPolicy do
     end
   end
 
-  defp valid_hooks?(hooks), do: is_list(hooks) and Enum.all?(hooks, &is_atom/1)
+  defp valid_hooks?(hooks),
+    do: is_list(hooks) and not List.improper?(hooks) and Enum.all?(hooks, &is_atom/1)
 
   defp decide(boundary, opts) do
     matching = policy_matching_rules(boundary, opts)

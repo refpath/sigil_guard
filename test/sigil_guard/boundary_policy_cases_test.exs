@@ -118,4 +118,11 @@ defmodule SigilGuard.BoundaryPolicyCasesTest do
     assert Contract.parse(["contract sink:external max_size:5"]) ==
              {:error, :invalid_output_contract}
   end
+
+  test "an improper hooks list is malformed options, not a raise" do
+    refute SigilGuard.BoundaryPolicy.valid_extension_options?(hooks: [Foo | Bar])
+
+    decision = SigilGuard.Runtime.Gate.evaluate("x", [phase: :tool_result], hooks: [Foo | Bar])
+    assert decision.verdict == :blocked
+  end
 end

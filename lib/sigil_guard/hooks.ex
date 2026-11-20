@@ -137,7 +137,9 @@ defmodule SigilGuard.Hooks do
   end
 
   defp valid_hooks?(hooks),
-    do: is_list(hooks) and Enum.all?(hooks, &(is_atom(&1) and Code.ensure_loaded?(&1)))
+    do:
+      is_list(hooks) and not List.improper?(hooks) and
+        Enum.all?(hooks, &(is_atom(&1) and Code.ensure_loaded?(&1)))
 
   defp invalid_options(boundary) do
     reason = :invalid_hook_options
