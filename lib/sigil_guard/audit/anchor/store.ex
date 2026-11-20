@@ -172,12 +172,7 @@ defmodule SigilGuard.Audit.Anchor.Store do
   defp uri_scheme(uri) when is_binary(uri), do: URI.parse(uri).scheme
   defp uri_scheme(_), do: nil
 
-  defp field(map, key) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, Map.fetch!(@atom_fields, key))
-    end
-  end
+  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp maybe_put(map, _, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)

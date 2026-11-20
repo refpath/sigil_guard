@@ -10,6 +10,10 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   sequence and digest fields are omitted.
   """
 
+  @atom_fields %{
+    "payload" => :payload
+  }
+
   @table SigilGuard.Runtime.Tables.trust_bundle_quarantine()
 
   @typedoc "Audit-safe trust-bundle quarantine record."
@@ -225,14 +229,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
 
   defp decoded_payload(_), do: nil
 
-  defp field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, atom_key(key))
-    end
-  end
-
-  defp atom_key("payload"), do: :payload
+  defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp decode_base64(value) when is_binary(value) and byte_size(value) <= 1_048_576 do
     with :error <- Base.url_decode64(value, padding: false),

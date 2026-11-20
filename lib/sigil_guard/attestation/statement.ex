@@ -7,6 +7,20 @@ defmodule SigilGuard.Attestation.Statement do
   owned by `SigilGuard.TrustProfile`.
   """
 
+  @atom_fields %{
+    "_type" => :_type,
+    "action" => :action,
+    "context" => :context,
+    "digest" => :digest,
+    "manifest" => :manifest,
+    "name" => :name,
+    "payload" => :payload,
+    "predicate" => :predicate,
+    "predicateType" => :predicateType,
+    "sha256" => :sha256,
+    "subject" => :subject
+  }
+
   @statement_type "https://in-toto.io/Statement/v1"
   @required_subjects ~w(action payload context)
   @manifest_subject "manifest"
@@ -92,26 +106,19 @@ defmodule SigilGuard.Attestation.Statement do
   end
 
   defp present_digest?(digests, name) do
-    case fetch_raw_digest(digests, name) do
+    case field(digests, name) do
       value when is_binary(value) -> value != ""
       _ -> false
     end
   end
 
   defp fetch_digest(digests, name) do
-    case fetch_raw_digest(digests, name) do
+    case field(digests, name) do
       digest when is_binary(digest) ->
         validate_digest(digest)
 
       _ ->
         {:error, :invalid_profile}
-    end
-  end
-
-  defp fetch_raw_digest(digests, name) do
-    case Map.fetch(digests, name) do
-      {:ok, value} -> value
-      :error -> Map.get(digests, atom_key(name))
     end
   end
 
@@ -180,22 +187,5 @@ defmodule SigilGuard.Attestation.Statement do
   defp require_statement_type(@statement_type), do: :ok
   defp require_statement_type(_), do: {:error, :invalid_profile}
 
-  defp field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, atom_key(key))
-    end
-  end
-
-  defp atom_key("_type"), do: :_type
-  defp atom_key("action"), do: :action
-  defp atom_key("context"), do: :context
-  defp atom_key("digest"), do: :digest
-  defp atom_key("manifest"), do: :manifest
-  defp atom_key("name"), do: :name
-  defp atom_key("payload"), do: :payload
-  defp atom_key("predicate"), do: :predicate
-  defp atom_key("predicateType"), do: :predicateType
-  defp atom_key("sha256"), do: :sha256
-  defp atom_key("subject"), do: :subject
+  defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 end

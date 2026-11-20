@@ -15,6 +15,8 @@ defmodule SigilGuard.Boundary do
 
   alias SigilGuard.Lifecycle
 
+  @isolation_fields %{"isolation_level" => :isolation_level}
+
   @source_sensitivities [:public, :internal, :private]
   @isolation_levels [:none, :container, :vm, :remote_attested]
   @trust_levels [:low, :medium, :high]
@@ -231,18 +233,11 @@ defmodule SigilGuard.Boundary do
 
   defp atomize_key(key), do: key
 
-  defp fetch_field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(map, isolation_atom(key))
-    end
-  end
+  defp fetch_field(map, key), do: SigilGuard.Field.fetch(map, key, @isolation_fields)
 
   defp put_field(map, key, value) do
     if Map.has_key?(map, key),
       do: Map.put(map, key, value),
-      else: Map.put(map, isolation_atom(key), value)
+      else: Map.put(map, Map.fetch!(@isolation_fields, key), value)
   end
-
-  defp isolation_atom("isolation_level"), do: :isolation_level
 end

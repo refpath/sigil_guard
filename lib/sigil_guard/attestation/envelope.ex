@@ -7,6 +7,14 @@ defmodule SigilGuard.Attestation.Envelope do
   signature verification.
   """
 
+  @atom_fields %{
+    "keyid" => :keyid,
+    "payload" => :payload,
+    "payloadType" => :payloadType,
+    "sig" => :sig,
+    "signatures" => :signatures
+  }
+
   @payload_type "application/vnd.sigilguard+json"
   @pae_prefix "DSSEv1"
   @ed25519_public_key_bytes 32
@@ -266,18 +274,7 @@ defmodule SigilGuard.Attestation.Envelope do
 
   defp envelope_fields(_), do: {:error, :invalid_envelope}
 
-  defp field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, atom_key(key))
-    end
-  end
-
-  defp atom_key("keyid"), do: :keyid
-  defp atom_key("payload"), do: :payload
-  defp atom_key("payloadType"), do: :payloadType
-  defp atom_key("sig"), do: :sig
-  defp atom_key("signatures"), do: :signatures
+  defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp require_payload_type(@payload_type), do: :ok
   defp require_payload_type(_), do: {:error, :invalid_payload_type}

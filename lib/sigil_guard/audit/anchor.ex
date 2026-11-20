@@ -202,12 +202,7 @@ defmodule SigilGuard.Audit.Anchor do
     end
   end
 
-  defp field(map, key) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, Map.fetch!(@atom_fields, key))
-    end
-  end
+  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value), do: value

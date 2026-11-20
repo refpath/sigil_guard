@@ -990,12 +990,7 @@ defmodule SigilGuard.RepoPolicy do
 
   defp context_string_value(_, invalid_reason), do: {:halt, {:error, invalid_reason}}
 
-  defp field(map, key) when is_map(map) do
-    case fetch_field(map, key) do
-      {:ok, value} -> value
-      :error -> nil
-    end
-  end
+  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp field_or_default(map, keys, default) when is_list(keys) do
     case fetch_any_field(map, keys) do
@@ -1020,12 +1015,8 @@ defmodule SigilGuard.RepoPolicy do
     end)
   end
 
-  defp fetch_field(map, key) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(map, Map.fetch!(@atom_fields, key))
-    end
-  end
+  defp fetch_field(map, key) when is_map(map),
+    do: SigilGuard.Field.fetch(map, key, @atom_fields)
 
   defp invalid_path_decision(agent, action, reason) do
     build_decision(%{

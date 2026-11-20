@@ -675,19 +675,10 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     end
   end
 
-  defp field(map, key) when is_map(map) do
-    case fetch_field(map, key) do
-      {:ok, value} -> value
-      :error -> nil
-    end
-  end
+  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 
-  defp fetch_field(map, key) when is_map(map) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> Map.fetch(map, Map.fetch!(@atom_fields, key))
-    end
-  end
+  defp fetch_field(map, key) when is_map(map),
+    do: SigilGuard.Field.fetch(map, key, @atom_fields)
 
   defp nonempty_binary?(value), do: is_binary(value) and value != ""
 end

@@ -11,6 +11,23 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
 
+  @atom_fields %{
+    "arguments" => :arguments,
+    "actor" => :actor,
+    "card_digest" => :card_digest,
+    "capability" => :capability,
+    "delegation_chain" => :delegation_chain,
+    "evidence" => :evidence,
+    "id" => :id,
+    "peer_agent" => :peer_agent,
+    "peer_trust" => :peer_trust,
+    "quarantined" => :quarantined,
+    "request_action_digest" => :request_action_digest,
+    "status" => :status,
+    "tool" => :tool,
+    "verdict" => :verdict
+  }
+
   @trust_levels ~w(low medium high)
   @response_statuses ~w(ok error)
 
@@ -348,26 +365,9 @@ defmodule SigilGuard.Attestation.AgentPredicate do
     end
   end
 
-  defp field(map, key) do
-    case fetch_field(map, key) do
-      {:ok, value} -> value
-      :error -> nil
-    end
-  end
+  defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 
-  defp fetch_field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> fetch_atom_field(map, key)
-    end
-  end
-
-  defp fetch_atom_field(map, key) do
-    case Map.fetch(map, atom_key(key)) do
-      {:ok, value} -> {:ok, value}
-      :error -> :error
-    end
-  end
+  defp fetch_field(map, key), do: SigilGuard.Field.fetch(map, key, @atom_fields)
 
   defp fetch_option(opts, key) do
     case Keyword.fetch(opts, key) do
@@ -398,19 +398,4 @@ defmodule SigilGuard.Attestation.AgentPredicate do
 
   defp maybe_put(map, _, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp atom_key("arguments"), do: :arguments
-  defp atom_key("actor"), do: :actor
-  defp atom_key("card_digest"), do: :card_digest
-  defp atom_key("capability"), do: :capability
-  defp atom_key("delegation_chain"), do: :delegation_chain
-  defp atom_key("evidence"), do: :evidence
-  defp atom_key("id"), do: :id
-  defp atom_key("peer_agent"), do: :peer_agent
-  defp atom_key("peer_trust"), do: :peer_trust
-  defp atom_key("quarantined"), do: :quarantined
-  defp atom_key("request_action_digest"), do: :request_action_digest
-  defp atom_key("status"), do: :status
-  defp atom_key("tool"), do: :tool
-  defp atom_key("verdict"), do: :verdict
 end

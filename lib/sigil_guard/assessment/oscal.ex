@@ -796,5 +796,5 @@ defmodule SigilGuard.Assessment.OSCAL do
   defp maybe_put(map, _, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  defp field(map, key), do: Map.get(map, key, Map.get(map, Map.fetch!(@export_atom_fields, key)))
+  defp field(map, key), do: SigilGuard.Field.get(map, key, @export_atom_fields)
 end

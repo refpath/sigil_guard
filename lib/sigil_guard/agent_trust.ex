@@ -42,6 +42,13 @@ defmodule SigilGuard.AgentTrust do
   alias SigilGuard.Telemetry
   alias SigilGuard.TrustBundle
 
+  @atom_fields %{
+    "actor" => :actor,
+    "capability" => :capability,
+    "delegation_chain" => :delegation_chain,
+    "peer_agent" => :peer_agent
+  }
+
   @default_max_delegation_depth 8
   @unknown_peer_rule %{
     "id" => "agent.unknown_peer.quarantine",
@@ -722,24 +729,9 @@ defmodule SigilGuard.AgentTrust do
     end
   end
 
-  defp fetch_field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> {:ok, value}
-      :error -> atom_fetch(map, key)
-    end
-  end
+  defp fetch_field(map, key), do: SigilGuard.Field.fetch(map, key, @atom_fields)
 
-  defp fetch_field_value(map, key) do
-    case fetch_field(map, key) do
-      {:ok, value} -> value
-      :error -> nil
-    end
-  end
-
-  defp atom_fetch(map, "actor"), do: Map.fetch(map, :actor)
-  defp atom_fetch(map, "capability"), do: Map.fetch(map, :capability)
-  defp atom_fetch(map, "delegation_chain"), do: Map.fetch(map, :delegation_chain)
-  defp atom_fetch(map, "peer_agent"), do: Map.fetch(map, :peer_agent)
+  defp fetch_field_value(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 
   defp bundle?(%TrustBundle{}), do: true
   defp bundle?(_), do: false
