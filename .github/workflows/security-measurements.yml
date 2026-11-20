@@ -44,9 +44,12 @@ jobs:
           elixir-version: "1.20"
           otp-version: "29"
       - name: Measure parent and current code on the same machine
+        env:
+          CI: "false"
         run: |
           git worktree add --detach ../sigil-benchmark-parent HEAD^
-          (cd ../sigil-benchmark-parent && mix deps.get && mix bench)
+          (cd ../sigil-benchmark-parent && rm -f bench/output/benchmarks.json && mix deps.get && mix bench)
+          rm -f bench/output/benchmarks.json
           mix deps.get
           mix bench
           cp ../sigil-benchmark-parent/bench/output/benchmarks.json bench/output/parent-benchmarks.json

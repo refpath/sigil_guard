@@ -27,6 +27,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Elixir
+        id: beam
         uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           elixir-version: "1.20"
@@ -38,7 +39,7 @@ jobs:
           path: |
             deps
             _build
-          key: deps-${{ runner.os }}-28-1.18-${{ hashFiles('**/mix.lock') }}
+          key: deps-${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install dependencies
         run: mix deps.get --check-locked
@@ -178,6 +179,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Elixir
+        id: beam
         uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           elixir-version: "1.20"
@@ -189,7 +191,7 @@ jobs:
           path: |
             deps
             _build
-          key: deps-${{ runner.os }}-28-1.18-${{ hashFiles('**/mix.lock') }}
+          key: deps-${{ runner.os }}-${{ steps.beam.outputs.otp-version }}-${{ steps.beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install dependencies
         run: mix deps.get --check-locked

@@ -13,25 +13,11 @@ sigil_guard:
 
 # SP.15 - Benchmark Methodology And Baselines
 
-## Executive Summary
+## Overview
 
-Performance claims without a published methodology are marketing. This spec
-defines the normative benchmark scenario matrix, the deterministic corpus
-rules, the environment-disclosure format, the CI regression gates, and the
-fairness rules for cross-ecosystem comparison against Python llm-guard. SLOs
-are measured before the 1.0.0 publication gate and then ratified into this
-spec; they are never invented in advance.
-
-## Business Value
-
-- **Problem:** "Sub-millisecond" and "no sidecar overhead" are load-bearing
-  positioning claims (R.07) with no reproducible measurement behind them.
-- **Solution:** A fixed scenario matrix on committed deterministic corpora,
-  with mandatory environment disclosure and a CI regression gate.
-- **Beneficiary:** Evaluators comparing placements (embedded versus proxy
-  versus hosted), and maintainers catching regressions before release.
-- **Impact:** Every published number is reproducible from the repo, and a
-  >20% median regression cannot reach a release unnoticed.
+This spec defines the benchmark matrix, deterministic fixtures, environment
+disclosure, regression gates, and comparison rules for Python llm-guard.
+It records the SLOs ratified from the 1.0.0 reference run.
 
 ## Technical Architecture
 
@@ -73,15 +59,6 @@ sequenceDiagram
     Gate->>Gate: compare against bench/baseline.json
     Gate-->>Dev: pass, fail (>20% median regression), or informational
 ```
-
-### Architectural Patterns
-
-| Pattern | Used | Justification |
-|---------|------|---------------|
-| GenServer | no | The harness is a script; operations under test are pure calls. |
-| Behaviour | no | No new runtime seams; the harness uses public APIs only. |
-| ETS | no | Touched only through the APIs under test (cache, replay). |
-| Telemetry | no | Benchee measures wall time and memory; no new events. |
 
 ## Scenario Matrix
 
@@ -181,7 +158,7 @@ table in `benchmarks.md`, and to the page of the suite they belong to. BM.08
 has no percentage: the no-op control measures a few nanoseconds, and a ratio
 against it says nothing about the gateway.
 
-Two fixtures measured another path before 1.1.0, and numbers published from
+Three fixtures measured another path before 1.1.0, and numbers published from
 those runs are not comparable with later ones. The BM.04 stream ran at low
 trust, where the first secret asks for confirmation and halts the stream, so
 the scenario timed one evaluation and 127 pushes that returned at once. The
@@ -196,7 +173,8 @@ harness times the scenario before the run, picks the number of calls that
 takes about 10 µs, times that many calls per sample, and
 divides each sample by the batch size before Benchee computes the
 statistics. Run time, memory and reductions are reported per call. The
-reason is the clock: `:erlang.monotonic_time/0` reports nanoseconds on macOS
+percentiles for those scenarios describe per-call averages across batches.
+`System.monotonic_time(:nanosecond)` reports nanoseconds on macOS
 but advances in steps of about 41.7 ns on Apple silicon, and Benchee repeats
 fast functions only when the reported resolution is coarser than a
 nanosecond. A smoke run times single calls.
@@ -339,15 +317,7 @@ Shape of `bench/baseline.json` (also the per-run `benchmarks.json`):
 | ExDoc | `bench/output/benchmarks.md` as an extra | outbound | docs build |
 | llm-guard (Python) | comparison runs under the fairness rules | outbound | manual, disclosed |
 
-## Telemetry And Observability
-
-| Event | Type | Metadata | Purpose |
-|-------|------|----------|---------|
-| none | n/a | n/a | Benchee owns measurement; this spec adds no telemetry events. |
-
 ## Error Handling
-
-The harness is tooling, not a runtime surface; N/A rows are intentional.
 
 | Error | Type | Recovery | User Impact |
 |-------|------|----------|-------------|
@@ -355,7 +325,6 @@ The harness is tooling, not a runtime surface; N/A rows are intentional.
 | baseline missing a run scenario | compare failure | refresh baseline via the documented procedure | CI fails |
 | median regression > 20% | compare failure | fix the regression or justify a baseline refresh | CI fails |
 | runner class mismatch | informational | run on the baseline runner class for a binding result | warning only |
-| new runtime error atoms | n/a | n/a | none introduced by this spec |
 
 ## Security Considerations
 
@@ -386,7 +355,7 @@ The harness is tooling, not a runtime surface; N/A rows are intentional.
 
 ## Acceptance Criteria
 
-- [x] All eight BM scenarios run under the shared Benchee configuration and
+- [x] All BM.01 to BM.31 scenarios run under the shared Benchee configuration and
       appear in `benchmarks.md` and `benchmarks.json`.
 - [x] Each BM row uses the fixture and reports the statistics in the
       Scenario Matrix, and the harness refuses to time a fixture that takes
@@ -416,7 +385,7 @@ Aligned with task milestones M7 and M8 (the task list owns task IDs).
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| Scenario coverage | 8/8 BM rows in every published run | `benchmarks.json` review. |
+| Scenario coverage | BM.01 to BM.31 in every published run | `benchmarks.json` review. |
 | Reproducibility | corpus and signer byte-stable across runs | corpus determinism test. |
 | Regression gate | binding on the baseline runner class | CI history. |
 | Gate p50 SLO | <= 200 us across BM.03 verdict paths | Worst measured path: allow, 122.334 us p50; 50% headroom = 183.501 us. |
