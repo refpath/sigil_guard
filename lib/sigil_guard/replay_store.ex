@@ -25,19 +25,11 @@ defmodule SigilGuard.ReplayStore do
   """
   @spec ensure_table() :: :ok
   def ensure_table do
-    if :ets.whereis(@table) == :undefined do
-      try do
-        :ets.new(@table, [
-          :named_table,
-          :public,
-          :set,
-          read_concurrency: true,
-          write_concurrency: true
-        ])
-      rescue
-        ArgumentError -> :ok
-      end
-    end
+    SigilGuard.Runtime.Tables.ensure(@table, [
+      :set,
+      read_concurrency: true,
+      write_concurrency: true
+    ])
 
     :ets.insert_new(
       @table,

@@ -30,4 +30,20 @@ defmodule SigilGuard.Runtime.Tables do
           ...
         ]
   def all, do: [rates(), replay(), trust_bundle(), trust_bundle_quarantine()]
+
+  # Creating a named table that another process created first raises
+  # `ArgumentError`; that race leaves the table in place, which is the goal.
+  @doc false
+  @spec ensure(atom(), [term()]) :: :ok
+  def ensure(name, options) do
+    if :ets.whereis(name) == :undefined do
+      try do
+        :ets.new(name, [:named_table, :public | options])
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+
+    :ok
+  end
 end

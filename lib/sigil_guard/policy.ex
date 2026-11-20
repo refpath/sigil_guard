@@ -208,21 +208,8 @@ defmodule SigilGuard.Policy do
   table.
   """
   @spec ensure_rate_table(atom()) :: :ok
-  def ensure_rate_table(table \\ @default_rate_table) do
-    case :ets.whereis(table) do
-      :undefined ->
-        try do
-          :ets.new(table, [:named_table, :public, :set])
-          :ok
-        rescue
-          # Lost a creation race with another process — table exists now.
-          ArgumentError -> :ok
-        end
-
-      _ ->
-        :ok
-    end
-  end
+  def ensure_rate_table(table \\ @default_rate_table),
+    do: SigilGuard.Runtime.Tables.ensure(table, [:set])
 
   @doc """
   Return the default trust threshold for a risk level.

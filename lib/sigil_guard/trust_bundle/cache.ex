@@ -42,25 +42,11 @@ defmodule SigilGuard.TrustBundle.Cache do
   """
   @spec ensure_table() :: :ok
   def ensure_table do
-    case :ets.whereis(@table) do
-      :undefined ->
-        try do
-          :ets.new(@table, [
-            :named_table,
-            :public,
-            :set,
-            read_concurrency: true,
-            write_concurrency: true
-          ])
-
-          :ok
-        rescue
-          ArgumentError -> :ok
-        end
-
-      _ ->
-        :ok
-    end
+    SigilGuard.Runtime.Tables.ensure(@table, [
+      :set,
+      read_concurrency: true,
+      write_concurrency: true
+    ])
   end
 
   @doc """
