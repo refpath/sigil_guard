@@ -95,6 +95,7 @@ defmodule SigilGuard.Boundary do
   """
   @spec new(t() | map() | keyword()) :: t()
   def new(%__MODULE__{} = boundary), do: normalize_values(boundary)
+  def new(%_{}), do: %__MODULE__{}
 
   def new(fields) when is_list(fields) do
     try do
@@ -228,6 +229,8 @@ defmodule SigilGuard.Boundary do
   defp atomize_key(key) when is_binary(key) do
     if key in @known_keys, do: String.to_existing_atom(key), else: key
   end
+
+  defp atomize_key(key), do: key
 
   defp fetch_field(map, key) do
     case Map.fetch(map, key) do

@@ -274,10 +274,14 @@ defmodule SigilGuard.Attestation do
   end
 
   def strip_metadata(payload) when is_list(payload) do
-    Enum.map(payload, fn
-      item when is_map(item) -> strip_metadata(item)
-      item -> item
-    end)
+    if List.improper?(payload) do
+      payload
+    else
+      Enum.map(payload, fn
+        item when is_map(item) -> strip_metadata(item)
+        item -> item
+      end)
+    end
   end
 
   def strip_metadata(payload), do: payload
@@ -347,17 +351,12 @@ defmodule SigilGuard.Attestation do
     end
   end
 
-  defp normalize_context(%Context{} = context) do
-    with :ok <- Context.validate(context), do: {:ok, context}
+  defp normalize_context(context) do
+    with {:ok, context} <- Context.cast(context),
+         :ok <- Context.validate(context) do
+      {:ok, context}
+    end
   end
-
-  defp normalize_context(context) when is_map(context) or is_list(context) do
-    normalized = Context.new(context)
-
-    with :ok <- Context.validate(normalized), do: {:ok, normalized}
-  end
-
-  defp normalize_context(_), do: {:error, :invalid_context}
 
   defp decision_statement_type(context, opts) do
     case Keyword.fetch(opts, :statement_type) do

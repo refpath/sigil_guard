@@ -58,6 +58,23 @@ defmodule SigilGuard.ContextTest do
     end
   end
 
+  describe "cast/1" do
+    test "accepts a struct, a map, and a keyword list" do
+      struct = %Context{actor: "agent-1"}
+
+      assert Context.cast(struct) == {:ok, struct}
+      assert Context.cast(%{actor: "agent-1"}) == {:ok, Context.new(actor: "agent-1")}
+      assert Context.cast(actor: "agent-1") == {:ok, Context.new(actor: "agent-1")}
+      assert Context.cast([]) == {:ok, %Context{}}
+    end
+
+    test "refuses every other term without raising" do
+      for term <- [nil, 5, "context", :context, {1, 2}, [1, 2], [{1, 2}], [{:actor, "a"} | :tail]] do
+        assert Context.cast(term) == {:error, :invalid_context}
+      end
+    end
+  end
+
   describe "validate/1" do
     test "accepts normalized context values" do
       assert :ok =

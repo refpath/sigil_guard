@@ -388,8 +388,11 @@ defmodule SigilGuard.Attestation.DigestTest do
       assert Digest.action_preimage(:model_egress, %{}, %{sink: ""}, []) ==
                {:error, :invalid_payload}
 
-      assert_raise FunctionClauseError, fn ->
-        Digest.action_preimage(:model_ingress, %{}, :bad_context, [])
+      for context <- [:bad_context, nil, 5, "context", [1, 2], [{1, 2}]] do
+        assert Digest.action_preimage(:model_ingress, %{}, context, []) ==
+                 {:error, :invalid_payload}
+
+        assert Digest.context_digest(:tool_request, context) == {:error, :invalid_payload}
       end
 
       assert Digest.action_preimage(

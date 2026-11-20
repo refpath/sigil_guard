@@ -113,6 +113,27 @@ defmodule SigilGuard.Context do
   end
 
   @doc """
+  Normalize a context when it has a supported shape.
+
+  A context struct, a plain map, and a keyword list are accepted. Any other
+  term, including another struct and a list that is not a keyword list,
+  returns `{:error, :invalid_context}`.
+  Functions that take a context from a caller use this instead of `new/1`,
+  which raises on those terms.
+  """
+  @doc since: "1.1.0"
+  @spec cast(term()) :: {:ok, t()} | {:error, :invalid_context}
+  def cast(%__MODULE__{} = context), do: {:ok, context}
+  def cast(%_{}), do: {:error, :invalid_context}
+  def cast(context) when is_map(context), do: {:ok, new(context)}
+
+  def cast(context) when is_list(context) do
+    if Keyword.keyword?(context), do: {:ok, new(context)}, else: {:error, :invalid_context}
+  end
+
+  def cast(_), do: {:error, :invalid_context}
+
+  @doc """
   Normalize context input into an override map without applying defaults.
 
   Known string keys become their existing struct-field atoms. Unknown keys are
@@ -120,6 +141,7 @@ defmodule SigilGuard.Context do
   """
   @spec overrides(t() | map() | keyword() | term()) :: map()
   def overrides(%__MODULE__{} = context), do: Map.from_struct(context)
+  def overrides(%_{}), do: %{}
 
   def overrides(context) when is_list(context) do
     if Keyword.keyword?(context) do

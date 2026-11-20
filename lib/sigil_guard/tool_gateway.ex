@@ -330,10 +330,10 @@ defmodule SigilGuard.ToolGateway do
   def guarded_request(request, context \\ %{}, opts \\ []) do
     decision = guard_request(request, context, opts)
 
-    if executable?(decision) do
+    if GatewayBase.executable?(decision) do
       {:ok, decision}
     else
-      {:error, response_for_decision(decision, request_id(request), opts), decision}
+      {:error, response_for_decision(decision, GatewayBase.request_id(request), opts), decision}
     end
   end
 
@@ -347,13 +347,14 @@ defmodule SigilGuard.ToolGateway do
 
     case decision.action do
       :allow ->
-        {:ok, jsonrpc_result(result, request_id(result), opts), decision}
+        {:ok, GatewayBase.jsonrpc_result(result, GatewayBase.request_id(result), opts), decision}
 
       :redact ->
-        {:ok, GatewayBase.response_for_decision(decision, request_id(result), opts), decision}
+        {:ok, GatewayBase.response_for_decision(decision, GatewayBase.request_id(result), opts),
+         decision}
 
       _ ->
-        {:error, response_for_decision(decision, request_id(result), opts), decision}
+        {:error, response_for_decision(decision, GatewayBase.request_id(result), opts), decision}
     end
   end
 
@@ -759,8 +760,8 @@ defmodule SigilGuard.ToolGateway do
 
   defp manifest_freshness(%CapabilityManifest{expires_at: expires_at}, opts) do
     with {:ok, expires_at, _} <- DateTime.from_iso8601(expires_at),
-         {:ok, now} <- now(opts) do
-      max_skew_ms = Keyword.get(opts, :max_skew_ms, 0)
+         {:ok, now} <- now(opts),
+         {:ok, max_skew_ms} <- max_skew_ms(opts) do
       expires_at = DateTime.add(expires_at, max_skew_ms, :millisecond)
 
       if DateTime.compare(now, expires_at) == :gt do
@@ -770,6 +771,18 @@ defmodule SigilGuard.ToolGateway do
       end
     else
       _ -> {:error, :invalid_manifest}
+    end
+  end
+
+  defp audiences(audience) when is_list(audience),
+    do: if(List.improper?(audience), do: [], else: audience)
+
+  defp audiences(audience), do: [audience]
+
+  defp max_skew_ms(opts) do
+    case Keyword.get(opts, :max_skew_ms, 0) do
+      skew when is_integer(skew) and skew >= 0 -> {:ok, skew}
+      _ -> {:error, :invalid_max_skew}
     end
   end
 
@@ -822,7 +835,7 @@ defmodule SigilGuard.ToolGateway do
       audience ->
         accepted = [server | List.wrap(manifest_audience || [])]
 
-        if Enum.any?(List.wrap(audience), &(&1 in accepted)) do
+        if Enum.any?(audiences(audience), &(&1 in accepted)) do
           :ok
         else
           {:error,
@@ -875,7 +888,7 @@ defmodule SigilGuard.ToolGateway do
          %CapabilityManifest{name: tool, sandbox: %{"min_isolation" => min_isolation}},
          context
        ) do
-    metadata = context.metadata
+    metadata = sandbox_metadata(context)
     sandbox_id = metadata[:sandbox_id] || metadata["sandbox_id"]
     isolation_level = metadata[:isolation_level] || metadata["isolation_level"]
 
@@ -889,12 +902,20 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp require_sandbox(%CapabilityManifest{name: tool}, context) do
-    metadata = context.metadata
+    metadata = sandbox_metadata(context)
     sandbox_id = metadata[:sandbox_id] || metadata["sandbox_id"]
     isolation_level = metadata[:isolation_level] || metadata["isolation_level"]
 
     {:error, {:sandbox_required, sandbox_denial_metadata(tool, nil, isolation_level, sandbox_id)}}
   end
+
+  # The gate rejects a context whose metadata is not a map; until then it
+  # simply names no sandbox.
+  defp sandbox_metadata(%Context{metadata: metadata})
+       when is_map(metadata) and not is_struct(metadata),
+       do: metadata
+
+  defp sandbox_metadata(%Context{}), do: %{}
 
   defp sandbox_denial_metadata(tool, required_isolation, isolation_level, sandbox_id) do
     %{
@@ -1157,34 +1178,19 @@ defmodule SigilGuard.ToolGateway do
   defp fetch_confirmation_token(token_source) when is_map(token_source) do
     case Attestation.fetch_confirmation(token_source) do
       {:ok, token} -> {:ok, token}
-      :error -> fetch_nested_confirmation_token(token_source)
+      :error -> GatewayBase.nested_confirmation_token(token_source)
     end
   end
 
   defp fetch_confirmation_token(_), do: :error
 
-  defp fetch_nested_confirmation_token(token_source) do
-    case first_present_payload_term(token_source, confirmation_token_paths()) do
-      {:ok, token} when is_binary(token) -> {:ok, token}
-      {:ok, _} -> {:error, :invalid_confirmation_token}
-      :not_found -> :error
-    end
-  end
-
   defp verify_confirmation(decision, payload, context, token, opts) do
-    with {:ok, key} <- confirmation_key(opts),
+    with {:ok, key} <- GatewayBase.confirmation_key(opts),
          {:ok, claims} <-
            Confirmation.verify(token, payload, context, key, confirmation_opts(decision, opts)) do
       confirmed_decision(decision, claims)
     else
       {:error, reason} -> confirmation_failure_decision(decision, reason)
-    end
-  end
-
-  defp confirmation_key(opts) do
-    case Keyword.get(opts, :confirmation_key) do
-      key when is_binary(key) -> {:ok, key}
-      _ -> {:error, :missing_confirmation_key}
     end
   end
 
@@ -1377,85 +1383,6 @@ defmodule SigilGuard.ToolGateway do
 
   defp request_payload(request, opts), do: SecurityPayload.for_gate(request, :request, opts)
   defp result_payload(result, opts), do: SecurityPayload.for_gate(result, :result, opts)
-
-  defp request_id(payload) when is_map(payload) do
-    first_payload_term(payload, [
-      [:id],
-      ["id"],
-      [:request_id],
-      ["request_id"]
-    ])
-  end
-
-  defp request_id(_), do: nil
-
-  defp jsonrpc_result(%{"jsonrpc" => _, "id" => id, "result" => result} = source, _, opts) do
-    %{
-      "jsonrpc" => "2.0",
-      "id" => id,
-      "result" => Protocol.ensure_result_type(result, source, opts)
-    }
-  end
-
-  defp jsonrpc_result(%{jsonrpc: _, id: id, result: result} = source, _, opts) do
-    %{
-      "jsonrpc" => "2.0",
-      "id" => id,
-      "result" => Protocol.ensure_result_type(result, source, opts)
-    }
-  end
-
-  defp jsonrpc_result(result, id, opts) do
-    %{
-      "jsonrpc" => "2.0",
-      "id" => id,
-      "result" => Protocol.ensure_result_type(result, result, opts)
-    }
-  end
-
-  defp confirmation_token_paths do
-    [
-      [:_agent_confirmation],
-      ["_agent_confirmation"],
-      [:confirmation_token],
-      ["confirmation_token"],
-      [:params, :_agent_confirmation],
-      [:params, "_agent_confirmation"],
-      [:params, :confirmation_token],
-      [:params, "confirmation_token"],
-      ["params", :_agent_confirmation],
-      ["params", "_agent_confirmation"],
-      ["params", :confirmation_token],
-      ["params", "confirmation_token"]
-    ]
-  end
-
-  defp first_payload_term(payload, paths) when is_map(payload) do
-    Enum.find_value(paths, &get_in(payload, &1))
-  end
-
-  defp first_present_payload_term(payload, paths) when is_map(payload) do
-    Enum.reduce_while(paths, :not_found, fn path, :not_found ->
-      case fetch_payload_path(payload, path) do
-        {:ok, value} -> {:halt, {:ok, value}}
-        :error -> {:cont, :not_found}
-      end
-    end)
-  end
-
-  defp fetch_payload_path(payload, []), do: {:ok, payload}
-
-  defp fetch_payload_path(payload, [key | rest]) when is_map(payload) do
-    case Map.fetch(payload, key) do
-      {:ok, value} -> fetch_payload_path(value, rest)
-      :error -> :error
-    end
-  end
-
-  defp fetch_payload_path(_, _), do: :error
-
-  defp executable?(%Decision{verdict: :allowed, action: action}), do: action in [:allow, :redact]
-  defp executable?(%Decision{}), do: false
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp hash_text(text), do: Base.encode16(:crypto.hash(:sha256, text), case: :lower)

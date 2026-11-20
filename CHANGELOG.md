@@ -21,6 +21,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Build the gateway projection and context once per request or result, compute
   the gate's action digest once, and read the clock and application env in
   `SigilGuard.Attestation` only when the caller supplies no value.
+- Answer malformed input without raising across the public entry points. A
+  context that is not a map or keyword list, a foreign struct or an improper
+  list in a request, result, boundary or payload, a non-map `metadata`, a
+  non-integer `:max_skew_ms`, malformed `:indicator_sets`, and a trust bundle
+  document whose `roles` is not a map each raised; they now return an error
+  tuple or a blocked decision. `SigilGuard.Context.cast/1` is the total
+  counterpart of `new/1`.
 - Fix two gateway crashes. `ToolGateway.guard_request/3` and `guard_result/3`
   raised `FunctionClauseError` for a non-map request or result that reached a
   `confirm` verdict, and `response_for_decision/3` raised `ArgumentError` when

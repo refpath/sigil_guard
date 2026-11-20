@@ -59,7 +59,7 @@ defmodule SigilGuard.Runtime.Gate do
   end
 
   defp evaluate_normalized(payload, raw_context, opts) do
-    case normalize_runtime_context(raw_context) do
+    case Context.cast(raw_context) do
       {:ok, context} ->
         with :ok <- Context.validate(context),
              :ok <- validate_runtime_options(opts),
@@ -74,17 +74,6 @@ defmodule SigilGuard.Runtime.Gate do
         malformed_input_decision(%Context{}, reason)
     end
   end
-
-  defp normalize_runtime_context(%Context{} = context), do: {:ok, context}
-  defp normalize_runtime_context(context) when is_map(context), do: {:ok, Context.new(context)}
-
-  defp normalize_runtime_context(context) when is_list(context) do
-    if Keyword.keyword?(context),
-      do: {:ok, Context.new(context)},
-      else: {:error, :invalid_context}
-  end
-
-  defp normalize_runtime_context(_), do: {:error, :invalid_context}
 
   defp validate_runtime_options(opts) do
     if Keyword.keyword?(opts) do
@@ -121,7 +110,7 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp evaluate_checked(payload, context, text, action, opts) do
     {hits, scanner_error} = scan_hits(text, opts)
-    quarantine = Quarantine.inspect(text, context, opts)
+    {quarantine, scanner_error} = inspect_quarantine(text, context, opts, scanner_error)
     repo_policy = repo_policy_decision(payload, context, action, opts)
 
     risk =
@@ -222,6 +211,14 @@ defmodule SigilGuard.Runtime.Gate do
     catch
       _, _ -> {scanner_error_hit(text), :scanner_failed}
     end
+  end
+
+  # A malformed `:indicator_sets` option makes inspection raise. Fail closed
+  # like a scanner failure, with the built-in indicators as the result.
+  defp inspect_quarantine(text, context, opts, scanner_error) do
+    {Quarantine.inspect(text, context, opts), scanner_error}
+  rescue
+    _ -> {Quarantine.inspect(text, context, []), :scanner_failed}
   end
 
   defp scanner_error_hit(text) do

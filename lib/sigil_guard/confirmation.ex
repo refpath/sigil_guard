@@ -71,24 +71,22 @@ defmodule SigilGuard.Confirmation do
   @spec fetch_action_digest(term(), Context.t() | map() | keyword()) ::
           {:ok, String.t()} | {:error, :invalid_payload}
   def fetch_action_digest(payload, context) do
-    context_map =
-      context
-      |> Context.new()
-      |> Map.from_struct()
+    with {:ok, context} <- cast_context(context) do
+      digest =
+        %{"context" => Map.from_struct(context), "payload" => payload}
+        |> canonical_bytes()
+        |> then(&:crypto.hash(:sha256, &1))
+        |> Base.encode16(case: :lower)
 
-    digest =
-      %{
-        "context" => context_map,
-        "payload" => payload
-      }
-      |> canonical_bytes()
-      |> then(&:crypto.hash(:sha256, &1))
-      |> Base.encode16(case: :lower)
-
-    {:ok, digest}
+      {:ok, digest}
+    end
   rescue
     _ in [ArgumentError, Jason.EncodeError, Protocol.UndefinedError] ->
       {:error, :invalid_payload}
+  end
+
+  defp cast_context(context) do
+    with {:error, :invalid_context} <- Context.cast(context), do: {:error, :invalid_payload}
   end
 
   @doc """
@@ -105,9 +103,8 @@ defmodule SigilGuard.Confirmation do
   @spec issue(term(), Context.t() | map() | keyword(), Decision.t(), binary(), keyword()) ::
           {:ok, String.t()} | {:error, term()}
   def issue(payload, context, %Decision{} = decision, key, opts \\ []) do
-    context = Context.new(context)
-
-    with :ok <- validate_key(key),
+    with {:ok, context} <- cast_context(context),
+         :ok <- validate_key(key),
          :ok <- validate_confirmable(decision),
          {:ok, now} <- issue_now(opts),
          {:ok, ttl_ms} <- issue_ttl_ms(opts),
@@ -385,10 +382,9 @@ defmodule SigilGuard.Confirmation do
   end
 
   defp confirmation_digests(payload, context) do
-    context = Context.new(context)
-    statement_type = context.phase
-
-    with {:ok, action_digest} <- fetch_action_digest(payload, context),
+    with {:ok, context} <- cast_context(context),
+         statement_type = context.phase,
+         {:ok, action_digest} <- fetch_action_digest(payload, context),
          {:ok, payload_digest} <- Digest.payload_digest(payload),
          {:ok, context_digest} <- Digest.context_digest(statement_type, context) do
       {:ok,

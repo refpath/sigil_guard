@@ -94,8 +94,18 @@ defmodule SigilGuard.Attestation.Digest do
   @spec context_preimage(statement_type(), Context.t() | map() | keyword()) ::
           {:ok, map()} | {:error, error_reason()}
   def context_preimage(statement_type, context) when statement_type in @statement_types do
-    context_map = context_map(context)
+    case Context.cast(context) do
+      {:ok, normalized} ->
+        {:ok, context_fields(statement_type, Map.from_struct(normalized), context)}
 
+      {:error, :invalid_context} ->
+        {:error, :invalid_payload}
+    end
+  end
+
+  def context_preimage(_, _), do: {:error, :unknown_statement_type}
+
+  defp context_fields(statement_type, context_map, context) do
     %{
       "statement_type" => Atom.to_string(statement_type),
       "trust_level" => context_map.trust_level,
@@ -113,10 +123,7 @@ defmodule SigilGuard.Attestation.Digest do
     |> maybe_put("resource_uri", context_map.resource_uri)
     |> maybe_put("sandbox_id", context_extra(context, "sandbox_id"))
     |> maybe_put("isolation_level", context_extra(context, "isolation_level"))
-    |> ok()
   end
-
-  def context_preimage(_, _), do: {:error, :unknown_statement_type}
 
   @doc """
   Compute the attestation action digest for a statement type.
@@ -412,7 +419,13 @@ defmodule SigilGuard.Attestation.Digest do
   defp reverse_ok({:ok, values}), do: {:ok, Enum.reverse(values)}
   defp reverse_ok({:error, reason}), do: {:error, reason}
 
-  defp context_map(context), do: Context.new(context) |> Map.from_struct()
+  # A term that is not a context has no context fields.
+  defp context_map(context) do
+    case Context.cast(context) do
+      {:ok, context} -> Map.from_struct(context)
+      {:error, :invalid_context} -> %{}
+    end
+  end
 
   defp context_extra_or_known(context, key) do
     context_extra(context, key) || Map.get(context_map(context), atom_key(key))
@@ -580,7 +593,10 @@ defmodule SigilGuard.Attestation.Digest do
   defp validate_digest(_), do: {:error, :invalid_payload}
 
   defp raw_map(%Context{} = context), do: Map.from_struct(context)
-  defp raw_map(context) when is_list(context), do: Map.new(context)
+
+  defp raw_map(context) when is_list(context),
+    do: if(Keyword.keyword?(context), do: Map.new(context), else: %{})
+
   defp raw_map(context) when is_map(context), do: context
   defp raw_map(_), do: %{}
 

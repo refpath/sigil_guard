@@ -572,6 +572,28 @@ defmodule SigilGuard.ConfirmationTest do
     end
   end
 
+  describe "a term that is not a context" do
+    test "is refused by digest, issue, and verify without raising" do
+      payload = %{"tool" => "cell.move"}
+      context = [phase: :tool_request, origin: :model, sink: :tool, tool: "cell.move"]
+      decision = %{confirm_decision() | phase: :tool_request}
+      {:ok, token} = Confirmation.issue(payload, context, decision, @key, now: @now)
+
+      for term <- [nil, 5, "context", [1, 2], [{1, 2}]] do
+        assert Confirmation.fetch_action_digest(payload, term) == {:error, :invalid_payload}
+
+        assert Confirmation.issue(payload, term, decision, @key, now: @now) ==
+                 {:error, :invalid_payload}
+
+        assert Confirmation.verify(token, payload, term, @key, now: @now, consume: false) ==
+                 {:error, :invalid_payload}
+      end
+
+      assert {:ok, _} =
+               Confirmation.verify(token, payload, context, @key, now: @now, consume: false)
+    end
+  end
+
   describe "digest and replay boundaries" do
     @request_context [phase: :tool_request, origin: :model, sink: :tool, tool: "cell.move"]
 

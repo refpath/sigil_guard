@@ -353,8 +353,9 @@ defmodule SigilGuard.MCP.SecurityPayload do
 
   defp legacy_strings(value, acc) when is_binary(value), do: [value | acc]
 
-  defp legacy_strings(value, acc) when is_list(value),
-    do: Enum.reduce(value, acc, &legacy_strings/2)
+  # Walk lists by hand: an improper tail is one more value, not a crash.
+  defp legacy_strings([head | tail], acc), do: legacy_strings(tail, legacy_strings(head, acc))
+  defp legacy_strings([], acc), do: acc
 
   defp legacy_strings(value, acc) when is_map(value),
     do: Enum.reduce(Map.values(value), acc, &legacy_strings/2)
@@ -363,18 +364,24 @@ defmodule SigilGuard.MCP.SecurityPayload do
 
   defp collect_strings(value, acc) when is_binary(value), do: [value | acc]
 
-  defp collect_strings(value, acc) when is_list(value),
-    do: Enum.reduce(value, acc, &collect_strings/2)
+  defp collect_strings([head | tail], acc), do: collect_strings(tail, collect_strings(head, acc))
+  defp collect_strings([], acc), do: acc
 
   defp collect_strings(value, acc) when is_map(value) do
     value
-    |> Enum.sort_by(fn {key, _} -> to_string(key) end)
-    |> Enum.reduce(acc, fn {key, item}, acc ->
-      collect_strings(item, collect_strings(to_string(key), acc))
-    end)
+    |> Map.to_list()
+    |> Enum.map(fn {key, item} -> {key_text(key), item} end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.reduce(acc, fn {key, item}, acc -> collect_strings(item, [key | acc]) end)
   end
 
   defp collect_strings(_, acc), do: acc
+
+  # JSON object keys are strings; an adapter map may use atoms. Any other key
+  # carries no scannable text.
+  defp key_text(key) when is_binary(key), do: key
+  defp key_text(key) when is_atom(key), do: Atom.to_string(key)
+  defp key_text(_), do: ""
 
   defp first_payload_value(payload, paths) when is_map(payload) do
     Enum.reduce_while(paths, nil, fn path, nil ->

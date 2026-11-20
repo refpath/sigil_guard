@@ -388,8 +388,10 @@ defmodule SigilGuard.ToolGateway.Base do
     end
   end
 
-  defp executable?(%Decision{verdict: :allowed, action: action}), do: action in [:allow, :redact]
-  defp executable?(%Decision{}), do: false
+  @doc false
+  @spec executable?(Decision.t()) :: boolean()
+  def executable?(%Decision{verdict: :allowed, action: action}), do: action in [:allow, :redact]
+  def executable?(%Decision{}), do: false
 
   defp maybe_apply_confirmation(
          %Decision{verdict: {:confirm, _}} = decision,
@@ -442,7 +444,9 @@ defmodule SigilGuard.ToolGateway.Base do
     end
   end
 
-  defp confirmation_key(opts) do
+  @doc false
+  @spec confirmation_key(keyword()) :: {:ok, binary()} | {:error, :missing_confirmation_key}
+  def confirmation_key(opts) do
     case Keyword.get(opts, :confirmation_key) do
       key when is_binary(key) -> {:ok, key}
       _ -> {:error, :missing_confirmation_key}
@@ -555,16 +559,12 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp request_id(payload) when is_map(payload) do
-    first_payload_term(payload, [
-      [:id],
-      ["id"],
-      [:request_id],
-      ["request_id"]
-    ])
-  end
+  @doc false
+  @spec request_id(term()) :: term()
+  def request_id(payload) when is_map(payload),
+    do: Enum.find_value([:id, "id", :request_id, "request_id"], &Map.get(payload, &1))
 
-  defp request_id(_), do: nil
+  def request_id(_), do: nil
 
   defp confirmation_token_option(opts) do
     case Keyword.fetch(opts, :confirmation_token) do
@@ -574,15 +574,23 @@ defmodule SigilGuard.ToolGateway.Base do
     end
   end
 
-  defp request_confirmation_token(payload) when is_map(payload) do
+  defp request_confirmation_token(payload) do
+    with :error <- nested_confirmation_token(payload),
+         do: {:error, :missing_confirmation_token}
+  end
+
+  @doc false
+  @spec nested_confirmation_token(term()) ::
+          {:ok, String.t()} | {:error, :invalid_confirmation_token} | :error
+  def nested_confirmation_token(payload) when is_map(payload) do
     case first_present_payload_term(payload, confirmation_token_paths()) do
       {:ok, token} when is_binary(token) -> {:ok, token}
       {:ok, _} -> {:error, :invalid_confirmation_token}
-      :not_found -> {:error, :missing_confirmation_token}
+      :not_found -> :error
     end
   end
 
-  defp request_confirmation_token(_), do: {:error, :missing_confirmation_token}
+  def nested_confirmation_token(_), do: :error
 
   defp confirmation_token(request, opts) do
     case confirmation_token_option(opts) do
@@ -606,10 +614,6 @@ defmodule SigilGuard.ToolGateway.Base do
       ["params", :confirmation_token],
       ["params", "confirmation_token"]
     ]
-  end
-
-  defp first_payload_term(payload, paths) when is_map(payload) do
-    Enum.find_value(paths, &get_in(payload, &1))
   end
 
   defp first_present_payload_term(payload, paths) when is_map(payload) do
@@ -710,7 +714,9 @@ defmodule SigilGuard.ToolGateway.Base do
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
 
-  defp jsonrpc_result(%{"jsonrpc" => _, "id" => id, "result" => result} = source, _, opts) do
+  @doc false
+  @spec jsonrpc_result(term(), term(), keyword()) :: %{required(String.t()) => term()}
+  def jsonrpc_result(%{"jsonrpc" => _, "id" => id, "result" => result} = source, _, opts) do
     %{
       "jsonrpc" => "2.0",
       "id" => id,
@@ -718,7 +724,7 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp jsonrpc_result(%{jsonrpc: _, id: id, result: result} = source, _, opts) do
+  def jsonrpc_result(%{jsonrpc: _, id: id, result: result} = source, _, opts) do
     %{
       "jsonrpc" => "2.0",
       "id" => id,
@@ -726,7 +732,7 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  defp jsonrpc_result(result, id, opts) do
+  def jsonrpc_result(result, id, opts) do
     %{
       "jsonrpc" => "2.0",
       "id" => id,

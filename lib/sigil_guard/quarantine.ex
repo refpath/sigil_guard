@@ -48,7 +48,7 @@ defmodule SigilGuard.Quarantine do
   def inspect(text, context \\ %Context{}, opts \\ [])
 
   def inspect(text, context, opts) when is_binary(text) do
-    context = Context.new(context)
+    context = castable_context(context)
     active_indicators = indicators_for(text, opts)
     indicators = find_indicators(text, active_indicators)
     verdict = verdict(indicators, context, opts)
@@ -204,6 +204,15 @@ defmodule SigilGuard.Quarantine do
     Enum.any?(tokens, fn token ->
       :binary.match(text, token) != :nomatch
     end)
+  end
+
+  # A term that is not a context gets the defaults, which never select the
+  # tool-result downgrade.
+  defp castable_context(context) do
+    case Context.cast(context) do
+      {:ok, context} -> context
+      {:error, :invalid_context} -> %Context{}
+    end
   end
 
   defp verdict([], _, _), do: :safe

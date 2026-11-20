@@ -480,11 +480,14 @@ defmodule SigilGuard.TrustBundle do
     %{
       bundle_id: bundle_id,
       sequence: positive_integer(Map.get(document, "sequence")),
-      root_version: positive_integer(get_in(document, ["roles", "root", "version"]))
+      root_version: positive_integer(root_version(document))
     }
   end
 
   defp verify_document_metadata(_), do: %{bundle_id: nil, sequence: nil, root_version: nil}
+
+  defp root_version(%{"roles" => %{"root" => %{"version" => version}}}), do: version
+  defp root_version(_), do: nil
 
   defp envelope_document(%{} = envelope) do
     with :ok <- SigilGuard.Limits.check(envelope),

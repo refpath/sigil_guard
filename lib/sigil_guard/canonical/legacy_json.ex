@@ -17,7 +17,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
 
   def encode(value) when is_list(value) do
     value
-    |> Enum.map(&encode/1)
+    |> encode_items()
     |> Enum.intersperse(",")
     |> then(&[?[, &1, ?]])
   end
@@ -32,6 +32,10 @@ defmodule SigilGuard.Canonical.LegacyJSON do
   def encode(value) do
     Jason.encode!(value)
   end
+
+  defp encode_items([]), do: []
+  defp encode_items([head | tail]) when is_list(tail), do: [encode(head) | encode_items(tail)]
+  defp encode_items(_), do: raise(ArgumentError, "improper list is not a JSON array")
 
   @doc false
   @spec valid?(term()) :: boolean()
