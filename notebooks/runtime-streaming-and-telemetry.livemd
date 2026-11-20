@@ -299,6 +299,8 @@ false = Map.has_key?(telemetry_event.metadata, :text)
 The bridge is dependency-free: it returns OpenTelemetry-shaped attribute names
 and lets the host choose its SDK. High-cardinality hashes and identifiers are
 omitted by default for metric safety and may be included explicitly for spans.
+An actor or identity is exported as a keyed digest under `field_hash_key`, and
+as `redacted-v1` without one.
 
 ```elixir
 alias SigilGuard.Telemetry
@@ -315,7 +317,8 @@ span_attributes =
     telemetry_event.event,
     telemetry_event.measurements,
     telemetry_event.metadata,
-    include_high_cardinality: true
+    include_high_cardinality: true,
+    field_hash_key: :crypto.strong_rand_bytes(32)
   )
 
 false = Map.has_key?(bounded_attributes, "sigilguard.payload.digest")

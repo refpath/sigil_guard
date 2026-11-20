@@ -115,8 +115,8 @@ defmodule SigilGuard.TelemetryTest do
       assert attributes["sigilguard.component"] == "runtime"
       assert attributes["sigilguard.operation"] == "gate"
       assert attributes["sigilguard.phase"] == "tool_request"
-      assert attributes["sigilguard.actor.hash"] == "did:sigil:agent"
-      assert attributes["sigilguard.identity.hash"] == "did:sigil:agent"
+      assert attributes["sigilguard.actor.hash"] == "redacted-v1"
+      assert attributes["sigilguard.identity.hash"] == "redacted-v1"
       assert attributes["sigilguard.verdict"] == "blocked"
       assert attributes["sigilguard.action.digest"] == "digest123"
       assert attributes["sigilguard.action.digest_error"] == "invalid_payload"
@@ -124,7 +124,7 @@ defmodule SigilGuard.TelemetryTest do
       assert attributes["sigilguard.indicator_ids"] == ["ignore_instructions"]
       assert attributes["sigilguard.confirmation.status"] == "invalid"
       assert attributes["sigilguard.confirmation.reason"] == "digest_mismatch"
-      assert attributes["sigilguard.confirmation.actor.hash"] == "did:sigil:agent"
+      assert attributes["sigilguard.confirmation.actor.hash"] == "redacted-v1"
       assert attributes["sigilguard.confirmation.nonce_hash"] == "nonce-hash"
       assert attributes["sigilguard.release.status"] == "confirmed_sanitized"
       assert attributes["sigilguard.runtime_input_error"] == "invalid_action"
@@ -170,11 +170,120 @@ defmodule SigilGuard.TelemetryTest do
           include_high_cardinality: true
         )
 
-      assert opted_in["sigilguard.actor.hash"] == "did:sigil:agent"
+      assert opted_in["sigilguard.actor.hash"] == "redacted-v1"
       assert opted_in["sigilguard.payload.digest"] == "abc123"
       assert opted_in["sigilguard.resource.uri"] == "file://x"
       assert opted_in["sigilguard.mcp.protocol_version"] == "2026-07-28"
       assert opted_in["sigilguard.mcp.result_type"] == "input_required"
+    end
+  end
+
+  describe "otel_attributes/4 hashed class" do
+    @field_hash_key :crypto.hash(:sha256, "telemetry field hash test key")
+    @hashed_attributes ~w(sigilguard.actor.hash sigilguard.identity.hash
+                          sigilguard.confirmation.actor.hash)
+
+    defp identities(opts) do
+      metadata = %{
+        actor: "did:web:alice",
+        identity: "spiffe://example.test/agent/planner",
+        confirmation_actor: "did:web:approver",
+        verdict: :allowed
+      }
+
+      Telemetry.otel_attributes(
+        [:sigil_guard, :runtime, :gate],
+        %{},
+        metadata,
+        [{:include_high_cardinality, true} | opts]
+      )
+    end
+
+    test "no identity value leaves in clear, with or without a key" do
+      for opts <- [
+            [],
+            [field_hash_key: @field_hash_key],
+            [field_hash_key: ""],
+            [field_hash_key: 5]
+          ] do
+        exported = Enum.join(Map.values(identities(opts)), "\n")
+
+        refute exported =~ "alice"
+        refute exported =~ "planner"
+        refute exported =~ "approver"
+      end
+    end
+
+    test "without a usable key every hashed attribute is the redaction placeholder" do
+      for opts <- [[], [field_hash_key: nil], [field_hash_key: ""], [field_hash_key: 5]] do
+        attributes = identities(opts)
+
+        assert Enum.map(@hashed_attributes, &attributes[&1]) == List.duplicate("redacted-v1", 3)
+      end
+    end
+
+    test "with a key the attribute is the value the audit chain stores" do
+      attributes = identities(field_hash_key: @field_hash_key)
+
+      event =
+        SigilGuard.Audit.classify(
+          SigilGuard.Audit.new_event("runtime.gate", "did:web:alice", "cell.move", "allow"),
+          field_hash_key: @field_hash_key
+        )
+
+      assert attributes["sigilguard.actor.hash"] == event.actor
+      assert attributes["sigilguard.actor.hash"] =~ ~r/\Afh1:[0-9a-f]{64}\z/
+
+      assert attributes["sigilguard.identity.hash"] ==
+               SigilGuard.Audit.hash_field("spiffe://example.test/agent/planner", @field_hash_key)
+
+      assert attributes["sigilguard.confirmation.actor.hash"] ==
+               SigilGuard.Audit.hash_field("did:web:approver", @field_hash_key)
+
+      refute attributes["sigilguard.actor.hash"] ==
+               identities(field_hash_key: "another key")["sigilguard.actor.hash"]
+    end
+
+    test "an already hashed value is unchanged and a look-alike is not trusted" do
+      hashed = SigilGuard.Audit.hash_field("did:web:alice", @field_hash_key)
+      event = [:sigil_guard, :runtime, :gate]
+      opts = [include_high_cardinality: true]
+
+      attributes = fn actor -> Telemetry.otel_attributes(event, %{}, %{actor: actor}, opts) end
+
+      assert attributes.(hashed)["sigilguard.actor.hash"] == hashed
+      assert attributes.("redacted-v1")["sigilguard.actor.hash"] == "redacted-v1"
+
+      for forged <- ["fh1:alice@example.test", "fh1:" <> String.duplicate("A", 64), "fh1:"] do
+        assert attributes.(forged)["sigilguard.actor.hash"] == "redacted-v1"
+      end
+
+      assert attributes.(:alice)["sigilguard.actor.hash"] == "redacted-v1"
+      refute Map.has_key?(attributes.(nil), "sigilguard.actor.hash")
+    end
+
+    test "the forwarder applies the same rule" do
+      parent = self()
+      handler_id = "sigil-otel-hash-test-#{System.unique_integer()}"
+      event = [:sigil_guard, :policy, :decision]
+
+      assert :ok =
+               Telemetry.attach_otel_forwarder(
+                 handler_id,
+                 fn _, _, _, attributes -> send(parent, {:attributes, attributes}) end,
+                 events: [event],
+                 include_high_cardinality: true,
+                 field_hash_key: @field_hash_key
+               )
+
+      on_exit(fn -> Telemetry.detach(handler_id) end)
+
+      Telemetry.emit(event, %{}, %{actor: "did:web:alice", action: "cell.move"})
+
+      assert_receive {:attributes, attributes}
+
+      assert attributes["sigilguard.actor.hash"] ==
+               SigilGuard.Audit.hash_field("did:web:alice", @field_hash_key)
     end
 
     test "uses official URL attribute naming and drops removed registry keys" do

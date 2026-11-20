@@ -134,15 +134,30 @@ defmodule SigilGuard.Audit do
     * `:chain_key` - when equal to `:field_hash_key`, the actor fails closed to
       `"redacted-v1"` (the field-hash key MUST differ from the chain key).
 
-  An already-classified `actor` (`"fh1:"`-prefixed or the redacted placeholder)
-  is left unchanged, so `classify/2` is idempotent.
+  An already-classified `actor` (`"fh1:"` followed by 64 lowercase hexadecimal
+  characters, or the redacted placeholder) is left unchanged, so `classify/2`
+  is idempotent. Any other value that starts with `"fh1:"` is hashed like a
+  clear value.
   """
   @spec classify(t(), keyword()) :: t()
   def classify(event, opts \\ [])
 
   def classify(%__MODULE__{} = event, opts) when is_list(opts) do
-    %{event | actor: classify_actor(event.actor, effective_field_hash_key(opts))}
+    %{event | actor: classify_field(event.actor, effective_field_hash_key(opts))}
   end
+
+  @doc false
+  @spec classify_field(term(), term()) :: String.t()
+  def classify_field(@redacted_placeholder, _), do: @redacted_placeholder
+
+  def classify_field(@field_hash_prefix <> digest = value, field_hash_key) do
+    if digest =~ ~r/\A[0-9a-f]{64}\z/, do: value, else: hash_field(value, field_hash_key)
+  end
+
+  def classify_field(value, field_hash_key) when is_binary(value),
+    do: hash_field(value, field_hash_key)
+
+  def classify_field(_, _), do: @redacted_placeholder
 
   defp effective_field_hash_key(opts) do
     field_hash_key = Keyword.get(opts, :field_hash_key)
@@ -153,10 +168,6 @@ defmodule SigilGuard.Audit do
       field_hash_key
     end
   end
-
-  defp classify_actor(@redacted_placeholder, _), do: @redacted_placeholder
-  defp classify_actor(@field_hash_prefix <> _ = actor, _), do: actor
-  defp classify_actor(actor, field_hash_key), do: hash_field(actor, field_hash_key)
 
   @doc """
   Create a new audit event (unsigned).

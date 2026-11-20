@@ -436,6 +436,31 @@ defmodule SigilGuard.AuditTest do
       refute Audit.canonical_bytes(signed) =~ "did:web:alice"
     end
 
+    test "crypto-erasure leaves the Merkle root and an inclusion proof verifying", ctx do
+      events =
+        Audit.build_chain(
+          for id <- 1..3 do
+            Audit.classify(%{ctx.event | id: "event-#{id}"}, field_hash_key: @field_hash_key)
+          end,
+          @secret_key
+        )
+
+      # Nothing below takes the field-hash key.
+      assert {:ok, root} = Audit.Checkpoint.merkle_root(events)
+      assert {:ok, proof} = Audit.Proof.inclusion(events, 1)
+      assert Audit.Proof.verify_inclusion(proof, Enum.at(events, 1).hmac, root) == :ok
+      assert Audit.verify_chain(events, @secret_key) == :ok
+    end
+
+    test "a value that only starts with the hash prefix is hashed, not trusted", ctx do
+      forged = %{ctx.event | actor: "fh1:alice@example.test"}
+
+      assert Audit.classify(forged, field_hash_key: @field_hash_key).actor ==
+               Audit.hash_field("fh1:alice@example.test", @field_hash_key)
+
+      assert Audit.classify(forged, []).actor == "redacted-v1"
+    end
+
     test "tampering with the hashed actor breaks the chain" do
       signed =
         %Audit{

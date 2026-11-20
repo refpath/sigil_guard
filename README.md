@@ -394,8 +394,10 @@ SigilGuard emits `:telemetry` events for scanning, gate decisions, MCP
 requests, policy verdicts, trust-bundle verification, and audit logging. Each
 decision event carries the sanitized boundary metadata — phase, actor, origin,
 sink, tool, trust zone, verdict, and digests — with raw payloads kept out by
-default. Use `SigilGuard.Telemetry.otel_attributes/3` to map them into
-OpenTelemetry-style attributes under the `sigilguard.*` namespace.
+default. Use `SigilGuard.Telemetry.otel_attributes/4` to map them into
+OpenTelemetry-style attributes under the `sigilguard.*` namespace. The mapper
+never exports an actor or identity in clear: pass `field_hash_key:` to get the
+`fh1:` digest the audit chain stores, or it emits `redacted-v1`.
 
 ## Development
 

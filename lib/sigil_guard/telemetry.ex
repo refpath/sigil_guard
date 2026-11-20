@@ -189,6 +189,10 @@ defmodule SigilGuard.Telemetry do
     :repo_unmatched_paths
   ]
 
+  # SP.05 hashed class: these values leave the process only as `fh1:` digests
+  # or the redaction placeholder.
+  @hashed_metadata_keys [:actor, :identity, :confirmation_actor]
+
   # Every attribute uses the `sigilguard.*` namespace. Actor, identity, and
   # confirmation actor export as `.hash`; `content_hash` maps to the attestation
   # subject `payload.digest`; digests use the `<subject>.digest` family.
@@ -317,7 +321,15 @@ defmodule SigilGuard.Telemetry do
       forwarder.(event, measurements, metadata, attributes)
 
   This keeps OpenTelemetry optional. Applications that depend on an OTel
-  package can set span/log attributes inside the forwarder.
+  package can set span/log attributes inside the forwarder. Export
+  `attributes`; `metadata` is the in-process event and carries the actor in
+  clear.
+
+  Options:
+
+    * `:events` - the events to forward. Defaults to `events/0`.
+    * `:include_high_cardinality` and `:field_hash_key` - passed to
+      `otel_attributes/4`.
   """
   @spec attach_otel_forwarder(
           String.t(),
@@ -327,7 +339,7 @@ defmodule SigilGuard.Telemetry do
   def attach_otel_forwarder(handler_id, forwarder, opts \\ [])
       when is_binary(handler_id) and is_function(forwarder, 4) do
     events = Keyword.get(opts, :events, @events)
-    attribute_opts = Keyword.take(opts, [:include_high_cardinality])
+    attribute_opts = Keyword.take(opts, [:include_high_cardinality, :field_hash_key])
 
     :telemetry.attach_many(
       handler_id,
@@ -354,6 +366,12 @@ defmodule SigilGuard.Telemetry do
   High-cardinality attributes (digests, hashes, opaque ids, URIs) are
   dropped unless `include_high_cardinality: true` is passed in `opts`, so metric
   pipelines stay bounded while span exporters can opt in.
+
+  The actor, identity, and confirmation actor are never exported in clear.
+  With `field_hash_key: key` each becomes `SigilGuard.Audit.hash_field/2` of
+  the value, the form `SigilGuard.Audit.classify/2` stores in the chain. Without
+  a usable key each becomes `"redacted-v1"`. A value already in hashed form is
+  left unchanged. The key MUST differ from the audit chain key.
   """
   @spec otel_attributes(event_name(), map(), map(), keyword()) :: %{String.t() => otel_value()}
   def otel_attributes(event, measurements \\ %{}, metadata \\ %{}, opts \\ []) do
@@ -363,7 +381,7 @@ defmodule SigilGuard.Telemetry do
       "sigilguard.operation" => operation(event)
     }
     |> merge_measurements(measurements)
-    |> merge_metadata(metadata)
+    |> merge_metadata(metadata, Keyword.get(opts, :field_hash_key))
     |> drop_high_cardinality(Keyword.get(opts, :include_high_cardinality, false))
   end
 
@@ -379,14 +397,21 @@ defmodule SigilGuard.Telemetry do
   defp drop_high_cardinality(attributes, _),
     do: Map.drop(attributes, @high_cardinality_attributes)
 
-  defp merge_metadata(attributes, metadata) do
+  defp merge_metadata(attributes, metadata, field_hash_key) do
     Enum.reduce(metadata, attributes, fn {key, value}, acc ->
       case Map.fetch(@attribute_map, key) do
-        {:ok, attribute} -> put_attribute(acc, attribute, value)
+        {:ok, attribute} -> put_attribute(acc, attribute, classified(key, value, field_hash_key))
         :error -> acc
       end
     end)
   end
+
+  defp classified(_, nil, _), do: nil
+
+  defp classified(key, value, field_hash_key) when key in @hashed_metadata_keys,
+    do: SigilGuard.Audit.classify_field(value, field_hash_key)
+
+  defp classified(_, value, _), do: value
 
   defp put_attribute(attributes, _, nil), do: attributes
 

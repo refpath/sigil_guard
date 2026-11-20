@@ -21,6 +21,17 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Build the gateway projection and context once per request or result, compute
   the gate's action digest once, and read the clock and application env in
   `SigilGuard.Attestation` only when the caller supplies no value.
+- **Behaviour change.** `SigilGuard.Telemetry.otel_attributes/4` and
+  `attach_otel_forwarder/3` no longer export the actor, identity, or
+  confirmation actor in clear. `sigilguard.actor.hash`,
+  `sigilguard.identity.hash`, and `sigilguard.confirmation.actor.hash` carried
+  the raw value; SP.05 classifies them as hashed. Pass `field_hash_key:` to
+  export `SigilGuard.Audit.hash_field/2` of the value. Without a usable key the
+  attribute is `"redacted-v1"`. The attributes remain behind
+  `include_high_cardinality: true`.
+- `SigilGuard.Audit.classify/2` treats an actor as already hashed only when it
+  is `fh1:` plus 64 lowercase hexadecimal characters. A value that merely
+  starts with `fh1:` was stored unchanged and is now hashed.
 - Answer malformed input without raising across the public entry points. A
   context that is not a map or keyword list, a foreign struct or an improper
   list in a request, result, boundary or payload, a non-map `metadata`, a

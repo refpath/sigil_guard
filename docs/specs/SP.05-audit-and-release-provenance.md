@@ -529,7 +529,19 @@ the table rows above plus `sigilguard.confirmation.actor.hash`,
 `otel_attributes/4` gains `include_high_cardinality: boolean` (default
 `false`): high-cardinality attributes are dropped unless opted in, so
 metric pipelines stay bounded while span exporters can opt in;
-`attach_otel_forwarder/3` forwards the same option. Sampling applies to the
+`attach_otel_forwarder/3` forwards the same option.
+
+The three hashed-class attributes (`sigilguard.actor.hash`,
+`sigilguard.identity.hash`, `sigilguard.confirmation.actor.hash`) apply the
+Privacy Classification rule inside `otel_attributes/4`. The telemetry event
+metadata carries the clear value in process; the projection replaces it with
+`Audit.hash_field/2` under the `field_hash_key` option, or with
+`"redacted-v1"` when the option is absent or unusable. A value already of the
+form `fh1:` plus 64 lowercase hexadecimal characters passes unchanged, so a
+host that classified the actor before building its context exports the same
+digest the chain stores. `attach_otel_forwarder/3` forwards `field_hash_key`.
+Keeping that key distinct from the chain key is a host obligation here: the
+projection never sees the chain key. Sampling applies to the
 telemetry projection only, never to the audit chain, which is complete by
 construction; use parent-based sampling for `allow` verdicts and always
 record `block`, `quarantine`, and `confirm` outcomes.
@@ -774,9 +786,9 @@ are unchanged.
 | truncation/fork | `Audit.ProofTest` | Consistency between a truncated or forked tree and the original yields `:inconsistent_tree`. |
 | witness threshold | `Audit.WitnessTest` | m-of-n passes at `m`; `m - 1` yields `:witness_threshold_not_met`; cosign with failing consistency proof is refused. |
 | export tamper | `Audit.ExportTest` | Changed statement/proof fields rejected; absent optional keys keep 0.2.x byte-compatibility. |
-| privacy + redaction | `Audit.PrivacyTest` | No raw secret fixture in events, OTel attributes, or CloudEvents data; hashed fields carry `fh1:`; placeholder exactly `"redacted-v1"`. |
-| crypto-erasure | `Audit.PrivacyTest` | Destroying the field-hash key leaves chain, checkpoints, and proofs verifying. |
-| read purity | `Audit.QueryTest` | `tip/1`/`query/2` mutate nothing; closed option set; `:out_of_range`/`:invalid_query` paths. |
+| privacy + redaction | `AuditTest` ("hash_field/2 (audit privacy)", "classify/2 (audit privacy)"), `Audit.CloudEventsTest`, `TelemetryTest` ("otel_attributes/4 hashed class") | A classified actor is absent from the chain preimage, the CloudEvents `data`, and every OTel attribute; hashed fields carry `fh1:`; placeholder exactly `"redacted-v1"`; a value that only starts with `fh1:` is not accepted as hashed. |
+| crypto-erasure | `AuditTest` ("classify/2 (audit privacy)") | Chain verification, the Merkle root, and an inclusion proof succeed without the field-hash key. |
+| read purity | `AuditTest` ("tip/1", "query/2", "read purity") | `tip/1`/`query/2` mutate nothing; closed option set; `:out_of_range`/`:invalid_query` paths. |
 | D17 conformance | consumer contracts suite | `%Audit{}` fields and `sign_event/3` byte-compatible with 0.2.x vectors. |
 | no network | `Anchor.Store.HTTPTest` | No configured client yields `:http_client_not_configured`; zero `Finch.` references; decision paths never touch the client. |
 | OTel mapping | `TelemetryTest` | Every attribute `sigilguard.*` or `url.full`; high-cardinality absent unless opted in; rename table covered. |
