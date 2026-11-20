@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 325 / 327 tasks done (99.4%).** Milestones: 17 complete.
+**Overall: 326 / 327 tasks done (99.7%).** Milestones: 17 complete.
 **Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -84,8 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 13 | 15 | 87% | In progress |
-| — | **Total** | **325** | **327** | **99.4%** | 17 done |
+| M15 | Benchmarks and library conformance | 14 | 15 | 93% | In progress |
+| — | **Total** | **326** | **327** | **99.7%** | 17 done |
 
 ### Release Handoff
 
@@ -120,8 +120,7 @@ unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
 library guidelines and anti-pattern guides. The baseline refresh needs a
-quiet benchmark runner, and helper consolidation from the authorship audit
-remains (M15.15).
+quiet benchmark runner.
 
 The table counts every milestone task (F through M15, including M7A) exactly
 once. The
@@ -3464,7 +3463,7 @@ traced every line no test executed.
     atom-keyed manifest lookup added in M15.02 enumerated it and raised
     `Protocol.UndefinedError`; a struct is now no manifest map and the
     request is blocked with `:unknown_manifest`. Test:
-    `ToolGatewayCasesTest`.
+    `ToolGatewayTest`.
 - [x] M15.12 Remaining design-audit items.
   - Resolved in code: one switch reader, `SigilGuard.Options.flag/4`, strict
     for non-booleans (S2); `LegacyJSON.encode/1` returns a result and
@@ -3492,7 +3491,7 @@ traced every line no test executed.
     accepted decision's action is `:quarantine`, so the release condition is
     the same. A refused token now records `deny_reason: :confirmation_failed`
     through `Base` too.
-- [ ] M15.15 Remaining authorship-audit consolidation.
+- [x] M15.15 Remaining authorship-audit consolidation.
   - AC: each helper group below has one home, and the listed tests assert a
     value instead of a shape.
   - Done from the three audits of 2026-11-20: the security and correctness
@@ -3502,23 +3501,29 @@ traced every line no test executed.
     prose rewrites, the vacuous and wrong-reason tests, the case-file
     traces, renaming wrappers, contradicting module docs, the signature
     metadata disagreement and the SHA-256 hex check.
-  - Open, code shape only, no behaviour change expected: the string-or-atom
-    field lookup (about 25 private copies), `maybe_put/3`, the canonical
-    encode-then-digest pairs, lenient base64 and Ed25519 key decoding, the
-    checkpoint and receipt signature-metadata functions, `timestamp/0`
-    (seven copies), the `:now` option reader (six copies with different
-    precision), strict UTC timestamp parsing, the low/medium/high scale
-    helpers, the policy-file path lookup in three modules, ETS
-    ensure-table, the ok-list traversal (about 20 hand-written
-    `reduce_while` loops), about 70 identity pass-through clauses, and the
-    duplicated test fixtures (signers, agent-trust and trust-bundle
-    helpers, audit chains). About 100 weaker test assertions the test audit
-    listed with a stronger form are not yet rewritten.
+  - Resolved after: each helper group has one internal home
+    (`SigilGuard.Clock`, `Field`, `Result`, `Level`, `PolicyPath`,
+    `Audit.SignatureMetadata`, `Crypto`, `Runtime.Tables`, the anchor
+    `Store`, `EffectAuthority.Record`, `Mix.SigilGuard.Findings`); case and
+    `with` clauses that only passed a value through return it directly;
+    the weaker assertions assert values; shared test fixtures live in
+    `test/support`; the case files are folded into the test file of the
+    module they exercise. Behaviour changes found on the way, each with a
+    test, a changelog entry and, where a reason changed, a MIGRATING entry:
+    custom pattern-set order, duplicate-key HTTP receipt metadata, the
+    reason for unreadable SBOM metadata, and five verifiers that reported
+    malformed input as a mismatch.
+  - Kept: the witness cosign reason `:invalid_envelope` for a statement
+    that does not decode (SP.05 specifies it); `Checkpoint.to_statement/1`
+    returning only `:invalid_checkpoint` (its doc points to `verify/3`);
+    with/else blocks that map named errors and pass the rest through;
+    one-expression predicates (non-empty string, `require_member/3`,
+    atom-or-binary to string) that stay local to their modules.
 - [x] M15.13 Redacted results released in their original shape.
   - AC: a result the gateway releases with `action: :redact` keeps its
     content items and `structuredContent` with each string redacted.
   - Resolved: it was released as the gate's scan projection. Tests:
-    `ToolGatewayCasesTest`, consumer assertions.
+    `ToolGatewayTest`, consumer assertions.
 
 ## Package verification maintenance
 
