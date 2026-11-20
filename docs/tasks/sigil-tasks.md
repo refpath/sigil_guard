@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 307 / 312 tasks done (98.4%).** Milestones: 16 complete, 1 open.
+**Overall: 308 / 312 tasks done (98.7%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 12 | 17 | 71% | Open |
-| — | **Total** | **307** | **312** | **98.4%** | 16 done |
+| M14 | Spec conformance backlog | 13 | 17 | 76% | Open |
+| — | **Total** | **308** | **312** | **98.7%** | 16 done |
 
 ### Release Handoff
 
@@ -3212,7 +3212,8 @@ needs its design confirmed against the consumer contracts before work begins.
     params member named `params` or `method` cannot stand in for the
     message's own. This is a wire change against 1.0.5 and MIGRATING-1.0.md
     states it. `Decision.evidence_refs` holds `Audit.Evidence` references;
-    the gate fills none because it holds no audit artifacts.
+    the gate fills none because it holds no audit artifacts. Every statement
+    carries the `boundary` mirror, taken from the context digest preimage.
 
 - [x] M14.08 Trust bundle as verification material (`SP.01`, `SP.02`,
       `SP.03`, `SP.13`).
@@ -3257,12 +3258,25 @@ needs its design confirmed against the consumer contracts before work begins.
     fields; a decision id is minted and shared by span, audit event, and
     evidence references; the mapper emits the attributes SP.05 lists, or the
     spec drops them.
-- [ ] M14.12 Agent-to-agent trust (`SP.13`).
+- [x] M14.12 Agent-to-agent trust (`SP.13`).
   - AC: peer trust resolves from configured or bundle actor rules when no
     resolver is passed; `quarantined` reflects indicators regardless of
     verdict; a failed peer card takes the unknown-peer path; agent statements
     carry requester binding; `verify_agent_response/3` compares the
     delegation mirror and the capability and recomputes the context digest.
+  - Resolved: `quarantined` follows the decision's action, effect and
+    quarantine indicators, whatever the verdict; it used to be false for
+    every gate decision. The attest helpers take `:audience` and write
+    `resource.audience`, and `verify_agent_response/3` checks `:audience`,
+    `:capability` and `:context`, the card's declared capabilities, and
+    refuses a payload that is not a map. A trust bundle's `attestation` role
+    verifies a response without a card. `AgentTrust.peer_trust_zone/1` gives
+    the zone for peer content. Decided, with the reasons in SP.13: peer
+    trust resolution stays an explicit per-call option; a card that fails
+    verification returns its error and signs nothing; inbound request
+    verification stays host-composed, as SP.13 has specified since 1.0, with
+    `verify_delegation_chain/3` as the mirror check.
+
 - [x] M14.13 Vault and identity (`SP.10`).
   - AC: `Vault.InMemory` returns `{:error, :vault_unavailable}` when its
     process is not running; identifier shape validation matches the spec or

@@ -260,7 +260,8 @@ wraps (SP.01, Action Digest). The tables fix where each bound item lives.
 It adds `action`, `risk_level`, `tool`, `resource`, `reason` when the
 decision has one, `matched_rules` when the decision has matched rules, and
 `evidence` from the `:evidence` option, else from the decision's
-`evidence_refs` when that list is not empty. It writes no `boundary` mirror.
+`evidence_refs` when that list is not empty. It writes the `boundary`
+mirror of the context digest fields (SP.01).
 Granted scopes bind as the ascending-sorted, single-space-joined string in
 `resource.scope`.
 
@@ -301,7 +302,7 @@ that names the `tool` and an `actor` or `identity`, and it requires
 |------------|----------------|
 | Result content (result digest) | `payload` subject entry over the stripped result. |
 | Action | `action` subject entry. The SP.01 `tool_result` preimage reads through the gate payload as the request preimage does. The gateway's result projection has a `nil` method, so the preimage holds `statement_type`, the context `tool`, and `request_action_digest`, as for the raw JSON-RPC response. A member of the result object named `method` is application data and does not enter the preimage; the `payload` subject binds it. |
-| Sink | `sink` key of the context digest + `predicate.boundary.sink`. |
+| Sink | `sink` key of the context digest + `predicate.boundary.sink`. The `boundary` map is the SP.01 mirror with all its fields; `sink` is one of them. |
 | Evidence refs | `predicate.evidence` (SP.01 shape), from the caller's `:evidence` option, else from `Decision.evidence_refs` when that list is not empty; either list is shape-checked (`:invalid_evidence`). `guard_result/3` returns a decision with an empty list, so the field is written only when the caller passes the option or fills the list. |
 | Manifest | `manifest` subject entry, written when the caller passes `:manifest` or `:manifest_digest`. Passing the paired request's manifest is the caller's step; `guard_result/3` resolves none. |
 | Request back-reference | `predicate.request_action_digest` (string, required) mirroring the `request_action_digest` inside the action-digest preimage (SP.01). The gateway does not compute it: the caller supplies the `:request_action_digest` option, 64 lowercase hex characters. The `action` subject of the paired `tool_request` statement covers that request's method and arguments, so passing it ties the result to them and not to the tool name alone. |

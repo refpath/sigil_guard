@@ -353,6 +353,32 @@ into the predicate, and `matched_rules` when the list is not empty.
 | `_sigil_confirmation` | `_agent_confirmation` (`attach_confirmation/2`, `fetch_confirmation/1`). |
 | Legacy envelope fixtures | Moved to `test/fixtures/historical/`. |
 
+Statements from `from_decision/3` carry more after 1.0.5 than before: a
+generated `nonce`, `matched_rules` and `evidence` when the decision has
+them, and the `boundary` mirror, which states the phase, origin, sink, trust
+zone, and intended audience that the `context` subject binds, with the
+source, sandbox id, and isolation level when the context sets them. These
+are additions. `TrustProfile.validate/1` rejects only the fields it names,
+in 1.0.5 as now, so a verifier of either version accepts the statement of
+the other. The one exception is the gateway `action` digest under
+[Structured Action Binding](#structured-action-binding).
+
+An `agent_response` statement sets `quarantined` to `true` when the
+decision's action or effect is `:quarantine` or when it carries quarantine
+indicators. Releases up to 1.0.5 set it only for `action: :quarantine`. A
+gate decision reports a quarantine as `action: :confirm, effect: :quarantine`
+or blocks it, so those releases attested a response with injection
+indicators as not quarantined. A requester that acts on the flag sees
+`true` in those cases now.
+
+To bind an agent response to its requester, the responder passes
+`audience:` to `AgentTrust.attest_agent_response/3` and the requester passes
+its own identity as `audience:` to `verify_agent_response/3`, which returns
+`{:error, :invalid_audience}` for a response addressed elsewhere.
+`verify_agent_response/3` also takes `capability:` and `context:`, and
+returns `{:error, :invalid_payload}` for a `payload:` that is not a map; it
+used to skip the digest check for one.
+
 ### Signing A Tool Request
 
 Before:

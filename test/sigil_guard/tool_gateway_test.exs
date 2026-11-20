@@ -1774,7 +1774,8 @@ defmodule SigilGuard.ToolGatewayTest do
       assert predicate["statement_type"] == "tool_result"
       assert predicate["request_action_digest"] == @request_action_digest
       assert predicate["output_schema_sha256"] == capability.output_schema_sha256
-      assert predicate["boundary"] == %{"sink" => "model"}
+      assert predicate["boundary"]["sink"] == "model"
+      assert predicate["boundary"]["phase"] == "tool_result"
       assert predicate["quarantine"] == %{"status" => "none", "indicator_ids" => []}
       assert predicate["scanner"] == %{"hit_count" => 0, "redacted" => false}
     end

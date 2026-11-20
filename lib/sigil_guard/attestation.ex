@@ -505,8 +505,21 @@ defmodule SigilGuard.Attestation do
       |> maybe_put("matched_rules", predicate_matched_rules(source.decision))
       |> maybe_put("evidence", predicate_evidence(source.opts, source.decision))
 
-    with {:ok, extension} <- predicate_extension(source, predicate) do
-      {:ok, Map.merge(predicate, extension)}
+    with {:ok, boundary} <- boundary_predicate(source),
+         {:ok, extension} <- predicate_extension(source, predicate) do
+      {:ok, Map.merge(Map.put(predicate, "boundary", boundary), extension)}
+    end
+  end
+
+  @boundary_fields ~w(phase origin sink trust_zone intended_audience source sandbox_id isolation_level)
+
+  # The context subject is a digest, which a verifier can only check against
+  # a context it already has. The mirror states the boundary in the clear,
+  # with the values that entered that digest.
+  defp boundary_predicate(source) do
+    with {:ok, preimage} <- Digest.context_preimage(source.statement_type, source.context),
+         {:ok, normalized} <- Digest.normalize(preimage) do
+      {:ok, Map.take(normalized, @boundary_fields)}
     end
   end
 
@@ -530,7 +543,6 @@ defmodule SigilGuard.Attestation do
          {:ok, scanner} <- scanner_predicate(source) do
       {:ok,
        %{
-         "boundary" => %{"sink" => Atom.to_string(source.context.sink)},
          "request_action_digest" => request_action_digest,
          "quarantine" => quarantine,
          "scanner" => scanner
@@ -545,19 +557,52 @@ defmodule SigilGuard.Attestation do
       |> Keyword.put_new(:peer_trust, source.context.trust_level)
       |> Keyword.put(:verdict, predicate["verdict"])
 
-    AgentPredicate.build_request(source.payload, opts)
+    source.payload
+    |> AgentPredicate.build_request(opts)
+    |> put_audience(source.opts)
   end
 
   defp predicate_extension(%{statement_type: :agent_response} = source, _) do
     opts =
       source.opts
       |> Keyword.put_new(:peer_trust, source.context.trust_level)
-      |> Keyword.put_new(:quarantined, source.decision.action == :quarantine)
+      |> Keyword.put_new(:quarantined, quarantined?(source.decision))
 
-    AgentPredicate.build_response(source.payload, opts)
+    source.payload
+    |> AgentPredicate.build_response(opts)
+    |> put_audience(source.opts)
   end
 
   defp predicate_extension(_, _), do: {:ok, %{}}
+
+  # A response is quarantined when the boundary quarantined it or found
+  # quarantine indicators in it, whatever the verdict became. The gate counts
+  # those indicators apart from advisory ones; a decision without the count
+  # is read by its indicator list.
+  defp quarantined?(%{action: :quarantine}), do: true
+  defp quarantined?(%{effect: :quarantine}), do: true
+
+  defp quarantined?(%{audit_metadata: %{indicator_count: count}}) when is_integer(count),
+    do: count > 0
+
+  defp quarantined?(%{indicators: indicators}), do: indicators != []
+
+  # An agent statement names its intended recipient, so a verifier can refuse
+  # one addressed to someone else.
+  defp put_audience({:ok, extension}, opts) do
+    case Keyword.get(opts, :audience) do
+      nil ->
+        {:ok, extension}
+
+      audience when is_binary(audience) and audience != "" ->
+        {:ok, Map.put(extension, "resource", %{"audience" => audience})}
+
+      _ ->
+        {:error, :invalid_audience}
+    end
+  end
+
+  defp put_audience(error, _), do: error
 
   defp tool_predicate(source) do
     %{}

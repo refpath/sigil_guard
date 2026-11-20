@@ -431,6 +431,58 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       assert overridden["predicate"]["evidence"] == other
     end
 
+    test "the boundary mirror states the fields the context digest binds" do
+      assert {:ok, plain} = build(decision())
+
+      assert plain["predicate"]["boundary"] == %{
+               "phase" => "tool_request",
+               "origin" => "user",
+               "sink" => "tool",
+               "trust_zone" => Atom.to_string(@context.trust_zone),
+               "intended_audience" => Atom.to_string(@context.intended_audience)
+             }
+
+      sandboxed = %{
+        @context
+        | source: "session-7f3acb12",
+          sandbox_id: "sbx-9c2e4d10",
+          isolation_level: :container,
+          trust_zone: :untrusted
+      }
+
+      attest = fn context ->
+        {:ok, statement} =
+          Attestation.from_decision(decision(), context, payload: @payload, now: @now)
+
+        statement
+      end
+
+      statement = attest.(sandboxed)
+      boundary = statement["predicate"]["boundary"]
+
+      assert Map.take(boundary, ~w(source sandbox_id isolation_level trust_zone)) == %{
+               "source" => "session-7f3acb12",
+               "sandbox_id" => "sbx-9c2e4d10",
+               "isolation_level" => "container",
+               "trust_zone" => "untrusted"
+             }
+
+      # Every mirrored value is the one in the context digest preimage, and
+      # the identity fields of that preimage stay out of the mirror.
+      {:ok, preimage} = Attestation.Digest.context_preimage(:tool_request, sandboxed)
+      {:ok, normalized} = Attestation.Digest.normalize(preimage)
+
+      assert Map.take(normalized, Map.keys(boundary)) == boundary
+      refute Map.has_key?(boundary, "actor")
+      refute Map.has_key?(boundary, "tool")
+
+      # A change to a mirrored field changes the context subject too.
+      moved = attest.(%{sandboxed | trust_zone: :semi_trusted})
+
+      assert moved["predicate"]["boundary"]["trust_zone"] == "semi_trusted"
+      refute context_digest(moved) == context_digest(statement)
+    end
+
     test "a decision's evidence references pass the same check as the option" do
       for refs <- [["event-1"], [%{"kind" => "audit", "ref" => "x"}], [%{"kind" => "export"}]] do
         assert build(decision(evidence_refs: refs)) == {:error, :invalid_evidence}
@@ -521,6 +573,12 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       )
 
     struct!(Decision, attrs)
+  end
+
+  defp context_digest(statement) do
+    Enum.find_value(statement["subject"], fn entry ->
+      entry["name"] == "context" && entry["digest"]["sha256"]
+    end)
   end
 
   defp subject_names(statement) do

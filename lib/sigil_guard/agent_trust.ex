@@ -60,7 +60,7 @@ defmodule SigilGuard.AgentTrust do
           | Attestation.from_decision_error()
 
   @type verify_response_error ::
-          attest_error() | Attestation.verify_error() | :invalid_payload
+          attest_error() | Attestation.verify_error() | :invalid_payload | :invalid_audience
 
   @doc """
   Attest an outbound `agent_request` and return a signed DSSE envelope.
@@ -69,7 +69,8 @@ defmodule SigilGuard.AgentTrust do
   `%SigilGuard.Decision{}`), `:peer_card` (a card map or DSSE envelope),
   `:trust_material` (verifies a `:peer_card` envelope), `:require_peer_card`
   (default `false`), `:max_delegation_depth` (default `8`), `:resolve` /
-  `:identity` (per-actor trust resolution), `:ttl_ms`, `:now`, `:nonce`,
+  `:identity` (per-actor trust resolution), `:audience` (the recipient's
+  identity, written as `resource.audience`), `:ttl_ms`, `:now`, `:nonce`,
   `:evidence`, `:keyid`.
   """
   @spec attest_agent_request(map(), Context.t() | map(), keyword()) ::
@@ -77,7 +78,7 @@ defmodule SigilGuard.AgentTrust do
   def attest_agent_request(payload, context, opts \\ []) do
     Telemetry.span([:sigil_guard, :agent_trust, :attest], %{statement_type: :agent_request}, fn ->
       result = do_attest_request(payload, context, opts)
-      {result, attest_metadata(result)}
+      {result, span_metadata(result, :agent_request)}
     end)
   end
 
@@ -109,6 +110,11 @@ defmodule SigilGuard.AgentTrust do
   Mirrors `attest_agent_request/3` for the response boundary. Additionally
   requires `:request_action_digest`; reads `status` from the payload; derives
   `quarantined` from the decision. No delegation chain is accepted.
+
+  `quarantined` is `true` when the decision's action or effect is
+  `:quarantine`, or when the decision carries quarantine indicators, whatever
+  its verdict. Pass the requester's identity as `:audience` so the response
+  cannot be presented to another requester.
   """
   @spec attest_agent_response(map(), Context.t() | map(), keyword()) ::
           {:ok, map()} | {:error, attest_error()}
@@ -118,7 +124,7 @@ defmodule SigilGuard.AgentTrust do
       %{statement_type: :agent_response},
       fn ->
         result = do_attest_response(payload, context, opts)
-        {result, attest_metadata(result)}
+        {result, span_metadata(result, :agent_response)}
       end
     )
   end
@@ -150,9 +156,17 @@ defmodule SigilGuard.AgentTrust do
 
   Options: `:request_action_digest` (required; absent fails `:invalid_payload`),
   `:peer_card` (card DSSE envelope resolving the agent's own keys), `:payload`
-  (response content for digest binding), `:max_skew_ms`, `:now`, `:replay`,
+  (response content, a map, for digest binding), `:capability` (the capability
+  the request invoked), `:audience` (the verifier's own identity), `:context`
+  (recomputes the context digest), `:max_skew_ms`, `:now`, `:replay`,
   `:replay_ttl_ms`. Verification never exempts the payload from the result
   boundary described in the module documentation.
+
+  Each binding is checked when its option is given. A response for another
+  capability, or for one the peer's card does not declare, fails
+  `:unknown_capability`. A response addressed to another requester, or to
+  none, fails `:invalid_audience`. Without a `:peer_card`, `trust_material`
+  is the key material `SigilGuard.Attestation.verify/3` takes.
   """
   @spec verify_agent_response(map(), AgentCard.trust_material(), keyword()) ::
           {:ok, map()} | {:error, verify_response_error()}
@@ -162,7 +176,7 @@ defmodule SigilGuard.AgentTrust do
       %{statement_type: :agent_response},
       fn ->
         result = do_verify_response(envelope, trust_material, opts)
-        {result, verify_metadata(result)}
+        {result, span_metadata(result, :agent_response)}
       end
     )
   end
@@ -173,15 +187,41 @@ defmodule SigilGuard.AgentTrust do
          {:ok, card} <- verify_optional_peer_card(trust_material, opts),
          {:ok, material} <- response_key_material(trust_material, card),
          {:ok, statement} <- Attestation.verify(envelope, material, verify_opts(opts)),
-         {:ok, predicate} <- statement_predicate(statement),
-         :ok <- require_response_type(predicate),
+         {:ok, predicate} <- typed_predicate(statement, "agent_response"),
          :ok <- check_back_reference(predicate, statement, request_action_digest, opts),
-         :ok <- check_card_binding(predicate, statement, card) do
+         :ok <- check_card_binding(predicate, statement, card),
+         :ok <- check_exchange(statement, predicate, card, opts) do
       {:ok, statement}
     end
   end
 
   defp do_verify_response(_, _, _), do: {:error, :invalid_payload}
+
+  @doc """
+  Return the trust zone for content that originates from a peer.
+
+  `card` is a card that `SigilGuard.AgentCard.verify/3` returned, or `nil`
+  for a peer without one. The zone is the one the card declares. A peer
+  without a verified card is `:untrusted`.
+
+  A host passes the result as `trust_zone` in the context under which it
+  gates the peer's content, so that content never crosses in a more trusted
+  zone than its card states.
+
+  ## Examples
+
+      iex> SigilGuard.AgentTrust.peer_trust_zone(%{"trust_zone" => "semi_trusted"})
+      :semi_trusted
+
+      iex> SigilGuard.AgentTrust.peer_trust_zone(nil)
+      :untrusted
+
+  """
+  @doc since: "1.1.0"
+  @spec peer_trust_zone(map() | nil) :: Context.trust_zone()
+  def peer_trust_zone(%{"trust_zone" => "trusted"}), do: :trusted
+  def peer_trust_zone(%{"trust_zone" => "semi_trusted"}), do: :semi_trusted
+  def peer_trust_zone(_), do: :untrusted
 
   @doc """
   Verify a payload delegation chain against a signed predicate mirror.
@@ -287,6 +327,7 @@ defmodule SigilGuard.AgentTrust do
     |> Keyword.merge(extra)
     |> put_card_digest(extra)
     |> maybe_put_opt(:request_action_digest, Keyword.get(params.opts, :request_action_digest))
+    |> maybe_put_opt(:audience, Keyword.get(params.opts, :audience))
     |> maybe_put_opt(:ttl_ms, Keyword.get(params.opts, :ttl_ms))
     |> maybe_put_opt(:now, Keyword.get(params.opts, :now))
     |> forward_opt(:nonce, params.opts)
@@ -448,6 +489,11 @@ defmodule SigilGuard.AgentTrust do
     if Identity.compare_trust(level, acc) == :gt, do: acc, else: level
   end
 
+  # With a card the response is signed by one of the card's own keys. Without
+  # one the trust material is what `Attestation.verify/3` takes, a bundle
+  # included.
+  defp response_key_material(%TrustBundle{} = bundle, nil), do: {:ok, bundle}
+
   defp response_key_material(trust_material, card) do
     base =
       if is_map(trust_material) and not bundle?(trust_material), do: trust_material, else: %{}
@@ -473,11 +519,65 @@ defmodule SigilGuard.AgentTrust do
     |> maybe_put_opt(:replay_ttl_ms, Keyword.get(opts, :replay_ttl_ms))
   end
 
-  defp require_response_type(predicate) do
-    if Map.get(predicate, "statement_type") == "agent_response" do
+  defp typed_predicate(statement, statement_type) do
+    case Map.get(statement, "predicate") do
+      %{"statement_type" => ^statement_type} = predicate -> {:ok, predicate}
+      _ -> {:error, :invalid_payload}
+    end
+  end
+
+  # What ties a response to this exchange beyond its back-reference: the
+  # capability, the intended recipient, and the context digest.
+  defp check_exchange(statement, predicate, card, opts) do
+    with :ok <- check_capability(predicate, card, opts),
+         :ok <- check_audience(predicate, opts) do
+      check_context(statement, opts)
+    end
+  end
+
+  defp check_capability(predicate, card, opts) do
+    capability = Map.get(predicate, "capability")
+
+    with :ok <- expected_capability(capability, Keyword.fetch(opts, :capability)) do
+      card_capability(card, capability)
+    end
+  end
+
+  defp expected_capability(_, :error), do: :ok
+  defp expected_capability(capability, {:ok, capability}) when is_binary(capability), do: :ok
+  defp expected_capability(_, {:ok, _}), do: {:error, :unknown_capability}
+
+  defp card_capability(nil, _), do: :ok
+  defp card_capability(card, capability), do: capability_declared(card, capability)
+
+  defp check_audience(predicate, opts) do
+    case Keyword.fetch(opts, :audience) do
+      :error -> :ok
+      {:ok, audience} -> matching_audience(predicate, audience)
+    end
+  end
+
+  defp matching_audience(predicate, audience) when is_binary(audience) and audience != "" do
+    if get_in(predicate, ["resource", "audience"]) == audience,
+      do: :ok,
+      else: {:error, :invalid_audience}
+  end
+
+  defp matching_audience(_, _), do: {:error, :invalid_audience}
+
+  defp check_context(statement, opts) do
+    case Keyword.fetch(opts, :context) do
+      :error -> :ok
+      {:ok, context} -> matching_context(statement, context)
+    end
+  end
+
+  defp matching_context(statement, context) do
+    with {:ok, expected} <- Digest.context_digest(:agent_response, context),
+         {:ok, ^expected} <- subject_digest(statement, "context") do
       :ok
     else
-      {:error, :invalid_payload}
+      _ -> {:error, :digest_mismatch}
     end
   end
 
@@ -500,7 +600,12 @@ defmodule SigilGuard.AgentTrust do
       {:ok, payload} when is_map(payload) ->
         compare_response_digests(statement, payload, request_action_digest)
 
-      _ ->
+      # A response payload is a map. Skipping any other value would leave a
+      # caller who passed one believing the content was bound.
+      {:ok, _} ->
+        {:error, :invalid_payload}
+
+      :error ->
         :ok
     end
   end
@@ -560,13 +665,6 @@ defmodule SigilGuard.AgentTrust do
     case Enum.find(subjects, &(is_map(&1) and Map.get(&1, "name") == name)) do
       %{"digest" => %{"sha256" => hex}} when is_binary(hex) -> {:ok, hex}
       _ -> :error
-    end
-  end
-
-  defp statement_predicate(statement) do
-    case Map.get(statement, "predicate") do
-      predicate when is_map(predicate) -> {:ok, predicate}
-      _ -> {:error, :invalid_payload}
     end
   end
 
@@ -659,9 +757,9 @@ defmodule SigilGuard.AgentTrust do
     })
   end
 
-  defp attest_metadata({:ok, _}), do: %{result: :ok, error: nil}
-  defp attest_metadata({:error, reason}), do: %{result: :error, error: reason}
+  defp span_metadata({:ok, _}, statement_type),
+    do: %{statement_type: statement_type, result: :ok, error: nil}
 
-  defp verify_metadata({:ok, _}), do: %{result: :ok, error: nil}
-  defp verify_metadata({:error, reason}), do: %{result: :error, error: reason}
+  defp span_metadata({:error, reason}, statement_type),
+    do: %{statement_type: statement_type, result: :error, error: reason}
 end

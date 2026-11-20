@@ -5,6 +5,27 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.AgentTrust.verify_agent_response/3` takes `:capability`,
+  `:audience` and `:context`, checks that the peer's card declares the
+  response's capability, refuses a `:payload` that is not a map instead of
+  skipping the digest check, and accepts a trust bundle as key material when
+  no peer card is given.
+- The agent attest helpers take `:audience` and write it as
+  `resource.audience`, so a response can be bound to its requester and a
+  request to its responder.
+- An `agent_response` statement has `quarantined: true` when the decision's
+  action or effect is `:quarantine` or it carries quarantine indicators,
+  whatever the verdict. It was `true` only for `action: :quarantine`, which a
+  gate decision never has, so a gate-blocked or gate-confirmed injection was
+  attested as not quarantined.
+- Add `SigilGuard.AgentTrust.peer_trust_zone/1`: the zone of a verified
+  card, `:untrusted` without one.
+- Every statement from `SigilGuard.Attestation.from_decision/3` carries the
+  `boundary` mirror: phase, origin, sink, trust zone and intended audience,
+  and source, sandbox id and isolation level when set, with the values that
+  enter the context digest. Only `tool_result` had it, with `sink` alone.
+- The `[:sigil_guard, :agent_trust, :attest | :verify, :stop]` events carry
+  `statement_type`.
 - The `action` subject of a gateway statement reads the method, tool and
   arguments from the message the gate payload stands for, in its JSON-RPC
   shape. Reading the params object in place let a member of that object

@@ -275,7 +275,8 @@ the decision has one, `nonce`, `matched_rules` when the decision has matched
 rules, and `evidence` from the `:evidence` option, else from the decision's
 `evidence_refs` when that list is not empty. The nonce is generated unless
 the caller passes a string as `:nonce`; `nonce: false` or `nonce: nil`
-omits it. The attest helpers emit no `resource` and no `boundary`. An unknown-peer
+omits it. Both carry the SP.01 `boundary` mirror, and `resource` as
+`{"audience": string}` when the caller passes `:audience`. An unknown-peer
 statement also carries the entry of rule 6 under Delegation-Chain
 Validation, placed first in `matched_rules`. `tool` MUST be absent;
 `TrustProfile.validate/1` rejects it with `{:error, :invalid_payload}`.
@@ -316,10 +317,10 @@ digest - the audit join key together with `request_action_digest`.
 |-------|------|----------|-------------|
 | `peer_agent` | map | yes | Same shape and rules as `agent_request`. |
 | `peer_trust` | string | yes | Same derivation as `agent_request`. |
-| `capability` | string | yes | MUST equal the originating request's capability. No library function compares the two; `attest_agent_response/3` only requires that the bound card declares the capability, so the requester compares it with its own request. |
+| `capability` | string | yes | MUST equal the originating request's capability. `attest_agent_response/3` requires that the bound card declares it. `verify_agent_response/3` compares it with the `:capability` option when the requester passes the capability it invoked, and with the capabilities of the verified `:peer_card`; either mismatch fails with `{:error, :unknown_capability}`. |
 | `request_action_digest` | string | yes | Lowercase-hex-64 back-reference to the `agent_request` action digest; also feeds this statement's action digest (SP.01 row), so a forged back-reference fails recomputation with `:digest_mismatch`. |
 | `status` | string | yes | Exactly `ok` or `error`, sourced from payload `status`; anything else fails with `:invalid_payload`. |
-| `quarantined` | boolean | yes | `true` when the `:decision` passed to `attest_agent_response/3` has `action: :quarantine`, which includes the unknown-peer override of rule 6; `false` otherwise. Quarantine indicators on a decision with another action do not set it. `Attestation.from_decision/3` accepts a `:quarantined` override; `attest_agent_response/3` does not forward one. |
+| `quarantined` | boolean | yes | `true` when the responder's boundary quarantined the content or found quarantine indicators in it, whatever the verdict became. For the `:decision` passed to `attest_agent_response/3` that is: `action: :quarantine`, which includes the unknown-peer override of rule 6; or `effect: :quarantine`, which is how the SP.07 gate reports a quarantine it asks confirmation for; or `audit_metadata.indicator_count` above zero, which is the gate's count of quarantine indicators and holds for a decision the gate blocked. Advisory indicators from a hook or the adaptive detector are not in that count. A decision without the count is read by its `indicators` list: `true` when it is not empty. `Attestation.from_decision/3` accepts a `:quarantined` override; `attest_agent_response/3` does not forward one. |
 
 `delegation_chain` is `agent_request`-only; its presence in an
 `agent_response` payload or predicate fails with
@@ -327,18 +328,17 @@ digest - the audit join key together with `request_action_digest`.
 Statement `payload` subject digest (no separate predicate field).
 
 Responders SHOULD set `resource.audience` (SP.01 core) to the requester's
-identity so a response cannot be replayed to a different requester. The
-attest helpers do not implement this: `attest_agent_response/3` emits no
-`resource` map and no other field that names the requester, and
-`request_action_digest` covers only the responder id, capability, and
-arguments of the request. A predicate field is covered by the signature, not
-by a digest, so a replay to another requester causes no digest mismatch. A
-host that needs requester binding builds the statement with
-`Attestation.from_decision/3`, adds `resource.audience`, signs it with
-`Attestation.sign/3`, and compares the field after verification. On that
-path the host passes `:peer_trust`, `:card_digest`, `:manifest_digest`, and
-`:quarantined` itself; `from_decision/3` defaults `peer_trust` to the
-context trust level and does not verify a card.
+identity so a response cannot be replayed to a different requester.
+`request_action_digest` does not do this: it covers the responder id, the
+capability, and the arguments of the request, so two requesters that send
+the same request get the same digest. The responder passes the requester's
+identity as `:audience` to `attest_agent_response/3`, which writes
+`resource.audience`. The requester passes its own identity as `:audience` to
+`verify_agent_response/3`; a statement with another audience, or with none,
+fails with `{:error, :invalid_audience}`. The field is covered by the
+signature. `attest_agent_request/3` takes `:audience` the same way, for the
+responder's identity. An `:audience` that is not a non-empty string fails
+the attest helper with `{:error, :invalid_audience}`.
 
 ## Delegation-Chain Validation
 
@@ -366,7 +366,8 @@ beyond these rules.
    depth check of rule 4. No other function calls it: `Attestation.verify/3`
    does not compare the mirror, so the host that verifies an inbound
    `agent_request` calls it with the request payload and the verified
-   predicate.
+   predicate. A request helper that made the call itself is not part of the
+   v3 surface (see Public API Sketch).
 4. **Depth.** Chain length MUST NOT exceed the per-call
    `:max_delegation_depth` (positive integer, default `8`); exceeding it
    fails with `{:error, :delegation_too_deep}`. Deliberately not an
@@ -389,6 +390,14 @@ beyond these rules.
    `identity_issuers` section is never consulted; a host that wants either
    applies it through these options. The result never exceeds any resolved
    level (never escalates) and is recorded as `peer_trust`.
+
+   The helpers read no resolver from application configuration or from a
+   bundle because a value that changes what gets signed has to be visible at
+   the call (the AGENTS.md rule that pure APIs acquire no hidden
+   configuration). `identity_issuers` lists identifiers without trust
+   levels, so mapping an entry to a level is a host decision in any case. A
+   host that trusts every listed id passes, for example,
+   `resolve: fn actor -> if actor in TrustBundle.identity_issuers(bundle), do: :high, else: :low end`.
 6. **Unknown peer, fail closed.** A peer for which the caller passes no
    `:peer_card` is unknown. Default: the attested verdict MUST be
    `quarantine` (a `block` decision verdict stays `block`), `peer_trust` is
@@ -405,6 +414,9 @@ beyond these rules.
    `:invalid_signature`, `:invalid_agent_card`, `:card_expired`, or an SP.01
    envelope atom) and signs nothing. A host that wants a quarantine
    attestation for such a peer calls the helper again without `:peer_card`.
+   The two cases stay apart on purpose: a peer without a card is unknown,
+   while a card that fails verification is a refused credential, and an
+   unknown-peer statement would not record that one was presented.
 
 A `:peer_card` given as a plain card map instead of a DSSE envelope is
 checked against the card schema with `AgentCard.new/1` and then bound as a
@@ -414,10 +426,13 @@ with `AgentCard.verify/3`.
 
 The effective trust zone for peer-originated content is the verified card's
 `trust_zone`; absent a verified card it is `untrusted`. Hosts MUST NOT
-assign a more trusted zone than the card declares. No library function
-applies this rule: the attest helpers use the caller's context unchanged and
-never read the card's `trust_zone`, so the host sets `context.trust_zone`
-from the card.
+assign a more trusted zone than the card declares.
+`AgentTrust.peer_trust_zone/1` returns that zone as an atom for a card that
+`AgentCard.verify/3` returned, and `:untrusted` for `nil` or for any value
+that is not such a card. The host passes the result as `trust_zone` in the
+context under which it gates the peer's content. The attest and verify
+helpers use the caller's context unchanged and do not read the card's
+`trust_zone`.
 
 ## Threat Mapping
 
@@ -492,7 +507,8 @@ defmodule SigilGuard.AgentTrust do
   # :now and :max_skew_ms; or a plain card map, schema-checked only),
   # :trust_material, :require_peer_card (default false),
   # :max_delegation_depth (default 8), :resolve or :identity (per-actor
-  # trust; without either every actor resolves to :low), :ttl_ms, :now,
+  # trust; without either every actor resolves to :low), :audience (the
+  # responder's identity, written as resource.audience), :ttl_ms, :now,
   # :nonce, :evidence, :keyid.
   # Order: :signer and :decision present -> card verify (a failing
   # envelope returns its error) -> chain depth -> payload capability and
@@ -508,25 +524,31 @@ defmodule SigilGuard.AgentTrust do
           {:ok, envelope :: map()} | {:error, attest_error()}
   # Mirror for the response boundary (callers pass context phase
   # :tool_result). opts also require :request_action_digest; status reads
-  # payload "status"; quarantined is true only when the decision's action
-  # is :quarantine; no chain is accepted. Producers: the responder in
-  # mutual deployments, or the requester as local boundary evidence when
-  # the peer attaches no envelope.
+  # payload "status"; quarantined follows the decision's action, effect,
+  # and quarantine indicators (field table); :audience is the requester's
+  # identity; no chain is accepted. Producers: the responder in mutual
+  # deployments, or the requester as local boundary evidence when the peer
+  # attaches no envelope.
 
   @spec verify_agent_response(envelope :: map(),
           SigilGuard.AgentCard.trust_material(), opts :: keyword()) ::
           {:ok, statement :: map()}
-          | {:error, attest_error() | SigilGuard.Attestation.verify_error()}
+          | {:error, attest_error() | SigilGuard.Attestation.verify_error()
+             | :invalid_payload | :invalid_audience}
   # opts: :request_action_digest (required; absent or not lowercase-hex-64
   # -> :invalid_payload), :peer_card (a DSSE envelope), :card_trust_material
-  # (defaults to trust_material), :payload, :max_skew_ms, :now, :replay,
-  # :replay_ttl_ms. :max_delegation_depth is not read.
+  # (defaults to trust_material), :payload (a map), :capability, :audience,
+  # :context, :max_skew_ms, :now, :replay, :replay_ttl_ms.
+  # :max_delegation_depth is not read.
   # Order:
   # 1. Verify the :peer_card envelope with AgentCard.verify/3. This
   #    includes card freshness (:card_expired).
-  # 2. Build the keyid map: trust_material when it is a plain map, merged
-  #    with the card's public_keys. A TrustBundle contributes no key here.
-  #    An empty result fails :missing_trust_bundle.
+  # 2. Choose the key material. With a card: trust_material when it is a
+  #    plain map, merged with the card's public_keys; a TrustBundle
+  #    contributes no key then, and an empty result fails
+  #    :missing_trust_bundle. Without a card: trust_material as
+  #    Attestation.verify/3 takes it, so a TrustBundle verifies a response
+  #    signed by a key of its "attestation" role (SP.02).
   # 3. Attestation.verify/3 with :now, :max_skew_ms, :replay, and
   #    :replay_ttl_ms only. The SP.01 signature, Statement validation
   #    (status/quarantined shape, :invalid_payload), freshness, and replay
@@ -535,12 +557,19 @@ defmodule SigilGuard.AgentTrust do
   # 5. predicate request_action_digest equals the option (else
   #    :digest_mismatch). When :payload is a map, the action and payload
   #    subjects equal the digests recomputed from it and the back-reference
-  #    (else :digest_mismatch). The context digest is never recomputed, and
-  #    a non-map :payload is not compared.
+  #    (else :digest_mismatch). A :payload that is not a map fails
+  #    :invalid_payload.
   # 6. With a card: peer_agent.id equals the card agent_id (else
   #    :unknown_agent), peer_agent.card_digest equals the card digest (else
   #    :card_digest_mismatch), and the manifest subject equals it (else
   #    :manifest_digest_mismatch). Without :peer_card none of these run.
+  # 7. With :capability: predicate capability equals it (else
+  #    :unknown_capability). With a card: the card declares the predicate
+  #    capability (else :unknown_capability).
+  # 8. With :audience: predicate resource.audience equals it (else
+  #    :invalid_audience, also for an option that is not a non-empty string).
+  # 9. With :context: the context subject equals the digest recomputed from
+  #    it (else :digest_mismatch).
   # The function returns the statement. It does not scan or gate the
   # payload; the host passes the payload to
   # SigilGuard.Runtime.Gate.evaluate/3 with phase :tool_result (SP.04).
@@ -553,13 +582,24 @@ defmodule SigilGuard.AgentTrust do
   # opts \\ []; :max_delegation_depth (default 8). Depth check on the
   # payload chain, then the rule 3 comparison of the payload chain with the
   # predicate mirror.
+
+  @spec peer_trust_zone(card :: map() | nil) ::
+          :trusted | :semi_trusted | :untrusted
+  # The trust_zone of a verified card; :untrusted for nil and for any
+  # other value.
 end
 ```
 
 Inbound `agent_request` verification on the responder side composes the
 same primitives (`AgentCard.verify/3`, `Attestation.verify/3`,
 `AgentTrust.verify_delegation_chain/3`); a dedicated inbound-request helper
-is deliberately not part of the v3 surface.
+is deliberately not part of the v3 surface. The responder calls
+`Attestation.verify/3` with the requester's keys, the request `:payload`,
+its `:context`, and its own card digest as `:manifest_digest`, which checks
+the signature, freshness, and the four digests. It then calls
+`verify_delegation_chain/3` with the payload and the verified predicate, and
+compares `predicate.peer_agent.id` and, when the requester set one,
+`predicate.resource.audience` with its own identity.
 
 ## Module Map
 
@@ -592,13 +632,13 @@ crosses the tool gateway.
 | Event | Type | Metadata | Purpose |
 |-------|------|----------|---------|
 | `[:sigil_guard, :agent_trust, :card_verify, :start \| :stop \| :exception]` | span | `:start`: `%{}`. `:stop`: `%{result: :ok \| :error, error: atom() \| nil}` | Card verification latency and failure class. |
-| `[:sigil_guard, :agent_trust, :attest, :start \| :stop \| :exception]` | span | `:start`: `%{statement_type: :agent_request \| :agent_response}`. `:stop`: `%{result: :ok \| :error, error: atom() \| nil}` | Attest helper outcome. |
-| `[:sigil_guard, :agent_trust, :verify, :start \| :stop \| :exception]` | span | `:start`: `%{statement_type: :agent_response}`. `:stop`: `%{result: :ok \| :error, error: atom() \| nil}` | Response verification outcome. |
+| `[:sigil_guard, :agent_trust, :attest, :start \| :stop \| :exception]` | span | `:start`: `%{statement_type: :agent_request \| :agent_response}`. `:stop`: `%{statement_type: ..., result: :ok \| :error, error: atom() \| nil}` | Attest helper outcome. |
+| `[:sigil_guard, :agent_trust, :verify, :start \| :stop \| :exception]` | span | `:start`: `%{statement_type: :agent_response}`. `:stop`: `%{statement_type: :agent_response, result: :ok \| :error, error: atom() \| nil}` | Response verification outcome. |
 | `[:sigil_guard, :agent_trust, :quarantine]` | event | `%{reason: :unknown_peer, card_digest: nil}` | Unknown-peer visibility; low cardinality. Emitted when an attest helper signs an unknown-peer statement. |
 
-The spans use `:telemetry.span/3`. A `:stop` event carries only the result
-map above, so `statement_type` is on `:start` and not on `:stop`; a handler
-that needs both joins the two events on `telemetry_span_context`. An
+The spans use `:telemetry.span/3`. The `:stop` event of the attest and
+verify spans repeats `statement_type`, so one handler has the type and the
+outcome. The card span's `:stop` carries the result map only. An
 `:exception` event carries the `:start` metadata plus `kind`, `reason`, and
 `stacktrace`.
 
@@ -620,7 +660,8 @@ Spec-local atoms below; SP.01's shared taxonomy (`:invalid_envelope`,
 | `:delegation_too_deep` | chain length exceeds `:max_delegation_depth` (default 8) | shorten the chain or raise the per-call limit deliberately | request rejected |
 | `:delegation_chain_tampered` | payload chain and predicate mirror differ in JCS bytes (reorder, insert, drop, edit, one-sided presence) | reject; investigate tamper | request rejected |
 | `:untrusted_issuer` | card signature key resolves in the bundle but lacks the card-issuer role, or the card is self-signed by an undeclared key | declare the issuer in the bundle | card rejected; an attest helper given this card returns the error and signs nothing |
-| `:unknown_capability` | invoked capability not declared in the verified card's `capabilities` | invoke a declared capability or re-issue the card | request rejected |
+| `:unknown_capability` | invoked capability not declared in the verified card's `capabilities`; in `verify_agent_response/3`, a response capability that differs from the `:capability` option or that the verified `:peer_card` does not declare | invoke a declared capability or re-issue the card; reject a response for another capability | request or response rejected |
+| `:invalid_audience` | an `:audience` option that is not a non-empty string; in `verify_agent_response/3`, a statement whose `resource.audience` differs from the option or is absent | pass the recipient's identity; reject a response addressed elsewhere | statement not signed, or response rejected |
 
 ## Security Considerations
 
@@ -639,8 +680,10 @@ Spec-local atoms below; SP.01's shared taxonomy (`:invalid_envelope`,
   `replay: true` and the statement carries a `nonce`. A response replayed
   against a different request fails the `request_action_digest` check. Two
   requests with the same responder, capability, and arguments share that
-  digest, and the attest helpers emit no `resource.audience` or other
-  field naming the requester, so requester binding is the host's to add.
+  digest, so it does not bind a requester. `resource.audience` does: the
+  responder sets it through `:audience` and the requester checks it through
+  the same option of `verify_agent_response/3`. A requester that passes no
+  `:audience` accepts a response addressed to anyone.
 - A valid agent envelope never exempts scanning: the host MUST route
   response payloads through the SP.04 result pipeline before they reach
   model context. `verify_agent_response/3` returns the statement and does
@@ -661,6 +704,10 @@ Spec-local atoms below; SP.01's shared taxonomy (`:invalid_envelope`,
 | depth limit | `AgentTrustTest` | 9 hops fail `:delegation_too_deep` at default 8; custom limits honored. |
 | trust-MIN derivation | `AgentTrustTest` | property: `peer_trust` never exceeds any resolved hop or card level; unresolvable actors floor at `:low`. |
 | back-reference | `AgentTrustTest` | wrong `:request_action_digest` fails `:digest_mismatch`. |
+| response bindings | `AgentTrustTest` | another capability, an undeclared capability, another or absent audience, a changed context, and a non-map payload each fail with their atom; a bundle's attestation role verifies a response without a card. |
+| quarantined | `AgentTrustTest` | a gate decision with quarantine indicators attests `quarantined: true` at every trust level; clean content and advisory indicators alone do not. |
+| request composition | `AgentTrustTest` | `Attestation.verify/3`, `verify_delegation_chain/3`, and the audience field verify an inbound request; a reordered chain fails both checks. |
+| peer zone | `AgentTrustTest` | `peer_trust_zone/1` returns a verified card's zone and `:untrusted` for anything else. |
 | pipeline routing | `AgentTrustTest` | verification leaves the payload unchanged, and `Runtime.Gate.evaluate/3`, called by the test as the host would, still blocks injected response content. |
 | JWS migration parity | `AgentCardTest` | one keypair signs the JWS and DSSE forms; each verifies under its own verifier per the mapping table. |
 | threat family | `test/sigil_guard/threat_model/` | TM.10 rows with negative, tamper, replay, expiration, malformed-input cases. |
@@ -681,7 +728,10 @@ Spec-local atoms below; SP.01's shared taxonomy (`:invalid_envelope`,
 - [x] `agent_request`/`agent_response` statements pass
       `TrustProfile.validate/1` and round-trip their SP.01 golden vectors.
 - [x] `verify_agent_response/3` enforces back-reference, card binding, and
-      status/quarantined shape in the documented order.
+      status/quarantined shape in the documented order, and the capability,
+      audience, and context bindings when their options are given.
+- [x] `quarantined` follows the decision's action, effect, and quarantine
+      indicators, whatever its verdict.
 - [x] `verify_agent_response/3` leaves the response payload unchanged, and
       `Runtime.Gate.evaluate/3` still scans it when the host routes it
       through the SP.04 result pipeline. The routing call is the host's; no
