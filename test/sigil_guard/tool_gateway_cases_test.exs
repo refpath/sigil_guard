@@ -204,4 +204,21 @@ defmodule SigilGuard.ToolGatewayCasesTest do
     do: [trust_level: :high, metadata: %{sandbox_id: "sandbox-1", isolation_level: "container"}]
 
   defp manifest, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
+
+  test "a manifests option that is a struct is no manifest map and blocks" do
+    request = %{
+      "jsonrpc" => "2.0",
+      "id" => 1,
+      "method" => "tools/call",
+      "params" => %{"name" => "repo_file_write", "arguments" => %{}}
+    }
+
+    for manifests <- [~U[2026-11-19 12:01:00.000Z], MapSet.new(["repo_file_write"])] do
+      decision =
+        ToolGateway.guard_request(request, [trust_level: :high], manifests: manifests)
+
+      assert decision.verdict == :blocked
+      assert decision.audit_metadata.deny_reason == :unknown_manifest
+    end
+  end
 end

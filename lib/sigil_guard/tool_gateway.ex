@@ -520,7 +520,8 @@ defmodule SigilGuard.ToolGateway do
     end)
   end
 
-  defp fetch_manifest(manifests, tool, server) when is_map(manifests) do
+  defp fetch_manifest(manifests, tool, server)
+       when is_map(manifests) and not is_struct(manifests) do
     cond do
       present?(server) and Map.has_key?(manifests, {server, tool}) ->
         {:ok, Map.fetch!(manifests, {server, tool})}

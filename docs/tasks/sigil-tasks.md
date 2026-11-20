@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 321 / 324 tasks done (99.1%).** Milestones: 17 complete.
+**Overall: 322 / 324 tasks done (99.4%).** Milestones: 17 complete.
 **Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -84,8 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 9 | 12 | 75% | In progress |
-| — | **Total** | **321** | **324** | **99.1%** | 17 done |
+| M15 | Benchmarks and library conformance | 10 | 12 | 83% | In progress |
+| — | **Total** | **322** | **324** | **99.4%** | 17 done |
 
 ### Release Handoff
 
@@ -119,7 +119,7 @@ M14 records the requirements that a spec-to-code review on 2026-11-20 found
 unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
-library guidelines and anti-pattern guides. Three of its tasks need a quiet
+library guidelines and anti-pattern guides. Two of its tasks need a quiet
 benchmark runner or a decision.
 
 The table counts every milestone task (F through M15, including M7A) exactly
@@ -3452,12 +3452,14 @@ traced every line no test executed.
   - AC: three full runs on one quiet runner with every scenario median
     within +/-5%; `bench/baseline.json` replaced in its own commit.
   - Open: runs on a shared workstation spread up to 15%.
-- [ ] M15.11 Intermittent failure of the untrusted-input gateway property.
+- [x] M15.11 Intermittent failure of the untrusted-input gateway property.
   - AC: the property "a mutated context or option value is answered, not
     raised" passes in every full run, or the input that raises is fixed.
-  - Open: it failed in two of about fifteen full runs on 2026-11-20 and in
-    none of 40 isolated runs of 300 cases, so it depends on state another
-    test leaves; the seed was not captured.
+  - Resolved: seed 9676 generated `manifests:` as a `DateTime`. The
+    atom-keyed manifest lookup added in M15.02 enumerated it and raised
+    `Protocol.UndefinedError`; a struct is now no manifest map and the
+    request is blocked with `:unknown_manifest`. Test:
+    `ToolGatewayCasesTest`.
 - [ ] M15.12 Remaining design-audit items.
   - Open, each needing a decision: one boolean-option helper for every
     switch (some read truthiness, some only `true`); a tagged-tuple
