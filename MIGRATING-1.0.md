@@ -635,6 +635,24 @@ policy file that exists and cannot be read. Releases up to 1.0.5 returned
 `{:error, :not_found}`, so a host that falls back to defaults when no policy
 file exists also did so for a file it could not read.
 
+### Malformed Input Versus Mismatch
+
+Several verifiers reported a malformed input with the reason for a failed
+comparison. They now report the input fault:
+
+| Call | Input | Up to 1.0.5 | Now |
+|------|-------|-------------|-----|
+| `Attestation.verify/3` with a trust bundle | `:now` not a `DateTime`, or `:max_skew_ms` not a non-negative integer | `:untrusted_issuer` | `:invalid_payload`, as with a key map |
+| `AgentCard.verify/3` with a trust bundle | the same | `:untrusted_issuer` | `:invalid_agent_card`, as with a key map |
+| `AgentTrust.verify_delegation_chain/3` | a chain that cannot be digested, such as a hop that is not a map | `:delegation_chain_tampered` | `:invalid_payload` |
+| `AgentTrust.verify_agent_response/3` | a `:context` or `:payload` that cannot be digested | `:digest_mismatch` | the digest's reason, `:invalid_payload` |
+| `Audit.Export.verify/3` | a `checkpoint_statement` that is not a DSSE envelope | `:invalid_checkpoint_statement` | the envelope reason, such as `:invalid_envelope` |
+
+Chains, subjects and statements that decode and differ keep
+`:delegation_chain_tampered`, `:digest_mismatch` and `:statement_mismatch`.
+An envelope payload that is not a JSON object is still
+`:invalid_checkpoint_statement`.
+
 ### Confirmation Option Values
 
 `Confirmation.verify/5` reads `consume:` as a boolean. `false` skips the

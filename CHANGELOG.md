@@ -5,6 +5,16 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Verifiers report malformed input with the input's reason instead of the
+  reason for a failed comparison. With a trust bundle, `Attestation.verify/3`
+  and `AgentCard.verify/3` refuse a malformed `:now` or `:max_skew_ms` as
+  `:invalid_payload` and `:invalid_agent_card`, as with a key map, and read
+  one instant for the issuer and statement freshness checks.
+  `AgentTrust.verify_delegation_chain/3` returns `:invalid_payload` for a
+  chain it cannot digest, `AgentTrust.verify_agent_response/3` returns the
+  digest's reason for a context or payload it cannot digest, and
+  `Audit.Export.verify/3` returns the DSSE reason for a checkpoint statement
+  that is not an envelope.
 - `SigilGuard.Audit.Anchor.Store.HTTP` refuses receipt metadata with an atom
   key and its string twin as `:invalid_metadata`, as the local-file store
   does. It sent both, which encodes as a duplicate JSON key.

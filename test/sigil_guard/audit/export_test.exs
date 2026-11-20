@@ -506,10 +506,20 @@ defmodule SigilGuard.Audit.ExportTest do
                {:error, :statement_mismatch}
     end
 
-    test "a malformed checkpoint statement fails :invalid_checkpoint_statement" do
+    test "a statement that is not a DSSE envelope keeps the envelope reason" do
       events = build_signed_chain(3)
       {:ok, export} = evidence_export(events)
       broken = Map.put(export, "checkpoint_statement", %{"payload" => "@@@"})
+
+      assert Export.verify(broken, events, public_key_b64u: TestSigner.public_key_b64u()) ==
+               {:error, :invalid_envelope}
+    end
+
+    test "an envelope whose payload is not a JSON object fails :invalid_checkpoint_statement" do
+      events = build_signed_chain(3)
+      {:ok, export} = evidence_export(events)
+      not_object = Base.url_encode64("[1]", padding: false)
+      broken = put_in(export, ["checkpoint_statement", "payload"], not_object)
 
       assert Export.verify(broken, events, public_key_b64u: TestSigner.public_key_b64u()) ==
                {:error, :invalid_checkpoint_statement}
@@ -537,7 +547,7 @@ defmodule SigilGuard.Audit.ExportTest do
       no_subject = %{"payload" => Base.url_encode64(~s({"a":1}), padding: false)}
 
       assert Export.verify(Map.put(export, "checkpoint_statement", no_subject), events, key) ==
-               {:error, :invalid_checkpoint_statement}
+               {:error, :invalid_envelope}
 
       assert Export.verify(Map.put(export, "inclusion_proofs", "nope"), events, key) ==
                {:error, :invalid_inclusion_proofs}

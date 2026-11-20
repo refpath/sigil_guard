@@ -451,6 +451,26 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       end)
     end
 
+    test "verifiers refuse malformed input as malformed, not as a mismatch" do
+      request = tool_call(%{"path" => "docs/a.md"})
+      decision = ToolGateway.guard_request(request, @gateway_context, require_manifest: false)
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, @gateway_context,
+          payload: request,
+          signer: SigilGuard.TestSigner,
+          keyid: "consumer"
+        )
+
+      keys = %{"consumer" => SigilGuard.TestSigner.public_key()}
+      assert Attestation.verify(envelope, keys, now: :invalid) == {:error, :invalid_payload}
+
+      unreadable = %{"delegation_chain" => ["spiffe://agents/hop"]}
+
+      assert SigilGuard.AgentTrust.verify_delegation_chain(unreadable, unreadable) ==
+               {:error, :invalid_payload}
+    end
+
     test "the action subject is the digest of the raw MCP request" do
       request = tool_call(%{"path" => "docs/a.md", "content" => "one"})
       statement = attested_statement(request)

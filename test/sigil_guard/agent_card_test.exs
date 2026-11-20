@@ -519,7 +519,11 @@ defmodule SigilGuard.AgentCardTest do
       ])
 
     assert {:ok, _} = AgentCard.verify(envelope, valid, now: @now)
-    assert AgentCard.verify(envelope, valid, now: :invalid) == {:error, :untrusted_issuer}
+    # A malformed clock is the caller's error, with a bundle as with a key map.
+    assert AgentCard.verify(envelope, valid, now: :invalid) == {:error, :invalid_agent_card}
+
+    assert AgentCard.verify(envelope, valid, now: @now, max_skew_ms: -1) ==
+             {:error, :invalid_agent_card}
   end
 
   test "a valid cosigner cannot rehabilitate a revoked card issuer" do

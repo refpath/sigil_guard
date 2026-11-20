@@ -307,13 +307,19 @@ defmodule SigilGuard.Audit.Export do
     end
   end
 
+  # An envelope fault keeps its DSSE reason; a payload that is not a JSON
+  # object is not a checkpoint statement.
   defp match_statement_digest(envelope, checkpoint) do
     with {:ok, decoded} <- Envelope.decode(envelope),
-         {:ok, statement} <- SigilGuard.Canonical.JSON.decode(decoded.payload),
-         true <- is_map(statement),
+         {:ok, statement} <- statement_object(decoded.payload),
          {:ok, expected} <- Checkpoint.to_statement(checkpoint) do
       if statement === expected, do: :ok, else: {:error, :statement_mismatch}
-    else
+    end
+  end
+
+  defp statement_object(payload) do
+    case SigilGuard.Canonical.JSON.decode(payload) do
+      {:ok, %{} = statement} -> {:ok, statement}
       _ -> {:error, :invalid_checkpoint_statement}
     end
   end
@@ -324,11 +330,11 @@ defmodule SigilGuard.Audit.Export do
        when is_integer(size) and size >= 1 do
     count = length(events)
 
-    with true <- size <= count and proof["second_size"] === count,
-         {:ok, first_root} <- Checkpoint.merkle_root(Enum.take(events, size)) do
-      Proof.verify_consistency(proof, first_root, checkpoint_root(checkpoint))
+    if size <= count and proof["second_size"] === count do
+      with {:ok, first_root} <- Checkpoint.merkle_root(Enum.take(events, size)),
+           do: Proof.verify_consistency(proof, first_root, checkpoint_root(checkpoint))
     else
-      _ -> {:error, :invalid_consistency_proof}
+      {:error, :invalid_consistency_proof}
     end
   end
 

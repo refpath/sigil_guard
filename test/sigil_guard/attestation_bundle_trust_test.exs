@@ -151,6 +151,14 @@ defmodule SigilGuard.AttestationBundleTrustTest do
                {:error, :untrusted_issuer}
     end
 
+    test "a malformed clock is refused as a malformed payload, as with a key map" do
+      assert Attestation.verify(signed(Issuer), bundle(), now: :invalid) ==
+               {:error, :invalid_payload}
+
+      assert Attestation.verify(signed(Issuer), bundle(), now: @now, max_skew_ms: -1) ==
+               {:error, :invalid_payload}
+    end
+
     test "the role threshold counts distinct authorized signatures" do
       two_of_two = bundle(%{"keyids" => [keyid(Issuer), keyid(SecondIssuer)], "threshold" => 2})
 

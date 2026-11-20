@@ -159,7 +159,10 @@ bytes, discriminated by `kind`. Verification order is normative:
 5. Freshness: `now > expires_at + skew` or `issued_at > now + skew` fails
    with `:card_expired`. `skew` is the per-call `:max_skew_ms` option,
    default `60_000`. Unlike `Attestation.verify/3` (SP.01), card
-   verification does not read the application `:max_skew_ms` key.
+   verification does not read the application `:max_skew_ms` key. A `:now`
+   that is not a `DateTime` or a `:max_skew_ms` that is not a non-negative
+   integer fails with `:invalid_agent_card` before step 1, so the bundle's
+   issuer freshness check and this one read the same instant.
 
 `card_digest` is then the SHA-256 of the verified payload bytes. Card trust
 comes from the bundle, never from the transport that delivered the card.
@@ -361,7 +364,9 @@ beyond these rules.
    payload is supplied, verification MUST compare the JCS bytes of the
    normalized payload chain against those of `predicate.delegation_chain`;
    any reorder, insertion, drop, edit, or one-sided presence fails with
-   `{:error, :delegation_chain_tampered}`.
+   `{:error, :delegation_chain_tampered}`. A chain that cannot be
+   normalized, such as one with a hop that is not a map, fails with
+   `{:error, :invalid_payload}`.
    `AgentTrust.verify_delegation_chain/3` makes this comparison after the
    depth check of rule 4. No other function calls it: `Attestation.verify/3`
    does not compare the mirror, so the host that verifies an inbound

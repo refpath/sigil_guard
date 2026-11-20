@@ -311,6 +311,14 @@ defmodule SigilGuard.AgentTrustTest do
                label
       end
     end
+
+    test "a hop that is not a map is malformed input, not tampering", ctx do
+      %{payload: payload, predicate: predicate} = ctx
+      malformed = put_in(payload["delegation_chain"], ["spiffe://prod.example.org/agents/hop-1"])
+
+      assert AgentTrust.verify_delegation_chain(malformed, predicate) ==
+               {:error, :invalid_payload}
+    end
   end
 
   describe "trust-MIN derivation" do
@@ -933,7 +941,8 @@ defmodule SigilGuard.AgentTrustTest do
       moved = Map.put(response_context(), :trust_zone, :trusted)
 
       assert verify_response(envelope, rad, context: moved) == {:error, :digest_mismatch}
-      assert verify_response(envelope, rad, context: :not_a_context) == {:error, :digest_mismatch}
+      # A context that cannot be digested is malformed input, not a mismatch.
+      assert verify_response(envelope, rad, context: :not_a_context) == {:error, :invalid_payload}
     end
 
     test "a manifest subject that is not the bound card fails :manifest_digest_mismatch" do
@@ -983,6 +992,13 @@ defmodule SigilGuard.AgentTrustTest do
       for payload <- ["text", ["list"], nil, 7] do
         assert verify_response(envelope, rad, payload: payload) == {:error, :invalid_payload}
       end
+    end
+
+    test "a payload that cannot be digested is malformed input, not a mismatch" do
+      {envelope, _, rad} = signed_response()
+      unsafe = %{"capability" => "summarize", "status" => "ok", "n" => 9_007_199_254_740_993}
+
+      assert verify_response(envelope, rad, payload: unsafe) == {:error, :invalid_payload}
     end
 
     test "without a card a trust bundle's attestation role verifies the response" do

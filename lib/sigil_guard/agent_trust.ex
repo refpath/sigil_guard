@@ -270,17 +270,18 @@ defmodule SigilGuard.AgentTrust do
     end
   end
 
+  # A chain that cannot be digested is malformed input; two digests that
+  # differ are tampering.
   defp matching_chain_digests(payload, predicate) do
-    with {:ok, payload_digest} <- AgentPredicate.delegation_chain_digest(payload),
-         {:ok, predicate_digest} <- AgentPredicate.delegation_chain_digest(predicate) do
-      if payload_digest == predicate_digest do
-        :ok
-      else
-        {:error, :delegation_chain_tampered}
-      end
-    else
-      _ -> {:error, :delegation_chain_tampered}
+    with {:ok, payload_digest} <- chain_digest(payload),
+         {:ok, predicate_digest} <- chain_digest(predicate) do
+      if payload_digest == predicate_digest, do: :ok, else: {:error, :delegation_chain_tampered}
     end
+  end
+
+  defp chain_digest(map) do
+    with {:error, _} <- AgentPredicate.delegation_chain_digest(map),
+         do: {:error, :invalid_payload}
   end
 
   defp chain_present?(map) do
@@ -577,11 +578,10 @@ defmodule SigilGuard.AgentTrust do
   end
 
   defp matching_context(statement, context) do
-    with {:ok, expected} <- Digest.context_digest(:agent_response, context),
-         {:ok, ^expected} <- subject_digest(statement, "context") do
-      :ok
-    else
-      _ -> {:error, :digest_mismatch}
+    with {:ok, expected} <- Digest.context_digest(:agent_response, context) do
+      if subject_digest(statement, "context") == {:ok, expected},
+        do: :ok,
+        else: {:error, :digest_mismatch}
     end
   end
 
@@ -614,18 +614,18 @@ defmodule SigilGuard.AgentTrust do
     end
   end
 
+  # A payload that cannot be digested keeps the digest's reason; subjects that
+  # differ from the recomputed digests are a mismatch.
   defp compare_response_digests(statement, payload, request_action_digest) do
-    with {:ok, action} <- subject_digest(statement, "action"),
-         {:ok, payload_digest} <- subject_digest(statement, "payload"),
-         {:ok, expected_action} <-
+    with {:ok, expected_action} <-
            Digest.action_digest(:agent_response, payload, %{},
              request_action_digest: request_action_digest
            ),
-         {:ok, expected_payload} <- Digest.payload_digest(payload),
-         true <- action == expected_action and payload_digest == expected_payload do
-      :ok
-    else
-      _ -> {:error, :digest_mismatch}
+         {:ok, expected_payload} <- Digest.payload_digest(payload) do
+      if subject_digest(statement, "action") == {:ok, expected_action} and
+           subject_digest(statement, "payload") == {:ok, expected_payload},
+         do: :ok,
+         else: {:error, :digest_mismatch}
     end
   end
 

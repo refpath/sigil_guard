@@ -190,7 +190,8 @@ defmodule SigilGuard.AgentCard do
   end
 
   defp do_verify(envelope, trust_material, opts) when is_list(opts) do
-    with {:ok, authorized, resolver} <- Issuers.resolve(trust_material, @card_issuer_role, opts),
+    with {:ok, opts} <- resolve_clock(opts),
+         {:ok, authorized, resolver} <- Issuers.resolve(trust_material, @card_issuer_role, opts),
          {:ok, payload} <- Issuers.verify_envelope(envelope, authorized, resolver),
          {:ok, card} <- parse_and_validate(payload),
          :ok <- require_canonical(card, payload),
@@ -236,6 +237,14 @@ defmodule SigilGuard.AgentCard do
   defp freshness_now(opts) do
     opts = if Keyword.get(opts, :now) == nil, do: Keyword.delete(opts, :now), else: opts
     SigilGuard.Clock.now(opts, :invalid_agent_card)
+  end
+
+  # The issuer freshness check and the card freshness check read one instant
+  # and one skew.
+  defp resolve_clock(opts) do
+    with {:ok, now} <- freshness_now(opts),
+         {:ok, max_skew_ms} <- freshness_skew(opts),
+         do: {:ok, Keyword.merge(opts, now: now, max_skew_ms: max_skew_ms)}
   end
 
   defp freshness_skew(opts) do

@@ -187,6 +187,7 @@ defmodule SigilGuard.Attestation do
       when is_map(trust_material) and map_size(trust_material) > 0 do
     with {:ok, %{payload: payload}} <- Envelope.decode(envelope),
          :ok <- expected_payload_sha256(payload, opts),
+         {:ok, opts} <- resolve_clock(opts),
          {:ok, authorized, resolver} <- Issuers.resolve(trust_material, @issuer_role, opts),
          {:ok, verified_payload} <- Issuers.verify_envelope(envelope, authorized, resolver),
          {:ok, statement} <- decode_statement(verified_payload),
@@ -869,6 +870,15 @@ defmodule SigilGuard.Attestation do
   end
 
   defp verify_now(opts), do: SigilGuard.Clock.now(opts, :invalid_payload)
+
+  # The bundle's issuer freshness check and the statement's freshness check
+  # read one instant and one skew, and a malformed value is refused before
+  # either runs.
+  defp resolve_clock(opts) do
+    with {:ok, now} <- verify_now(opts),
+         {:ok, max_skew_ms} <- max_skew_ms(opts),
+         do: {:ok, Keyword.merge(opts, now: now, max_skew_ms: max_skew_ms)}
+  end
 
   defp max_skew_ms(opts) do
     configured_non_negative_integer(opts, :max_skew_ms, :max_skew_ms, 60_000)

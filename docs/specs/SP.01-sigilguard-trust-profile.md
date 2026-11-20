@@ -791,7 +791,9 @@ then fails with `{:error, :untrusted_issuer}` when a signature comes from a
 revoked key or from a key the bundle holds for another role, when fewer
 distinct `"attestation"` keys signed than the role's `threshold`, or when
 the role, the bundle document or the root role is past `expires_at` (`:now`,
-`:max_skew_ms`). A signature from a key the bundle does not hold is
+`:max_skew_ms`). A `:now` that is not a `DateTime` or a `:max_skew_ms` that
+is not a non-negative integer fails with `{:error, :invalid_payload}` before
+the issuer check, with a bundle as with a key map. A signature from a key the bundle does not hold is
 `{:error, :unknown_key_id}`. If a newer snapshot of the same `bundle_id` is
 cached, its document is the one consulted.
 
