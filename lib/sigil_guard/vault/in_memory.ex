@@ -37,8 +37,10 @@ defmodule SigilGuard.Vault.InMemory do
 
   `start_link/1` registers a singleton GenServer under
   `#{inspect(__MODULE__)}` — one vault per node. Supervise it in your
-  application's tree; the `SigilGuard.Vault` callbacks exit if it is
-  not running.
+  application's tree. When it is not running, or does not answer within the
+  call timeout, `encrypt/2`, `decrypt/1` and `delete/1` return
+  `{:error, :vault_unavailable}`, `exists?/1` returns `false`, and
+  `list_entries/0` returns `[]`.
   """
 
   @behaviour SigilGuard.Vault
@@ -79,30 +81,30 @@ defmodule SigilGuard.Vault.InMemory do
 
   def encrypt(plaintext, description) do
     if String.valid?(description),
-      do: GenServer.call(__MODULE__, {:encrypt, plaintext, description}),
+      do: call({:encrypt, plaintext, description}, {:error, :vault_unavailable}),
       else: {:error, :invalid_description}
   end
 
   @impl SigilGuard.Vault
-  def decrypt(vault_id) do
-    GenServer.call(__MODULE__, {:decrypt, vault_id})
-  end
+  def decrypt(vault_id), do: call({:decrypt, vault_id}, {:error, :vault_unavailable})
 
   @impl SigilGuard.Vault
-  def exists?(vault_id) do
-    GenServer.call(__MODULE__, {:exists?, vault_id})
-  end
+  def exists?(vault_id), do: call({:exists?, vault_id}, false)
 
   @doc "List all vault entry IDs with their descriptions (not plaintext)."
   @spec list_entries() :: [{SigilGuard.Vault.vault_id(), String.t()}]
-  def list_entries do
-    GenServer.call(__MODULE__, :list_entries)
-  end
+  def list_entries, do: call(:list_entries, [])
 
   @doc "Delete a vault entry by ID."
-  @spec delete(SigilGuard.Vault.vault_id()) :: :ok | {:error, :not_found}
-  def delete(vault_id) do
-    GenServer.call(__MODULE__, {:delete, vault_id})
+  @spec delete(SigilGuard.Vault.vault_id()) :: :ok | {:error, :not_found | :vault_unavailable}
+  def delete(vault_id), do: call({:delete, vault_id}, {:error, :vault_unavailable})
+
+  # A vault that is not running, is shutting down, or does not answer in time
+  # is unavailable to the caller. It is not a reason for the caller to exit.
+  defp call(request, unavailable) do
+    GenServer.call(__MODULE__, request)
+  catch
+    :exit, _ -> unavailable
   end
 
   @impl GenServer

@@ -111,7 +111,7 @@ These specs capture current behavior that v3 should reuse, rewire, or remove.
 | [`SP.07`](SP.07-runtime-gate-and-streaming-contracts.md) | implemented/partial | `Context`, `Decision`, `Runtime.Gate`, `Runtime.Stream`, `Scanner`, `Quarantine`. | Rewire to `Boundary` and `BoundaryPolicy`. |
 | [`SP.08`](SP.08-mcp-gateway-and-confirmation-contracts.md) | implemented/partial | `MCP.Gateway`, `Confirmation`. | Rewire to `_agent_trust`, `_agent_confirmation`, `ToolGateway`, and attestations. |
 | [`SP.09`](SP.09-audit-chain-and-anchor-contracts.md) | implemented | `Audit`, `Audit.Checkpoint`, `Audit.Anchor`, `Audit.Export`. | Extend into signed evidence exports and OTel attributes. |
-| [`SP.10`](SP.10-vault-and-identity-contracts.md) | implemented/partial | `Vault`, `Vault.InMemory`, `Vault.Entry`, `Identity`, `Identity.Binding`. | Reuse host extension behaviours and local development vault semantics. |
+| [`SP.10`](SP.10-vault-and-identity-contracts.md) | implemented | `Vault`, `Vault.InMemory`, `Vault.Entry`, `Identity`, `Identity.Binding`. | Reuse host extension behaviours and local development vault semantics. |
 | [`SP.11`](SP.11-repo-policy-kernel-contracts.md) | implemented/partial | `RepoPolicy`, `RepoPolicy.Decision`. | Rewire as policy facts under `BoundaryPolicy`; rename old policy filenames. |
 | [`SP.12`](SP.12-legacy-remote-bundle-adapter-contracts.md) | implemented/removal | Removed `Registry`, `Registry.Bundle`, `Registry.Cache`; replacement `TrustBundle`. | Remove public runtime path; replace with `TrustBundle` and migration docs. |
 

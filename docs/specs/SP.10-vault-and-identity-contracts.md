@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.10"
   title: "Vault And Identity Contracts"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: medium
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -88,7 +88,7 @@ modules call no identity module; only SP.13 trust resolution calls
 | Current Surface | V3 Action |
 |-----------------|-----------|
 | Host identity provider | Keep as behaviour; do not require DID/VC infrastructure. |
-| Trust levels | Keep as coarse policy signal. Bundle policy adding zones or scopes is not implemented: no code reads zones or scopes from a bundle. |
+| Trust levels | Keep as coarse policy signal. Trust level is the only identity-derived policy signal; no code reads zones or scopes from a bundle. |
 | Vault refs | Use refs in attestations/audit without exporting raw secret material. |
 | Identity binding | The host maps a binding into the Agent Trust `actor` and `issuer` maps. The library has no function that does it. |
 | Production vault | Remain host-provided; core ships only development-safe behaviour/default. |
@@ -100,23 +100,28 @@ The rules below govern every actor and issuer string SigilGuard normalizes
 into attestations, trust bundles, audit evidence, and policy decisions.
 
 - **SPIFFE-shaped strings are RECOMMENDED.** The recommended actor/issuer
-  form is `spiffe://trust-domain/workload-identifier`. Shape validation is
-  not implemented: the core carries a `spiffe://` string like any other
-  string and never checks its trust-domain or path form. A host that wants
-  the shape checked does it before handing the string over; such a check is
-  pure string work and MUST NOT require network access.
+  form is `spiffe://trust-domain/workload-identifier`. The core never
+  requires the shape and carries a `spiffe://` string like any other string.
+  A host that wants it enforced calls `SigilGuard.Identity.spiffe_id?/1`,
+  which applies the SPIFFE-ID standard: scheme `spiffe`, a lowercase trust
+  domain of at most 255 bytes, path segments without empty, `.` or `..`
+  entries, no trailing slash, query, fragment, user information, port or
+  percent-encoding, and at most 2048 bytes. The check is pure string work.
 - **Arbitrary opaque strings are ACCEPTED.** Host principals
   (`host:operator:42`), service accounts, email-shaped subjects, and
   opaque session ids remain valid actor values permanently. A string earns
   no privilege and suffers no penalty for its format alone.
 - **`did:key` is OPTIONALLY accepted.** It is the one offline-verifiable DID
   method: the identifier embeds the public key. The core accepts a `did:key`
-  string as an opaque actor, issuer, or provider value. Using the embedded
-  key for signature verification is not implemented: no code decodes a
-  `did:key` identifier. A host that designates such an issuer derives the
-  key and supplies it as trust material. Resolution-bound DID methods
-  (`did:web`, ledger-backed) are not resolved by core either; hosts resolve
-  them externally and hand SigilGuard the resulting keys.
+  string as an opaque actor, issuer, or provider value and never derives
+  trust from it. `SigilGuard.Identity.did_key_public_key/1` decodes an
+  Ed25519 `did:key` (multibase `z`, multicodec bytes `0xed 0x01`, 32 key
+  bytes) and returns the key; any other method, multibase, key type or
+  length is `{:error, :invalid_did_key}`. A host that designates such an
+  issuer adds the returned key to its attestation trust material.
+  Resolution-bound DID methods (`did:web`, ledger-backed) are not resolved
+  by core; hosts resolve them externally and hand SigilGuard the resulting
+  keys.
 - **Claims are carried opaquely.** The core never derives trust from claim
   semantics. Trust flows only through exact-match rules, declared pattern
   rules (next section), or the host-owned `SigilGuard.Identity` behaviour.
@@ -212,14 +217,12 @@ hardens the semantics implementations MUST satisfy.
   introducing custom reasons. `:decryption_failed` matches the shipped
   `Vault.InMemory` atom and is not renamed in v3. The behaviour's typespecs
   are `{:error, term()}`, so nothing checks this mapping.
-- **Built-in vault and `:vault_unavailable`.** `Vault.InMemory` does not meet
-  the rule above for an unreachable backend. It never returns
-  `:vault_unavailable`. When its process is not running, `decrypt/1`,
-  `exists?/1`, and `encrypt/2` with well-formed input exit with the
-  `GenServer.call/2` `:noproc` reason; they return neither an error tuple
-  nor `false`. A host that needs a returned error supervises the vault and
-  handles the exit at its own call site, or wraps the module in its own
-  `SigilGuard.Vault` implementation.
+- **Built-in vault and `:vault_unavailable`.** When the `Vault.InMemory`
+  process is not running, or does not answer within the call timeout,
+  `encrypt/2`, `decrypt/1` and `delete/1` return
+  `{:error, :vault_unavailable}`, `exists?/1` returns `false`, and
+  `list_entries/0` returns `[]`. Input validation in `encrypt/2` answers
+  without the process.
 - **Concurrency.** Callbacks MUST be safe for concurrent callers from any
   process; implementations MUST NOT require caller-side serialization.
   `Vault.InMemory` serializes internally through its singleton GenServer.
@@ -311,7 +314,7 @@ map (`{"id": ..., "trust_level": ...}`, SP.01) itself.
 | invalid master key | start error | configure 32-byte key | vault process does not start. |
 | invalid options | start error | pass keyword opts | vault process does not start. |
 | invalid trust atom | raise via map fetch | use closed trust vocabulary | caller bug. |
-| `:vault_unavailable` | return tuple from a host backend; `Vault.InMemory` never returns it | retry or degrade per host policy | secret temporarily unavailable. |
+| `:vault_unavailable` | return tuple; `Vault.InMemory` returns it when its process is not running or does not answer | retry or degrade per host policy | secret temporarily unavailable. |
 | vault process not running | exit from `GenServer.call/2` (`:noproc`) in `Vault.InMemory` | supervise the vault; handle the exit at the call site | the calling process exits unless it catches. |
 | `:invalid_plaintext`, `:invalid_description` | return tuple from `Vault.InMemory.encrypt/2` | pass binary plaintext and a UTF-8 string description | nothing is stored. |
 | invalid `:trust_mappings` entry | `SigilGuard.ConfigError` when `SigilGuard.Runtime` starts and validates the application env | fix pattern or trust level | application does not start. |
@@ -350,9 +353,9 @@ map (`{"id": ..., "trust_level": ...}`, SP.01) itself.
 - [x] A behaviour reference implementation mirroring the reference
       consumer's identity mapper compiles and passes against the v3
       `SigilGuard.Identity` behaviour unchanged (D17 conformance).
-- [x] Vault negative tests produce `:not_found` and `:decryption_failed`;
-      `:vault_unavailable` remains the behaviour-level atom for host
-      implementations, and `exists?/1` is side-effect free.
+- [x] Vault negative tests produce `:not_found`, `:decryption_failed`, and
+      `:vault_unavailable` (a stopped `Vault.InMemory`), and `exists?/1` is
+      side-effect free.
 - [x] Vault tests prove process status and entry metadata do not expose
       plaintext or master key material.
 
@@ -364,13 +367,19 @@ map (`{"id": ..., "trust_level": ...}`, SP.01) itself.
 - [x] Trust-level utilities implemented.
 - [x] Add Trust Profile guidance for binding identity keys and vault refs.
 - [x] Add Agent Trust actor/issuer normalization guidance.
-- [ ] Add tests that audit/telemetry exports never include raw vault contents
-      (no test under `test/` asserts this; the vault modules emit no
-      telemetry or audit events).
+- [x] Add tests that audit/telemetry exports never include raw vault contents:
+      `VaultTest` "no leakage" asserts that vault operations emit no telemetry
+      event, that logs and process status hold neither plaintext nor key
+      material, and that the chain bytes, CloudEvents projection, and
+      OpenTelemetry attributes of an audit event that references a vault entry
+      hold no plaintext.
 - [x] Implement `SigilGuard.Identity.Static` config-driven trust mapping.
 - [x] Land vault contract negative tests.
-- [ ] Land vault concurrency and rotation-guidance tests (no test under
-      `test/` exercises concurrent vault callers or key rotation).
+- [x] Land vault concurrency and rotation-guidance tests: `VaultTest`
+      "concurrent callers" runs 64 callers against `Vault.InMemory`, and
+      "key rotation guidance for durable backends" runs the guidance above
+      against `SigilGuard.TestVersionedVault`, a test backend with versioned
+      keys.
 
 ## Success Metrics
 

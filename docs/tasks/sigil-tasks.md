@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 296 / 312 tasks done (94.9%).** Milestones: 16 complete, 1 open.
+**Overall: 297 / 312 tasks done (95.2%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 1 | 17 | 6% | Open |
-| — | **Total** | **296** | **312** | **94.9%** | 16 done |
+| M14 | Spec conformance backlog | 2 | 17 | 12% | Open |
+| — | **Total** | **297** | **312** | **95.2%** | 16 done |
 
 ### Release Handoff
 
@@ -3194,11 +3194,18 @@ needs its design confirmed against the consumer contracts before work begins.
     verdict; a failed peer card takes the unknown-peer path; agent statements
     carry requester binding; `verify_agent_response/3` compares the
     delegation mirror and the capability and recomputes the context digest.
-- [ ] M14.13 Vault and identity (`SP.10`).
+- [x] M14.13 Vault and identity (`SP.10`).
   - AC: `Vault.InMemory` returns `{:error, :vault_unavailable}` when its
     process is not running; identifier shape validation matches the spec or
     the spec drops it; vault concurrency, rotation, and export-exclusion
     tests exist.
+  - Resolved: `Vault.InMemory` returns `:vault_unavailable` instead of
+    exiting the caller. `SigilGuard.Identity.spiffe_id?/1` and
+    `did_key_public_key/1` implement the SPIFFE-ID and `did:key` syntax for
+    hosts that want it; the library still treats identifiers as opaque,
+    which SP.10 states. Concurrency, rotation-guidance and leakage tests are
+    in `VaultTest`; shape tests are in `IdentityTest`. Sources are in R.12.
+
 - [ ] M14.14 Repo policy error atoms (`SP.11`).
   - AC: `:invalid_path` is produced or removed; a malformed loader option
     value returns `:invalid_options` before any filesystem access.

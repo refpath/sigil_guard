@@ -111,4 +111,108 @@ defmodule SigilGuard.Identity do
   def trust_levels do
     [:low, :medium, :high]
   end
+
+  @spiffe_max_bytes 2048
+  @spiffe_trust_domain_max_bytes 255
+  @spiffe_trust_domain ~r/\A[a-z0-9._-]+\z/
+  @spiffe_segment ~r/\A[a-zA-Z0-9._-]+\z/
+
+  @doc """
+  Returns whether `value` is a SPIFFE ID as the SPIFFE-ID standard defines it.
+
+  The check is pure string work. The scheme is `spiffe`. The trust domain is
+  1 to 255 bytes of lowercase letters, digits, dots, dashes and underscores,
+  with no user information or port. A path is optional; each segment holds
+  letters, digits, dots, dashes and underscores, is not empty, and is neither
+  `.` nor `..`. A trailing slash, a query, a fragment, a percent-encoded
+  character, or a total length above 2048 bytes makes the value invalid.
+
+  SigilGuard never requires this shape: an actor or issuer is an opaque
+  string. A host that wants SPIFFE-shaped identifiers checks them here.
+
+  ## Examples
+
+      iex> SigilGuard.Identity.spiffe_id?("spiffe://example.org/agent/planner")
+      true
+
+      iex> SigilGuard.Identity.spiffe_id?("spiffe://Example.org/agent")
+      false
+
+      iex> SigilGuard.Identity.spiffe_id?("spiffe://example.org/agent/")
+      false
+
+  """
+  @doc since: "1.1.0"
+  @spec spiffe_id?(term()) :: boolean()
+  def spiffe_id?("spiffe://" <> rest = value) when byte_size(value) <= @spiffe_max_bytes do
+    case String.split(rest, "/") do
+      [trust_domain] -> spiffe_trust_domain?(trust_domain)
+      [trust_domain | segments] -> spiffe_trust_domain?(trust_domain) and spiffe_path?(segments)
+    end
+  end
+
+  def spiffe_id?(_), do: false
+
+  defp spiffe_trust_domain?(trust_domain) do
+    byte_size(trust_domain) <= @spiffe_trust_domain_max_bytes and
+      Regex.match?(@spiffe_trust_domain, trust_domain)
+  end
+
+  defp spiffe_path?(segments) do
+    Enum.all?(segments, &(&1 not in [".", ".."] and Regex.match?(@spiffe_segment, &1)))
+  end
+
+  @base58 ~c"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+  @base58_index Map.new(Enum.with_index(@base58))
+  # 0xed 0x01 is the varint multicodec code of an Ed25519 public key.
+  @ed25519_multicodec <<0xED, 0x01>>
+  @ed25519_did_key_chars 48
+
+  @doc """
+  Returns the Ed25519 public key that a `did:key` identifier embeds.
+
+  The identifier is `did:key:z` followed by the base58btc encoding of the two
+  multicodec bytes `0xed 0x01` and the 32-byte key, 48 characters in all. Any
+  other method, multibase prefix, key type, length or character returns
+  `{:error, :invalid_did_key}`. A DID URL with a fragment or path is not an
+  identifier and is refused.
+
+  Decoding proves nothing about who holds the key. A host that designates a
+  `did:key` issuer adds the returned key to its attestation trust material
+  under the key id it expects.
+
+  ## Examples
+
+      iex> did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+      ...> {:ok, key} = SigilGuard.Identity.did_key_public_key(did)
+      ...> Base.encode16(key, case: :lower)
+      "2e6fcce36701dc791488e0d0b1745cc1e33a4c1c9fcc41c63bd343dbbe0970e6"
+
+      iex> SigilGuard.Identity.did_key_public_key("did:web:example.org")
+      {:error, :invalid_did_key}
+
+  """
+  @doc since: "1.1.0"
+  @spec did_key_public_key(term()) :: {:ok, <<_::256>>} | {:error, :invalid_did_key}
+  def did_key_public_key("did:key:z" <> encoded)
+      when byte_size(encoded) == @ed25519_did_key_chars - 1 do
+    case base58_integer(String.to_charlist(encoded), 0) do
+      {:ok, integer} -> ed25519_key(:binary.encode_unsigned(integer))
+      :error -> {:error, :invalid_did_key}
+    end
+  end
+
+  def did_key_public_key(_), do: {:error, :invalid_did_key}
+
+  defp ed25519_key(<<@ed25519_multicodec, key::binary-size(32)>>), do: {:ok, key}
+  defp ed25519_key(_), do: {:error, :invalid_did_key}
+
+  defp base58_integer([], acc), do: {:ok, acc}
+
+  defp base58_integer([char | rest], acc) do
+    case Map.fetch(@base58_index, char) do
+      {:ok, digit} -> base58_integer(rest, acc * 58 + digit)
+      :error -> :error
+    end
+  end
 end

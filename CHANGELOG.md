@@ -5,6 +5,14 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Add `SigilGuard.Identity.spiffe_id?/1`, which checks the SPIFFE-ID syntax,
+  and `SigilGuard.Identity.did_key_public_key/1`, which returns the Ed25519
+  key an identifier of the `did:key` method embeds. Neither is applied by the
+  library: actor and issuer strings stay opaque.
+- `SigilGuard.Vault.InMemory` returns `{:error, :vault_unavailable}` from
+  `encrypt/2`, `decrypt/1` and `delete/1` when its process is not running.
+  `exists?/1` returns `false` and `list_entries/0` returns `[]`. The caller
+  used to exit.
 - `SigilGuard.Backend.impl/0` returns the native backend and raises
   `SigilGuard.ConfigError` when the removed `:backend` application key is set.
   It still read that key and dispatched `scan/2`, `redact/3`,

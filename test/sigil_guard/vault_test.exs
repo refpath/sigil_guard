@@ -218,6 +218,187 @@ defmodule SigilGuard.VaultTest do
     end
   end
 
+  describe "an unavailable vault" do
+    test "returns the canonical atom instead of exiting the caller" do
+      {:ok, vault_id} = InMemory.encrypt("my-secret", "test")
+      :ok = stop_supervised(InMemory)
+
+      assert InMemory.encrypt("my-secret", "test") == {:error, :vault_unavailable}
+      assert InMemory.decrypt(vault_id) == {:error, :vault_unavailable}
+      assert InMemory.delete(vault_id) == {:error, :vault_unavailable}
+      assert InMemory.exists?(vault_id) == false
+      assert InMemory.list_entries() == []
+
+      assert SigilGuard.Vault.decrypt(vault_id, InMemory) == {:error, :vault_unavailable}
+    end
+
+    test "input validation still answers without the process" do
+      :ok = stop_supervised(InMemory)
+
+      assert InMemory.encrypt(:not_binary, "test") == {:error, :invalid_plaintext}
+      assert InMemory.encrypt("secret", <<255>>) == {:error, :invalid_description}
+    end
+  end
+
+  describe "concurrent callers" do
+    test "need no caller-side serialization" do
+      results =
+        1..64
+        |> Task.async_stream(
+          fn n ->
+            plaintext = "secret-#{n}"
+            {:ok, vault_id} = InMemory.encrypt(plaintext, "entry #{n}")
+            true = InMemory.exists?(vault_id)
+            {:ok, ^plaintext} = InMemory.decrypt(vault_id)
+            if rem(n, 2) == 0, do: :ok = InMemory.delete(vault_id)
+            {n, vault_id}
+          end,
+          max_concurrency: 16,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      ids = Enum.map(results, &elem(&1, 1))
+
+      assert length(Enum.uniq(ids)) == 64
+
+      for {n, vault_id} <- results do
+        assert InMemory.exists?(vault_id) == (rem(n, 2) == 1)
+      end
+
+      assert length(InMemory.list_entries()) == 32
+    end
+
+    test "exists?/1 reads without changing the entry" do
+      {:ok, vault_id} = InMemory.encrypt("my-secret", "test")
+      before = :sys.get_state(InMemory).table |> table_dump()
+
+      for _ <- 1..5, do: assert(InMemory.exists?(vault_id))
+
+      assert table_dump(:sys.get_state(InMemory).table) == before
+      assert InMemory.list_entries() == [{vault_id, "test"}]
+    end
+  end
+
+  describe "no leakage" do
+    @plaintext "vault-plaintext-7c1f9a"
+
+    test "errors, telemetry and logs carry neither plaintext nor key material", ctx do
+      handler = "vault-leak-#{System.unique_integer()}"
+      parent = self()
+
+      :telemetry.attach_many(
+        handler,
+        SigilGuard.Telemetry.events(),
+        fn event, measurements, metadata, _ ->
+          send(parent, {:event, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          {:ok, vault_id} = InMemory.encrypt(@plaintext, "api key")
+          {:ok, @plaintext} = InMemory.decrypt(vault_id)
+          {:error, :not_found} = InMemory.decrypt("vault_missing")
+
+          :sys.replace_state(InMemory, fn state ->
+            [{^vault_id, entry}] = :ets.lookup(state.table, vault_id)
+            :ets.insert(state.table, {vault_id, %{entry | tag: :crypto.strong_rand_bytes(16)}})
+            state
+          end)
+
+          send(parent, {:failure, InMemory.decrypt(vault_id)})
+        end)
+
+      assert_received {:failure, {:error, :decryption_failed}}
+      refute_received {:event, _, _, _}
+
+      key_b64 = Base.encode64(ctx.master_key)
+
+      for text <- [log, inspect(:sys.get_status(InMemory), limit: :infinity)] do
+        refute text =~ @plaintext
+        refute text =~ key_b64
+        refute text =~ inspect(ctx.master_key, limit: :infinity)
+      end
+    end
+
+    test "an audit event that references a vault entry exports no vault content" do
+      {:ok, vault_id} = InMemory.encrypt(@plaintext, "api key")
+      chain_key = :crypto.hash(:sha256, "vault export chain key")
+
+      event =
+        "vault.read"
+        |> SigilGuard.Audit.new_event("did:web:agent", "decrypt", "ok", %{"vault_ref" => vault_id})
+        |> SigilGuard.Audit.sign_event(chain_key)
+
+      attributes =
+        SigilGuard.Telemetry.otel_attributes(
+          [:sigil_guard, :audit, :log],
+          %{},
+          Map.from_struct(event),
+          include_high_cardinality: true
+        )
+
+      cloud_event = SigilGuard.Audit.CloudEvents.project(event, source: "urn:example:host")
+      chain_bytes = SigilGuard.Audit.canonical_bytes(event)
+      exported = inspect({chain_bytes, cloud_event, attributes}, limit: :infinity)
+
+      refute exported =~ @plaintext
+    end
+  end
+
+  describe "key rotation guidance for durable backends" do
+    alias SigilGuard.TestVersionedVault, as: Versioned
+
+    setup do
+      start_supervised!(Versioned)
+      :ok
+    end
+
+    test "old entries stay readable after rotation and converge on read" do
+      {:ok, old} = Versioned.encrypt("first", "entry")
+      assert Versioned.rotate() == 2
+      {:ok, new} = Versioned.encrypt("second", "entry")
+
+      assert Versioned.versions_in_use() == [1, 2]
+      assert Versioned.decrypt(new) == {:ok, "second"}
+
+      # Reading under the old version re-encrypts under the current one.
+      assert Versioned.decrypt(old) == {:ok, "first"}
+      assert Versioned.versions_in_use() == [2]
+      assert Versioned.decrypt(old) == {:ok, "first"}
+    end
+
+    test "a key version is retired only when no entry references it" do
+      {:ok, old} = Versioned.encrypt("first", "entry")
+      Versioned.rotate()
+
+      assert Versioned.retire(1) == {:error, :key_in_use}
+      assert Versioned.retire(2) == {:error, :key_in_use}
+      assert Versioned.retire(9) == {:error, :unknown_key_version}
+
+      assert Versioned.decrypt(old) == {:ok, "first"}
+      assert Versioned.retire(1) == :ok
+      assert Versioned.decrypt(old) == {:ok, "first"}
+    end
+
+    test "destroying a referenced version erases those entries and no others" do
+      {:ok, old} = Versioned.encrypt("first", "entry")
+      Versioned.rotate()
+      {:ok, new} = Versioned.encrypt("second", "entry")
+
+      :ok = Versioned.destroy(1)
+
+      assert Versioned.decrypt(old) == {:error, :decryption_failed}
+      assert Versioned.exists?(old)
+      assert Versioned.decrypt(new) == {:ok, "second"}
+      assert SigilGuard.Vault.decrypt(new, Versioned) == {:ok, "second"}
+    end
+  end
+
   describe "Vault.Entry struct" do
     test "creates entry with defaults" do
       entry = %SigilGuard.Vault.Entry{}
@@ -280,6 +461,22 @@ defmodule SigilGuard.VaultTest do
       {:EXIT, _, ^reason} -> :ok
     after
       100 -> :ok
+    end
+  end
+
+  # The table is private, so read it from inside the vault process.
+  defp table_dump(_) do
+    me = self()
+
+    :sys.replace_state(InMemory, fn state ->
+      send(me, {:dump, Enum.sort(:ets.tab2list(state.table))})
+      state
+    end)
+
+    receive do
+      {:dump, rows} -> rows
+    after
+      1_000 -> flunk("vault did not answer")
     end
   end
 end
