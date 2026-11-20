@@ -46,7 +46,7 @@ defmodule SigilGuard.CapabilityManifestTest do
       assert {:ok, capability} = CapabilityManifest.new(manifest)
       assert capability.allowed_sink_zones == nil
       assert capability.output_schema == output_schema
-      assert capability.output_schema_sha256 =~ ~r/^[0-9a-f]{64}$/
+      assert capability.output_schema_sha256 == jcs_sha256(output_schema)
       assert capability.preimage["output_schema_sha256"] == capability.output_schema_sha256
       refute Map.has_key?(capability.preimage, "output_schema")
     end
@@ -166,9 +166,9 @@ defmodule SigilGuard.CapabilityManifestTest do
 
       assert {:ok, capability} = CapabilityManifest.new(enriched)
       assert capability.title == "Repository writer"
-      assert capability.title_sha256 =~ ~r/^[0-9a-f]{64}$/
-      assert capability.icons_sha256 =~ ~r/^[0-9a-f]{64}$/
-      assert capability.ui_sha256 =~ ~r/^[0-9a-f]{64}$/
+      assert capability.title_sha256 == sha256_hex("Repository writer")
+      assert capability.icons_sha256 == jcs_sha256(enriched["icons"])
+      assert capability.ui_sha256 == jcs_sha256(enriched["ui"])
       assert capability.preimage["title_sha256"] == capability.title_sha256
       assert capability.preimage["icons_sha256"] == capability.icons_sha256
       assert capability.preimage["ui_sha256"] == capability.ui_sha256
@@ -364,29 +364,7 @@ defmodule SigilGuard.CapabilityManifestTest do
     end
   end
 
-  defp manifest, do: read_json(@manifest_fixture)
-
-  defp read_fixture_bytes(file) do
-    @fixture
-    |> Path.join(file)
-    |> File.read!()
-    |> String.trim_trailing("\n")
-  end
-
-  defp read_json(file) when is_binary(file) do
-    @fixture
-    |> Path.join(file)
-    |> File.read!()
-    |> Jason.decode!()
-  end
-
-  defp read_json(path) when is_list(path) do
-    SigilGuard.FixturePath.read_json!(path)
-  end
-
   describe "drifted_fields/2" do
-    defp pinned, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
-
     test "names the preimage fields that differ, in order" do
       assert CapabilityManifest.drifted_fields(pinned(), pinned()) == {:ok, []}
 
@@ -420,5 +398,34 @@ defmodule SigilGuard.CapabilityManifestTest do
         assert CapabilityManifest.drifted_fields(invalid, pinned()) == {:error, :invalid_manifest}
       end
     end
+  end
+
+  defp manifest, do: read_json(@manifest_fixture)
+
+  defp pinned, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
+
+  defp read_fixture_bytes(file) do
+    @fixture
+    |> Path.join(file)
+    |> File.read!()
+    |> String.trim_trailing("\n")
+  end
+
+  defp read_json(file) when is_binary(file) do
+    @fixture
+    |> Path.join(file)
+    |> File.read!()
+    |> Jason.decode!()
+  end
+
+  defp read_json(path) when is_list(path) do
+    SigilGuard.FixturePath.read_json!(path)
+  end
+
+  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+
+  defp jcs_sha256(term) do
+    {:ok, bytes} = JCS.encode(term)
+    sha256_hex(bytes)
   end
 end

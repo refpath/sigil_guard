@@ -16,6 +16,17 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
   @anchored_at "2026-01-01T00:00:05.000Z"
   @issuer "did:web:http-anchor-store.example"
 
+  defmodule AnchorRecordClient do
+    @moduledoc false
+    @behaviour SigilGuard.HTTPClient
+
+    @impl SigilGuard.HTTPClient
+    def request(:get, url, _, nil, _) do
+      send(self(), {:requested, url})
+      {:ok, %{status: 200, headers: [], body: Process.get(:anchor_record_body)}}
+    end
+  end
+
   setup do
     bypass = Bypass.open()
     Application.put_env(:sigil_guard, :http_client, SigilGuard.TestHTTPClient)
@@ -68,7 +79,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
       assert receipt["uri"] == "#{url}/audit/anchors/#{digest}##{digest}"
       assert receipt["anchor_digest"] == digest
       assert receipt["stored_at"] == "2026-01-01T00:00:06.000Z"
-      assert receipt["worm"]
+      assert receipt["worm"] == true
       assert receipt["metadata"] == %{"region" => "eu"}
     end
 
@@ -91,7 +102,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
       assert receipt["storage"] == "http"
       assert receipt["uri"] == location
       assert receipt["anchor_digest"] == digest
-      refute receipt["worm"]
+      assert receipt["worm"] == false
       assert receipt["metadata"] == %{}
     end
 
@@ -179,7 +190,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
       end)
 
       assert {:ok, receipt} = Store.put(HTTP, anchor, url: url, require_worm: true)
-      assert receipt["worm"]
+      assert receipt["worm"] == true
 
       Bypass.expect_once(bypass, "POST", "/audit/anchors", fn conn ->
         Plug.Conn.resp(
@@ -223,7 +234,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
                )
 
       assert verified_receipt["anchor_digest"] == digest
-      assert verified_receipt["worm"]
+      assert verified_receipt["worm"] == true
       assert get_in(verified_receipt, ["signature", "issuer"]) == @issuer
       assert get_in(verified_receipt, ["signature", "algorithm"]) == "Ed25519"
     end
@@ -645,19 +656,42 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
     test "requires explicit allowlisting for hostname receipt URLs" do
       {_, anchor} = anchor_fixture()
       digest = Anchor.digest(anchor)
+      Process.put(:anchor_record_body, Jason.encode!(%{"record" => anchor}))
 
       receipt = %{
         "uri" => "https://anchors.example.test/audit/anchors/#{digest}##{digest}",
         "anchor_digest" => digest
       }
 
-      assert {:error, :unsafe_receipt_url} = Store.fetch(HTTP, receipt)
+      assert Store.fetch(HTTP, receipt, http_client: AnchorRecordClient) ==
+               {:error, :unsafe_receipt_url}
 
-      assert {:error, {:http_client_error, _}} =
-               Store.fetch(HTTP, receipt, receipt_url_hosts: ["ANCHORS.EXAMPLE.TEST"])
+      assert {:ok, ^anchor} =
+               Store.fetch(HTTP, receipt,
+                 http_client: AnchorRecordClient,
+                 receipt_url_hosts: ["ANCHORS.EXAMPLE.TEST"]
+               )
 
-      assert {:error, :unsafe_receipt_url} =
-               Store.fetch(HTTP, receipt, receipt_url_hosts: ["example.test", 123])
+      assert_received {:requested, "https://anchors.example.test/audit/anchors/" <> _}
+    end
+
+    test "an allowlisted parent domain or a non-string entry does not allowlist a host" do
+      {_, anchor} = anchor_fixture()
+      digest = Anchor.digest(anchor)
+
+      receipt = %{
+        "uri" => "https://anchors.example.test/audit/anchors/#{digest}##{digest}",
+        "anchor_digest" => digest
+      }
+
+      for hosts <- [["example.test"], [123]] do
+        assert Store.fetch(HTTP, receipt,
+                 http_client: AnchorRecordClient,
+                 receipt_url_hosts: hosts
+               ) == {:error, :unsafe_receipt_url}
+      end
+
+      refute_received {:requested, _}
     end
 
     test "refuses a receipt host that is not valid UTF-8 instead of raising" do
@@ -710,11 +744,10 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
 
       Bypass.down(bypass)
 
-      assert {:error, _} =
-               Store.fetch(HTTP, digest,
-                 url: "http://localhost:#{bypass.port}",
-                 timeout: 50
-               )
+      assert Store.fetch(HTTP, digest,
+               url: "http://localhost:#{bypass.port}",
+               timeout: 50
+             ) == {:error, {:http_client_error, :failed_connect}}
     end
 
     test "detects remote receipt and fetched record digest mismatches", %{

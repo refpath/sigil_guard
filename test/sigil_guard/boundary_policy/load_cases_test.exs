@@ -42,6 +42,7 @@ defmodule SigilGuard.BoundaryPolicy.LoadCasesTest do
           [candidates: ["custom-policy"], legacy_replacements: :none]
         ] do
       assert PolicyFile.load(dir, opts) == {:error, :invalid_options}
+      assert PolicyFile.load(Path.join(dir, "absent"), opts) == {:error, :invalid_options}
     end
   end
 

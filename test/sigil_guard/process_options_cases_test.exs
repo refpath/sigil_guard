@@ -44,6 +44,7 @@ defmodule SigilGuard.ProcessOptionsCasesTest do
     )
 
     assert {:ok, pid} = InMemory.start_link()
+    assert :sys.get_state(pid).master_key == :crypto.hash(:sha256, "configured")
     assert {:ok, id} = InMemory.encrypt("secret", "configured key")
     assert InMemory.decrypt(id) == {:ok, "secret"}
     GenServer.stop(pid)
@@ -71,9 +72,22 @@ defmodule SigilGuard.ProcessOptionsCasesTest do
       content_hash: String.duplicate("b", 64)
     })
 
-    for event <- [[:sigil_guard, :policy, :decision], [:sigil_guard, :runtime, :gate]] do
-      assert_receive {:forwarded, ^event, attributes}
-      refute Enum.any?(Map.keys(attributes), &String.contains?(&1, ["actor", "hash", "digest"]))
-    end
+    assert_receive {:forwarded, [:sigil_guard, :policy, :decision], policy_attributes}
+
+    assert policy_attributes == %{
+             "sigilguard.action" => "cell.move",
+             "sigilguard.component" => "policy",
+             "sigilguard.event" => "sigil_guard.policy.decision",
+             "sigilguard.operation" => "decision"
+           }
+
+    assert_receive {:forwarded, [:sigil_guard, :runtime, :gate], gate_attributes}
+
+    assert gate_attributes == %{
+             "sigilguard.component" => "runtime",
+             "sigilguard.event" => "sigil_guard.runtime.gate",
+             "sigilguard.operation" => "gate",
+             "sigilguard.verdict" => "allowed"
+           }
   end
 end

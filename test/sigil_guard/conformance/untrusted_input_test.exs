@@ -462,7 +462,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   describe "malformed shapes are answered, not raised" do
     @improper [1 | 2]
 
-    test "a struct or an improper list as a request or result" do
+    test "a struct or improper list as a request or result gets a JSON-RPC answer" do
       for input <- [~U[2026-11-19 12:01:00.000Z], %{"params" => @improper}, @improper] do
         assert answer?(ToolGateway.guarded_request(input, [], []))
         assert answer?(ToolGateway.guarded_result(input, [], []))
@@ -474,8 +474,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
     test "scanner text skips keys that are neither strings nor atoms" do
       binding = %{1 => "one", {1, 2} => "tuple", "key" => ["value" | "tail"], atom: "a"}
 
-      assert SecurityPayload.scan_text(binding) =~ "tuple"
-      assert SecurityPayload.scan_text(binding) =~ "tail"
+      assert SecurityPayload.scan_text(binding) == "\none\n\ntuple\natom\na\nkey\nvalue\ntail"
       assert SecurityPayload.scan_text(%{"b" => "2", "a" => "1"}) == "a\n1\nb\n2"
     end
 
@@ -581,7 +580,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
       for roles <- [0, "roles", [], %{"root" => 0}] do
         mutated = with_document(envelope, Map.put(document, "roles", roles))
 
-        assert {:error, _} = TrustBundle.verify(mutated, now: @bundle_now)
+        assert TrustBundle.verify(mutated, now: @bundle_now) == {:error, :invalid_bundle_format}
       end
     end
   end

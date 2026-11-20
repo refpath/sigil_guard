@@ -21,8 +21,7 @@ defmodule SigilGuard.ToolGateway.BaseCasesTest do
     assert {:ok, response, %Decision{action: :allow}} =
              Base.guarded_result(clean, trust_level: :high)
 
-    assert response["id"] == "r-7"
-    assert response["result"]["content"] == [%{"type" => "text", "text" => "write complete"}]
+    assert response == clean
   end
 
   test "a text result that needs confirmation is refused without a token and released redacted with one" do

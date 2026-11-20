@@ -290,14 +290,20 @@ defmodule SigilGuard.Audit.ProofTest do
       end
     end
 
-    test "an equal-size proof requires matching roots and empty nodes", ctx do
+    test "an equal-size proof with matching roots and no nodes verifies", ctx do
       {:ok, proof} = Proof.consistency(ctx.events, 5)
       assert Proof.verify_consistency(proof, ctx.roots["5"], ctx.roots["5"]) == :ok
+    end
 
-      # Equal sizes with different roots is an inconsistent (forked) tree.
+    test "an equal-size proof between different roots fails :inconsistent_tree", ctx do
+      {:ok, proof} = Proof.consistency(ctx.events, 5)
+
       assert Proof.verify_consistency(proof, ctx.roots["5"], ctx.roots["4"]) ==
                {:error, :inconsistent_tree}
+    end
 
+    test "an equal-size proof that carries nodes fails :invalid_proof", ctx do
+      {:ok, proof} = Proof.consistency(ctx.events, 5)
       nonempty = Map.put(proof, "proof_nodes", [ctx.roots["5"]])
 
       assert Proof.verify_consistency(nonempty, ctx.roots["5"], ctx.roots["5"]) ==

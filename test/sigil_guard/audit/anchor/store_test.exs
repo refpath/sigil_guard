@@ -137,7 +137,7 @@ defmodule SigilGuard.Audit.Anchor.StoreTest do
       assert metadata.outcome == :ok
       assert metadata.anchor_storage == "memory"
       assert metadata.anchor_uri_scheme == "memory"
-      assert is_binary(metadata.anchor_digest)
+      assert metadata.anchor_digest == Anchor.digest(anchor())
     after
       :telemetry.detach(handler)
     end

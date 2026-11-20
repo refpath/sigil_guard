@@ -133,9 +133,21 @@ defmodule SigilGuard.Runtime.GateCasesTest do
 
     other = Gate.evaluate("hello", context, risk_mappings: %{"delete_database" => :high})
     assert {other.verdict, other.risk_level} == {:allowed, :low}
+  end
+
+  test "an out-of-vocabulary risk level mapped to this action blocks it" do
+    context = [
+      phase: :tool_request,
+      origin: :model,
+      sink: :tool,
+      trust_level: :high,
+      action: "read_file"
+    ]
 
     invalid = Gate.evaluate("hello", context, risk_mappings: %{"read_file" => :critical})
-    assert invalid.verdict == :blocked
+
+    assert {invalid.verdict, invalid.risk_level, Enum.map(invalid.matched_rules, & &1.rule_id)} ==
+             {:blocked, :high, ["gate"]}
   end
 
   test "the repo policy action falls back to the context tool, then to the gate action" do

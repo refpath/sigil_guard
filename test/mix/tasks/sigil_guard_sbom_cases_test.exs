@@ -299,13 +299,9 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
 
   describe "generate/1 without git" do
     test "the document namespace uses NOASSERTION outside a work tree and without a git executable" do
-      hash =
-        :crypto.hash(:sha256, "sigil_guard_sbom_fixture:1.0.0:NOASSERTION:#{@created_at}")
-        |> Base.encode16(case: :lower)
-
       expected =
         "https://example.invalid/sigil_guard_sbom_fixture/sbom/sigil_guard_sbom_fixture-1.0.0-" <>
-          hash
+          "a7ce4fb40de9102a71504833371f83cb69c3f592dc8dfe2e61a3d0fafd705995"
 
       outside = Tmp.dir("not_a_repo")
       path = System.get_env("PATH")

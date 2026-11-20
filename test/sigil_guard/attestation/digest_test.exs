@@ -5,9 +5,7 @@ defmodule SigilGuard.Attestation.DigestTest do
 
   doctest SigilGuard.Attestation.Digest
 
-  alias SigilGuard.Attestation
   alias SigilGuard.Attestation.Digest
-  alias SigilGuard.Canonical.JCS
 
   @request_action_digest String.duplicate("a", 64)
   @manifest_digest String.duplicate("b", 64)
@@ -53,14 +51,13 @@ defmodule SigilGuard.Attestation.DigestTest do
         confirmation_token: "ignored"
       }
 
-      stripped = Attestation.strip_metadata(payload)
-      assert {:ok, canonical} = JCS.encode(stripped)
-      assert Digest.payload_digest(payload) == {:ok, sha256(canonical)}
+      stripped = ~s({"name":"repo_file_write","params":{"arguments":{"path":"README.md"}}})
+      assert Digest.payload_digest(payload) == {:ok, sha256(stripped)}
 
       list_payload = [payload, %{"_agent_confirmation" => "ignored", "value" => true}]
-      stripped_list = Attestation.strip_metadata(list_payload)
-      assert {:ok, canonical_list} = JCS.encode(stripped_list)
-      assert Digest.payload_digest(list_payload) == {:ok, sha256(canonical_list)}
+
+      assert Digest.payload_digest(list_payload) ==
+               {:ok, sha256("[" <> stripped <> ~s(,{"value":true}]))}
     end
 
     test "keeps digest-neutral behavior only for attestation metadata namespaces" do
@@ -159,13 +156,22 @@ defmodule SigilGuard.Attestation.DigestTest do
         intended_audience: :tool
       }
 
-      assert {:ok, preimage} = Digest.context_preimage(:tool_request, context)
-      assert preimage["actor"] == "spiffe://agents/requester"
-      assert preimage["identity"] == "did:example:agent"
-      assert preimage["trust_level"] == :high
-      assert preimage["phase"] == :tool_request
-      assert preimage["trust_zone"] == :trusted
-      assert preimage["mcp_server"] == "local"
+      assert Digest.context_preimage(:tool_request, context) ==
+               {:ok,
+                %{
+                  "statement_type" => "tool_request",
+                  "actor" => "spiffe://agents/requester",
+                  "identity" => "did:example:agent",
+                  "trust_level" => :high,
+                  "phase" => :tool_request,
+                  "origin" => :user,
+                  "sink" => :tool,
+                  "trust_zone" => :trusted,
+                  "mcp_server" => "local",
+                  "tool" => "repo_file_write",
+                  "resource_uri" => "memory://1",
+                  "intended_audience" => :tool
+                }}
     end
   end
 
@@ -320,42 +326,6 @@ defmodule SigilGuard.Attestation.DigestTest do
                {:error, :invalid_payload}
 
       assert Digest.action_preimage(
-               :repo_change,
-               %{
-                 "repository" => %{"owner" => "sigil"},
-                 "operation" => true,
-                 "paths" => ["README.md"]
-               },
-               %{},
-               []
-             ) ==
-               {:ok,
-                %{
-                  "statement_type" => "repo_change",
-                  "repository" => %{"owner" => "sigil"},
-                  "operation" => true,
-                  "paths" => ["README.md"]
-                }}
-
-      assert Digest.action_preimage(
-               :repo_change,
-               %{
-                 "repository" => ["sigil_guard"],
-                 "operation" => 1,
-                 "paths" => ["README.md"]
-               },
-               %{},
-               []
-             ) ==
-               {:ok,
-                %{
-                  "statement_type" => "repo_change",
-                  "repository" => ["sigil_guard"],
-                  "operation" => 1,
-                  "paths" => ["README.md"]
-                }}
-
-      assert Digest.action_preimage(
                :agent_response,
                %{"peer_agent" => "a", "capability" => "c"},
                %{},
@@ -366,20 +336,6 @@ defmodule SigilGuard.Attestation.DigestTest do
       assert Digest.action_preimage(:unknown, %{}, %{}, []) == {:error, :unknown_statement_type}
 
       assert Digest.action_preimage(:tool_request, "bad", %{}, []) == {:error, :invalid_payload}
-
-      assert Digest.action_preimage(
-               :tool_request,
-               %{"method" => "tools/call", "arguments" => %{"path" => "README.md"}},
-               %{tool: :repo_file_write},
-               []
-             ) ==
-               {:ok,
-                %{
-                  "statement_type" => "tool_request",
-                  "tool" => "repo_file_write",
-                  "method" => "tools/call",
-                  "arguments" => %{"path" => "README.md"}
-                }}
 
       assert Digest.action_preimage(:tool_result, %{}, %{}, request_action_digest: "bad") ==
                {:error, :invalid_payload}
@@ -396,13 +352,6 @@ defmodule SigilGuard.Attestation.DigestTest do
 
         assert Digest.context_digest(:tool_request, context) == {:error, :invalid_payload}
       end
-
-      assert Digest.action_preimage(
-               :model_ingress,
-               %{},
-               %{"origin" => "user", "unexpected" => "ignored"},
-               []
-             ) == {:ok, %{"statement_type" => "model_ingress", "origin" => "user"}}
 
       assert Digest.action_preimage(
                :release,
@@ -443,6 +392,53 @@ defmodule SigilGuard.Attestation.DigestTest do
                %{},
                []
              ) == {:error, :invalid_payload}
+    end
+
+    test "a repo change row keeps a repository and an operation of any JSON type" do
+      for {repository, operation} <- [{%{"owner" => "sigil"}, true}, {["sigil_guard"], 1}] do
+        assert Digest.action_preimage(
+                 :repo_change,
+                 %{
+                   "repository" => repository,
+                   "operation" => operation,
+                   "paths" => ["README.md"]
+                 },
+                 %{},
+                 []
+               ) ==
+                 {:ok,
+                  %{
+                    "statement_type" => "repo_change",
+                    "repository" => repository,
+                    "operation" => operation,
+                    "paths" => ["README.md"]
+                  }}
+      end
+    end
+
+    test "a tool request row takes an atom tool name from the context" do
+      assert Digest.action_preimage(
+               :tool_request,
+               %{"method" => "tools/call", "arguments" => %{"path" => "README.md"}},
+               %{tool: :repo_file_write},
+               []
+             ) ==
+               {:ok,
+                %{
+                  "statement_type" => "tool_request",
+                  "tool" => "repo_file_write",
+                  "method" => "tools/call",
+                  "arguments" => %{"path" => "README.md"}
+                }}
+    end
+
+    test "a model ingress row keeps only the origin of a string-keyed context" do
+      assert Digest.action_preimage(
+               :model_ingress,
+               %{},
+               %{"origin" => "user", "unexpected" => "ignored"},
+               []
+             ) == {:ok, %{"statement_type" => "model_ingress", "origin" => "user"}}
     end
   end
 
@@ -492,7 +488,8 @@ defmodule SigilGuard.Attestation.DigestTest do
       assert {:ok, manifest_digests} =
                Digest.digests(:tool_request, payload, context, manifest: %{"name" => "bundle"})
 
-      assert Map.has_key?(manifest_digests, "manifest")
+      assert manifest_digests["manifest"] ==
+               elem(Digest.manifest_digest(%{"name" => "bundle"}), 1)
 
       assert Digest.digests(:tool_request, payload, context, manifest_digest: :bad) ==
                {:error, :invalid_payload}

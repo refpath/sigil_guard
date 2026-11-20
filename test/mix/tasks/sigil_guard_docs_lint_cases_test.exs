@@ -27,7 +27,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLintCasesTest do
              "docs lint failed:\ndocs/tasks/sigil-tasks.md: spec_drift: SP.07 has no task reference"
   end
 
-  test "skips a directory whose name ends in .md" do
+  test "a directory whose name ends in .md is skipped" do
     root =
       fixture_root(%{
         "README.md" => "Public docs\n",
@@ -36,7 +36,6 @@ defmodule Mix.Tasks.SigilGuard.DocsLintCasesTest do
         "docs/archive.md/note.txt" => "not markdown\n"
       })
 
-    assert File.dir?(Path.join(root, "docs/archive.md"))
     assert DocsLint.lint(root: root) == :ok
   end
 end

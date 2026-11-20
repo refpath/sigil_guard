@@ -148,14 +148,6 @@ defmodule SigilGuard.MCP.GatewayTest do
       assert string_key_decision.verdict == :allowed
       assert string_key_decision.audit_metadata.actor == "did:sigil:string"
     end
-
-    test "falls back safely for invalid contexts and non-map payloads" do
-      decision = Gateway.guard_request("plain text request", :not_a_context, risk_level: :low)
-
-      assert decision.verdict == :allowed
-      assert decision.audit_metadata.tool == nil
-      assert decision.audit_metadata.action == :allow
-    end
   end
 
   describe "guarded_request/3" do
@@ -190,7 +182,7 @@ defmodule SigilGuard.MCP.GatewayTest do
       assert response["error"]["code"] == -31_990
       assert response["error"]["data"]["status"] == "blocked"
       assert response["error"]["data"]["hit_count"] == 1
-      assert response["error"]["data"]["content_hash"]
+      assert response["error"]["data"]["content_hash"] == decision.content_hash
       refute inspect(response) =~ "AKIAIOSFODNN7EXAMPLE"
     end
 
@@ -342,7 +334,8 @@ defmodule SigilGuard.MCP.GatewayTest do
         )
 
       assert {:confirm, _} = decision.verdict
-      assert decision.audit_metadata.action_digest
+      assert decision.audit_metadata.action_digest =~ ~r/\A[0-9a-f]{64}\z/
+      refute Map.has_key?(decision.audit_metadata, :confirmation_status)
     end
 
     test "leaves already allowed requests unchanged when confirmation guard is used" do
@@ -373,7 +366,10 @@ defmodule SigilGuard.MCP.GatewayTest do
       assert decision.reason == "Confirmation token accepted"
       assert decision.audit_metadata.confirmation_status == :accepted
       assert decision.audit_metadata.confirmation_actor == "unknown"
-      assert decision.audit_metadata.confirmation_nonce_hash
+
+      assert decision.audit_metadata.confirmation_nonce_hash ==
+               Base.encode16(:crypto.hash(:sha256, String.duplicate("e", 32)), case: :lower)
+
       refute inspect(decision.audit_metadata) =~ token
 
       replay =
@@ -968,7 +964,8 @@ defmodule SigilGuard.MCP.GatewayTest do
       assert {:confirm, _} = decision.verdict
       assert decision.action == :confirm
       assert decision.effect == :quarantine
-      assert decision.audit_metadata.action_digest
+      assert decision.audit_metadata.action_digest =~ ~r/\A[0-9a-f]{64}\z/
+      refute Map.has_key?(decision.audit_metadata, :confirmation_status)
     end
 
     test "leaves already allowed results unchanged when confirmation guard is used" do

@@ -124,6 +124,7 @@ defmodule SigilGuard.BoundaryPolicyCasesTest do
 
     decision = SigilGuard.Runtime.Gate.evaluate("x", [phase: :tool_result], hooks: [Foo | Bar])
     assert decision.verdict == :blocked
+    assert rule_ids(decision) == ["gate.malformed_input"]
   end
 
   test "a :policy that is not a policy is malformed options, not an absent policy" do

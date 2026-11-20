@@ -149,8 +149,9 @@ defmodule SigilGuard.HooksTest do
     test "accumulated risk takes the maximum and never lowers" do
       assert dispatch([HighRiskHook, LowRiskHook], :tool_request).risk_level == :high
       assert dispatch([LowRiskHook, HighRiskHook], :tool_request).risk_level == :high
+    end
 
-      # A later signal with no risk_level leaves the accumulated risk intact.
+    test "a later signal with no risk_level leaves the accumulated risk intact" do
       result = dispatch([HighRiskHook, IndicatorOnlyHook], :tool_request)
       assert result.risk_level == :high
 
@@ -180,7 +181,8 @@ defmodule SigilGuard.HooksTest do
     end
 
     test "a malformed signal fails closed to block on a blockable phase" do
-      assert verdicts(dispatch([BadSignalHook], :tool_request)) == [:block]
+      assert [{:block, [%{"explanation" => "invalid_hook_result"}]}] =
+               dispatch([BadSignalHook], :tool_request).contributions
     end
   end
 
@@ -307,10 +309,18 @@ defmodule SigilGuard.HooksTest do
     module = SigilGuard.ColdSecurityFixture
     :code.purge(module)
     :code.delete(module)
-    assert verdicts(dispatch([module], :tool_request)) == [:block]
+
+    assert [{:block, [%{"explanation" => "cold hook denied"}]}] =
+             dispatch([module], :tool_request).contributions
+
     :code.purge(module)
     :code.delete(module)
-    assert {:ok, _} = SigilGuard.Attestation.Envelope.sign("bytes", module)
-    assert verdicts(dispatch([SigilGuard.MissingSecurityHook], :tool_request)) == [:block]
+    assert {:ok, envelope} = SigilGuard.Attestation.Envelope.sign("bytes", module)
+
+    assert [%{"keyid" => keyid}] = envelope["signatures"]
+    assert keyid == SigilGuard.Attestation.Envelope.keyid(module.public_key())
+
+    assert [{:block, [%{"explanation" => "invalid_hook_options"}]}] =
+             dispatch([SigilGuard.MissingSecurityHook], :tool_request).contributions
   end
 end

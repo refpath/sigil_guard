@@ -21,8 +21,8 @@ defmodule SigilGuard.AuditTest do
       assert event.actor == "did:web:alice"
       assert event.action == "read_file"
       assert event.result == "success"
-      assert is_binary(event.id)
-      assert is_binary(event.timestamp)
+      assert event.id =~ ~r/\A[0-9a-f]{32}\z/
+      assert event.timestamp =~ ~r/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\z/
       assert event.metadata == %{}
       assert event.hmac == nil
       assert event.prev_hmac == nil
@@ -48,9 +48,9 @@ defmodule SigilGuard.AuditTest do
       event = Audit.new_event("test", "actor", "action", "success")
       signed = Audit.sign_event(event, @secret_key)
 
-      assert is_binary(signed.hmac)
-      assert byte_size(signed.hmac) == 64
+      assert signed.hmac =~ ~r/\A[0-9a-f]{64}\z/
       assert signed.prev_hmac == nil
+      assert Audit.verify_chain([signed], @secret_key) == :ok
     end
 
     test "signs a subsequent event with chain link" do
@@ -179,8 +179,7 @@ defmodule SigilGuard.AuditTest do
     end
 
     test "detects a forged self-consistent first event" do
-      # An event whose hmac correctly covers a fabricated prev_hmac used
-      # to verify as a chain head; the genesis link must be enforced.
+      # The hmac covers a fabricated prev_hmac, so only the genesis-link check can reject it.
       fake_prev = Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
 
       forged =
@@ -277,41 +276,31 @@ defmodule SigilGuard.AuditTest do
       assert event.result_info == nil
     end
 
-    test "accepts typed Actor struct" do
-      actor = %SigilGuard.Audit.Actor{
-        channel: "mcp",
-        user_id: "did:web:alice",
-        username: "Alice"
+    test "typed actor, action and result structs are not part of the signed bytes" do
+      event = Audit.new_event("test", "actor", "action", "result")
+
+      typed = %{
+        event
+        | actor_info: %SigilGuard.Audit.Actor{
+            channel: "mcp",
+            user_id: "did:web:alice",
+            username: "Alice"
+          },
+          action_info: %SigilGuard.Audit.Action{
+            description: "read_file",
+            risk_level: :low,
+            approved: true,
+            allowed: true
+          },
+          result_info: %SigilGuard.Audit.ExecutionResult{
+            success: true,
+            exit_code: 0,
+            duration_ms: 42,
+            error: nil
+          }
       }
 
-      event = %{Audit.new_event("test", "actor", "action", "result") | actor_info: actor}
-      assert event.actor_info.channel == "mcp"
-      assert event.actor_info.user_id == "did:web:alice"
-    end
-
-    test "accepts typed Action struct" do
-      action = %SigilGuard.Audit.Action{
-        description: "read_file",
-        risk_level: :low,
-        approved: true,
-        allowed: true
-      }
-
-      event = %{Audit.new_event("test", "actor", "action", "result") | action_info: action}
-      assert event.action_info.risk_level == :low
-    end
-
-    test "accepts typed ExecutionResult struct" do
-      result = %SigilGuard.Audit.ExecutionResult{
-        success: true,
-        exit_code: 0,
-        duration_ms: 42,
-        error: nil
-      }
-
-      event = %{Audit.new_event("test", "actor", "action", "result") | result_info: result}
-      assert event.result_info.success == true
-      assert event.result_info.duration_ms == 42
+      assert Audit.canonical_bytes(typed) == Audit.canonical_bytes(event)
     end
   end
 
@@ -327,7 +316,7 @@ defmodule SigilGuard.AuditTest do
   end
 
   describe "canonical_bytes/1" do
-    test "produces deterministic JSON" do
+    test "encodes the six signed fields as sorted-key compact JSON" do
       event = %Audit{
         id: "abc123",
         type: "mcp.tool_call",

@@ -179,7 +179,7 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
              TrustBundle.load({:map, revoking_successor}, now: @now)
 
     assert Cache.floor("example-org-trust") == 2
-    assert {:error, _} = TrustBundle.load({:map, genesis}, now: @now)
+    assert TrustBundle.load({:map, genesis}, now: @now) == {:error, :revoked_key}
 
     reauthorized_old_key =
       successor

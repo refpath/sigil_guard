@@ -9,10 +9,11 @@ defmodule SigilGuard.MutationReportTest do
 
     for status <- ["survived", "timeout", "unknown", "invalid"] do
       report = %{"mutations" => [%{"status" => "killed"}, %{"status" => status}]}
-      assert {:error, _} = MutationReport.validate(report, source)
+      assert {:error, :unaccounted_mutations} = MutationReport.validate(report, source)
     end
 
-    assert {:error, _} = MutationReport.validate(%{"mutations" => []}, source)
+    assert {:error, :unaccounted_mutations} =
+             MutationReport.validate(%{"mutations" => []}, source)
 
     startup = %{"status" => "invalid", "error" => "{:compile_error, Could not start application}"}
 
@@ -21,7 +22,7 @@ defmodule SigilGuard.MutationReportTest do
       "error" => "{:compile_error, == Compilation error in file}"
     }
 
-    assert {:error, _} =
+    assert {:error, :unaccounted_mutations} =
              MutationReport.validate(%{"mutations" => [%{"status" => "killed"}, startup]}, source)
 
     assert {:ok, %{invalid: 1}} =
@@ -42,6 +43,6 @@ defmodule SigilGuard.MutationReportTest do
 
     report = %{"mutations" => [%{"status" => "killed"}, mutation]}
     assert {:ok, %{equivalent: 1, killed: 1}} = MutationReport.validate(report, source)
-    assert {:error, _} = MutationReport.validate(report, source <> "\n")
+    assert {:error, :unaccounted_mutations} = MutationReport.validate(report, source <> "\n")
   end
 end

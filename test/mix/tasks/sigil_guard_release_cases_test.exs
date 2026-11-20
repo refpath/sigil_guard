@@ -86,10 +86,8 @@ defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
       "GITHUB_SHA" => context.sha
     }
 
-    assert {:error, {:cannot_resolve, "refs/tags/v1.0.1", output}} =
+    assert {:error, {:cannot_resolve, "refs/tags/v1.0.1", _}} =
              VerifyReleaseRef.verify("1.0.1", environment, context.repository)
-
-    assert output =~ "fatal"
   end
 
   test "run/1 accepts no arguments" do

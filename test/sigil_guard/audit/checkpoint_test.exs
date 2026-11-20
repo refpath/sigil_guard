@@ -92,9 +92,8 @@ defmodule SigilGuard.Audit.CheckpointTest do
     end
 
     test "supports empty chains with a domain-separated root" do
-      assert {:ok, root} = Checkpoint.merkle_root([])
-      assert {:ok, ^root} = Checkpoint.merkle_root([])
-      assert byte_size(root) == 64
+      assert Checkpoint.merkle_root([]) ==
+               {:ok, Base.encode16(:crypto.hash(:sha256, "sigil-audit-empty-v1"), case: :lower)}
     end
 
     test "rejects non-list event inputs" do

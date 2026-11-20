@@ -55,7 +55,19 @@ defmodule SigilGuard.Attestation.AgentPredicateCasesTest do
         quarantined: false
       ]
 
-      assert {:ok, _} = AgentPredicate.build_response(response_payload(), opts)
+      assert AgentPredicate.build_response(response_payload(), opts) ==
+               {:ok,
+                %{
+                  "capability" => "summarize",
+                  "status" => "ok",
+                  "quarantined" => false,
+                  "peer_trust" => "low",
+                  "request_action_digest" => @request_action_digest,
+                  "peer_agent" => %{
+                    "id" => "spiffe://agents/responder",
+                    "card_digest" => @card_digest
+                  }
+                }}
 
       assert AgentPredicate.build_response(Map.delete(response_payload(), "status"), opts) ==
                {:error, :invalid_payload}
@@ -89,7 +101,14 @@ defmodule SigilGuard.Attestation.AgentPredicateCasesTest do
       payload = Map.delete(request_payload(), "delegation_chain")
 
       assert AgentPredicate.build_request(payload) == {:error, :invalid_payload}
-      assert {:ok, _} = AgentPredicate.build_request(payload, peer_trust: :low, verdict: :block)
+
+      assert AgentPredicate.build_request(payload, peer_trust: :low, verdict: :block) ==
+               {:ok,
+                %{
+                  "capability" => "summarize",
+                  "peer_agent" => %{"id" => "spiffe://agents/responder"},
+                  "peer_trust" => "low"
+                }}
     end
   end
 

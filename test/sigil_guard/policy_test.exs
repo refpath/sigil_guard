@@ -178,25 +178,22 @@ defmodule SigilGuard.PolicyTest do
 
   describe "trust monotonicity" do
     test "higher trust always subsumes lower trust for any risk level" do
-      trust_levels = [:low, :medium, :high]
-      risk_levels = [:low, :medium, :high]
+      table = [
+        {:low, [:allowed, :allowed, :allowed]},
+        {:medium, [:confirm, :allowed, :allowed]},
+        {:high, [:blocked, :confirm, :allowed]}
+      ]
 
-      for risk <- risk_levels do
+      for {risk, expected} <- table do
         verdicts =
-          Enum.map(trust_levels, fn trust ->
-            Policy.evaluate("test_action", trust, risk_level: risk)
-          end)
-
-        Enum.reduce(verdicts, false, fn verdict, saw_allowed ->
-          if saw_allowed do
-            assert verdict == :allowed,
-                   "Trust monotonicity violated: risk=#{risk}, higher trust got #{inspect(verdict)} after :allowed"
-
-            true
-          else
-            verdict == :allowed
+          for trust <- [:low, :medium, :high] do
+            case Policy.evaluate("test_action", trust, risk_level: risk) do
+              {:confirm, _} -> :confirm
+              verdict -> verdict
+            end
           end
-        end)
+
+        assert verdicts == expected, "risk #{risk}"
       end
     end
   end

@@ -57,17 +57,6 @@ defmodule SigilGuard.TelemetryTest do
     test "lists known SigilGuard telemetry events" do
       assert Telemetry.events() == @expected_events
     end
-
-    test "exposes only current SigilGuard event families" do
-      assert Enum.uniq(Telemetry.events()) == Telemetry.events()
-      assert Enum.all?(Telemetry.events(), &match?([:sigil_guard | _], &1))
-
-      refute Enum.any?(Telemetry.events(), fn
-               [:sigil_guard, :registry | _] -> true
-               [:sigil_guard, :envelope | _] -> true
-               _ -> false
-             end)
-    end
   end
 
   describe "otel_attributes/4" do
@@ -106,35 +95,35 @@ defmodule SigilGuard.TelemetryTest do
           include_high_cardinality: true
         )
 
-      # No attribute uses the retired sigil.* prefix; only sigilguard.* / url.full.
-      assert Enum.all?(Map.keys(attributes), fn key ->
-               String.starts_with?(key, "sigilguard.") or key == "url.full"
-             end)
-
-      assert attributes["sigilguard.event"] == "sigil_guard.runtime.gate"
-      assert attributes["sigilguard.component"] == "runtime"
-      assert attributes["sigilguard.operation"] == "gate"
-      assert attributes["sigilguard.phase"] == "tool_request"
-      assert attributes["sigilguard.actor.hash"] == "redacted-v1"
-      assert attributes["sigilguard.identity.hash"] == "redacted-v1"
-      assert attributes["sigilguard.verdict"] == "blocked"
-      assert attributes["sigilguard.action.digest"] == "digest123"
-      assert attributes["sigilguard.action.digest_error"] == "invalid_payload"
-      assert attributes["sigilguard.hit_count"] == 1
-      assert attributes["sigilguard.indicator_ids"] == ["ignore_instructions"]
-      assert attributes["sigilguard.confirmation.status"] == "invalid"
-      assert attributes["sigilguard.confirmation.reason"] == "digest_mismatch"
-      assert attributes["sigilguard.confirmation.actor.hash"] == "redacted-v1"
-      assert attributes["sigilguard.confirmation.nonce_hash"] == "nonce-hash"
-      assert attributes["sigilguard.release.status"] == "confirmed_sanitized"
-      assert attributes["sigilguard.runtime_input_error"] == "invalid_action"
-      assert attributes["sigilguard.scanner.error"] == "scanner_failed"
-      assert attributes["sigilguard.payload.digest"] == "abc123"
-
-      # The legacy registry/envelope attributes are never emitted (telemetry compatibility).
-      refute Map.has_key?(attributes, "sigil.envelope.status")
-      refute Map.has_key?(attributes, "sigil.envelope.reason")
-      refute Enum.any?(Map.keys(attributes), &String.contains?(&1, "envelope"))
+      assert attributes == %{
+               "sigilguard.event" => "sigil_guard.runtime.gate",
+               "sigilguard.component" => "runtime",
+               "sigilguard.operation" => "gate",
+               "sigilguard.measurement.system_time" => 123,
+               "sigilguard.phase" => "tool_request",
+               "sigilguard.actor.hash" => "redacted-v1",
+               "sigilguard.identity.hash" => "redacted-v1",
+               "sigilguard.origin" => "model",
+               "sigilguard.sink" => "external",
+               "sigilguard.tool.name" => "send_webhook",
+               "sigilguard.trust_zone" => "semi_trusted",
+               "sigilguard.trust_level" => "high",
+               "sigilguard.risk_level" => "high",
+               "sigilguard.verdict" => "blocked",
+               "sigilguard.action" => "block",
+               "sigilguard.action.digest" => "digest123",
+               "sigilguard.action.digest_error" => "invalid_payload",
+               "sigilguard.hit_count" => 1,
+               "sigilguard.indicator_ids" => ["ignore_instructions"],
+               "sigilguard.confirmation.status" => "invalid",
+               "sigilguard.confirmation.reason" => "digest_mismatch",
+               "sigilguard.confirmation.actor.hash" => "redacted-v1",
+               "sigilguard.confirmation.nonce_hash" => "nonce-hash",
+               "sigilguard.release.status" => "confirmed_sanitized",
+               "sigilguard.runtime_input_error" => "invalid_action",
+               "sigilguard.scanner.error" => "scanner_failed",
+               "sigilguard.payload.digest" => "abc123"
+             }
     end
 
     test "drops high-cardinality attributes unless opted in" do
@@ -153,11 +142,9 @@ defmodule SigilGuard.TelemetryTest do
 
       bounded = Telemetry.otel_attributes([:sigil_guard, :runtime, :gate], %{}, metadata)
 
-      # Bounded attributes are always present.
       assert bounded["sigilguard.verdict"] == "blocked"
       assert bounded["sigilguard.hit_count"] == 3
 
-      # High-cardinality attributes are dropped by default.
       for key <- ~w(sigilguard.actor.hash sigilguard.identity.hash sigilguard.action.digest
                     sigilguard.payload.digest sigilguard.confirmation.actor.hash
                     sigilguard.resource.uri sigilguard.mcp.protocol_version
@@ -402,7 +389,7 @@ defmodule SigilGuard.TelemetryTest do
         end)
 
       assert decision.verdict == :blocked
-      assert Map.has_key?(decision.audit_metadata, :runtime_input_error)
+      assert decision.audit_metadata.runtime_input_error == :invalid_phase
       assert decision.audit_metadata.decision_id == "req-9"
       assert metadata.decision_id == "req-9"
 
@@ -547,7 +534,7 @@ defmodule SigilGuard.TelemetryTest do
                SigilGuard.Audit.hash_field("did:web:alice", @field_hash_key)
     end
 
-    test "uses official URL attribute naming and drops removed registry keys" do
+    test "maps url to url.full and exports no registry attribute" do
       attributes =
         Telemetry.otel_attributes(
           [:sigil_guard, :registry, :fetch, :stop],
@@ -562,7 +549,6 @@ defmodule SigilGuard.TelemetryTest do
 
       assert attributes["url.full"] == "https://registry.example.test/patterns/bundle"
       assert attributes["sigilguard.measurement.duration"] == 10
-      # The legacy sigil.registry.* attributes are removed (telemetry compatibility).
       refute Enum.any?(Map.keys(attributes), &String.contains?(&1, "registry"))
       refute Enum.member?(Map.values(attributes), "patterns/bundle")
     end

@@ -94,6 +94,12 @@ defmodule SigilGuard.AuditCasesTest do
     {:ok, statement3} = Checkpoint.to_statement(cp3)
     {:ok, proof} = Proof.consistency(events, 3)
 
+    assert {:ok, _} =
+             Witness.cosign(envelope, Fixture.signer(),
+               keyid: "witness-1",
+               previous: %{statement: statement3, consistency_proof: proof}
+             )
+
     for statement <- [
           put_in(statement3, ["predicate", "merkle_root"], 123),
           put_in(statement3, ["predicate", "merkle_root"], nil),

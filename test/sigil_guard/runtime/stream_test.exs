@@ -110,7 +110,7 @@ defmodule SigilGuard.Runtime.StreamTest do
         )
 
       # Prefix exceeds the 256-byte holdback floor so some clean content emits
-      # before the injection completes and halts the stream (boundary policy window raise).
+      # before the injection completes and halts the stream.
       prefix = String.duplicate("safe ", 60)
       {stream, first_decision, first} = Stream.push(stream, prefix <> "Ignore previous")
 

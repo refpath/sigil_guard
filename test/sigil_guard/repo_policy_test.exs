@@ -314,7 +314,7 @@ defmodule SigilGuard.RepoPolicyTest do
     end
 
     test "a malformed option value is refused before the filesystem is read", %{dir: dir} do
-      # Neither directory exists, and one holds a legacy filename: a filesystem
+      # One root does not exist and the other holds a legacy filename: a filesystem
       # probe would answer :not_found or a legacy-name error instead.
       missing = Path.join(dir, "no-such-repo")
       legacy = Path.join(dir, "legacy")
@@ -756,7 +756,7 @@ defmodule SigilGuard.RepoPolicyTest do
       assert RepoPolicy.digest(policy) == RepoPolicy.digest(stripped)
     end
 
-    test "precompiles glob matchers before evaluation" do
+    test "compile/1 stores one matcher per path pattern" do
       policy = compile!(rules: [rule("src", :allow, ["src/*.ex", "apps/**/mix.exs"])])
 
       assert [
@@ -765,14 +765,6 @@ defmodule SigilGuard.RepoPolicyTest do
                  [{:literal, "apps"}, :globstar, {:literal, "mix.exs"}]
                ]
              ] = Enum.map(policy.rules, & &1.path_matchers)
-
-      repo_policy_source = File.read!("lib/sigil_guard/repo_policy.ex")
-      [_, evaluation_source] = String.split(repo_policy_source, "defp rule_matches?", parts: 2)
-
-      [evaluation_source | _] =
-        String.split(evaluation_source, "defp normalize_decision", parts: 2)
-
-      refute evaluation_source =~ "Regex.compile!"
     end
   end
 

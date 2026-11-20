@@ -57,7 +57,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
              end)
 
       assert TrustProfile.validate(statement) == {:ok, statement}
-      assert is_binary(action_digest(statement))
+      assert action_digest(statement) =~ ~r/\A[0-9a-f]{64}\z/
     end
 
     test "the action digest binds the artifact contents" do

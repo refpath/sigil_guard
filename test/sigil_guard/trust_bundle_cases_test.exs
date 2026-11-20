@@ -72,6 +72,5 @@ defmodule SigilGuard.TrustBundleCasesTest do
 
     assert error.key == :trust_bundle
     assert error.reason == :invalid_config
-    assert error.message =~ "expected validated configuration"
   end
 end

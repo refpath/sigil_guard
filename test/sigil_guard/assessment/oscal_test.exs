@@ -193,7 +193,18 @@ defmodule SigilGuard.Assessment.OSCALTest do
     end
 
     test "rejects malformed exports without raising", ctx do
-      for export <- [nil, [], "export", 1, %{}, Map.put(ctx.export, "kind", "wrong")] do
+      for export <- [
+            nil,
+            false,
+            :export,
+            [],
+            {},
+            self(),
+            "export",
+            1,
+            %{},
+            Map.put(ctx.export, "kind", "wrong")
+          ] do
         assert {:error, :invalid_export} = OSCAL.project(export, ctx.context)
       end
 
@@ -216,7 +227,7 @@ defmodule SigilGuard.Assessment.OSCALTest do
       assert {:error, :invalid_export} = OSCAL.project(encoded_struct, ctx.context)
     end
 
-    test "accepts the existing atom-keyed export compatibility shape" do
+    test "accepts an atom-keyed export" do
       export = %{
         kind: "sigil_guard.audit.export",
         version: 1,
@@ -228,7 +239,7 @@ defmodule SigilGuard.Assessment.OSCALTest do
       assert projection["assessment-results"]["uuid"] == @root_uuid
     end
 
-    test "preserves existing JSON number compatibility", ctx do
+    test "accepts exports with integers above 2^53 and floats", ctx do
       export =
         put_in(
           ctx.export,
@@ -274,6 +285,12 @@ defmodule SigilGuard.Assessment.OSCALTest do
     test "rejects open, string-keyed, missing, and malformed root context", ctx do
       variants = [
         {nil, :invalid_context},
+        {false, :invalid_context},
+        {42, :invalid_context},
+        {:context, :invalid_context},
+        {[], :invalid_context},
+        {{}, :invalid_context},
+        {self(), :invalid_context},
         {%{}, :invalid_context},
         {Map.put(ctx.context, :unknown, true), :invalid_context},
         {Map.delete(ctx.context, :title), :invalid_context},
@@ -401,16 +418,6 @@ defmodule SigilGuard.Assessment.OSCALTest do
 
       for context <- variants do
         assert {:error, :invalid_timestamp} = OSCAL.project(ctx.export, context)
-      end
-    end
-
-    test "is total over arbitrary top-level terms", ctx do
-      for export <- [nil, false, 42, :export, [], {}, self()] do
-        assert match?({:error, _}, OSCAL.project(export, ctx.context))
-      end
-
-      for context <- [nil, false, 42, :context, [], {}, self()] do
-        assert match?({:error, _}, OSCAL.project(ctx.export, context))
       end
     end
 

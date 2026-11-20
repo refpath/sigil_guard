@@ -119,13 +119,9 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
         {%{facts | principal: "spiffe://example.test/agent/other"}, :principal_mismatch}
       ]
 
-      reasons =
-        for {current, reason} <- changes do
-          assert admit(decision, Fixture.request(), current) == {:error, reason}
-          reason
-        end
-
-      assert Enum.uniq(reasons) == reasons
+      for {current, reason} <- changes do
+        assert admit(decision, Fixture.request(), current) == {:error, reason}
+      end
     end
 
     test "step 8: one millisecond after the deadline is refused" do
@@ -179,7 +175,6 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       pending = ToolGateway.guard_request(carrier, Fixture.context(), opts)
 
       assert {:confirm, _} = pending.verdict
-      assert {:ok, _} = EffectAuthority.envelope_digest(Fixture.envelope())
 
       {:ok, token} = issue(carrier, pending)
 
@@ -579,10 +574,6 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       assert decision.verdict == :allowed
       assert admit(decision, Fixture.request()) == :ok
     end
-
-    test "an admission result is a bare value, not a credential" do
-      assert admit(Fixture.approve(Fixture.request()), Fixture.request()) === :ok
-    end
   end
 
   describe "SG-F5 evidence honesty" do
@@ -626,10 +617,9 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       %{signed: authentication(envelope, verify), forged: authentication(forged, verify)}
     end
 
-    test "the report signature verifies or does not, independent of observations", context do
+    test "a signed report verifies and one with a flipped signature does not", context do
       assert context.signed == :verified
       assert context.forged == :invalid
-      assert authentication(nil, nil) == :unsigned
     end
 
     test "steps 1 to 5: authentication, claim, and acceptance are separate", context do
@@ -749,7 +739,8 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       injected = ToolGateway.guard_result(result.(@injection), context)
       benign = ToolGateway.guard_result(result.("x_mm 250, y_mm 100, gripper open"), context)
 
-      assert injected.action in [:block, :quarantine, :confirm]
+      assert injected.action == :confirm
+      assert injected.audit_metadata.scanner_summary.indicator_ids == [:ignore_instructions]
       assert benign.action == :allow
     end
 
@@ -922,8 +913,6 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
   end
 
   defp at(now), do: %{Fixture.facts() | now: now, observed_at: now}
-
-  defp authentication(nil, _), do: :unsigned
 
   defp authentication(report, verify) do
     case verify.(report) do

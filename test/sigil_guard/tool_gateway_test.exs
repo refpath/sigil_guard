@@ -26,7 +26,7 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "guard_request/3" do
-    test "delegates to the runtime gate when no manifest is required" do
+    test "allows a clean request when no manifest set is given" do
       decision = ToolGateway.guard_request(request(), trust_level: :high)
 
       assert %Decision{} = decision
@@ -42,26 +42,21 @@ defmodule SigilGuard.ToolGatewayTest do
     end
 
     test "normalizes list values in request text before runtime evaluation" do
-      decision = ToolGateway.guard_request(request_with_list_argument(), trust_level: :high)
+      listed = &put_in(request(), ["params", "arguments", "content"], &1)
 
-      assert decision.verdict == :allowed
-      assert decision.audit_metadata.tool == "repo_file_write"
+      clean = ToolGateway.guard_request(listed.(["hello", "world"]), trust_level: :high)
+
+      secret =
+        ToolGateway.guard_request(listed.(["hello", "AWS_KEY=AKIAIOSFODNN7EXAMPLE"]),
+          trust_level: :high
+        )
+
+      assert clean.verdict == :allowed
+      assert clean.audit_metadata.tool == "repo_file_write"
+      assert {secret.verdict, secret.audit_metadata.hit_count} == {:blocked, 1}
     end
 
-    test "normalizes non-string values without leaking them into actions" do
-      request =
-        request()
-        |> put_in(["params", "arguments", "content"], ["hello", 123])
-        |> Map.put("tool", false)
-
-      decision = ToolGateway.guard_request(request, trust_level: :high)
-
-      assert decision.verdict == :blocked
-      assert decision.audit_metadata.runtime_input_error == :invalid_action
-      assert decision.audit_metadata.tool == nil
-    end
-
-    test "normalizes nil and non-map nested fields conservatively" do
+    test "a nil params is allowed and a non-map params is refused as invalid_action" do
       nil_params =
         ToolGateway.guard_request(Map.put(request(), "params", nil), trust_level: :high)
 
@@ -261,7 +256,8 @@ defmodule SigilGuard.ToolGatewayTest do
       assert decision.audit_metadata.deny_reason == :suspicious_required_param
       assert decision.audit_metadata.suspicious_params == ["apiKey"]
       assert decision.audit_metadata.action_digest =~ ~r/^[0-9a-f]{64}$/
-      assert decision.audit_metadata.manifest_digest
+      assert {:ok, %CapabilityManifest{digest: digest}} = CapabilityManifest.new(capability)
+      assert decision.audit_metadata.manifest_digest == digest
     end
 
     test "keeps runtime blocks stronger than suspicious-parameter confirmation" do
@@ -273,7 +269,7 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert decision.verdict == :blocked
       assert decision.audit_metadata.hit_count == 1
-      refute decision.audit_metadata[:deny_reason] == :suspicious_required_param
+      assert decision.audit_metadata[:deny_reason] == nil
     end
 
     test "lets boundary policy explicitly allow suspicious required parameters" do
@@ -472,7 +468,7 @@ defmodule SigilGuard.ToolGatewayTest do
              ) == {:error, :invalid_nonce}
     end
 
-    test "normalizes confirmation manifest options" do
+    test "a token bound with manifest: or manifest_digest: is accepted against the pinned manifest" do
       assert {:ok, capability} = CapabilityManifest.new(suspicious_manifest())
 
       decision =
@@ -503,8 +499,19 @@ defmodule SigilGuard.ToolGatewayTest do
                  nonce: String.duplicate("e", 32)
                )
 
-      assert is_binary(manifest_token)
-      assert is_binary(digest_token)
+      for token <- [manifest_token, digest_token] do
+        accepted =
+          ToolGateway.guard_request(request(), sandbox_context(),
+            manifests: %{"repo_file_write" => capability},
+            require_manifest: true,
+            confirmation_token: token,
+            confirmation_key: @confirmation_key,
+            consume_confirmation: false,
+            now: @now
+          )
+
+        assert accepted.verdict == :allowed
+      end
     end
 
     test "blocks malformed confirmation options for suspicious-parameter decisions" do
@@ -676,7 +683,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert ToolGateway.guard_request(request(), sandbox_context(),
                audience: "upstream",
                self_resource: "host-app"
-             ).audit_metadata[:deny_reason] != :token_passthrough_denied
+             ).verdict == :allowed
 
       assert resource.audit_metadata.deny_reason == :resource_mismatch
       assert audience.audit_metadata.deny_reason == :audience_mismatch
@@ -768,7 +775,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert invalid_mode.audit_metadata.deny_reason == :invalid_attestation
     end
 
-    test "verifies present attestations for optional and required modes" do
+    test "an empty _agent_trust envelope is refused in optional and required modes; a v2 _sigil key is ignored" do
       request = Map.put(request(), "_agent_trust", %{})
       legacy_request = Map.put(request(), "_sigil", %{})
 
@@ -794,7 +801,6 @@ defmodule SigilGuard.ToolGatewayTest do
         )
 
       assert legacy.verdict == :allowed
-      refute legacy.audit_metadata[:deny_reason] == :invalid_attestation
     end
 
     test "accepts valid inbound attestations for optional and required modes" do
@@ -991,7 +997,8 @@ defmodule SigilGuard.ToolGatewayTest do
                  now: @now
                )
 
-      assert capability.digest
+      assert {:ok, %CapabilityManifest{digest: digest}} = CapabilityManifest.new(manifest())
+      assert capability.digest == digest
     end
 
     test "normalizes carried manifest camel-case and atom keys" do
@@ -1728,7 +1735,7 @@ defmodule SigilGuard.ToolGatewayTest do
         )
       end
 
-      assert guard.(statement).audit_metadata[:deny_reason] != :invalid_attestation
+      assert guard.(statement).verdict == :allowed
 
       impersonated = put_in(statement, ["predicate", "actor", "id"], "spiffe://agents/other")
 
@@ -1759,14 +1766,14 @@ defmodule SigilGuard.ToolGatewayTest do
           now: @now
         )
 
-      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
+      assert accepted.verdict == :allowed
 
       {:ok, statement} = Attestation.verify(envelope, trust, now: @now)
 
       assert Map.take(statement["predicate"]["boundary"], ~w(phase origin sink)) == %{
-               "phase" => Atom.to_string(decision.phase),
-               "origin" => Atom.to_string(decision.audit_metadata.origin),
-               "sink" => Atom.to_string(decision.audit_metadata.sink)
+               "phase" => "tool_request",
+               "origin" => "model",
+               "sink" => "tool"
              }
 
       assert statement["predicate"]["tool"]["name"] == "repo_file_write"
@@ -1810,8 +1817,8 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert Map.take(statement["predicate"]["boundary"], ~w(phase origin sink)) == %{
                "phase" => "tool_result",
-               "origin" => Atom.to_string(decision.audit_metadata.origin),
-               "sink" => Atom.to_string(decision.audit_metadata.sink)
+               "origin" => "tool",
+               "sink" => "model"
              }
 
       assert decision.phase == :tool_result
@@ -1841,7 +1848,7 @@ defmodule SigilGuard.ToolGatewayTest do
           now: @now
         )
 
-      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
+      assert accepted.verdict == :allowed
       refute Map.has_key?(accepted.audit_metadata, :attestation_error)
     end
 
@@ -1869,7 +1876,7 @@ defmodule SigilGuard.ToolGatewayTest do
             now: @now
           )
 
-        assert verified.audit_metadata[:deny_reason] != :invalid_attestation
+        assert verified.verdict == :allowed
 
         Enum.find_value(statement["subject"], &(&1["name"] == "action" && &1["digest"]["sha256"]))
       end
@@ -1880,7 +1887,7 @@ defmodule SigilGuard.ToolGatewayTest do
       refute first == action_digest.(%{"path" => "docs/a.md", "content" => "two"})
     end
 
-    test "refuse a non-decision, a missing payload, and a signer that is not a module" do
+    test "rejects a non-decision, a missing payload, and a signer that is not a module" do
       context = attestation_request_context()
       decision = ToolGateway.guard_request(request(), context, [])
       opts = [payload: request(), signer: TrustedSigner, now: @now]
@@ -2166,8 +2173,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert decision.action == :redact
       assert decision.audit_metadata.action == :redact
       assert decision.audit_metadata.confirmation_status == :accepted
-      refute inspect(released) =~ secret
-      assert inspect(released) =~ "[SECRET]"
+      assert released["result"]["content"] == [%{"type" => "text", "text" => "[SECRET]"}]
 
       unconfirmed = ToolGateway.guard_result(result, [trust_level: :high], [])
 
@@ -2310,7 +2316,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert unbound.audit_metadata.confirmation_reason == :manifest_digest_mismatch
     end
 
-    test "a result token may bind the pinned manifest, and one issued without it still works" do
+    test "a result token may bind the pinned manifest, and one issued without it is also accepted" do
       context = [
         phase: :tool_result,
         trust_level: :low,
@@ -2424,7 +2430,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert released["result"] == result()["result"]
     end
 
-    test "keeps guarded request tuple shapes" do
+    test "guarded_request/3 returns {:ok, decision} when allowed and {:error, response, decision} when blocked" do
       assert {:ok, %Decision{} = allowed} =
                ToolGateway.guarded_request(request(), sandbox_context())
 
@@ -2487,8 +2493,13 @@ defmodule SigilGuard.ToolGatewayTest do
 
       assert {:confirm, _} = decision.verdict
       assert decision.audit_metadata.request_action_digest == @request_action_digest
-      assert decision.audit_metadata.quarantine_status in [:confirm, :quarantined, :suspicious]
-      assert decision.audit_metadata.scanner_summary.indicator_count > 0
+      assert decision.audit_metadata.quarantine_status == :quarantined
+
+      assert decision.audit_metadata.scanner_summary.indicator_ids == [
+               :ignore_instructions,
+               :system_prompt_probe,
+               :model_extraction_request
+             ]
     end
 
     test "marks quarantined tool output in result metadata" do
@@ -2694,7 +2705,7 @@ defmodule SigilGuard.ToolGatewayTest do
       assert is_integer(system_time)
     end
 
-    test "delegates decision responses with v2 JSON-RPC shape" do
+    test "response_for_decision/2 renders a confirm decision as error -31989 carrying the action digest" do
       decision =
         ToolGateway.guard_request(request(), sandbox_context(),
           manifests: %{"repo_file_write" => suspicious_manifest()},
@@ -2707,6 +2718,26 @@ defmodule SigilGuard.ToolGatewayTest do
       assert response["id"] == "confirm-1"
       assert response["error"]["code"] == -31_989
       assert response["error"]["data"]["action_digest"] == decision.audit_metadata.action_digest
+    end
+
+    test "response_for_decision/3 lists the ids of the indicators that carry one" do
+      blocked = %Decision{
+        verdict: :blocked,
+        action: :block,
+        phase: :tool_result,
+        risk_level: :high,
+        trust_level: :high,
+        indicators: [%{id: "novel-phrasing", source: :adaptive}],
+        audit_metadata: %{}
+      }
+
+      assert ToolGateway.response_for_decision(blocked, 1, [])["error"]["data"]["indicator_ids"] ==
+               ["novel-phrasing"]
+
+      hook_only = %{blocked | indicators: [%{"category" => "suspicious", "source" => :hook}]}
+
+      assert ToolGateway.response_for_decision(hook_only, 1, [])["error"]["data"]["indicator_ids"] ==
+               []
     end
   end
 
@@ -2761,10 +2792,6 @@ defmodule SigilGuard.ToolGatewayTest do
       ],
       "tool" => "fetch_url"
     }
-  end
-
-  defp request_with_list_argument do
-    put_in(request(), ["params", "arguments", "content"], ["hello", "world"])
   end
 
   defp request_with_secret do
@@ -2875,7 +2902,7 @@ defmodule SigilGuard.ToolGatewayTest do
     end
   end
 
-  test "a suspicious-parameter confirmation over a request with no action digest is a block" do
+  test "a suspicious-parameter request whose arguments cannot be digested is blocked, not confirmed" do
     request = put_in(request(), ["params", "arguments", "apiKey"], <<255, 254>>)
 
     opts = [

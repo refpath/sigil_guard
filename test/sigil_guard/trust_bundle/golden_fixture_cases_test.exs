@@ -60,7 +60,10 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureCasesTest do
 
   test "a malformed :genesis_root is refused" do
     genesis = read_json(["rotation", "genesis.json"])
+    successor = signed_successor(envelope_document(read_json(["rotation", "successor.json"])))
     pin = root_pin(envelope_document(genesis))
+
+    assert {:ok, _} = TrustBundle.verify(successor, now: @now, genesis_root: pin)
 
     for bad <- [
           :not_a_pin,
@@ -69,7 +72,7 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureCasesTest do
           %{pin | threshold: "1"},
           Map.delete(pin, :keys)
         ] do
-      assert TrustBundle.verify(genesis, now: @now, genesis_root: bad) ==
+      assert TrustBundle.verify(successor, now: @now, genesis_root: bad) ==
                {:error, :invalid_bundle_format}
     end
   end
@@ -102,20 +105,24 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureCasesTest do
     successor = read_json(["rotation", "successor.json"])
     pin = root_pin(envelope_document(genesis))
 
-    foreign =
-      successor
-      |> rotation()
-      |> envelope_document()
-      |> Map.put("bundle_id", "other-org-trust")
-      |> sign_with([RootSigner, NewRootSigner])
+    rechained = fn bundle_id ->
+      rotation =
+        successor
+        |> rotation()
+        |> envelope_document()
+        |> Map.put("bundle_id", bundle_id)
+        |> sign_with([RootSigner, NewRootSigner])
 
-    replayed =
       successor
       |> envelope_document()
-      |> Map.put("rotation_chain", [foreign])
+      |> Map.put("rotation_chain", [rotation])
       |> signed_successor()
+    end
 
-    assert TrustBundle.verify(replayed, now: @now, genesis_root: pin) ==
+    assert {:ok, %TrustBundle{}} =
+             TrustBundle.verify(rechained.("example-org-trust"), now: @now, genesis_root: pin)
+
+    assert TrustBundle.verify(rechained.("other-org-trust"), now: @now, genesis_root: pin) ==
              {:error, :invalid_bundle_format}
   end
 

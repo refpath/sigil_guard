@@ -144,8 +144,10 @@ defmodule SigilGuard.TrustBundle.QuarantineTest do
       assert TrustBundle.verify(invalid_document, now: @now) == {:error, :invalid_bundle_format}
 
       assert Enum.map(Quarantine.list(), & &1.reason) == [:invalid_base64, :invalid_bundle_format]
-      assert [nil, digest] = Enum.map(Quarantine.list(), & &1.bundle_digest)
-      assert is_binary(digest)
+      {:ok, payload} = JCS.encode(%{"not" => "a bundle"})
+      payload_digest = Base.encode16(:crypto.hash(:sha256, payload), case: :lower)
+
+      assert Enum.map(Quarantine.list(), & &1.bundle_digest) == [nil, payload_digest]
     end
 
     test "can suppress recording for controlled callers" do

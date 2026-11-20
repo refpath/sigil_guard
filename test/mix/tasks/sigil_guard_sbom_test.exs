@@ -443,10 +443,12 @@ defmodule Mix.Tasks.SigilGuard.SbomTest do
 
     test "fails :sbom_digest_mismatch on digest drift, before structural checks" do
       output = tmp_path("digest-drift")
-      File.write!(output, Jason.encode!(verifiable_sbom()))
+      File.write!(output, Jason.encode!(%{}))
 
-      assert {:error, :sbom_digest_mismatch} =
-               Sbom.verify_file(output, String.duplicate("0", 64))
+      assert Sbom.verify_file(output) == {:error, :invalid_spdx_version}
+
+      assert Sbom.verify_file(output, String.duplicate("0", 64)) ==
+               {:error, :sbom_digest_mismatch}
     end
 
     test "rejects malformed inputs" do
@@ -465,14 +467,9 @@ defmodule Mix.Tasks.SigilGuard.SbomTest do
         Sbom.run(["--output", output])
       end)
 
-      assert File.exists?(output)
-
-      decoded =
-        output
-        |> File.read!()
-        |> Jason.decode!()
-
-      assert decoded["spdxVersion"] == "SPDX-2.3"
+      body = File.read!(output)
+      assert body =~ ~r/\A\{\n  "/
+      assert Jason.decode!(body)["spdxVersion"] == "SPDX-2.3"
     end
 
     test "verifies an existing SBOM file" do

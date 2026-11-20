@@ -61,7 +61,7 @@ defmodule SigilGuard.Scanner.PipelineTest do
       assert :token_boundary in hit.signals
     end
 
-    test "keeps legacy regex-only hits when requested" do
+    test "pipeline: :regex returns raw hits without validation metadata" do
       assert {:hit, [hit]} = Scanner.scan("key=AKIAIOSFODNN7EXAMPLE", pipeline: :regex)
 
       assert hit.name == "aws_access_key"
@@ -205,21 +205,23 @@ defmodule SigilGuard.Scanner.PipelineTest do
           %{name: "custom", category: "test", severity: :low, pattern: "CUSTOM_[0-9]{4}"}
         ])
 
+      assert {:hit, [%{confidence: 0.58}]} = Scanner.scan("CUSTOM_1234", patterns: patterns)
+
       assert {:ok, "CUSTOM_1234"} =
                Scanner.scan("CUSTOM_1234", patterns: patterns, min_confidence: 0.7)
     end
 
     test "falls back to conservative scanner options when thresholds are malformed" do
-      assert {:hit, [hit]} =
-               Scanner.scan("secret=R7v9K2mQ4xZ8pL6n",
-                 generic_secret_min_length: "long",
-                 generic_secret_min_entropy: :strict,
-                 min_confidence: "high",
-                 token_min_entropy: "strict"
-               )
+      text = "secret=R7v9K2mQ4xZ8pL6n"
 
-      assert hit.name == "generic_secret"
-      assert hit.validated
+      assert {:hit, [%{name: "generic_secret", validated: true}]} = Scanner.scan(text)
+
+      assert Scanner.scan(text,
+               generic_secret_min_length: "long",
+               generic_secret_min_entropy: :strict,
+               min_confidence: "high",
+               token_min_entropy: "strict"
+             ) == Scanner.scan(text)
     end
 
     test "keeps validation enabled for malformed validation toggles" do
@@ -306,7 +308,7 @@ defmodule SigilGuard.Scanner.PipelineTest do
 
     test "a strongly-signalled secret caps confidence at 0.99, never above 1.0" do
       assert {:hit, [hit]} = Scanner.scan("key=AKIAIOSFODNN7EXAMPLE")
-      assert hit.confidence <= 0.99
+      assert hit.confidence == 0.99
     end
 
     property "every enriched hit carries a confidence that is a float in 0.0..1.0" do

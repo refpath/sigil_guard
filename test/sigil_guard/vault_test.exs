@@ -22,34 +22,17 @@ defmodule SigilGuard.VaultTest do
   end
 
   describe "encrypt/2 and decrypt/1" do
-    test "round-trips plaintext" do
-      {:ok, vault_id} = InMemory.encrypt("my-secret-key", "API key")
-      {:ok, plaintext} = InMemory.decrypt(vault_id)
+    test "decrypt returns exactly the plaintext encrypted" do
+      for plaintext <- [
+            "my-secret-key",
+            :crypto.strong_rand_bytes(256),
+            "",
+            "пароль_тест_日本語"
+          ] do
+        {:ok, vault_id} = InMemory.encrypt(plaintext, "secret")
 
-      assert plaintext == "my-secret-key"
-    end
-
-    test "handles binary data" do
-      binary = :crypto.strong_rand_bytes(256)
-      {:ok, vault_id} = InMemory.encrypt(binary, "random bytes")
-      {:ok, decrypted} = InMemory.decrypt(vault_id)
-
-      assert decrypted == binary
-    end
-
-    test "handles empty string" do
-      {:ok, vault_id} = InMemory.encrypt("", "empty secret")
-      {:ok, plaintext} = InMemory.decrypt(vault_id)
-
-      assert plaintext == ""
-    end
-
-    test "handles unicode text" do
-      secret = "пароль_тест_日本語"
-      {:ok, vault_id} = InMemory.encrypt(secret, "unicode secret")
-      {:ok, plaintext} = InMemory.decrypt(vault_id)
-
-      assert plaintext == secret
+        assert InMemory.decrypt(vault_id) == {:ok, plaintext}
+      end
     end
 
     test "each encryption produces a unique vault ID" do
@@ -62,11 +45,10 @@ defmodule SigilGuard.VaultTest do
       assert length(Enum.uniq(ids)) == 50
     end
 
-    test "vault IDs have expected format" do
+    test "vault ids are vault_ followed by 32 lowercase hex characters" do
       {:ok, vault_id} = InMemory.encrypt("secret", "test")
 
-      assert String.starts_with?(vault_id, "vault_")
-      assert byte_size(vault_id) == 6 + 32
+      assert vault_id =~ ~r/\Avault_[0-9a-f]{32}\z/
     end
   end
 
@@ -151,8 +133,9 @@ defmodule SigilGuard.VaultTest do
       Application.delete_env(:sigil_guard, :vault_master_key)
       start_supervised!(InMemory)
 
+      assert byte_size(:sys.get_state(InMemory).master_key) == 32
       {:ok, vault_id} = InMemory.encrypt("test", "auto-key")
-      {:ok, "test"} = InMemory.decrypt(vault_id)
+      assert InMemory.decrypt(vault_id) == {:ok, "test"}
     end
 
     test "uses base64-encoded key from application config" do
@@ -162,13 +145,12 @@ defmodule SigilGuard.VaultTest do
 
       start_supervised!(InMemory)
 
+      assert :sys.get_state(InMemory).master_key == key
       {:ok, vault_id} = InMemory.encrypt("config-test", "from config")
-      {:ok, "config-test"} = InMemory.decrypt(vault_id)
-
-      Application.delete_env(:sigil_guard, :vault_master_key)
+      assert InMemory.decrypt(vault_id) == {:ok, "config-test"}
     end
 
-    test "rejects malformed direct master keys cleanly" do
+    test "rejects malformed :master_key options at start" do
       stop_supervised!(InMemory)
 
       for {key, reason} <- [
@@ -193,7 +175,7 @@ defmodule SigilGuard.VaultTest do
       end
     end
 
-    test "rejects invalid start options cleanly" do
+    test "rejects non-keyword start options at start" do
       stop_supervised!(InMemory)
 
       assert_start_link_error(:invalid_options, :bad)
@@ -271,11 +253,11 @@ defmodule SigilGuard.VaultTest do
 
     test "exists?/1 reads without changing the entry" do
       {:ok, vault_id} = InMemory.encrypt("my-secret", "test")
-      before = :sys.get_state(InMemory).table |> table_dump()
+      before = table_dump()
 
       for _ <- 1..5, do: assert(InMemory.exists?(vault_id))
 
-      assert table_dump(:sys.get_state(InMemory).table) == before
+      assert table_dump() == before
       assert InMemory.list_entries() == [{vault_id, "test"}]
     end
   end
@@ -399,34 +381,11 @@ defmodule SigilGuard.VaultTest do
     end
   end
 
-  describe "Vault.Entry struct" do
-    test "creates entry with defaults" do
-      entry = %SigilGuard.Vault.Entry{}
-
-      assert entry.id == nil
-      assert entry.ciphertext == nil
-      assert entry.description == nil
-      assert entry.created_at == nil
-      assert entry.tags == []
-    end
-
-    test "creates entry with fields" do
-      entry = %SigilGuard.Vault.Entry{
-        id: "vault_abc",
-        description: "test key",
-        tags: ["api_key", "prod"]
-      }
-
-      assert entry.id == "vault_abc"
-      assert entry.tags == ["api_key", "prod"]
-    end
-  end
-
   describe "SigilGuard.Vault facade" do
     test "encrypt/3 delegates to backend" do
       {:ok, vault_id} = SigilGuard.Vault.encrypt("test", "desc", InMemory)
 
-      assert is_binary(vault_id)
+      assert InMemory.decrypt(vault_id) == {:ok, "test"}
     end
 
     test "decrypt/2 delegates to backend" do
@@ -465,7 +424,7 @@ defmodule SigilGuard.VaultTest do
   end
 
   # The table is private, so read it from inside the vault process.
-  defp table_dump(_) do
+  defp table_dump do
     me = self()
 
     :sys.replace_state(InMemory, fn state ->

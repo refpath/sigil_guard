@@ -67,19 +67,19 @@ defmodule SigilGuard.AgentCardTest do
   end
 
   describe "new/1" do
-    test "normalizes and accepts a valid card" do
-      assert {:ok, card} = AgentCard.new(valid_card())
-      assert card["kind"] == "sigil_guard_agent_card"
-      assert Enum.map(card["capabilities"], & &1["name"]) == ["summarize", "web_research"]
+    test "accepts a valid card unchanged" do
+      assert AgentCard.new(valid_card()) == {:ok, valid_card()}
     end
 
     test "accepts empty endpoints and omitted optional fields" do
       card =
         valid_card()
         |> Map.put("endpoints", [])
-        |> Map.drop(["description", "scopes"])
+        |> Map.delete("scopes")
 
-      assert {:ok, _} = AgentCard.new(card)
+      assert {:ok, accepted} = AgentCard.new(card)
+      assert accepted["endpoints"] == []
+      refute Map.has_key?(accepted, "scopes")
     end
 
     test "rejects malformed cards with :invalid_agent_card" do
@@ -431,31 +431,19 @@ defmodule SigilGuard.AgentCardTest do
     end
   end
 
-  describe "JWS-to-DSSE parity" do
-    test "one keypair signs the JWS and DSSE forms; each verifies under its own verifier" do
+  describe "sign/2 signature" do
+    test "the DSSE signature is Ed25519 over the PAE of the card's JCS bytes" do
       {:ok, card} = AgentCard.new(valid_card())
       {:ok, card_json} = JCS.encode(card)
 
       {:ok, dsse} = AgentCard.sign(card, IssuerSigner)
       assert {:ok, ^card} = AgentCard.verify(dsse, issuer_material(), now: @now)
-      [%{"keyid" => dsse_keyid}] = dsse["signatures"]
-      assert dsse_keyid == issuer_keyid()
+      [%{"keyid" => keyid, "sig" => sig_b64}] = dsse["signatures"]
+      assert keyid == issuer_keyid()
 
-      header = %{"alg" => "EdDSA", "kid" => issuer_keyid()}
-      header_b64 = Base.url_encode64(Jason.encode!(header), padding: false)
-      payload_b64 = Base.url_encode64(card_json, padding: false)
-      signing_input = header_b64 <> "." <> payload_b64
-      jws_sig = IssuerSigner.sign(signing_input)
-
-      assert :crypto.verify(:eddsa, :none, signing_input, jws_sig, [issuer_public_key(), :ed25519])
-
-      # The DSSE signature is over PAE, the JWS signature over the JWS signing
-      # input: distinct pre-images, same key, per the mapping table.
-      [%{"sig" => dsse_sig_b64}] = dsse["signatures"]
-      dsse_sig = Base.url_decode64!(dsse_sig_b64, padding: false)
+      signature = Base.url_decode64!(sig_b64, padding: false)
       pae = Envelope.pae(Envelope.payload_type(), card_json)
-      assert :crypto.verify(:eddsa, :none, pae, dsse_sig, [issuer_public_key(), :ed25519])
-      refute dsse_sig == jws_sig
+      assert :crypto.verify(:eddsa, :none, pae, signature, [issuer_public_key(), :ed25519])
     end
   end
 

@@ -70,7 +70,7 @@ defmodule SigilGuard.ThreatModel.TM09LethalTrifectaTest do
       assert decision.reason == "untrusted zone may not request tools"
     end
 
-    test "an execute side-effect without isolation is blocked; the runtime that executes is out of scope" do
+    test "an execute side effect with isolation :none matches sandbox.matrix.execute.none" do
       decision =
         BoundaryPolicy.evaluate(%{
           phase: :tool_request,
@@ -95,12 +95,20 @@ defmodule SigilGuard.ThreatModel.TM09LethalTrifectaTest do
   end
 
   describe "the deterministic kernel is label-driven (tamper) and fails closed (malformed)" do
-    test "a scrubbed, benign-looking payload still blocks the trifecta", %{policy: policy} do
+    test "the trifecta blocks whether or not the payload carries scanner hits", %{policy: policy} do
       # The verdict is computed from dataflow labels, not from content
       # classification, so masking the visible payload does not bypass the block.
-      boundary = trifecta(trust_level: :low, hits: [], indicators: [])
+      hit = %{name: "aws_access_key", category: "credential", severity: :high}
 
-      assert BoundaryPolicy.evaluate(boundary, policy: policy).action == :block
+      for hits <- [[], [hit]] do
+        decision =
+          BoundaryPolicy.evaluate(trifecta(trust_level: :low, hits: hits, indicators: []),
+            policy: policy
+          )
+
+        assert decision.action == :block
+        assert "line_7" in Enum.map(decision.matched_rules, & &1.rule_id)
+      end
     end
 
     test "a boundary missing required digests fails closed", %{policy: policy} do

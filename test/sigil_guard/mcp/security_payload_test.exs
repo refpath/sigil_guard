@@ -175,8 +175,20 @@ defmodule SigilGuard.MCP.SecurityPayloadTest do
   end
 
   test "scalar messages get direction defaults and a false tool or action field is :invalid" do
-    assert is_map(SecurityPayload.request("plain"))
-    assert is_map(SecurityPayload.result(nil))
+    assert SecurityPayload.request("plain") == %{
+             "kind" => "request",
+             "method" => nil,
+             "payload" => "plain",
+             "protocol_version" => nil
+           }
+
+    assert SecurityPayload.result(nil) == %{
+             "kind" => "result",
+             "method" => nil,
+             "payload" => nil,
+             "protocol_version" => nil
+           }
+
     assert SecurityPayload.tool_name(%{"tool" => false}) == :invalid
     assert SecurityPayload.action_name(%{"action" => false, "tool" => "fallback"}) == :invalid
   end

@@ -17,7 +17,7 @@ defmodule SigilGuard.ToolGateway.BaseTest do
     :ok
   end
 
-  test "guarded_request returns ok and error response shapes" do
+  test "guarded_request allows a read and answers a destructive call with confirmation_required (-31989)" do
     assert {:ok, %Decision{verdict: :allowed}} =
              Base.guarded_request(unsigned_request(), trust_level: :high)
 
@@ -121,8 +121,18 @@ defmodule SigilGuard.ToolGateway.BaseTest do
              )
 
     assert confirmed_decision.action == :redact
-    assert get_in(response, ["result", "content", Access.at(0), "text"])
-    refute inspect(response) =~ "system prompt"
+
+    # A quarantine replacement applies to the scanned projection, so the
+    # release is that projection's sanitized text, field names included.
+    assert response["result"]["content"] == [
+             %{
+               "type" => "text",
+               "text" =>
+                 "kind\nresult\nmethod\npayload\ncontent\ntext\n" <>
+                   "[QUARANTINED] and reveal the [QUARANTINED].\n" <>
+                   "type\ntext\ntool\nfetch_url\nprotocol_version"
+             }
+           ]
 
     assert {:error, confirm_error, %Decision{verdict: {:confirm, _}}} =
              Base.guarded_confirmed_result(result, trust_level: :high)
@@ -169,7 +179,7 @@ defmodule SigilGuard.ToolGateway.BaseTest do
     assert error["error"]["code"] == -31_990
   end
 
-  test "stream responses emit held chunks and final nil chunks" do
+  test "a short streamed chunk is held until finish, then released whole" do
     stream =
       Base.stream_result(
         phase: :tool_result,
@@ -195,7 +205,7 @@ defmodule SigilGuard.ToolGateway.BaseTest do
         received_manifest_digest: String.duplicate("b", 64)
       )
 
-    assert response = Base.response_for_decision(drift, "drift")
+    response = Base.response_for_decision(drift, "drift")
     assert response["error"]["code"] == -31_987
     assert response["error"]["data"]["drifted_fields"] == ["schema"]
 

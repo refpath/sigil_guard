@@ -67,14 +67,18 @@ defmodule SigilGuard.ToolGatewayCasesTest do
     ]
 
     named = Keyword.put(anonymous, :actor, "spiffe://agents/requester")
+    other = Keyword.put(anonymous, :actor, "spiffe://agents/other")
     trust = %{"k1" => SigilGuard.CaseFixtures.Signer.public_key()}
 
-    guard =
-      &ToolGateway.guard_request(Attestation.attach(request(), &1), anonymous,
+    guard_under = fn context, envelope ->
+      ToolGateway.guard_request(Attestation.attach(request(), envelope), context,
         attestation: :required,
         trust_material: trust,
         now: @now
       )
+    end
+
+    guard = &guard_under.(anonymous, &1)
 
     decision = ToolGateway.guard_request(request(), named)
 
@@ -95,30 +99,35 @@ defmodule SigilGuard.ToolGatewayCasesTest do
     assert refused.verdict == :blocked
     assert refused.audit_metadata.attestation_error == :digest_mismatch
 
+    rebound_to = fn context ->
+      {:ok, digest} =
+        Digest.context_digest(
+          :tool_request,
+          SecurityPayload.context(request(), :request, context)
+        )
+
+      rebound =
+        update_in(statement, ["subject"], fn subjects ->
+          Enum.map(subjects, fn
+            %{"name" => "context"} = subject -> put_in(subject, ["digest", "sha256"], digest)
+            subject -> subject
+          end)
+        end)
+
+      {:ok, envelope} =
+        Attestation.sign(rebound, SigilGuard.CaseFixtures.Signer, keyid: "k1", now: @now)
+
+      envelope
+    end
+
     # A trusted key that binds the actor-less context is accepted whatever
     # actor the statement names: there is no host actor to compare it with.
-    {:ok, anonymous_digest} =
-      Digest.context_digest(
-        :tool_request,
-        SecurityPayload.context(request(), :request, anonymous)
-      )
-
-    rebound =
-      update_in(statement, ["subject"], fn subjects ->
-        Enum.map(subjects, fn
-          %{"name" => "context"} = subject ->
-            put_in(subject, ["digest", "sha256"], anonymous_digest)
-
-          subject ->
-            subject
-        end)
-      end)
-
-    {:ok, rebound_envelope} =
-      Attestation.sign(rebound, SigilGuard.CaseFixtures.Signer, keyid: "k1", now: @now)
-
     assert statement["predicate"]["actor"]["id"] == "spiffe://agents/requester"
-    assert guard.(rebound_envelope).verdict == :allowed
+    assert guard.(rebound_to.(anonymous)).verdict == :allowed
+
+    mismatched = guard_under.(other, rebound_to.(other))
+    assert mismatched.verdict == :blocked
+    assert mismatched.audit_metadata.attestation_error == :actor_mismatch
   end
 
   test "a result the policy file quarantines is reported quarantined and never released" do
@@ -152,7 +161,7 @@ defmodule SigilGuard.ToolGatewayCasesTest do
              ToolGateway.guarded_result(result, context, boundary_policy: policy)
 
     assert response["error"]["code"] == -31_988
-    refute inspect(response) =~ "clean tool output"
+    assert Map.keys(response) == ["error", "id", "jsonrpc"]
   end
 
   test "a hook's advisory indicator on a confirm-verdict result sets quarantine status confirm and reports its string id" do
@@ -239,15 +248,14 @@ defmodule SigilGuard.ToolGatewayCasesTest do
 
       assert decision.action == :redact
 
-      assert response["result"]["content"] == [
-               %{"type" => "text", "text" => "first token [AWS_KEY]"},
-               %{"type" => "text", "text" => "no secret here"}
-             ]
-
-      assert response["result"]["structuredContent"] == %{"key" => "[AWS_KEY]", "count" => 2}
-      refute inspect(response) =~ "AKIAIOSFODNN7EXAMPLE"
-      refute inspect(response) =~ "protocol_version"
-      assert response["id"] == 7
+      assert response ==
+               result(%{
+                 "content" => [
+                   %{"type" => "text", "text" => "first token [AWS_KEY]"},
+                   %{"type" => "text", "text" => "no secret here"}
+                 ],
+                 "structuredContent" => %{"key" => "[AWS_KEY]", "count" => 2}
+               })
     end
 
     test "falls back to the gate's sanitized text when the scan cannot run on the original" do

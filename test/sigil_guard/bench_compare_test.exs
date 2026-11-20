@@ -23,6 +23,18 @@ defmodule SigilGuard.BenchCompareTest do
              SigilGuard.BenchCompare.compare(baseline, run)
   end
 
+  test "a regression of exactly 20 percent passes and one above it fails" do
+    baseline = document(median_ns: 100)
+
+    assert {:ok, [{:pass, "no binding benchmark regressions"}]} =
+             SigilGuard.BenchCompare.compare(baseline, document(median_ns: 120))
+
+    assert {:error, [{:fail, message}]} =
+             SigilGuard.BenchCompare.compare(baseline, document(median_ns: 121))
+
+    assert message =~ "regressed by 21.0%"
+  end
+
   test "missing baseline scenario in the run fails" do
     baseline = document()
     run = put_in(document(), ["scenarios"], %{"BM.02 scan hits 1k" => stats(median_ns: 100)})
@@ -110,6 +122,21 @@ defmodule SigilGuard.BenchCompareTest do
            end)
   end
 
+  test "allocation regressions fail even when latency is unchanged" do
+    assert {:error, [{:fail, message}]} =
+             SigilGuard.BenchCompare.compare(
+               document(memory_bytes: 10),
+               document(memory_bytes: 13)
+             )
+
+    assert message =~ "allocation regressed"
+
+    assert {:error, [{:fail, from_zero}]} =
+             SigilGuard.BenchCompare.compare(document(memory_bytes: 0), document(memory_bytes: 1))
+
+    assert from_zero =~ "unbounded increase from zero (1 vs 0)"
+  end
+
   defp document(overrides \\ []) do
     mode = Keyword.get(overrides, :mode)
     stats_overrides = Keyword.drop(overrides, [:mode])
@@ -136,18 +163,5 @@ defmodule SigilGuard.BenchCompareTest do
   defp stats(overrides) do
     Keyword.merge([median_ns: 100, p99_ns: 150, memory_bytes: 10], overrides)
     |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
-  end
-
-  test "allocation regressions fail even when latency is unchanged" do
-    assert {:error, [{:fail, message}]} =
-             SigilGuard.BenchCompare.compare(
-               document(memory_bytes: 10),
-               document(memory_bytes: 13)
-             )
-
-    assert message =~ "allocation regressed"
-
-    assert {:error, _} =
-             SigilGuard.BenchCompare.compare(document(memory_bytes: 0), document(memory_bytes: 1))
   end
 end

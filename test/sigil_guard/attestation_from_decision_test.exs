@@ -181,7 +181,7 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       assert get_in(statement, ["predicate", "actor", "id"]) == "spiffe://agents/fallback"
     end
 
-    test "requires explicit statement type for unphased attestation types" do
+    test "a release statement comes only from an explicit statement_type" do
       payload = %{
         "package" => "sigil_guard",
         "version" => "1.0.0",
@@ -189,6 +189,11 @@ defmodule SigilGuard.AttestationFromDecisionTest do
           %{"name" => "sigil_guard-1.0.0.tar", "sha256" => String.duplicate("a", 64)}
         ]
       }
+
+      assert {:ok, implicit} =
+               Attestation.from_decision(decision(), @context, payload: payload, now: @now)
+
+      assert implicit["predicateType"] == "https://sigilguard.dev/attestation/tool_request/v1"
 
       assert {:ok, statement} =
                Attestation.from_decision(decision(), @context,
@@ -421,8 +426,10 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       assert {:ok, plain} = build(decision())
       refute Map.has_key?(plain["predicate"], "matched_rules")
       refute Map.has_key?(plain["predicate"], "evidence")
+    end
 
-      # The option wins over the decision's own references.
+    test "an :evidence option overrides the decision's evidence_refs" do
+      evidence = [%{"kind" => "checkpoint", "ref" => String.duplicate("a", 64)}]
       other = [%{"kind" => "export", "ref" => String.duplicate("b", 64)}]
 
       assert {:ok, overridden} =
@@ -454,8 +461,7 @@ defmodule SigilGuard.AttestationFromDecisionTest do
       {:ok, statement} =
         Attestation.from_decision(decision(), @context, payload: @payload, now: @now)
 
-      assert statement["predicate"]["resource"]["audience"] ==
-               Atom.to_string(@context.intended_audience)
+      assert statement["predicate"]["resource"]["audience"] == "internal"
     end
 
     test "the boundary mirror states the fields the context digest binds" do
@@ -465,8 +471,8 @@ defmodule SigilGuard.AttestationFromDecisionTest do
                "phase" => "tool_request",
                "origin" => "user",
                "sink" => "tool",
-               "trust_zone" => Atom.to_string(@context.trust_zone),
-               "intended_audience" => Atom.to_string(@context.intended_audience)
+               "trust_zone" => "semi_trusted",
+               "intended_audience" => "internal"
              }
 
       sandboxed = %{

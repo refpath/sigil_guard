@@ -52,16 +52,20 @@ defmodule SigilGuard.PatternsTest do
   end
 
   describe "built_in/0" do
-    test "returns a list of compiled patterns" do
+    test "returns the six secret patterns in order with their severities" do
       patterns = Patterns.built_in()
 
-      assert is_list(patterns)
-      assert length(patterns) == 6
+      assert Enum.map(patterns, &{&1.name, &1.severity}) == [
+               {"aws_access_key", :high},
+               {"generic_api_key", :high},
+               {"bearer_token", :high},
+               {"database_uri", :high},
+               {"private_key", :high},
+               {"generic_secret", :medium}
+             ]
 
       for pattern <- patterns do
-        assert is_binary(pattern.name)
         assert pattern.category == :secret
-        assert pattern.severity in [:low, :medium, :high]
         assert %Regex{} = pattern.regex
       end
     end
@@ -105,15 +109,15 @@ defmodule SigilGuard.PatternsTest do
       broken = %{@ticket | name: "broken", pattern: "sk-(unclosed"}
       unnamed = %{@ticket | name: 7}
 
-      for {entries, index} <- [
-            {[broken], 0},
-            {[@ticket, broken], 1},
-            {[@ticket, unnamed, broken], 1},
-            {[@ticket, "not a map"], 1},
-            {[@ticket, Map.delete(@ticket, :pattern)], 1}
+      for {entries, index, compiled} <- [
+            {[broken], 0, []},
+            {[@ticket, broken], 1, ["ticket"]},
+            {[@ticket, unnamed, broken], 1, ["ticket"]},
+            {[@ticket, "not a map"], 1, ["ticket"]},
+            {[@ticket, Map.delete(@ticket, :pattern)], 1, ["ticket"]}
           ] do
         assert Patterns.compile_all(entries) == {:error, {:invalid_pattern, index}}
-        assert length(Patterns.compile(entries)) < length(entries)
+        assert Enum.map(Patterns.compile(entries), & &1.name) == compiled
       end
     end
 
@@ -135,7 +139,7 @@ defmodule SigilGuard.PatternsTest do
       assert Regex.match?(pattern.regex, "foo123")
     end
 
-    test "compiles patterns from string-keyed maps (registry format)" do
+    test ~s[compiles string-keyed maps with a "regex" key] do
       raw = [
         %{
           "name" => "registry_pat",
@@ -276,8 +280,7 @@ defmodule SigilGuard.PatternsTest do
         ]
       }
 
-      assert {:ok, patterns} = Patterns.parse_bundle(bundle)
-      assert length(patterns) == 2
+      assert Patterns.parse_bundle(bundle) == {:ok, bundle["patterns"]}
     end
 
     test "returns error for missing patterns key" do
@@ -346,20 +349,18 @@ defmodule SigilGuard.PatternsTest do
 
     test "empty override preserves base" do
       base = Patterns.built_in()
-      merged = Patterns.merge(base, [])
 
-      assert length(merged) == length(base)
+      assert Patterns.merge(base, []) == base
     end
 
     test "empty base uses override" do
       override = Patterns.compile([%{name: "x", category: "test", severity: :low, pattern: "x"}])
-      merged = Patterns.merge([], override)
 
-      assert length(merged) == 1
+      assert Patterns.merge([], override) == override
     end
   end
 
-  test "a pattern that can match nothing produces no hit and no raise" do
+  test "a pattern that can match the empty string never reports an empty hit" do
     empty = %{
       name: "maybe_empty",
       category: :secret,

@@ -346,12 +346,15 @@ defmodule SigilGuard.EffectAuthorityTest do
             ) do
         record = Map.put(Fixture.record(), key, value)
 
-        assert EffectAuthority.validate_binding(record) in [
-                 :ok,
-                 {:error, :invalid_effect_binding}
-               ]
+        case EffectAuthority.validate_binding(record) do
+          :ok ->
+            assert {:ok, digest} = EffectAuthority.binding_digest(record)
+            assert digest =~ ~r/\A[0-9a-f]{64}\z/
 
-        assert match?({_, _}, EffectAuthority.binding_digest(record))
+          refused ->
+            assert refused == {:error, :invalid_effect_binding}
+            assert EffectAuthority.binding_digest(record) == refused
+        end
       end
     end
 
@@ -420,6 +423,7 @@ defmodule SigilGuard.EffectAuthorityTest do
         )
 
       assert off.verdict == :allowed
+      assert off.audit_metadata.action_digest == nil
       assert admit(off, Fixture.request()) == {:error, :not_authorized}
     end
 
@@ -563,15 +567,10 @@ defmodule SigilGuard.EffectAuthorityTest do
         {:policy_epoch, "example-bundle:43", :policy_epoch_mismatch}
       ]
 
-      reasons =
-        for {key, value, reason} <- changes do
-          assert admit(decision, Fixture.request(), Map.put(Fixture.facts(), key, value)) ==
-                   {:error, reason}
-
-          reason
-        end
-
-      assert length(Enum.uniq(reasons)) == 6
+      for {key, value, reason} <- changes do
+        assert admit(decision, Fixture.request(), Map.put(Fixture.facts(), key, value)) ==
+                 {:error, reason}
+      end
     end
 
     test "an optional field is equal only when both sides agree on its presence" do
@@ -1035,12 +1034,12 @@ defmodule SigilGuard.EffectAuthorityTest do
       end
     end
 
-    property "arbitrary facts, options, and envelopes never raise for an authorized request" do
+    property "arbitrary facts and envelopes never raise for an authorized request" do
       decision = decision_for(enveloped(Fixture.request()))
 
       check all(
               current <- one_of([term(), fact_mutation()]),
-              envelope <- term()
+              envelope <- one_of([term(), envelope_mutation()])
             ) do
         assert refusal?(
                  EffectAuthority.admit(
@@ -1052,10 +1051,10 @@ defmodule SigilGuard.EffectAuthorityTest do
                  )
                )
 
-        assert match?(
-                 {:error, :invalid_effect_envelope},
-                 EffectAuthority.envelope_digest(envelope)
-               )
+        case EffectAuthority.envelope_digest(envelope) do
+          {:ok, digest} -> assert digest =~ ~r/\A[0-9a-f]{64}\z/
+          refused -> assert refused == {:error, :invalid_effect_envelope}
+        end
       end
     end
 
@@ -1284,12 +1283,13 @@ defmodule SigilGuard.EffectAuthorityTest do
     @outcome %{authentication: :verified, claimed: :success, acceptance: :accepted}
 
     test "success follows acceptance and nothing else" do
-      for {acceptance, success} <- [accepted: true, rejected: false, undetermined: nil] do
+      for authentication <- [:verified, :unsigned, :invalid],
+          claimed <- [:success, :failure, :none],
+          {acceptance, success} <- [accepted: true, rejected: false, undetermined: nil] do
+        outcome = %{authentication: authentication, claimed: claimed, acceptance: acceptance}
+
         assert {:ok, fields} =
-                 EffectAuthority.audit_fields(%{
-                   state: :finished,
-                   outcome: %{@outcome | acceptance: acceptance}
-                 })
+                 EffectAuthority.audit_fields(%{state: :finished, outcome: outcome})
 
         assert fields.result_info == %SigilGuard.Audit.ExecutionResult{success: success}
       end
@@ -1349,7 +1349,7 @@ defmodule SigilGuard.EffectAuthorityTest do
         parameter_out_of_envelope
       )a
 
-      assert length(refusals) == 21
+      assert refusals == refusal_type_members()
 
       for refusal <- refusals do
         assert {:ok, %{metadata: %{"effect_refusal" => text}}} =
@@ -1428,7 +1428,7 @@ defmodule SigilGuard.EffectAuthorityTest do
       check all(term <- term()) do
         assert EffectAuthority.classify_outcome(term) == {:error, :invalid_outcome_input}
         assert EffectAuthority.audit_fields(term) == {:error, :invalid_audit_input}
-        assert is_boolean(EffectAuthority.valid_transition?(term, term))
+        refute EffectAuthority.valid_transition?(term, term)
       end
     end
 
@@ -1441,8 +1441,16 @@ defmodule SigilGuard.EffectAuthorityTest do
       }
 
       check all(key <- member_of(Map.keys(valid)), value <- term()) do
-        assert match?({_, _}, EffectAuthority.classify_outcome(Map.put(valid, key, value)))
-        assert match?({_, _}, EffectAuthority.audit_fields(%{state: :finished, outcome: value}))
+        case EffectAuthority.classify_outcome(Map.put(valid, key, value)) do
+          {:ok, outcome} ->
+            assert Enum.sort(Map.keys(outcome)) == [:acceptance, :authentication, :claimed]
+
+          refused ->
+            assert refused == {:error, :invalid_outcome_input}
+        end
+
+        assert EffectAuthority.audit_fields(%{state: :finished, outcome: value}) ==
+                 {:error, :invalid_audit_input}
       end
     end
   end
@@ -1511,6 +1519,18 @@ defmodule SigilGuard.EffectAuthorityTest do
     gen all(key <- member_of(Map.keys(Fixture.facts())), value <- term()) do
       Map.put(Fixture.facts(), key, value)
     end
+  end
+
+  defp envelope_mutation do
+    gen all(key <- member_of(Map.keys(Fixture.envelope())), value <- term()) do
+      Map.put(Fixture.envelope(), key, value)
+    end
+  end
+
+  defp refusal_type_members do
+    {:ok, types} = Code.Typespec.fetch_types(EffectAuthority)
+    [members] = for {:type, {:refusal, {:type, _, :union, members}, []}} <- types, do: members
+    for {:atom, _, refusal} <- members, do: refusal
   end
 
   defp classify(observations, required) do

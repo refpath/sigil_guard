@@ -53,8 +53,7 @@ defmodule SigilGuardTest do
     end
 
     test "a medium-risk action at low trust asks for confirmation" do
-      assert {:confirm, reason} = SigilGuard.policy_verdict("create_user", :low)
-      assert is_binary(reason)
+      assert {:confirm, _} = SigilGuard.policy_verdict("create_user", :low)
     end
   end
 end

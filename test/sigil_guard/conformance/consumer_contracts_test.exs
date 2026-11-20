@@ -2,7 +2,6 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
-  use ExUnitProperties
 
   alias SigilGuard.Audit
   alias SigilGuard.Signer.Ed25519
@@ -72,7 +71,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     assert Vault.decrypt(id, InMemory) == {:ok, <<0, 255>>}
   end
 
-  test "stream consumers receive deliberate configuration errors before accepting chunks" do
+  test "a stream refuses uncompiled patterns and replaces a negative window with the 256-byte default" do
     alias SigilGuard.Runtime.Stream
 
     assert_raise ArgumentError, ~r/stream patterns must contain compiled regexes/, fn ->
@@ -160,6 +159,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
 
       assert result.halted
       assert Jason.decode!(result.resp_body)["error"]["code"] == -31_990
+      refute result.resp_body =~ value["text"]
     end
 
     test "Tidewave helper composes policy with scanning and checks request identity" do
@@ -395,7 +395,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     assert Envelope.verify(signed, keys) == {:ok, "{}"}
   end
 
-  test "successful envelope construction remains verifiable" do
+  test "sign_many refuses a repeated signer and a single signature verifies" do
     alias SigilGuard.Attestation.Envelope
 
     assert Envelope.sign_many("{}", [RequestSigningSigner, RequestSigningSigner]) ==
@@ -408,7 +408,6 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
 
   describe "gateway attestation contracts" do
     alias SigilGuard.Attestation
-    alias SigilGuard.Attestation.Digest
     alias SigilGuard.ToolGateway
 
     @gateway_context [
@@ -475,7 +474,15 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       request = tool_call(%{"path" => "docs/a.md", "content" => "one"})
       statement = attested_statement(request)
 
-      {:ok, raw} = Digest.action_digest(:tool_request, request, @gateway_context)
+      raw =
+        Base.encode16(
+          :crypto.hash(
+            :sha256,
+            ~s({"arguments":{"content":"one","path":"docs/a.md"},"method":"tools/call",) <>
+              ~s("statement_type":"tool_request","tool":"repo_file_write"})
+          ),
+          case: :lower
+        )
 
       assert subject(statement, "action") == raw
 
@@ -541,8 +548,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
           trust_material: %{"consumer" => SigilGuard.TestSigner.public_key()}
         )
 
-      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
-      assert accepted.verdict == decision.verdict
+      assert {decision.verdict, accepted.verdict} == {:allowed, :allowed}
     end
 
     test "a statement states the boundary its context subject binds" do
@@ -716,42 +722,63 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
 
   describe "export compatibility facade contracts" do
     test "scan/1 returns the stable clean and hit shapes" do
-      assert {:ok, "safe text"} = SigilGuard.scan("safe text")
+      assert SigilGuard.scan("safe text") == {:ok, "safe text"}
 
-      assert {:hit, hits} = SigilGuard.scan("AKIAIOSFODNN7EXAMPLE")
-      assert [_ | _] = hits
-      assert Enum.all?(hits, &valid_hit?/1)
+      assert SigilGuard.scan("AKIAIOSFODNN7EXAMPLE") ==
+               {:hit,
+                [
+                  %{
+                    match: "AKIAIOSFODNN7EXAMPLE",
+                    name: "aws_access_key",
+                    offset: 0,
+                    length: 20,
+                    category: :secret,
+                    span: {0, 20},
+                    severity: :high,
+                    replacement_hint: "[AWS_KEY]",
+                    confidence: 0.99,
+                    validated: true,
+                    signals: [
+                      :credential_category,
+                      :known_key_format,
+                      :high_entropy,
+                      :long_value,
+                      :token_boundary
+                    ],
+                    stage: :validated
+                  }
+                ]}
     end
 
-    test "scan_and_redact/1 always returns a binary" do
-      assert is_binary(SigilGuard.scan_and_redact("safe text"))
-      assert is_binary(SigilGuard.scan_and_redact("token=supersecretvalue123"))
+    test "scan_and_redact/1 leaves clean text unchanged and replaces a secret" do
+      assert SigilGuard.scan_and_redact("safe text") == "safe text"
+      assert SigilGuard.scan_and_redact("token=supersecretvalue123") == "[SECRET]"
     end
 
-    property "policy_verdict/3 only returns the stable facade vocabulary" do
-      check all(
-              action <- member_of(["read_file", "create_resource", "delete_database"]),
-              trust <- member_of([:low, :medium, :high]),
-              risk <- member_of([:low, :medium, :high])
-            ) do
-        verdict = SigilGuard.policy_verdict(action, trust, risk_level: risk)
-        assert valid_policy_verdict?(verdict)
+    test "policy_verdict/3 follows the trust and risk table whatever the action" do
+      table = %{
+        {:low, :low} => :allowed,
+        {:low, :medium} => :confirm,
+        {:low, :high} => :blocked,
+        {:medium, :low} => :allowed,
+        {:medium, :medium} => :allowed,
+        {:medium, :high} => :confirm,
+        {:high, :low} => :allowed,
+        {:high, :medium} => :allowed,
+        {:high, :high} => :allowed
+      }
+
+      for action <- ["read_file", "create_resource", "delete_database"],
+          {{trust, risk}, expected} <- table do
+        assert verdict_class(SigilGuard.policy_verdict(action, trust, risk_level: risk)) ==
+                 expected
       end
-    end
-
-    test "foreign facade shapes are rejected by the conformance validators" do
-      refute valid_policy_verdict?(:allow)
-      refute valid_policy_verdict?({:confirm, :not_binary})
-      refute valid_policy_verdict?({:quarantine, "reason"})
-
-      refute valid_hit?(%{})
-      refute valid_hit?(%{name: :aws_access_key})
-      refute valid_hit?("aws_access_key")
     end
   end
 
   describe "behaviour contracts used by the reference consumer" do
     test "actor-pattern identity mapper implements the Identity behaviour shape" do
+      assert_implements(ActorPatternIdentity, SigilGuard.Identity)
       context = %{actor: "host:operator:42"}
 
       assert ActorPatternIdentity.identity(context) == "host:operator:42"
@@ -762,6 +789,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     end
 
     test "request-signing signer implements the Signer behaviour shape" do
+      assert_implements(RequestSigningSigner, SigilGuard.Signer)
       signature = RequestSigningSigner.sign(@ed25519_message)
 
       assert byte_size(RequestSigningSigner.public_key()) == 32
@@ -770,6 +798,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     end
 
     test "database-backed vault implements the Vault behaviour shape" do
+      assert_implements(DatabaseBackedVault, SigilGuard.Vault)
       assert {:ok, id} = Vault.encrypt("secret-value", "api token", DatabaseBackedVault)
 
       assert DatabaseBackedVault.exists?(id)
@@ -905,7 +934,7 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
   end
 
   describe "Audit struct contract" do
-    test "field set is asserted literally" do
+    test "an audit event has exactly the documented struct fields" do
       event = Audit.new_event("runtime.decision", "host:operator:42", "read_file", "success")
 
       fields =
@@ -918,11 +947,16 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
     end
   end
 
-  defp valid_hit?(%{name: name}) when is_binary(name), do: true
-  defp valid_hit?(_), do: false
+  defp verdict_class({:confirm, reason}) when is_binary(reason), do: :confirm
+  defp verdict_class(verdict), do: verdict
 
-  defp valid_policy_verdict?(:allowed), do: true
-  defp valid_policy_verdict?(:blocked), do: true
-  defp valid_policy_verdict?({:confirm, reason}) when is_binary(reason), do: true
-  defp valid_policy_verdict?(_), do: false
+  defp assert_implements(module, behaviour) do
+    required =
+      behaviour.behaviour_info(:callbacks) -- behaviour.behaviour_info(:optional_callbacks)
+
+    for {name, arity} <- required do
+      assert function_exported?(module, name, arity),
+             "#{inspect(module)} does not export #{name}/#{arity}"
+    end
+  end
 end

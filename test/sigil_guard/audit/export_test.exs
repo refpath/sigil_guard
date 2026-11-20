@@ -49,7 +49,10 @@ defmodule SigilGuard.Audit.ExportTest do
     end
 
     bad = Map.put(proof, "proof_nodes", [String.duplicate("0", 64)])
-    assert {:error, _} = Export.verify(Map.put(export, "consistency_proof", bad), events)
+
+    assert Export.verify(Map.put(export, "consistency_proof", bad), events) ==
+             {:error, :invalid_proof}
+
     {:ok, inclusion} = SigilGuard.Audit.Proof.inclusion(events, 0)
     wrong_size = Map.put(inclusion, "tree_size", 6)
 
@@ -89,7 +92,7 @@ defmodule SigilGuard.Audit.ExportTest do
       assert anchor["checkpoint_digest"] == Checkpoint.digest(checkpoint)
       assert anchor["storage"] == "s3-object-lock"
       assert anchor["uri"] == "s3://audit-lock/checkpoints/001.json"
-      refute inspect(export) =~ "export-action"
+      refute Export.canonical_bytes(export) =~ "export-action"
     end
 
     test "creates an unsigned export without an anchor when not requested" do
@@ -426,7 +429,7 @@ defmodule SigilGuard.Audit.ExportTest do
   end
 
   describe "create/2 evidence" do
-    test "a package without evidence keys stays byte-identical to a 0.2.x export" do
+    test "a package without evidence options has only the five base keys" do
       {:ok, export} = Export.create(build_signed_chain(3), generated_at: @generated_at)
 
       assert Enum.sort(Map.keys(export)) == ~w(anchor checkpoint generated_at kind version)
@@ -438,10 +441,13 @@ defmodule SigilGuard.Audit.ExportTest do
     test "embeds the DSSE statement, inclusion proofs, and consistency proof" do
       {:ok, export} = evidence_export(build_signed_chain(3))
 
-      assert %{"payload" => _, "payloadType" => _, "signatures" => [_ | _]} =
+      assert %{"payload" => payload, "payloadType" => _, "signatures" => [_ | _]} =
                export["checkpoint_statement"]
 
-      assert length(export["inclusion_proofs"]) == 3
+      assert {:ok, Jason.decode!(Base.url_decode64!(payload, padding: false))} ==
+               Checkpoint.to_statement(export["checkpoint"])
+
+      assert Enum.map(export["inclusion_proofs"], & &1["leaf_index"]) == [0, 1, 2]
       assert export["consistency_proof"]["first_size"] == 2
     end
 
@@ -530,10 +536,10 @@ defmodule SigilGuard.Audit.ExportTest do
       {:ok, export} = evidence_export(events)
       key = [public_key_b64u: TestSigner.public_key_b64u()]
 
-      assert {:error, _} = Export.verify(export, Enum.take(events, 3), key)
+      assert Export.verify(export, Enum.take(events, 3), key) == {:error, :checkpoint_mismatch}
 
       [first, second | rest] = events
-      assert {:error, _} = Export.verify(export, [second, first | rest], key)
+      assert Export.verify(export, [second, first | rest], key) == {:error, :broken_chain}
     end
 
     test "malformed evidence keys fail closed on verify" do
