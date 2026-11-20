@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Scanner.scan/2` raises `ArgumentError` and `scan_result/2`
+  returns `{:error, :invalid_patterns}` when the built-in pipelines are given
+  `:patterns` that are not compiled pattern maps. `scan/2` raised
+  `UndefinedFunctionError` after a deprecation warning, and `scan_result/2`
+  reported `:pipeline_failed`.
 - Verifiers report malformed input with the input's reason instead of the
   reason for a failed comparison. With a trust bundle, `Attestation.verify/3`
   and `AgentCard.verify/3` refuse a malformed `:now` or `:max_skew_ms` as

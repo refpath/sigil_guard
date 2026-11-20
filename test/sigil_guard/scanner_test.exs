@@ -286,9 +286,11 @@ defmodule SigilGuard.ScannerTest do
             {"text", [pipeline: String], :invalid_pipeline},
             {"text", [pipeline: WrongHitsPipeline], :invalid_pipeline_result},
             {"text", [pipeline: RaisingPipeline], :pipeline_failed},
-            {"text", [patterns: [%{name: "no regex"}]], :pipeline_failed},
-            {"text", [patterns: [1 | 2]], :pipeline_failed},
-            {"text", [patterns: :not_a_list], :pipeline_failed}
+            {"text", [patterns: [%{name: "no regex"}]], :invalid_patterns},
+            {"text", [patterns: [:bogus]], :invalid_patterns},
+            {"text", [patterns: [1 | 2]], :invalid_patterns},
+            {"text", [patterns: :not_a_list], :invalid_patterns},
+            {"text", [patterns: [:bogus], pipeline: :regex], :invalid_patterns}
           ] do
         assert Scanner.scan_result(text, opts) == {:error, reason}
       end
@@ -301,6 +303,10 @@ defmodule SigilGuard.ScannerTest do
 
       assert_raise RuntimeError, "pipeline down", fn ->
         Scanner.scan("text", pipeline: RaisingPipeline)
+      end
+
+      assert_raise ArgumentError, ~r/compiled pattern maps/, fn ->
+        Scanner.scan("text", patterns: [:bogus])
       end
     end
 

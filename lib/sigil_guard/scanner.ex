@@ -25,6 +25,7 @@ defmodule SigilGuard.Scanner do
           | :invalid_options
           | :input_too_large
           | :invalid_pipeline
+          | :invalid_patterns
           | :invalid_pipeline_result
           | :pipeline_failed
 
@@ -81,7 +82,8 @@ defmodule SigilGuard.Scanner do
   Returns `{:ok, text}`, `{:hit, hits}`, or `{:error, reason}`: `:invalid_text`
   for text that is not a binary, `:invalid_options`, `:input_too_large` past
   `:max_input_bytes`, `:invalid_pipeline` for a `:pipeline` value that is not a
-  pipeline, `:invalid_pipeline_result` for hits that do not describe the
+  pipeline, `:invalid_patterns` when a built-in pipeline is given `:patterns`
+  that are not compiled pattern maps, `:invalid_pipeline_result` for hits that do not describe the
   text, and `:pipeline_failed` when the pipeline raises, throws, or exits.
   `SigilGuard.Runtime.Gate` and output contracts scan through this function,
   so a scan that cannot run fails their decision closed.
@@ -215,12 +217,33 @@ defmodule SigilGuard.Scanner do
 
   defp pipeline_hits(text, patterns, opts) do
     case Keyword.get(opts, :pipeline, :staged) do
-      :staged -> {:ok, Pipeline.scan(text, patterns, opts)}
-      :regex -> {:ok, Pipeline.regex_scan(text, patterns)}
-      module when is_atom(module) -> module_hits(module, text, patterns, opts)
-      other -> {:error, :invalid_pipeline, "invalid scanner pipeline #{inspect(other)}"}
+      :staged ->
+        with :ok <- check_patterns(patterns), do: {:ok, Pipeline.scan(text, patterns, opts)}
+
+      :regex ->
+        with :ok <- check_patterns(patterns), do: {:ok, Pipeline.regex_scan(text, patterns)}
+
+      module when is_atom(module) ->
+        module_hits(module, text, patterns, opts)
+
+      other ->
+        {:error, :invalid_pipeline, "invalid scanner pipeline #{inspect(other)}"}
     end
   end
+
+  # The built-in pipelines read these fields of every pattern. A host
+  # pipeline module receives the patterns as given and owns their shape.
+  defp check_patterns(patterns) do
+    if is_list(patterns) and not List.improper?(patterns) and
+         Enum.all?(patterns, &compiled_pattern?/1),
+       do: :ok,
+       else: {:error, :invalid_patterns, "scanner patterns must be compiled pattern maps"}
+  end
+
+  defp compiled_pattern?(%{regex: %Regex{}, name: name} = pattern) when is_binary(name),
+    do: Enum.all?([:category, :severity, :replacement_hint], &Map.has_key?(pattern, &1))
+
+  defp compiled_pattern?(_), do: false
 
   defp module_hits(module, text, patterns, opts) do
     Code.ensure_loaded(module)
