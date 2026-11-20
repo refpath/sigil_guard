@@ -82,18 +82,13 @@ These specs define the next major product shape. They intentionally allow
 breaking changes; migration belongs in changelog and migration docs, not hidden
 compatibility shims.
 
-`implemented/partial` means the spec keeps requirements that no code
-implements. Each is marked in the spec, either as an unchecked acceptance
-criterion or as a sentence that says it is not implemented, and has a task
-under M14 in [`../tasks/sigil-tasks.md`](../tasks/sigil-tasks.md).
-
 | Spec | Status | Owns | Primary Tests |
 |------|--------|------|---------------|
 | [`SP.01`](SP.01-sigilguard-trust-profile.md) | implemented | Agent Trust vocabulary, breaking boundary, `_agent_trust`, DSSE envelope over JCS Statement payloads, digest computation, error taxonomy. | Profile validation, canonical vectors, replay and digest mismatch. |
 | [`SP.02`](SP.02-embedded-trust-bundles.md) | implemented | Local signed bundles, roots, revocations, sequence/expiry, quarantine, no network core. | Valid bundle, malformed bundle, rollback, expired bundle, revoked key, no-network tests. |
-| [`SP.03`](SP.03-mcp-attestation-gateway.md) | implemented/partial | Capability manifests, request/result attestations, audience/resource binding. | Tool digest drift, schema drift, wrong audience, token passthrough, poisoned result. |
+| [`SP.03`](SP.03-mcp-attestation-gateway.md) | implemented | Capability manifests, request/result attestations, audience/resource binding. | Tool digest drift, schema drift, wrong audience, token passthrough, poisoned result. |
 | [`SP.04`](SP.04-boundary-scanner-and-policy-kernel.md) | implemented | Boundary policy input, lifecycle hooks, trust zones, sandbox identity, deterministic explanations. | Split secrets, validation confidence, hook phases, sandbox mismatch, path policy. |
-| [`SP.05`](SP.05-audit-and-release-provenance.md) | implemented/partial | Signed audit events, OTel attributes, Merkle proofs, witness cosigning, privacy classes, anchors, SBOM/release provenance, `HTTPClient` behaviour. | Signed exports, inclusion/consistency proofs, anchor verification, telemetry privacy, provenance docs. |
+| [`SP.05`](SP.05-audit-and-release-provenance.md) | implemented | Signed audit events, OTel attributes, Merkle proofs, witness cosigning, privacy classes, anchors, SBOM/release provenance, `HTTPClient` behaviour. | Signed exports, inclusion/consistency proofs, anchor verification, telemetry privacy, provenance docs. |
 | [`SP.13`](SP.13-agent-to-agent-trust-statements.md) | implemented | Agent cards, `agent_request`/`agent_response` predicates, delegation-chain validation, peer trust. | Card tamper, unknown-agent quarantine, chain reorder/depth, trust-min derivation. |
 | [`SP.14`](SP.14-ecosystem-integrations-and-interoperability.md) | implemented | Integration contracts (hermes_mcp, Jido, LangChain, Tidewave), cheatsheets, livebooks, SECURITY.md, and maintainer-owned adoption handoff. | Livebook execution, guide compile checks, docs coverage. |
 | [`SP.15`](SP.15-benchmark-methodology-and-baselines.md) | implemented | Benchmark scenario matrix, environment disclosure, CI regression thresholds, llm-guard comparison rules, SLO ratification. | Bench harness smoke test, baseline regression gates. |
@@ -108,11 +103,11 @@ These specs capture current behavior that v3 should reuse, rewire, or remove.
 | Spec | Status | Code Surface | V3 Role |
 |------|--------|--------------|---------|
 | [`SP.06`](SP.06-envelope-and-native-backend-contracts.md) | implemented/transition | `SigilGuard`, `Backend`, `ReplayStore`, `Signer`; removed `Envelope`/`Profile`. | Reuse native crypto/replay lessons; replace public envelopes with attestations. |
-| [`SP.07`](SP.07-runtime-gate-and-streaming-contracts.md) | implemented/partial | `Context`, `Decision`, `Runtime.Gate`, `Runtime.Stream`, `Scanner`, `Quarantine`. | Rewire to `Boundary` and `BoundaryPolicy`. |
-| [`SP.08`](SP.08-mcp-gateway-and-confirmation-contracts.md) | implemented/partial | `MCP.Gateway`, `Confirmation`. | Rewire to `_agent_trust`, `_agent_confirmation`, `ToolGateway`, and attestations. |
+| [`SP.07`](SP.07-runtime-gate-and-streaming-contracts.md) | implemented | `Context`, `Decision`, `Runtime.Gate`, `Runtime.Stream`, `Scanner`, `Quarantine`. | Rewire to `Boundary` and `BoundaryPolicy`. |
+| [`SP.08`](SP.08-mcp-gateway-and-confirmation-contracts.md) | implemented | `MCP.Gateway`, `Confirmation`. | Rewire to `_agent_trust`, `_agent_confirmation`, `ToolGateway`, and attestations. |
 | [`SP.09`](SP.09-audit-chain-and-anchor-contracts.md) | implemented | `Audit`, `Audit.Checkpoint`, `Audit.Anchor`, `Audit.Export`. | Extend into signed evidence exports and OTel attributes. |
 | [`SP.10`](SP.10-vault-and-identity-contracts.md) | implemented | `Vault`, `Vault.InMemory`, `Vault.Entry`, `Identity`, `Identity.Binding`. | Reuse host extension behaviours and local development vault semantics. |
-| [`SP.11`](SP.11-repo-policy-kernel-contracts.md) | implemented/partial | `RepoPolicy`, `RepoPolicy.Decision`. | Rewire as policy facts under `BoundaryPolicy`; rename old policy filenames. |
+| [`SP.11`](SP.11-repo-policy-kernel-contracts.md) | implemented | `RepoPolicy`, `RepoPolicy.Decision`. | Rewire as policy facts under `BoundaryPolicy`; rename old policy filenames. |
 | [`SP.12`](SP.12-legacy-remote-bundle-adapter-contracts.md) | implemented/removal | Removed `Registry`, `Registry.Bundle`, `Registry.Cache`; replacement `TrustBundle`. | Remove public runtime path; replace with `TrustBundle` and migration docs. |
 
 ## Ownership Rules

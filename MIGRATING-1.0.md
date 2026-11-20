@@ -150,6 +150,13 @@ Use `_agent_confirmation` instead of `_sigil_confirmation` for confirmation
 metadata. Like `_agent_trust`, 1.0 strips `_agent_confirmation` at the JSON-RPC
 payload root and inside `params` before computing action digests.
 
+`SigilGuard.Confirmation.issue/5`, `verify/5`, and `action_digest/2` apply
+the same strip rule themselves, so a host that calls them without the
+gateway can verify a token against the request it is attached to. Releases
+up to 1.0.5 stripped only in the gateways, and a direct caller had to remove
+the token before verifying. A payload that carries none of the stripped
+keys has the same digest as before.
+
 Before:
 
 ```json
@@ -203,6 +210,12 @@ Without `:confirmation_key` the token cannot be verified and the decision is
 `:block` with `audit_metadata.deny_reason` set to `:confirmation_failed`. The
 same options apply to `guarded_confirmed_request/3`,
 `guard_confirmed_result/3`, and `guarded_confirmed_result/3`.
+
+A request token must carry the digest of the pinned manifest when one
+resolves for the tool. A result token may carry it or omit it: the result
+guards compare the manifest only when the token has the claim
+(`manifest_binding: :when_claimed` in `SigilGuard.Confirmation.verify/5`).
+Releases up to 1.0.5 rejected a result token issued with `manifest:`.
 
 The signed variants never read a token. 1.0 has no accepting path for
 envelope-shaped request metadata, so `guard_signed_request/3`,
@@ -458,6 +471,14 @@ envelope returns `{:error, :replay_detected}`. The trust material can be a
 direct `%{keyid => public_key}` map or a map derived from a verified trust
 bundle as shown in the registry lookup migration section.
 
+`SigilGuard.ToolGateway.guard_request/3` with `attestation: :required` runs
+this verification and one more check: the statement's `predicate.actor.id`
+must equal the `actor` of the host context, or its `identity` when no actor
+is set. A context that sets neither is not compared. Every such denial has
+`audit_metadata.deny_reason` set to `:invalid_attestation`, and
+`audit_metadata.attestation_error` names the cause: the
+`Attestation.verify/3` error atom, or `:actor_mismatch`.
+
 ## Profile To TrustProfile
 
 `SigilGuard.Profile` is removed. Use `SigilGuard.TrustProfile` for the 1.0 Agent
@@ -583,6 +604,25 @@ Clients should key retry, approval, quarantine, manifest refresh, attestation,
 and sandbox handling off `error.data.status` rather than the older three-code
 bucket.
 
+Three codes carry more in `error.data` than in releases up to 1.0.5:
+
+- `-31985`: `attestation_error` names the check that failed, for example
+  `"expired_attestation"`, `"digest_mismatch"`, or `"actor_mismatch"`. A
+  statement that failed verification was reported as
+  `"invalid_attestation"` before; a request with no envelope still is.
+- `-31986`: an expired manifest adds `expires_at`.
+- `-31987`: when the host passes the manifest entry as a
+  `{pinned, observed}` pair, the denial adds `expected_manifest_digest` and
+  `received_manifest_digest`, and `drifted_fields` lists the manifest
+  preimage fields that differ, such as `"description_sha256"`. It held one
+  class label such as `"manifest"` before, and still does for a drift
+  denial without the pair.
+
+A client that matched on `"invalid_attestation"` or on a class label in
+these fields needs the new values.
+`SigilGuard.CapabilityManifest.drifted_fields/2` returns the same field
+names for two manifests.
+
 ## MCP v2 (`2026-07-28`)
 
 ### Structured Action Binding
@@ -662,6 +702,13 @@ Manifest v1 documents fail closed. Tool listings must supply display/UI fields
 when the pinned v2 manifest contains them; changing those fields is manifest
 drift and invalidates approvals.
 
+`ToolGateway.attest_result/3` writes the output schema digest of the
+`manifest:` struct it is given, when that manifest declares one. An
+`output_schema_sha256:` option that differs from that digest returns
+`{:error, :schema_digest_mismatch}` and nothing is signed; `attest_request/3`
+applies the same comparison. Releases up to 1.0.5 wrote the option as given.
+Pass the manifest's value or omit the option.
+
 ### MCP Apps
 
 Use `origin: :app` with a trusted `mcp_server` for calls originating in an MCP
@@ -708,8 +755,12 @@ The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
 - **Sandbox matrix** applies in the gate only when the context declares an
   `isolation_level` (opt-in by presence); it does not auto-quarantine tool
   calls that declare none. `ToolGateway.guard_request/3` selects the matrix
-  row from the side effects of the pinned manifest. Without a pinned manifest
-  the row is `execute`; `guard_result/3` resolves no manifest.
+  row from the side effects of the pinned manifest. `guard_result/3` does
+  the same when the host context names a tool that has a pinned manifest;
+  releases up to 1.0.5 used the `execute` row for every result, so a result
+  of a tool that declares only `read` no longer needs confirmation at
+  `:container`. Without a pinned manifest the row is `execute`, and a result
+  is never blocked for lacking one.
 - The confirmation token's informational `"action"` claim now records the
   unified action (`"confirm"` for confirming decisions); the token's
   cryptographic binding is unchanged.

@@ -127,6 +127,7 @@ defmodule SigilGuard.ToolGateway do
   """
   @spec guard_request(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_request(request, context \\ %{}, opts \\ []) do
+    opts = Keyword.put(opts, :manifest_binding, :exact)
     payload = request_payload(request, opts)
     request_context = SecurityPayload.context(request, :request, context)
     effect = Effect.new(request, payload, request_context, opts)
@@ -156,6 +157,7 @@ defmodule SigilGuard.ToolGateway do
         {:error, denial} ->
           denial
           |> deny(payload, request_context)
+          |> put_correlation(request_context, opts)
           |> put_protocol_metadata(request, opts)
       end
 
@@ -303,9 +305,10 @@ defmodule SigilGuard.ToolGateway do
   """
   @spec guard_result(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_result(result, context \\ %{}, opts \\ []) do
+    opts = Keyword.put(opts, :manifest_binding, :when_claimed)
     payload = result_payload(result, opts)
     result_context = SecurityPayload.context(result, :result, context)
-    capability = result_capability(result_context, opts)
+    capability = result_capability(context, opts)
 
     decision =
       case request_action_digest(opts) do
@@ -320,6 +323,7 @@ defmodule SigilGuard.ToolGateway do
         {:error, reason} ->
           reason
           |> deny(payload, result_context)
+          |> put_correlation(result_context, opts)
           |> put_protocol_metadata(result, opts)
       end
 
@@ -770,7 +774,7 @@ defmodule SigilGuard.ToolGateway do
 
   defp drift_denial(reason, tool, opts) when is_binary(tool) do
     with {:ok, {pinned, observed}} <- manifest_entry(tool, opts),
-         {:ok, facts} <- drift_facts(pinned, observed) do
+         {:ok, %{drifted_fields: [_ | _]} = facts} <- drift_facts(pinned, observed) do
       {reason, facts}
     else
       _ -> reason
@@ -843,12 +847,15 @@ defmodule SigilGuard.ToolGateway do
 
   defp gate_opts(opts, _), do: Keyword.delete(opts, :manifest_facts)
 
-  # A result names no tool of its own. When the host's context does and a
-  # current manifest is pinned for it, that manifest gives the sandbox matrix
-  # its classes and lets a result token bind it. Anything else is no
-  # manifest: a result is never blocked for lacking one.
-  defp result_capability(%Context{tool: tool}, opts) when is_binary(tool) do
-    with {:ok, %CapabilityManifest{} = capability} <- resolve_manifest(tool, opts),
+  # The manifest of a result is the one pinned for the tool the host names.
+  # A tool name inside the result is the tool's own output: taking the
+  # manifest from it would let a result choose its sandbox class. A host
+  # context without a tool, an unknown or expired manifest, all mean no
+  # manifest, and a result is never blocked for lacking one.
+  defp result_capability(host_context, opts) do
+    with tool when is_binary(tool) and tool != "" <-
+           Map.get(Context.overrides(host_context), :tool),
+         {:ok, %CapabilityManifest{} = capability} <- resolve_manifest(tool, opts),
          :ok <- manifest_freshness(capability, opts) do
       capability
     else
@@ -856,7 +863,19 @@ defmodule SigilGuard.ToolGateway do
     end
   end
 
-  defp result_capability(_, _), do: nil
+  # A denial made before the gate ran carries the correlation facts a gate
+  # decision does.
+  defp put_correlation(%Decision{} = decision, %Context{} = context, opts) do
+    metadata =
+      decision.audit_metadata
+      |> put_present(:decision_id, Gate.correlation_id(opts))
+      |> put_present(:sandbox_id, context.sandbox_id)
+
+    %{decision | audit_metadata: metadata}
+  end
+
+  defp put_present(metadata, key, value) when is_binary(value), do: Map.put(metadata, key, value)
+  defp put_present(metadata, _, _), do: metadata
 
   # Passthrough compares two host options and needs no manifest.
   defp passthrough_resource_audience(nil, opts), do: token_passthrough(opts)
@@ -1051,12 +1070,21 @@ defmodule SigilGuard.ToolGateway do
   # A verified statement speaks for the actor it names. It is evidence for
   # this request only when that is the actor the host identified.
   defp attested_actor(statement, %Context{} = context) do
-    expected = context.actor || context.identity
+    expected = host_actor(context)
 
     if is_nil(expected) or expected == get_in(statement, ["predicate", "actor", "id"]),
       do: :ok,
       else: {:error, {:invalid_attestation, %{attestation_error: :actor_mismatch}}}
   end
+
+  # The actor a statement is written for: a non-empty actor, else a non-empty
+  # identity, as `Attestation.from_decision/3` chooses it.
+  defp host_actor(%Context{actor: actor}) when is_binary(actor) and actor != "", do: actor
+
+  defp host_actor(%Context{identity: identity}) when is_binary(identity) and identity != "",
+    do: identity
+
+  defp host_actor(_), do: nil
 
   defp inbound_verify_opts(payload, context, capability, opts) do
     opts
@@ -1286,14 +1314,9 @@ defmodule SigilGuard.ToolGateway do
     opts
     |> Keyword.take([:now])
     |> Keyword.put(:consume, Keyword.get(opts, :consume_confirmation, true))
-    |> Keyword.put(:manifest_binding, manifest_binding(decision))
+    |> Keyword.put(:manifest_binding, Keyword.get(opts, :manifest_binding, :exact))
     |> maybe_put_confirmation_manifest(decision)
   end
-
-  # A request token must bind the pinned manifest. A result token binds it
-  # when it was issued with one.
-  defp manifest_binding(%Decision{phase: :tool_result}), do: :when_claimed
-  defp manifest_binding(%Decision{}), do: :exact
 
   defp maybe_put_confirmation_manifest(opts, %Decision{
          audit_metadata: %{manifest_digest: digest}

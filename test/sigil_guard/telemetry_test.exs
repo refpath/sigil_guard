@@ -301,6 +301,121 @@ defmodule SigilGuard.TelemetryTest do
       refute Map.has_key?(low, "sigilguard.deny_reason")
     end
 
+    test "the event of an accepted confirmation states no denial" do
+      manifest =
+        SigilGuard.FixturePath.read_unexpiring_manifest!()
+        |> put_in(["input_schema", "required"], ["apiKey", "content", "path"])
+        |> Map.put("suspicious_params", ["apiKey"])
+
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{
+          "name" => manifest["name"],
+          "arguments" => %{"path" => "a", "content" => "b"}
+        }
+      }
+
+      context = [
+        trust_level: :high,
+        actor: "did:web:approver",
+        sandbox_id: "s",
+        isolation_level: :vm
+      ]
+
+      key = :crypto.hash(:sha256, "telemetry confirmation key")
+      opts = [manifests: %{manifest["name"] => manifest}, confirmation_key: key]
+      event = [:sigil_guard, :mcp, :request]
+
+      {pending, pending_metadata} =
+        capture(event, fn -> ToolGateway.guard_request(request, context, opts) end)
+
+      assert {:confirm, _} = pending.verdict
+      assert pending_metadata.deny_reason == :suspicious_required_param
+
+      {:ok, capability} = SigilGuard.CapabilityManifest.new(manifest)
+
+      {:ok, token} =
+        ToolGateway.issue_confirmation(request, context, pending, key, manifest: capability)
+
+      {accepted, metadata} =
+        capture(event, fn ->
+          ToolGateway.guard_request(request, context, [{:confirmation_token, token} | opts])
+        end)
+
+      assert accepted.verdict == :allowed
+      assert metadata.verdict == :allowed
+      refute Map.has_key?(metadata, :deny_reason)
+
+      refute Map.has_key?(
+               Telemetry.otel_attributes(event, %{}, metadata),
+               "sigilguard.deny_reason"
+             )
+    end
+
+    test "the policy digest, the request back-reference and the quarantine status are attributes" do
+      event = [:sigil_guard, :mcp, :request]
+      digest = String.duplicate("a", 64)
+
+      {_, metadata} =
+        capture(event, fn ->
+          ToolGateway.guard_result(
+            %{
+              "jsonrpc" => "2.0",
+              "id" => 1,
+              "result" => %{"content" => [%{"type" => "text", "text" => "done"}]}
+            },
+            [phase: :tool_result, trust_level: :high],
+            request_action_digest: digest
+          )
+        end)
+
+      assert metadata.request_action_digest == digest
+      assert metadata.quarantine_status == :safe
+
+      low = Telemetry.otel_attributes(event, %{}, metadata)
+      high = Telemetry.otel_attributes(event, %{}, metadata, include_high_cardinality: true)
+
+      assert low["sigilguard.quarantine.status"] == "safe"
+      refute Map.has_key?(low, "sigilguard.request.action.digest")
+      assert high["sigilguard.request.action.digest"] == digest
+
+      with_policy = %{repo_policy_digest: digest, verdict: :allowed}
+
+      refute Map.has_key?(
+               Telemetry.otel_attributes(event, %{}, with_policy),
+               "sigilguard.policy.digest"
+             )
+
+      assert Telemetry.otel_attributes(event, %{}, with_policy, include_high_cardinality: true)[
+               "sigilguard.policy.digest"
+             ] == digest
+    end
+
+    test "a refusal of malformed input carries the host correlation id" do
+      {decision, metadata} =
+        capture([:sigil_guard, :runtime, :gate], fn ->
+          Gate.evaluate("text", [phase: :not_a_phase, sandbox_id: "sandbox-3"],
+            decision_id: "req-9"
+          )
+        end)
+
+      assert decision.verdict == :blocked
+      assert Map.has_key?(decision.audit_metadata, :runtime_input_error)
+      assert decision.audit_metadata.decision_id == "req-9"
+      assert metadata.decision_id == "req-9"
+
+      for unusable <- ["two words", "line\nbreak", <<0xC3, 0xA9>>] do
+        refute Map.has_key?(
+                 Gate.evaluate("text", [], decision_id: unusable).audit_metadata,
+                 :decision_id
+               )
+      end
+
+      refute Map.has_key?(Gate.evaluate("text", [], :not_options).audit_metadata, :decision_id)
+    end
+
     test "an audit log event carries the event id as an opt-in attribute" do
       event = [:sigil_guard, :audit, :logged]
 

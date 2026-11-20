@@ -152,7 +152,7 @@ extension below is specified by
 | Read/query API | `Audit.tip/1` and `Audit.query/2`; reads MUST never mutate the chain. | Audit Read And Query API. |
 | Anchor-store HTTP conversion | `Store.HTTP` consumes a host-provided client instead of finch (D9). | `SigilGuard.HTTPClient` Behaviour. |
 | Signed audit events | The `%SigilGuard.Audit{}` event with reserved metadata keys and the exact, ordered event-hash field list. No `Audit.Event` module exists. | Signed Audit Event; Event Hash Field List. |
-| Telemetry correlation | OTel decision attributes, trace/span correlation, cardinality and sampling guidance (D16). The per-decision id is not implemented. | Telemetry And OTel. |
+| Telemetry correlation | OTel decision attributes, trace/span correlation, cardinality and sampling guidance (D16). The per-decision id is the host's `:decision_id` option (D38, SP.05). | Telemetry And OTel. |
 
 The v3 event-type vocabulary (`SigilGuard.Audit.EventType`) renames the legacy
 `SigilInterception` type to the neutral `ScannerInterception`, retiring the

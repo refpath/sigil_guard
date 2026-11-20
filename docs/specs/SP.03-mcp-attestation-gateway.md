@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.03"
   title: "MCP And Tool Attestation Gateway"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: critical
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -86,7 +86,7 @@ sequenceDiagram
 | GenServer | no | Guard calls are pure; pinned manifests come from the bundle or host. |
 | Behaviour | no | `ToolGateway` is concrete; transports adapt by shaping maps. |
 | ETS | yes | `SigilGuard.ReplayStore` consumes single-use confirmation nonces. |
-| Telemetry | yes | One consolidated MCP decision event plus the runtime-gate event; manifest and result facts stay on `Decision.audit_metadata`, and there are no separate event families. |
+| Telemetry | yes | One consolidated MCP decision event plus the runtime-gate event. The MCP event carries the deny reason and the manifest and result facts listed under Telemetry And Observability; there are no separate event families. |
 
 ## CapabilityManifest Canonical Form
 
@@ -267,7 +267,7 @@ Granted scopes bind as the ascending-sorted, single-space-joined string in
 
 | Bound item | Where it binds |
 |------------|----------------|
-| Actor | `predicate.actor.id` (the context `actor`, else `identity`) + `actor` key of the context digest. |
+| Actor | `predicate.actor.id` (the context `actor`, else `identity`) + `actor` key of the context digest. `guard_request/3` compares the id of an inbound statement with its own context (check order, step 6). |
 | Tool identity (tool digest) | `manifest` subject entry = `manifest_digest`, written when the caller passes `:manifest` (a `%CapabilityManifest{}`) or `:manifest_digest`; `predicate.tool` mirror (`name`, `mcp_server`, `manifest_digest`). |
 | Action | `action` subject entry. The SP.01 `tool_request` preimage reads through the gate payload to the message it wraps, so it holds `statement_type`, the context `tool`, the request `method`, and the `arguments`. It is the same preimage as for the raw MCP message. Two calls to one tool with different arguments have different action digests. The `payload` subject binds method and arguments too. |
 | Full guarded payload | `payload` subject entry. |
@@ -304,9 +304,9 @@ that names the `tool` and an `actor` or `identity`, and it requires
 | Action | `action` subject entry. The SP.01 `tool_result` preimage reads through the gate payload as the request preimage does. The gateway's result projection has a `nil` method, so the preimage holds `statement_type`, the context `tool`, and `request_action_digest`, as for the raw JSON-RPC response. A member of the result object named `method` is application data and does not enter the preimage; the `payload` subject binds it. |
 | Sink | `sink` key of the context digest + `predicate.boundary.sink`. The `boundary` map is the SP.01 mirror with all its fields; `sink` is one of them. |
 | Evidence refs | `predicate.evidence` (SP.01 shape), from the caller's `:evidence` option, else from `Decision.evidence_refs` when that list is not empty; either list is shape-checked (`:invalid_evidence`). `guard_result/3` returns a decision with an empty list, so the field is written only when the caller passes the option or fills the list. |
-| Manifest | `manifest` subject entry, written when the caller passes `:manifest` or `:manifest_digest`. Passing the paired request's manifest is the caller's step; `guard_result/3` resolves none. |
+| Manifest | `manifest` subject entry, written when the caller passes `:manifest` or `:manifest_digest`. `guard_result/3` records the digest of the manifest it resolved in `audit_metadata.manifest_digest`; `attest_result/3` does not read it, so passing the manifest is the caller's step. |
 | Request back-reference | `predicate.request_action_digest` (string, required) mirroring the `request_action_digest` inside the action-digest preimage (SP.01). The gateway does not compute it: the caller supplies the `:request_action_digest` option, 64 lowercase hex characters. The `action` subject of the paired `tool_request` statement covers that request's method and arguments, so passing it ties the result to them and not to the tool name alone. |
-| Output schema digest | `predicate.output_schema_sha256` (string): the caller's `:output_schema_sha256` option when given, else the field of the `:manifest` struct; omitted when neither is set. It MUST equal the manifest field when the manifest declares one. That equality is not implemented: no code compares a caller-supplied value with the manifest, so the caller has to pass the manifest's value or omit the option. |
+| Output schema digest | `predicate.output_schema_sha256` (string). It MUST equal the manifest field when the manifest declares one. When `:manifest` is a `%CapabilityManifest{}` that declares an output schema, `attest_result/3` writes the manifest's `output_schema_sha256`; a caller's `:output_schema_sha256` has to be that value or `nil`, and any other value returns `{:error, :schema_digest_mismatch}` and nothing is signed. Without such a manifest (none, one passed as a digest, or one that declares no output schema) the caller's option is written when given and compared with nothing; it must be 64 lowercase hex characters (`:invalid_payload` otherwise), and the field is omitted when the option is absent or `nil`. `attest_request/3` applies the same comparison and writes no such field. |
 | Quarantine status | `predicate.quarantine` (map, required): `{"status": "none" \| "quarantined" \| "released_sanitized", "indicator_ids": [string]}`. `status` comes from the `:quarantine_status` option when the caller passes one. Otherwise a decision whose `audit_metadata.release_status` is `:confirmed_sanitized` gives `"released_sanitized"`. `guard_result/3` sets that value when a confirmation releases a quarantined result, and leaves `quarantine_status` at `:quarantined`. For any other decision `audit_metadata.quarantine_status` decides: `:quarantined` gives `"quarantined"`, `:released_sanitized` gives `"released_sanitized"`, and any other value gives `"none"`. `indicator_ids` are the indicator ids as strings, deduplicated and sorted. |
 | Scanner summary | `predicate.scanner` (map, required): `{"hit_count": integer, "redacted": boolean}`; summary only, never raw content. |
 
@@ -335,13 +335,23 @@ bindings below.
 |-------|-------|
 | `v` / `typ` / `alg` | `2`, `"sigil_guard.confirmation.v2"`, `"HS256"`. |
 | `actor` | Approving actor id: the context `actor` when it is a non-empty string, else the context `identity`, else the `:actor` option, else `"unknown"`. The option does not override a context value. |
-| `action_digest` | Legacy action digest from `SigilGuard.Confirmation.fetch_action_digest/2`: SHA-256 over the legacy canonical JSON of `{"context": <every Context field>, "payload": <payload>}`. It is not `Attestation.Digest.action_digest/4`; the two values differ for the same request. |
+| `action_digest` | Legacy action digest from `SigilGuard.Confirmation.fetch_action_digest/2`: SHA-256 over the legacy canonical JSON of `{"context": <every Context field>, "payload": <payload after the strip rule>}`. It is not `Attestation.Digest.action_digest/4`; the two values differ for the same request (Action Digest Decision below). |
 | `payload_digest` | SP.01 payload digest (`Attestation.Digest.payload_digest/1`). |
 | `context_digest` | SP.01 context digest (`Attestation.Digest.context_digest/2`); `Context.sandbox_id` and `Context.isolation_level` are inside it, so a changed sandbox invalidates the token. |
-| `manifest_digest` | Pinned manifest digest, written when the issuer passes `:manifest` (a `%CapabilityManifest{}` or its digest) or `:manifest_digest`, and omitted otherwise. `guard_request/3` expects the claim to equal the resolved manifest's digest: a token without the claim fails when a manifest resolves, and a token with the claim fails when none resolves, both with `:manifest_digest_mismatch`. A drifted or re-listed manifest therefore invalidates the token. |
+| `manifest_digest` | Pinned manifest digest, written when the issuer passes `:manifest` (a `%CapabilityManifest{}` or its digest) or `:manifest_digest`, and omitted otherwise. `guard_request/3` expects the claim to equal the resolved manifest's digest: a token without the claim fails when a manifest resolves, and a token with the claim fails when none resolves, both with `:manifest_digest_mismatch`. A drifted or re-listed manifest therefore invalidates the token. `guard_result/3` compares the claim only when the token carries it (Defaults And Rules, manifest binding). |
 | `decision` / `action` / `reason` | `"confirm"`; the gate action string; the decision reason (MAY be empty). |
 | `issued_at` / `expires_at` | ISO 8601 UTC ms; `expires_at` later than `issued_at`. |
 | `nonce` | 16 random bytes, lowercase hex. |
+
+### Action Digest Decision
+
+The `action_digest` claim is the legacy digest, and that is the contract
+(D36). It is not replaced by the SP.01 attestation action digest. The
+confirmation preimage is frozen for issued tokens and existing consumers.
+The two digests also bind different things: the token digest binds the
+whole context struct and the payload, and the attestation `action` subject
+binds the method, the tool, and the arguments. The SP.01 computations supply
+the token's separate `payload_digest` and `context_digest` claims.
 
 ### Defaults And Rules
 
@@ -359,6 +369,18 @@ bindings below.
   `isolation_level`, or manifest - fails with `:digest_mismatch` or
   `:manifest_digest_mismatch`. An expired token fails with `:expired`.
   Tokens are never renewed; any change or expiry requires re-issue.
+- **Manifest binding:** `Confirmation.verify/5` takes `manifest: digest`
+  and `manifest_binding: :exact | :when_claimed` (default `:exact`). With
+  `:exact` the token's `manifest_digest` claim must equal the digest, and a
+  token without the claim is refused. With `:when_claimed` the digest is
+  compared only when the token carries the claim. In both modes a token
+  that carries the claim must match, and it is refused when no `:manifest`
+  is given. Every refusal is `:manifest_digest_mismatch`. The gateway
+  passes `:exact` for a request token and `:when_claimed` for a result
+  token. The mode follows the function, not the phase: `guard_request/3`
+  always verifies with `:exact`, also when the host context states another
+  phase, and `guard_result/3` always with `:when_claimed`. Each sets the
+  mode itself and discards a `:manifest_binding` the caller passes.
 - **Phases:** `context_digest` uses the context phase as the SP.01 statement
   type. `Confirmation.issue/5` therefore issues tokens for `tool_request`,
   `tool_result`, and `repo_change` contexts and returns
@@ -368,12 +390,15 @@ bindings below.
   `:_agent_trust`, `"_agent_trust"`, `:_agent_confirmation`,
   `"_agent_confirmation"`, `:confirmation_token`, `"confirmation_token"`.
   The gateways apply it in `MCP.SecurityPayload.for_gate/3` before they hand
-  the payload to `SigilGuard.Confirmation`. `Confirmation.issue/5` and
-  `verify/5` do not strip for `action_digest`: `payload_digest` strips
-  through `Attestation.Digest.payload_digest/1`, but
-  `fetch_action_digest/2` digests the payload as given. A host that calls
-  `Confirmation` directly strips first; otherwise a token verified against
-  a payload that carries it fails with `:digest_mismatch`.
+  the payload to `SigilGuard.Confirmation`, and `Confirmation` applies it
+  again: `fetch_action_digest/2` strips through
+  `Attestation.strip_metadata/1`, and `payload_digest` strips through
+  `Attestation.Digest.payload_digest/1`. `action_digest/2`, `issue/5`, and
+  `verify/5` therefore give a host that calls `Confirmation` directly the
+  same digests before and after it attaches a token, and a token verifies
+  against the request that carries it. A deeper occurrence of one of the
+  keys, for example under `params.arguments`, is application data and stays
+  bound.
 - **Token carriers:** the `:confirmation_token` option, or the
   `_agent_confirmation` or `confirmation_token` key at the request root or
   under `params`.
@@ -383,7 +408,8 @@ bindings below.
 1. `guard_request/3` returns a `{:confirm, reason}` decision.
 2. Host calls `ToolGateway.issue_confirmation/5`, passing `manifest:` when
    a pinned manifest applies to the request; the token binds the digests
-   above.
+   above. For a result token (`direction: :result`) `manifest:` is
+   optional.
 3. Host renders its approval UI from the matched rules and
    `action_digest`; raw payload display is host policy, never required.
 4. The approver accepts; the host re-submits the identical request with
@@ -437,6 +463,7 @@ defmodule SigilGuard.ToolGateway do
   @type attest_error ::
           SigilGuard.Attestation.from_decision_error()
           | SigilGuard.Attestation.sign_error()
+          | :schema_digest_mismatch
 
   @spec guard_request(term(), ctx(), keyword()) :: SigilGuard.Decision.t()
   # opts: :manifests (%{name => manifest}) | :trust_bundle, :server,
@@ -451,12 +478,15 @@ defmodule SigilGuard.ToolGateway do
 
   @spec guard_result(term(), ctx(), keyword()) :: SigilGuard.Decision.t()
   # opts: :request_action_digest (64 lowercase hex; any other value denies
-  #  with :invalid_payload), the confirmation options (:confirmation,
-  #  :confirmation_key, :confirmation_token, :consume_confirmation, :now),
-  #  and the runtime-gate options. guard_result/3 resolves no manifest and
-  #  verifies no attestation: :manifests, :trust_bundle, :require_manifest,
-  #  :attestation, :trust_material, :audience, :resource, and
-  #  :self_resource have no effect on a result.
+  #  with :invalid_payload), :manifests | :trust_bundle, :server, :now,
+  #  :max_skew_ms (the pinned manifest for the tool the host context names,
+  #  best effort),
+  #  the confirmation options (:confirmation, :confirmation_key,
+  #  :confirmation_token, :consume_confirmation, :now), and the
+  #  runtime-gate options. guard_result/3 denies nothing for a manifest and
+  #  verifies no attestation: :require_manifest, :attestation,
+  #  :trust_material, :audience, :resource, and :self_resource have no
+  #  effect on a result.
 
   # guarded_request/3 and guarded_result/3 wrap the same guards in the v2
   # wire shapes: {:ok, decision} | {:error, response, decision} and
@@ -485,7 +515,9 @@ defmodule SigilGuard.ToolGateway do
   @spec attest_result(SigilGuard.Decision.t(), ctx(), keyword()) ::
           {:ok, envelope :: map()} | {:error, attest_error()}
   # As attest_request/3 plus required :request_action_digest (missing
-  # fails with {:error, :invalid_payload}).
+  # fails with {:error, :invalid_payload}) and :output_schema_sha256. Both
+  # helpers return {:error, :schema_digest_mismatch} when that option
+  # differs from the digest a :manifest struct declares.
 
   @spec issue_confirmation(term(), ctx(), SigilGuard.Decision.t(),
           key :: binary(), keyword()) ::
@@ -521,6 +553,12 @@ defmodule SigilGuard.CapabilityManifest do
              | :suspicious_required_param | :invalid_manifest}
   # Pure comparison; trust resolution and expiry live in
   # ToolGateway.verify_manifest/2.
+
+  @spec drifted_fields(pinned :: t() | map(), observed :: t() | map()) ::
+          {:ok, [String.t()]} | {:error, :invalid_manifest}
+  # The digest preimage field names in which the two manifests differ,
+  # sorted; [] when the digests are equal. Both manifests are validated
+  # first, and one that does not validate gives :invalid_manifest.
 end
 ```
 
@@ -548,23 +586,65 @@ defaults for the rest) before the later steps run.
 
 Step 6 reads the envelope from `_agent_trust` at the request root. An
 envelope under `params` is not read, and `attestation: :required` then
-denies with `:invalid_attestation`. Every verification failure is reported
-as `:invalid_attestation`; the SP.01 `verify_error` atom is not kept.
+denies with `:invalid_attestation`. The deny reason of every step 6 denial
+is `:invalid_attestation`. When `Attestation.verify/3` refuses the envelope,
+`audit_metadata.attestation_error` keeps its error atom, for example
+`:unknown_key_id`, `:expired_attestation`, or `:digest_mismatch`. A denial
+with no envelope to verify, or for an `:attestation` value outside the
+three modes, records no `attestation_error`.
+
+A verified statement is evidence for a request only when it names the actor
+the host identified. After verification, step 6 compares
+`predicate.actor.id` with the context `actor`, or with the context
+`identity` when no actor is set. A different id denies with
+`:invalid_attestation` and `attestation_error: :actor_mismatch`. A context
+that sets neither field is not compared. The comparison runs in the
+`:optional` mode too when the request carries an envelope. The context
+digest already binds the context actor, so a statement that
+`attest_request/3` built from the same context passes; the comparison
+refuses a statement whose predicate names another actor than its `context`
+subject binds. An empty-string `actor` does not count as set: the
+comparison then uses the `identity`, as the attest helpers do when they
+write the statement.
 
 At step 7 the gateway passes the resolved manifest's digest and
 `side_effects` to the gate as the `:manifest_facts` option and discards a
 caller-supplied `:manifest_facts`. Without a resolved manifest the gate
 treats the tool as class `execute` (SP.07, Sandbox default).
 
-`guard_result/3` runs none of steps 2 to 6. It validates
-`:request_action_digest`, evaluates the gate, records the result binding
-metadata (`request_action_digest`, `scanner_summary`, `quarantine_status`),
-and applies confirmation. It resolves no manifest and discards a
-caller-supplied `:manifest_facts`, so a result is class `execute` in the
-sandbox matrix. A result confirmation
-token has to be issued without `:manifest`: `guard_result/3` supplies no
-expected manifest digest, so a token that carries the claim fails with
-`:manifest_digest_mismatch`.
+`guard_result/3` runs none of steps 2 to 6 as a check. It validates
+`:request_action_digest`, resolves the pinned manifest for the tool the host
+context names, evaluates the gate, records the protocol, manifest, and
+result binding metadata (`request_action_digest`, `scanner_summary`,
+`quarantine_status`), and applies confirmation.
+
+Manifest resolution for a result is best effort. The tool is the `tool`
+the host passes in its context, a non-empty string. A tool name inside the
+result message (`tool` or `name` at its root, or `name` under `params`) is
+never used for the lookup: it is the tool's own output, and taking the
+manifest from it would let a result choose its sandbox class. That name
+still enters the result context as before when the host context has no
+`tool` key. The lookup uses `:manifests`, `:trust_bundle`, and `:server` as
+for a request. A host context without a tool, no pinned manifest, an
+expired manifest, an invalid manifest, and a `{pinned, observed}` pair that
+fails verification all mean no manifest. None of them blocks the result,
+and `:require_manifest` has no effect.
+
+With a manifest, the gateway passes its digest and `side_effects` to the
+gate as `:manifest_facts`, so the sandbox matrix uses the declared classes
+for the result, and the decision's `audit_metadata` carries
+`manifest_digest`, `manifest_name`, and `suspicious_params`. Without one
+the result is class `execute`. A caller-supplied `:manifest_facts` is
+discarded in both cases. The audience and resource checks, caller
+visibility, the sandbox requirement, and the suspicious-parameter
+confirmation are request checks and do not run for a result.
+
+A result confirmation token may bind the manifest. The gateway verifies it
+with `manifest_binding: :when_claimed` (Confirmation Lifecycle): a token
+issued without `:manifest` verifies whether or not a manifest resolves, and
+a token that carries the claim must equal the resolved manifest's digest.
+It fails with `:manifest_digest_mismatch` when the digest differs or when
+no manifest resolves.
 
 ### MCP.Gateway Facade (D14)
 
@@ -574,10 +654,12 @@ point and keeps the JSON-RPC shaping. Every current helper is kept with its
 name and arity. The request, result, confirmation, and stream helpers
 delegate to `ToolGateway` with an identical return shape.
 
-The six signed helpers do not verify attestations. They delegate to
-`SigilGuard.ToolGateway.Base`, which has no accepting path for signed
-request metadata: the guards always return a block decision, and the token
-helper never issues a token. The working signed-request path is
+The six signed helpers are fail-closed, and that is the contract (D37).
+They verify no attestation. They delegate to `SigilGuard.ToolGateway.Base`,
+which has no accepting path for signed request metadata: the guards always
+return a block decision, and the token helper never issues a token. They
+are kept so that a caller of the removed `_sigil` envelope path gets a
+refusal and not an unverified pass. The signed-request path is
 `ToolGateway.guard_request/3` or `guarded_request/3` with
 `attestation: :required`. The facade's `guard_request/3` and
 `guard_confirmed_request/3` forward that option unchanged.
@@ -645,10 +727,47 @@ allocation (Decision D20, SP.16).
 | `-31990` | `"blocked"` | Any other block verdict, including `:audience_mismatch`, `:resource_mismatch`, `:token_passthrough_denied`, `:invalid_manifest`, the SP.16 visibility denials (named in `reason`), a rejected confirmation token, and the signed `MCP.Gateway` helpers. | `scanner_error` on a scanner failure; `confirmation_status` (`"invalid"`) and `confirmation_reason` on a rejected token. |
 | `-31989` | `"confirmation_required"` | `{:confirm, _}` when no token was read: none supplied, or `confirmation: :off`. A rejected token is a block (`-31990`). | None. `confirmation_status` and `confirmation_reason` do not occur on this code. |
 | `-31988` | `"quarantined"` | `action: :quarantine`, or a pending confirm whose `effect` is `:quarantine`. | `sanitized_text` only when `include_sanitized: true`. |
-| `-31987` | `"manifest_drift"` | `:manifest_digest_mismatch`, `:schema_digest_mismatch`, `:suspicious_required_param`, and the SP.16 atoms `:invalid_header_annotation` and `:sensitive_header_param`. | `tool`, `server` (the context `mcp_server`, when set), `drifted_fields`. A gateway denial sets `drifted_fields` to one coarse label: `["manifest"]`, `["schema"]`, `["suspicious_params"]`, or `["input_schema"]`. `expected_manifest_digest`, `received_manifest_digest`, and a list of the preimage keys that differ are specified but not produced by any gateway denial; the shaper emits them only when `audit_metadata` already carries them. |
-| `-31986` | `"unknown_manifest"` | `:unknown_manifest`, `:manifest_expired`. | `tool`, `server` (as above), `manifest_status` (`"unknown"` \| `"expired"`). `expires_at` when expired is specified but not produced: the `:manifest_expired` denial does not record it. |
-| `-31985` | `"invalid_attestation"` | `attestation: :required` with a missing envelope; `:required` or `:optional` with an envelope that fails SP.01 verification; an `:attestation` value outside the three modes. | `attestation_error`. For these denials the value is always `"invalid_attestation"`. The SP.01 atom as string is specified but produced only by the SP.19 nonce-consumption denial below. |
+| `-31987` | `"manifest_drift"` | `:manifest_digest_mismatch`, `:schema_digest_mismatch`, `:suspicious_required_param`, and the SP.16 atoms `:invalid_header_annotation` and `:sensitive_header_param`. | `tool`, `server` (the context `mcp_server`, when set), `drifted_fields`, and for a `{pinned, observed}` manifest entry `expected_manifest_digest` and `received_manifest_digest` (Denial Facts below). |
+| `-31986` | `"unknown_manifest"` | `:unknown_manifest`, `:manifest_expired`. | `tool`, `server` (as above), `manifest_status` (`"unknown"` \| `"expired"`), and `expires_at` for an expired manifest. |
+| `-31985` | `"invalid_attestation"` | `attestation: :required` with a missing envelope; `:required` or `:optional` with an envelope that fails SP.01 verification or names another actor than the context; an `:attestation` value outside the three modes. | `attestation_error`: the verification error atom as a string, `"actor_mismatch"`, or `"invalid_attestation"` when no verification ran. |
 | `-31984` | `"sandbox_required"` | `:sandbox_required`. | `tool`, `required_isolation`, `received_isolation`, `sandbox_id_present` (boolean). |
+
+### Denial Facts
+
+A gateway denial records the facts below in `Decision.audit_metadata`, and
+the response shaper copies them into `data`.
+
+- Manifest drift (`-31987`): a request whose manifest entry is a
+  `{pinned, observed}` pair carries `expected_manifest_digest` (the pinned
+  digest), `received_manifest_digest` (the observed digest), and
+  `drifted_fields`: the digest preimage field names in which the two
+  differ, sorted, from `CapabilityManifest.drifted_fields/2`, for example
+  `["description_sha256"]` or `["input_schema_sha256", "side_effects"]`.
+  The three values need both manifests of the pair to validate and to
+  differ in at least one field. A pair whose manifests are equal and name
+  another tool than the request has nothing to report. That denial, and
+  any other drift denial, records none of the three, and
+  `data.drifted_fields` then holds one coarse label that the shaper
+  derives from the deny reason: `["manifest"]`,
+  `["schema"]`, `["suspicious_params"]`, or `["input_schema"]`. A malformed
+  observed manifest is denied with `:invalid_manifest` (`-31990`); that
+  denial has no received digest and no field list.
+- Expired manifest (`-31986`): `expires_at` is the resolved manifest's
+  `expires_at` string. The shaper adds `manifest_status` `"expired"` to
+  `data`.
+- Attestation (`-31985`): `attestation_error` is the atom
+  `Attestation.verify/3` returned, or `:actor_mismatch`; `data` carries it
+  as a string. A denial with no verification error has no
+  `attestation_error` in the metadata, and `data.attestation_error` is
+  `"invalid_attestation"`. That is the case for a missing envelope, an
+  envelope under `params` or one that is not a map, and an `:attestation`
+  value outside the three modes.
+
+`ToolGateway.verify_manifest/2` returns the bare error atom at `tools/list`
+time. A host that wants the field names for a refreshed listing calls
+`CapabilityManifest.drifted_fields/2` with the pinned manifest and the
+observed manifest in carried form. A bare `tools/list` entry is not a
+manifest and returns `{:error, :invalid_manifest}`.
 
 [SP.19](SP.19-physical-effect-authority.md) adds the `:effect_binding`
 option and three block reasons: `:effect_binding_required`,
@@ -705,15 +824,41 @@ actor, identity, tool, `mcp_server`, `resource_uri`, `protocol_version`,
 and indicator counts, indicator ids, `content_hash`, `action_digest`,
 `action_digest_error`, `scanner_error`, `runtime_input_error`, envelope
 status/reason, confirmation status, reason, actor, nonce hash, and
-issue/expiry times, the SP.19 effect-binding fields, and the repo-policy
-verdict, rules, and unmatched paths.
+issue/expiry times, the SP.19 effect-binding fields, the repo-policy
+verdict, rules, unmatched paths, and `repo_policy_digest`, and
+`deny_reason`, `manifest_digest`, `manifest_name`,
+`request_action_digest`, `quarantine_status`, `decision_id`, `sandbox_id`,
+and `matched_rule_ids`.
 
-The allow-list drops every other key. `deny_reason`, `manifest_digest`,
-`manifest_name`, `suspicious_params`, `request_action_digest`,
-`scanner_summary`, `quarantine_status`, `release_status`, and the sandbox
-denial fields stay on `Decision.audit_metadata` and do not reach the event.
-A telemetry handler therefore cannot tell a manifest denial from another
-block; a host that needs the reason reads the returned decision.
+A key is on the event only when the decision's metadata has it:
+
+- `deny_reason` is set by a gateway denial and by a rejected confirmation
+  (`:confirmation_failed`), so a handler can tell a manifest, sandbox, or
+  attestation denial from another block. The suspicious-parameter
+  confirmation sets it to `:suspicious_required_param` too. That value
+  stays in the decision's audit metadata after the token is accepted, as
+  the record of why confirmation was asked for, and the event of the
+  allowed decision leaves it out: an event with verdict `allowed` has no
+  `deny_reason`.
+- `manifest_digest` and `manifest_name` are present when a manifest
+  resolved and the gate ran. A denial before the gate carries neither.
+- `request_action_digest` and `quarantine_status` come from
+  `guard_result/3`.
+- `decision_id` and `sandbox_id` are on every event whose call set them,
+  a denial before the gate included: the gateway copies the `:decision_id`
+  option and the context `sandbox_id` onto such a denial.
+  `matched_rule_ids` comes from the gate (SP.07), so a denial before the
+  gate has none.
+
+The allow-list drops every other key. `suspicious_params`,
+`scanner_summary`, `release_status`, `attestation_error`, `expires_at`, the
+drift digests and `drifted_fields`, and the sandbox denial fields stay on
+`Decision.audit_metadata` and do not reach the event; a host that needs
+them reads the returned decision.
+
+`protocol_version` and `mcp_result_type` are on the MCP event only (D40).
+The gate receives the security projection, not the MCP message, and the
+gateway attaches both fields after the gate has emitted its event.
 
 The runtime gate also emits `[:sigil_guard, :runtime, :gate]` for the
 underlying boundary decision. A denial before the gate emits only the MCP
@@ -734,7 +879,7 @@ Spec-local atoms. Shared atoms (`:digest_mismatch`, `:expired_attestation`,
 |-------|---------|----------|-------------|
 | `:unknown_manifest` | Manifest required and no pinned manifest exists for `(server, name)` (gateway trigger for the SP.01 shared atom) | load a signed bundle carrying the manifest | request blocked; definition withheld |
 | `:manifest_digest_mismatch` | Recomputed preimage digest differs from the pinned digest, the attestation `manifest` subject, or the token `manifest_digest` claim | re-verify listing; re-sign the manifest deliberately | request blocked; approvals invalidated |
-| `:schema_digest_mismatch` | Observed input/output schema JCS digest differs from the pinned `*_sha256` field | treat as drift; re-sign deliberately | request blocked |
+| `:schema_digest_mismatch` | Observed input/output schema JCS digest differs from the pinned `*_sha256` field; or the `:output_schema_sha256` option of an attest helper differs from the digest its `:manifest` declares | treat as drift and re-sign deliberately; pass the manifest's value or omit the option | request blocked; no statement signed |
 | `:manifest_expired` | `now > expires_at + max_skew_ms` for the pinned manifest | issue a manifest with a fresh expiry | request blocked |
 | `:suspicious_required_param` | Recomputed suspicious set differs from the signed `suspicious_params` field | fix or honestly disclose the schema | manifest rejected |
 | `:invalid_manifest` | Missing required field, unknown enum value, unsorted list, or carried digest that fails recomputation | fix the manifest document | manifest rejected |
@@ -756,7 +901,10 @@ Spec-local atoms. Shared atoms (`:digest_mismatch`, `:expired_attestation`,
 - Token passthrough is forbidden by the MCP specification; the gateway
   enforces the deny deterministically rather than trusting servers.
 - Confirmation tokens cannot approve changed arguments, sinks, actors,
-  sandboxes, manifests, or contexts; single-use is the default.
+  sandboxes, manifests, or contexts; single-use is the default. For the
+  manifest this holds for a request token, and for a result token that
+  carries the `manifest_digest` claim. A result token issued without the
+  claim does not bind the manifest.
 - Privileged tools fail closed without required sandbox identity; tool
   output is untrusted until scanned and source-to-sink policy allows it
   (SP.04); quarantined output releases only as sanitized text.
@@ -775,6 +923,12 @@ Spec-local atoms. Shared atoms (`:digest_mismatch`, `:expired_attestation`,
 | unsandboxed privileged tool | `ToolGatewayTest` | Missing/insufficient sandbox blocks with `:sandbox_required` (TM.09). |
 | poisoned result | `ToolGatewayTest` | Injected result content quarantines; release is sanitized-only (TM.01). |
 | confirmation binding | `ConfirmationTest` | Token cannot approve a changed action, payload, context (incl. `sandbox_id`), or manifest; second use fails `:replay_detected`; expiry honored (TM.06). |
+| attested actor | `ToolGatewayTest` | A verified statement whose `predicate.actor.id` is not the context actor is denied with `:invalid_attestation`. |
+| denial facts | `ToolGatewayTest`, `CapabilityManifestTest` | An attestation denial keeps the `Attestation.verify/3` atom in `attestation_error`; an expired-manifest denial carries `expires_at`; a drift denial for a `{pinned, observed}` entry carries both digests and the preimage fields from `drifted_fields/2`. |
+| result manifest | `ToolGatewayTest` | `guard_result/3` uses the pinned manifest of the context tool for the sandbox matrix class and records its digest and name; without a pinned manifest, or with an expired one, the result is class `execute` and carries no manifest metadata. |
+| direct confirmation | `ConfirmationTest` | `action_digest/2` is the same with and without the stripped keys at the root and under `params`; a token attached to its request verifies in a direct `verify/5` call; `manifest_binding: :exact` refuses a token without the claim and `:when_claimed` accepts it; a token with the claim must match in both modes. |
+| result token | `ToolGatewayTest` | A result token issued with the pinned manifest and one issued without it are both accepted; a token bound to another manifest is refused with `:manifest_digest_mismatch`. |
+| output schema digest | `ToolGatewayTest` | A result statement carries the output schema digest of its `:manifest`; another caller value returns `:schema_digest_mismatch`. |
 | action binding | `ToolGatewayTest`, `Attestation.DigestTest` | The `action` subject of a gateway-built `tool_request` statement changes with the arguments, and the gateway accepts its own attestation; the preimage of the gate payload equals that of the raw message, also when the params object has a member named `params` or `method`. |
 | released result | `AttestationFromDecisionTest`, `ToolGatewayTest` | A decision with `release_status: :confirmed_sanitized` attests `released_sanitized`; `guard_result/3` sets that status on a confirmed release. |
 | facade parity | `MCP.GatewayTest` | Every facade helper delegates per the mapping table with identical return shapes and JSON-RPC codes. |
@@ -801,25 +955,46 @@ malformed-input cases per repository rule 9.
       default, four-digest binding, re-issue required on any change.
 - [x] Codes `-31990..-31984` are selected per the registry, and `data`
       omits `nil` fields.
-- [ ] Gateway denials populate `expected_manifest_digest`,
-      `received_manifest_digest`, the differing preimage keys in
-      `drifted_fields`, `expires_at`, and the SP.01 atom in
-      `attestation_error` (not implemented: no `guard_request/3` denial
-      records them, apart from the SP.19 nonce-consumption path for
-      `attestation_error`).
+- [x] Gateway denials populate the registry fields. A drift denial for a
+      `{pinned, observed}` entry carries `expected_manifest_digest`,
+      `received_manifest_digest`, and the differing preimage keys in
+      `drifted_fields`; an expired-manifest denial carries `expires_at`; an
+      attestation denial carries the `Attestation.verify/3` atom in
+      `attestation_error` (`ToolGatewayTest`: "a drift denial names both
+      digests and the fields that changed", "an expired manifest denial
+      says when it expired", "a denial says which verification step refused
+      the attestation"; `CapabilityManifestTest`, "drifted_fields/2").
 - [x] The unsigned `MCP.Gateway` request, result, confirmation, and stream
       helpers delegate per the facade table with an identical return shape
       (parity tests).
-- [ ] The signed `MCP.Gateway` helpers verify `_agent_trust` attestations
-      and issue or accept confirmation tokens (not implemented: they always
-      block; hosts call `ToolGateway.guard_request/3` with
-      `attestation: :required`).
+- [x] The signed `MCP.Gateway` helpers are fail-closed (D37): every signed
+      guard blocks, `verify_request_envelope/2` returns an error, and
+      `issue_signed_confirmation_token/5` issues no token
+      (`MCP.GatewayTest`: "guard_signed_request/3",
+      "guard_signed_confirmed_request/3", "verify_request_envelope/2",
+      "issue_signed_confirmation_token/5"). The signed-request path is
+      `ToolGateway.guard_request/3` with `attestation: :required`.
+- [x] A verified inbound statement that names another actor than the
+      context is denied (`ToolGatewayTest`, "a verified statement about
+      another actor is not evidence for this request").
 - [x] Gateway digests are identical with and without the six stripped keys
       present at root and under `params`.
-- [ ] `Confirmation.issue/5` and `verify/5` called directly produce the
-      same `action_digest` with and without the stripped keys (not
-      implemented: `fetch_action_digest/2` applies no strip rule; a direct
-      caller strips first).
+- [x] `Confirmation.issue/5` and `verify/5` called directly produce the
+      same `action_digest` with and without the stripped keys
+      (`ConfirmationTest`, "strip rule": "the digest is the same before and
+      after trust metadata is attached", "a token attached to the request it
+      confirms verifies in a direct call"). The test uses the string forms
+      of the three keys.
+- [x] `guard_result/3` resolves the pinned manifest of the context tool
+      without blocking for a missing or expired one, and a result token may
+      bind it or omit it (`ToolGatewayTest`: "a result whose context names a
+      pinned tool uses that manifest", "a result token may bind the pinned
+      manifest, and one issued without it still works"; `ConfirmationTest`,
+      "manifest binding").
+- [x] A `tool_result` statement carries the output schema digest of its
+      `:manifest`, and a different caller value returns
+      `:schema_digest_mismatch` (`ToolGatewayTest`, "a result attestation
+      carries the manifest's output schema digest and no other").
 - [x] Every spec-local error atom is produced by at least one test.
 
 ## Implementation Roadmap

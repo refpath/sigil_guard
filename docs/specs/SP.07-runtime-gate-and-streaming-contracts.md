@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.07"
   title: "Runtime Gate And Streaming Contracts"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: high
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -191,12 +191,30 @@ and puts both values on the boundary `tool`. `delete` maps to `write`,
 `privileged` to `execute`, `none` to no class, and a name outside the manifest
 vocabulary to `execute`. Without `:manifest_facts` the tool is class `execute`.
 `ToolGateway.guard_request/3` sets `:manifest_facts` from the pinned manifest
-and discards a caller-supplied value; `ToolGateway.guard_result/3` resolves no
-manifest and discards it too, so a result is class `execute` (SP.03). A
-tool-phase context
-with no isolation level does not auto-quarantine, so hosts that do not declare
-one keep today's behavior; hosts that do declare it get the full fail-closed
-matrix.
+and discards a caller-supplied value. `ToolGateway.guard_result/3` does the
+same with the pinned manifest of the tool the host context names, never of
+a tool the result names, and a result for which no manifest resolves is
+class `execute` (SP.03). A tool-phase context with no
+isolation level does not auto-quarantine, so hosts that do not declare one
+keep today's behavior; hosts that do declare it get the full fail-closed
+matrix. The opt-in is a decision (D39): applying the `absent` column by
+default would quarantine every tool call of every host that declares no
+isolation level. The column stays reachable through
+`BoundaryPolicy.evaluate/2` called directly (SP.04).
+
+**Decision correlation.** `evaluate/3` takes `:decision_id`, a correlation
+id the host chooses: 1 to 128 visible ASCII characters (`0x21` to `0x7E`),
+so no space, tab, newline, or control character. The gate copies it to
+`audit_metadata.decision_id` and to its telemetry event, and ignores any
+other value. The gate mints no id (D38): a decision depends on its inputs
+only. The audit metadata also carries `sandbox_id` when the context has one,
+and `matched_rule_ids` when the kernel or an output contract matched a rule.
+That list holds those rule ids in the order of `matched_rules`, without the
+gate's own `gate` rule, whose explanation is free text. A decision with no
+kernel or contract rule has no `matched_rule_ids` key. A malformed-input
+block carries `decision_id` and `sandbox_id` and has no rule list. The
+`[:sigil_guard, :runtime, :gate]` event lists all three keys, and SP.05 owns
+their attributes.
 
 ## V3 Decision Contract
 
@@ -368,6 +386,8 @@ inside a map or keyword context still blocks.
 | split secret | `Runtime.StreamTest` | Chunk holdback prevents early leak. |
 | pipeline confidence | `Scanner.PipelineTest` | Validation/enrichment outputs are stable. |
 | consumer contracts | conformance suite | D17 shapes in Stability Guarantees hold at every milestone exit. |
+| decision correlation | `TelemetryTest` | A host `:decision_id` reaches the decision and the gate event; the gate mints none and ignores a value it cannot carry; `sandbox_id` and `matched_rule_ids` reach the audit metadata and the event. |
+| result class | `ToolGatewayTest` | A result guarded with a pinned manifest takes the manifest's side-effect class in the sandbox matrix; without one it is class `execute`. |
 
 ## Acceptance Criteria
 
@@ -399,6 +419,16 @@ inside a map or keyword context still blocks.
       bundles with the seven built-ins as defaults (SP.04 contract).
 - [x] Streaming holdback passes SP.04's Streaming Property-Test
       Specification, including split-secret vectors.
+- [x] `evaluate/3` copies a host `:decision_id` to the decision and the
+      gate event, mints none, and records `sandbox_id` and
+      `matched_rule_ids` (`TelemetryTest`: "a host correlation id reaches
+      the decision, the event and the attribute", "the gate mints no id and
+      ignores one it cannot carry", "the rules behind a decision are a
+      bounded attribute").
+- [x] A result guarded through `ToolGateway.guard_result/3` takes the
+      side-effect classes of the pinned manifest in the sandbox matrix
+      (`ToolGatewayTest`, "a result whose context names a pinned tool uses
+      that manifest").
 
 ## Implementation Roadmap
 

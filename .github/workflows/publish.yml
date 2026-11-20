@@ -70,8 +70,7 @@ jobs:
           mkdir -p dist
           mix hex.build --output "dist/${package}"
           mix sigil_guard.sbom --output "dist/${sbom}"
-          sbom_sha256="$(sha256sum "dist/${sbom}" | cut -d' ' -f1)"
-          mix sigil_guard.sbom --verify "dist/${sbom}" --sha256 "${sbom_sha256}"
+          mix sigil_guard.sbom --verify "dist/${sbom}"
           mix sigil_guard.release_statement \
             --tarball "dist/${package}" \
             --sbom "dist/${sbom}" \

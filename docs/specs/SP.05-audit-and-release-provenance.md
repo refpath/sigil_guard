@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.05"
   title: "Audit And Release Provenance"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: critical
   created: "2026-07-01"
   updated: "2026-11-20"
@@ -94,8 +94,10 @@ pattern names only), `"quarantine_ref"`. Because `metadata` is outside the
 canonical bytes (D17), evidence refs are integrity-bound by the digests
 they contain and by the DSSE-signed export layer, not by the chain HMAC;
 this is a recorded consequence of freezing `sign_event/3`. The keys are
-reserved names. The host writes them; no SigilGuard function mints a
-`"decision_id"` (see Correlation And Optional OTel Integration).
+reserved names, and the host writes them. No SigilGuard function mints a
+`"decision_id"`: the host chooses the id, passes it to
+`Runtime.Gate.evaluate/3` as `:decision_id`, and writes the same value here
+(see Correlation And Optional OTel Integration).
 
 ### Event Hash Field List (Exact, Ordered)
 
@@ -438,9 +440,10 @@ project. Hosts writing metadata MUST apply one of the four classes and
 MUST NOT write raw secrets. Digests referenced by attestation subjects
 (SP.01) are plain SHA-256 by necessity and are `clear`-class values. The
 OTel column gives the class a field has when it is exported. The mapper
-exports the action and payload digests; the event id, decision id, sandbox
-id, quarantine ref, and the context, manifest, and policy digests have no
-attribute yet (see Attribute Cardinality And Sampling).
+exports the event id, the decision id, the sandbox id, and the action,
+payload, manifest, and policy digests, all opt-in. The context digest and
+the quarantine ref have no attribute (see Attribute Cardinality And
+Sampling).
 
 ### GDPR Stance (Digest-First)
 
@@ -524,7 +527,7 @@ take the `sigilguard.` form).
 | `sigil.confirmation.actor` | `sigilguard.confirmation.actor.hash` |
 | `sigil.security.content_hash` | `sigilguard.payload.digest` (SP.01 subject vocabulary) |
 | `sigil.registry.count` / `.endpoint` / `.source` | Removed; legacy remote-bundle path deleted (SP.12). |
-| `sigil.envelope.status` / `.reason` | Removed. No `sigilguard.attestation.*` attribute is emitted (not implemented); agent-trust span metadata maps to `sigilguard.agent_trust.statement_type` and `sigilguard.agent_trust.card_digest`. |
+| `sigil.envelope.status` / `.reason` | Removed. There is no `sigilguard.attestation.*` attribute (D40); agent-trust span metadata maps to `sigilguard.agent_trust.statement_type` and `sigilguard.agent_trust.card_digest`. |
 | `url.full` | `url.full` (unchanged; OTel semconv) |
 
 ### Attribute Cardinality And Sampling
@@ -540,26 +543,56 @@ take the `sigilguard.` form).
 | `sigilguard.action.digest`, `sigilguard.payload.digest` | high cardinality (digests) | yes |
 | `sigilguard.audit.anchor.digest`, `sigilguard.resource.uri` | high cardinality | yes |
 | `sigilguard.mcp.protocol_version`, `sigilguard.mcp.result_type` | caller-supplied strings | yes |
-| `sigilguard.profile`, `sigilguard.rules.matched` | bounded; not implemented | no |
-| `sigilguard.decision.id`, `sigilguard.context.digest`, `sigilguard.manifest.digest`, `sigilguard.policy.digest`, `sigilguard.sandbox.id`, `sigilguard.quarantine.ref`, `sigilguard.audit.event_id` | high cardinality; not implemented | yes |
+| `sigilguard.deny_reason`, `sigilguard.quarantine.status` | bounded enum | no |
+| `sigilguard.manifest.name` | bounded per deployment | no |
+| `sigilguard.rules.matched` | bounded (rule ids) | no |
+| `sigilguard.manifest.digest`, `sigilguard.policy.digest`, `sigilguard.request.action.digest` | high cardinality (digests) | yes |
+| `sigilguard.decision.id`, `sigilguard.sandbox.id`, `sigilguard.audit.event_id` | high cardinality (opaque ids) | yes |
 
-The last two rows name attributes this spec defines and the mapper does not
-emit. `otel_attributes/4` maps a fixed set of telemetry metadata keys, and
-none of them produces these nine names.
+The last five rows map these telemetry metadata keys:
+
+| Metadata key | Attribute | Events that list the key |
+|--------------|-----------|--------------------------|
+| `deny_reason` | `sigilguard.deny_reason` | `[:sigil_guard, :mcp, :request]` |
+| `quarantine_status` | `sigilguard.quarantine.status` | `[:sigil_guard, :mcp, :request]` (results) |
+| `manifest_name` | `sigilguard.manifest.name` | `[:sigil_guard, :mcp, :request]` |
+| `matched_rule_ids` | `sigilguard.rules.matched` | `[:sigil_guard, :runtime, :gate]`, `[:sigil_guard, :mcp, :request]` |
+| `manifest_digest` | `sigilguard.manifest.digest` | `[:sigil_guard, :mcp, :request]` |
+| `repo_policy_digest` | `sigilguard.policy.digest` | `[:sigil_guard, :runtime, :gate]`, `[:sigil_guard, :mcp, :request]` |
+| `request_action_digest` | `sigilguard.request.action.digest` | `[:sigil_guard, :mcp, :request]` (results) |
+| `decision_id` | `sigilguard.decision.id` | `[:sigil_guard, :runtime, :gate]`, `[:sigil_guard, :mcp, :request]` |
+| `sandbox_id` | `sigilguard.sandbox.id` | `[:sigil_guard, :runtime, :gate]`, `[:sigil_guard, :mcp, :request]` |
+| `event_id` | `sigilguard.audit.event_id` | `[:sigil_guard, :audit, :logged]` |
+
+The gate and MCP events carry a key only when the decision has it (SP.03,
+SP.07). `sigilguard.rules.matched` holds the ids of the kernel and
+output-contract rules behind a gate decision and is emitted without opt-in;
+a decision with no such rule has no attribute.
+
+The attribute set is what the mapper emits (D40). Earlier text of this spec
+listed `sigilguard.profile`, `sigilguard.context.digest`,
+`sigilguard.quarantine.ref`, and a `sigilguard.attestation.*` family. No
+telemetry event carries a value for them and `otel_attributes/4` maps none,
+so they are not part of the contract.
 
 The digest family uses the SP.01 subject form `sigilguard.<subject>.digest`
 (dot-separated), so the mechanical rename of the `*_digest` metadata keys
 yields `sigilguard.action.digest`, `sigilguard.payload.digest` (from
-`content_hash`), `sigilguard.audit.anchor.digest`,
+`content_hash`), `sigilguard.manifest.digest`,
+`sigilguard.request.action.digest`, `sigilguard.policy.digest` (from
+`repo_policy_digest`), `sigilguard.audit.anchor.digest`,
 `sigilguard.trust_bundle.digest`, and `sigilguard.agent_trust.card_digest`;
 the related `sigilguard.action.digest_error` is a bounded error reason. The
 opt-in set that `otel_attributes/4` drops by default is exactly these
-fourteen attributes: `sigilguard.action.digest`, `sigilguard.payload.digest`,
-`sigilguard.audit.anchor.digest`, `sigilguard.trust_bundle.digest`,
-`sigilguard.agent_trust.card_digest`, `sigilguard.actor.hash`,
-`sigilguard.identity.hash`, `sigilguard.confirmation.actor.hash`,
-`sigilguard.confirmation.nonce_hash`, `sigilguard.effect.binding_digest`,
-`sigilguard.effect.operation_key`, `sigilguard.resource.uri`,
+twenty attributes: `sigilguard.action.digest`, `sigilguard.payload.digest`,
+`sigilguard.manifest.digest`, `sigilguard.policy.digest`,
+`sigilguard.request.action.digest`, `sigilguard.audit.anchor.digest`,
+`sigilguard.trust_bundle.digest`, `sigilguard.agent_trust.card_digest`,
+`sigilguard.actor.hash`, `sigilguard.identity.hash`,
+`sigilguard.confirmation.actor.hash`, `sigilguard.confirmation.nonce_hash`,
+`sigilguard.effect.binding_digest`, `sigilguard.effect.operation_key`,
+`sigilguard.decision.id`, `sigilguard.sandbox.id`,
+`sigilguard.audit.event_id`, `sigilguard.resource.uri`,
 `sigilguard.mcp.protocol_version`, and `sigilguard.mcp.result_type`.
 
 `otel_attributes/4` gains `include_high_cardinality: boolean` (default
@@ -586,24 +619,32 @@ record `block`, `quarantine`, and `confirm` outcomes.
 
 Correlation fields: `trace_id` and `span_id` (host-propagated, stored in
 event metadata; inside an active span they are not duplicated as
-attributes because the span context carries them) plus
-`sigilguard.decision.id`, an id per gate decision shared by the decision
-span, the audit event, and attestation evidence refs. The decision id is
-not implemented: no gate, gateway, or audit function mints one, and
-`otel_attributes/4` has no mapping for it. A host that wants the
-correlation writes its own id under the reserved `"decision_id"` metadata
-key, which the CloudEvents projection copies. The `[:sigil_guard, ...]`
-telemetry events remain the stable contract.
+attributes because the span context carries them) plus the decision id.
+
+The decision id is host-supplied (D38). `Runtime.Gate.evaluate/3` takes
+`:decision_id`, 1 to 128 visible ASCII characters (`0x21` to `0x7E`), and
+copies it to `audit_metadata.decision_id`. The gate event and the MCP event
+carry it, and `otel_attributes/4` maps it to the opt-in
+`sigilguard.decision.id`. Any other value is ignored. The gate mints no id:
+a gate decision depends on its inputs only. Minting one would add a clock, a
+counter, or a random source to the call, and `AGENTS.md` keeps pure APIs
+free of hidden process, clock, and global dependencies. A host that wants
+one id on the decision span, the audit event, and attestation evidence refs
+passes it here and writes the same value under the reserved `"decision_id"`
+metadata key, which the CloudEvents projection copies. Every decision of a
+call that sets the option carries the id, a malformed-input block from the
+gate and a gateway denial that precedes the gate included. The
+`[:sigil_guard, ...]` telemetry events remain the stable contract.
 
 `opentelemetry_api` integration follows the Oban/Ecto optional-dependency
-pattern (R.07): never a hard dep; `attach_otel_forwarder/3` stays the
-seam. The host passes it a forwarder function and sets span or log
-attributes inside that function. The forwarder this spec described, which
-checks `Code.ensure_loaded?/1` plus an explicit config flag and treats an
-enabled flag without the package as a typed startup error, is not
-implemented: the library ships no forwarder that calls
-`opentelemetry_api`, the configuration surface has no such flag, and an
-unknown configuration key fails startup. The OTel `gen_ai.*` semantic
+pattern (R.07): never a hard dep. The host attaches its own handler to the
+telemetry events and calls `Telemetry.otel_attributes/4`, or passes a
+function to `attach_otel_forwarder/3`, which attaches that handler and
+hands the function the attributes. The host sets span or log attributes
+inside it. The library ships no forwarder that calls `opentelemetry_api`
+and has no configuration flag for one (D40); earlier text of this spec
+described both. The configuration surface is closed, and an unknown
+configuration key fails startup. The OTel `gen_ai.*` semantic
 conventions are experimental: SigilGuard MUST NOT emit them by default and
 ships mapping guidance only (`gen_ai.tool.name` maps from
 `sigilguard.tool.name`; `gen_ai.operation.name` `execute_tool` corresponds
@@ -709,11 +750,16 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
   store satisfies v3.
 - **SBOM drift:** `mix sigil_guard.sbom --verify <file> --sha256 <digest>`
   fails with `:sbom_digest_mismatch` when the file differs from the expected
-  digest. The build job passes that task a digest it computes from the same
-  file, so the check cannot fail there; it runs the structural check. The
-  workflow detects drift in the attestation job, where `sha256sum --check`
-  compares each downloaded artifact with the digest recorded in the release
-  statement.
+  digest. A digest check needs a value that does not come from the file
+  being checked (R.12, D45). The build job has no such value for the SBOM
+  it just wrote, so it runs the structural check alone
+  (`--verify` without `--sha256`). The workflow detects drift in the
+  attestation job, where `sha256sum --check` compares each downloaded
+  artifact with the digest recorded in the release statement, and
+  `gh attestation verify` then binds those bytes to the signed statement.
+  A consumer runs `gh attestation verify`; the structural check compares
+  the document with a Mix project and runs in a `sigil_guard` checkout of
+  the released tag.
 
 ## SigilGuard.HTTPClient Behaviour (D9)
 
@@ -845,6 +891,7 @@ are unchanged.
 | D17 conformance | consumer contracts suite | `%Audit{}` fields and `sign_event/3` byte-compatible with 0.2.x vectors. |
 | no network | `Anchor.Store.HTTPTest` | No configured client yields `:http_client_not_configured`; zero `Finch.` references; decision paths never touch the client. |
 | OTel mapping | `TelemetryTest` | Every attribute `sigilguard.*` or `url.full`; high-cardinality absent unless opted in; rename table covered. |
+| decision correlation and denial facts | `TelemetryTest` ("decision correlation and denial facts") | A host `:decision_id` reaches the decision, the gate event, and `sigilguard.decision.id`; the gate mints none and ignores a value it cannot carry; `sigilguard.rules.matched`, `sigilguard.deny_reason`, and `sigilguard.manifest.name` are emitted without opt-in; `sigilguard.sandbox.id`, `sigilguard.manifest.digest`, and `sigilguard.audit.event_id` need the opt-in. |
 | SBOM verify | `Mix.Tasks.SigilGuard.SbomTest` | Digest verification catches drift (`:sbom_digest_mismatch`). |
 | SBOM dependency licenses | `Mix.Tasks.SigilGuard.SbomTest` | Locked Hex metadata supplies every runtime license; absent/mismatched metadata fails generation. |
 
@@ -872,17 +919,27 @@ are unchanged.
 - [x] Every emitted OTel attribute uses `sigilguard.*` (or `url.full`);
       high-cardinality attributes require `include_high_cardinality:
       true`; the rename table is test-covered.
-- [ ] `sigilguard.decision.id` is minted per gate decision and shared by
-      the decision span, the audit event, and attestation evidence refs
-      (not implemented: no code mints a decision id).
-- [ ] The mapper emits `sigilguard.profile`, `sigilguard.rules.matched`,
-      `sigilguard.context.digest`, `sigilguard.manifest.digest`,
-      `sigilguard.policy.digest`, `sigilguard.sandbox.id`,
-      `sigilguard.quarantine.ref`, and `sigilguard.audit.event_id` (not
-      implemented: `otel_attributes/4` has no mapping for them).
-- [ ] An optional `opentelemetry_api` forwarder is enabled by an explicit
-      config flag, and an enabled flag without the package is a typed
-      startup error (not implemented: no forwarder and no flag exist).
+- [x] The decision id is host-supplied (D38): `Runtime.Gate.evaluate/3`
+      copies a valid `:decision_id` to `audit_metadata`, the gate event, and
+      the opt-in `sigilguard.decision.id`, and mints none (`TelemetryTest`:
+      "a host correlation id reaches the decision, the event and the
+      attribute", "the gate mints no id and ignores one it cannot carry").
+- [x] The mapper emits `sigilguard.rules.matched`,
+      `sigilguard.deny_reason`, and `sigilguard.manifest.name` without
+      opt-in, and `sigilguard.manifest.digest`, `sigilguard.sandbox.id`,
+      and `sigilguard.audit.event_id` with it (`TelemetryTest`: "the rules
+      behind a decision are a bounded attribute", "a gateway denial names
+      its reason and manifest on the MCP event", "a host correlation id
+      reaches the decision, the event and the attribute", "an audit log
+      event carries the event id as an opt-in attribute").
+      `sigilguard.profile`, `sigilguard.context.digest`, and
+      `sigilguard.quarantine.ref` are dropped from the contract (D40).
+- [x] OpenTelemetry stays optional (D40): the host attaches a handler and
+      calls `otel_attributes/4`, or passes a function to
+      `attach_otel_forwarder/3`, and the library depends on no OpenTelemetry
+      package (`TelemetryTest`, "attach_otel_forwarder/3";
+      `RuntimeDependencySetTest`, "runtime dependency closure contains only
+      the approved minimal set").
 - [x] CloudEvents projection emits `specversion` `1.0`, type
       `io.sigilguard.decision.v1`, privacy-filtered `data` only.
 - [x] The HTTP anchor store has zero direct `Finch.` calls and fails with

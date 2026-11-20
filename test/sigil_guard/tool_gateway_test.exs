@@ -1594,6 +1594,55 @@ defmodule SigilGuard.ToolGatewayTest do
                {nil, "invalid_attestation"}
     end
 
+    test "a denial before the gate carries the host correlation id and the sandbox id" do
+      context = [trust_level: :high, sandbox_id: "sandbox-9", isolation_level: :container]
+
+      denied =
+        ToolGateway.guard_request(request(), context,
+          manifests: %{},
+          require_manifest: true,
+          decision_id: "req-41"
+        )
+
+      assert denied.audit_metadata.deny_reason == :unknown_manifest
+      assert denied.audit_metadata.decision_id == "req-41"
+      assert denied.audit_metadata.sandbox_id == "sandbox-9"
+
+      result_denied =
+        ToolGateway.guard_result(result(), context,
+          request_action_digest: "not-a-digest",
+          decision_id: "req-42"
+        )
+
+      assert result_denied.audit_metadata.deny_reason == :invalid_payload
+      assert result_denied.audit_metadata.decision_id == "req-42"
+
+      for unusable <- ["two words", "line\nbreak", "tab\there", ""] do
+        refute Map.has_key?(
+                 ToolGateway.guard_request(request(), context,
+                   manifests: %{},
+                   require_manifest: true,
+                   decision_id: unusable
+                 ).audit_metadata,
+                 :decision_id
+               )
+      end
+    end
+
+    test "equal manifests under another tool name report no drift facts" do
+      moved = Map.put(manifest(), "name", "repo_file_move")
+
+      decision =
+        ToolGateway.guard_request(request(), sandbox_context(),
+          manifests: %{"repo_file_write" => {moved, moved}},
+          now: @now
+        )
+
+      assert decision.audit_metadata.deny_reason == :manifest_digest_mismatch
+      refute Map.has_key?(decision.audit_metadata, :expected_manifest_digest)
+      refute Map.has_key?(decision.audit_metadata, :drifted_fields)
+    end
+
     test "a drift denial names both digests and the fields that changed" do
       {:ok, pinned} = CapabilityManifest.new(manifest())
 
@@ -1680,7 +1729,38 @@ defmodule SigilGuard.ToolGatewayTest do
 
       impersonated = put_in(statement, ["predicate", "actor", "id"], "spiffe://agents/other")
 
-      assert guard.(impersonated).audit_metadata.deny_reason == :invalid_attestation
+      refused = guard.(impersonated)
+
+      assert refused.audit_metadata.deny_reason == :invalid_attestation
+      assert refused.audit_metadata.attestation_error == :actor_mismatch
+    end
+
+    test "a context with an empty actor is attested and checked by its identity" do
+      context =
+        Keyword.merge(attestation_request_context(),
+          actor: "",
+          identity: "spiffe://agents/requester"
+        )
+
+      decision = ToolGateway.guard_request(request(), context, [])
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, context,
+          payload: request(),
+          signer: TrustedSigner,
+          keyid: "trusted",
+          now: @now
+        )
+
+      accepted =
+        ToolGateway.guard_request(Map.put(request(), "_agent_trust", envelope), context,
+          attestation: :required,
+          trust_material: %{"trusted" => TrustedSigner.public_key()},
+          now: @now
+        )
+
+      refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
+      refute Map.has_key?(accepted.audit_metadata, :attestation_error)
     end
 
     test "the action subject binds the arguments, so a result cannot be re-bound to another call" do
@@ -2070,6 +2150,83 @@ defmodule SigilGuard.ToolGatewayTest do
 
         refute Map.has_key?(decision.audit_metadata, :manifest_name)
       end
+    end
+
+    test "a tool name inside the result does not choose the manifest" do
+      read_only = Map.put(manifest(), "side_effects", ["read"])
+      manifests = %{"repo_file_write" => read_only}
+
+      sandbox = [
+        phase: :tool_result,
+        trust_level: :high,
+        sandbox_id: "sandbox-1",
+        isolation_level: :container
+      ]
+
+      rules = fn result, context ->
+        decision = ToolGateway.guard_result(result, context, manifests: manifests)
+        {Enum.map(decision.matched_rules, & &1.rule_id), decision.audit_metadata[:manifest_name]}
+      end
+
+      # The host names the tool: its manifest's class applies.
+      assert rules.(result(), Keyword.put(sandbox, :tool, "repo_file_write")) ==
+               {[], "repo_file_write"}
+
+      # The result names it, in either of the shapes the context reads: no
+      # manifest, so the class is execute.
+      for claimed <- [
+            Map.put(result(), "tool", "repo_file_write"),
+            Map.put(result(), "name", "repo_file_write"),
+            put_in(result(), ["result", "name"], "repo_file_write")
+          ] do
+        assert rules.(claimed, sandbox) == {["sandbox.matrix.execute.container"], nil}
+      end
+
+      # A host that states it has no tool is not overruled either.
+      assert rules.(
+               Map.put(result(), "tool", "repo_file_write"),
+               Keyword.put(sandbox, :tool, nil)
+             ) ==
+               {["sandbox.matrix.execute.container"], nil}
+    end
+
+    test "a request token must bind the manifest whatever phase the host context states" do
+      # The suspicious parameter makes the request need confirmation.
+      context = Keyword.merge(sandbox_context(), phase: :tool_result, actor: "did:web:approver")
+      {:ok, capability} = CapabilityManifest.new(suspicious_manifest())
+
+      # A host cannot relax the rule through the option the result path sets.
+      opts = [
+        manifests: %{"repo_file_write" => suspicious_manifest()},
+        confirmation_key: @confirmation_key,
+        manifest_binding: :when_claimed
+      ]
+
+      pending = ToolGateway.guard_request(request(), context, opts)
+
+      assert pending.phase == :tool_result
+      assert {:confirm, _} = pending.verdict
+      assert pending.audit_metadata.manifest_digest == capability.digest
+
+      confirm = fn issue_opts ->
+        {:ok, token} =
+          ToolGateway.issue_confirmation(
+            request(),
+            context,
+            pending,
+            @confirmation_key,
+            issue_opts
+          )
+
+        ToolGateway.guard_request(request(), context, [{:confirmation_token, token} | opts])
+      end
+
+      assert confirm.(manifest: capability).verdict == :allowed
+
+      unbound = confirm.([])
+
+      assert unbound.verdict == :blocked
+      assert unbound.audit_metadata.confirmation_reason == :manifest_digest_mismatch
     end
 
     test "a result token may bind the pinned manifest, and one issued without it still works" do

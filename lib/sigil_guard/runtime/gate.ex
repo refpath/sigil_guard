@@ -51,10 +51,10 @@ defmodule SigilGuard.Runtime.Gate do
     * `:risk_level` — override policy risk
     * `:on_sensitive` — `:block` or `:redact` for sensitive content
     * `:strict_quarantine` — block medium quarantine indicators too
-    * `:decision_id` — a correlation id the host chooses, up to 128 printable
-      bytes. It is copied to `audit_metadata.decision_id` and the telemetry
-      event so a span, an audit event and an attestation can name the same
-      decision. The gate generates none.
+    * `:decision_id` — a correlation id the host chooses: 1 to 128 visible
+      ASCII characters. It is copied to `audit_metadata.decision_id` and the
+      telemetry event so a span, an audit event and an attestation can name
+      the same decision. Any other value is ignored. The gate generates none.
     * `:manifest_facts` — `%{manifest_digest: sha256, side_effects: [name]}` from
       a capability manifest the caller verified. The sandbox matrix and
       `effect:` policy rules use the classes it declares; without it a tool is
@@ -62,10 +62,38 @@ defmodule SigilGuard.Runtime.Gate do
   """
   @spec evaluate(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def evaluate(payload, context \\ %Context{}, opts \\ []) do
-    decision = evaluate_normalized(payload, context, opts)
+    decision =
+      payload
+      |> evaluate_normalized(context, opts)
+      |> put_correlation_id(opts)
 
     emit_decision(decision)
     decision
+  end
+
+  @doc false
+  # The host's `:decision_id`, or nil for a value the events could not carry
+  # as one attribute: 1 to 128 visible ASCII characters, no spaces or
+  # control characters.
+  @spec correlation_id(term()) :: String.t() | nil
+  def correlation_id(opts) do
+    with true <- Keyword.keyword?(opts),
+         id when is_binary(id) <- Keyword.get(opts, :decision_id),
+         true <- Regex.match?(~r/\A[\x21-\x7E]{1,128}\z/, id) do
+      id
+    else
+      _ -> nil
+    end
+  end
+
+  # A host-chosen correlation id. The gate mints none: a decision depends on
+  # its inputs only. Every decision carries it, a refusal of malformed input
+  # included.
+  defp put_correlation_id(%Decision{} = decision, opts) do
+    case correlation_id(opts) do
+      nil -> decision
+      id -> %{decision | audit_metadata: Map.put(decision.audit_metadata, :decision_id, id)}
+    end
   end
 
   defp evaluate_normalized(payload, raw_context, opts) do
@@ -205,6 +233,7 @@ defmodule SigilGuard.Runtime.Gate do
       action_digest: nil,
       runtime_input_error: reason
     }
+    |> put_present(:sandbox_id, audit_binary(context.sandbox_id))
   end
 
   defp audit_binary(value) when is_binary(value), do: value
@@ -898,7 +927,6 @@ defmodule SigilGuard.Runtime.Gate do
     |> put_repo_policy_metadata(state.repo_policy)
     |> put_repo_facts_metadata(state.repo_facts)
     |> put_advisory_metadata(state)
-    |> put_present(:decision_id, decision_id(state.opts))
     |> put_present(:sandbox_id, audit_binary(state.context.sandbox_id))
   end
 
@@ -908,15 +936,6 @@ defmodule SigilGuard.Runtime.Gate do
     case Enum.map(boundary_matched_rules(boundary_decision) ++ crossing.rules, & &1.rule_id) do
       [] -> nil
       ids -> ids
-    end
-  end
-
-  # A host-chosen correlation id. The gate mints none: a decision depends on
-  # its inputs only.
-  defp decision_id(opts) do
-    case Keyword.get(opts, :decision_id) do
-      id when is_binary(id) and byte_size(id) in 1..128 -> if String.printable?(id), do: id
-      _ -> nil
     end
   end
 

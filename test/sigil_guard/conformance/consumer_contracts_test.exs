@@ -482,6 +482,23 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       assert predicate["expires_at"] =~ ~r/\.\d{3}Z\z/
     end
 
+    test "a result takes the manifest of the tool the host names, not one it names itself" do
+      manifest =
+        Map.put(SigilGuard.FixturePath.read_unexpiring_manifest!(), "side_effects", ["read"])
+
+      tool = manifest["name"]
+      result = %{"jsonrpc" => "2.0", "id" => 7, "result" => %{"content" => []}}
+      sandbox = [trust_level: :high, sandbox_id: "sandbox-1", isolation_level: :container]
+
+      guard = fn result, context ->
+        decision = ToolGateway.guard_result(result, context, manifests: %{tool => manifest})
+        {decision.action, decision.audit_metadata[:manifest_name]}
+      end
+
+      assert guard.(result, Keyword.put(sandbox, :tool, tool)) == {:allow, tool}
+      assert guard.(Map.put(result, "tool", tool), sandbox) == {:confirm, nil}
+    end
+
     test "a statement states the boundary its context subject binds" do
       boundary = attested_statement(tool_call(%{}))["predicate"]["boundary"]
 

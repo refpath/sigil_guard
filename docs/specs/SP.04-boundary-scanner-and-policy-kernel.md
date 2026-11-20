@@ -273,14 +273,19 @@ level set it builds `sandbox` from `Context.isolation_level` and
 `Context.sandbox_id`, and the matrix runs whether or not the context names a
 tool. With no level the matrix does not run: the `absent` column is not
 reachable through the gate, and the matrix does not quarantine a tool call
-whose isolation the host left undeclared. The class comes from the
-`:manifest_facts` option (`%{manifest_digest: sha256, side_effects: [name]}`);
-without it the class is `execute`. `ToolGateway.guard_request/3` sets
-`:manifest_facts` from the pinned capability manifest and discards a
-caller-supplied value. `ToolGateway.guard_result/3` resolves no manifest and
-discards it too, so a result is class `execute`. A host that passes
-`:manifest_facts` to `Gate.evaluate/3` directly is asserting that it verified
-the manifest. See SP.07 *Gate ↔ Kernel Delegation*.
+whose isolation the host left undeclared. That opt-in is a decision (D39).
+Applying the column by default would quarantine every tool call of every
+host that declares no isolation level. The column stays reachable through
+`BoundaryPolicy.evaluate/2` called directly (Standalone scope above). The
+class comes from the `:manifest_facts` option (`%{manifest_digest: sha256,
+side_effects: [name]}`); without it the class is `execute`.
+`ToolGateway.guard_request/3` sets `:manifest_facts` from the pinned
+capability manifest and discards a caller-supplied value.
+`ToolGateway.guard_result/3` does the same with the pinned manifest of the
+tool the host context names; a result for which no manifest resolves is
+class `execute` (SP.03). A host that passes `:manifest_facts` to
+`Gate.evaluate/3` directly is asserting that it verified the manifest. See
+SP.07 *Gate ↔ Kernel Delegation*.
 
 `absent` is NOT a member of the `isolation_level` enum — it is the nil /
 no-value case. The four enum values are the only values `Context` stores or
@@ -323,8 +328,8 @@ a boundary that lists `side_effects: ["read"]` without a `manifest_digest` is
 class `execute` for the matrix and still matches an `effect:read` rule; when
 that rule also carries `isolation:`, it replaces the matrix cell. A host that
 calls `evaluate/2` directly must copy `side_effects` only from a manifest it
-verified. Through `ToolGateway.guard_request/3` both fields come from the
-pinned manifest.
+verified. Through `ToolGateway.guard_request/3` and `guard_result/3` both
+fields come from the pinned manifest.
 
 | Class \ Level | absent | `:none` | `:container` | `:vm` | `:remote_attested` |
 |---------------|--------|---------|--------------|-------|--------------------|
@@ -994,7 +999,7 @@ post-GA.
 | `[:sigil_guard, :policy, :decision]` | event | `%{system_time}`; common `%{action, risk_level, trust_level, trust_required, error_reason}`, plus boundary `%{phase, verdict}` | Direct policy and boundary-kernel outcomes. |
 | `[:sigil_guard, :boundary, :hook]` | event | measurements `%{duration: non_neg_integer}` in native time units; metadata `%{module, phase, hook_result}`; `hook_result` includes successful normalized outcomes and `:hook_timeout`, `:hook_crash`, `:invalid_hook_result`, or `:invalid_hook_options` | Every invoked hook outcome and option-validation failure. |
 | `[:sigil_guard, :boundary, :adaptive]` | event | `%{detector, indicator_count, error}` | Advisory detector outcomes. |
-| `[:sigil_guard, :runtime, :gate]` | event | `%{system_time}`; bounded boundary, verdict, count, digest, input-error, and repo-policy metadata | End-to-end runtime outcome, including the sanitization effect represented by the final action and decision. |
+| `[:sigil_guard, :runtime, :gate]` | event | `%{system_time}`; bounded boundary, verdict, count, digest, input-error, and repo-policy metadata, plus `decision_id`, `sandbox_id`, and `matched_rule_ids` when the decision has them (SP.07) | End-to-end runtime outcome, including the sanitization effect represented by the final action and decision. |
 
 `BoundaryPolicy.Contract.enforce/4` is a pure host-invoked transform and emits
 no event. No runtime or gateway decision records its effect; the host that

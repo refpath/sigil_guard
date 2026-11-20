@@ -5,6 +5,24 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.ToolGateway.guard_result/3` takes the manifest of the tool
+  the host context names and never of a tool the result names. A result is
+  the tool's own output, and a name inside it could otherwise select a
+  manifest with a milder sandbox class.
+- `guard_request/3` verifies a confirmation token with exact manifest
+  binding whatever phase the host context states, and discards a
+  `:manifest_binding` option from the caller.
+- The inbound attestation actor check treats an empty `actor` as unset and
+  uses the `identity`, as the attest helpers do.
+- The MCP event of an accepted confirmation carries no `deny_reason`. The
+  audit metadata keeps the reason the confirmation was asked for.
+- `:decision_id` is 1 to 128 visible ASCII characters, and every decision
+  of a call carries it, including a gateway denial made before the gate ran
+  and a refusal of malformed input. Those two also carry `sandbox_id`.
+- A drift denial reports digests and fields only when the two manifests
+  differ.
+- The publish workflow's build job runs the structural SBOM check without a
+  digest it computed from the same file.
 - `SigilGuard.ToolGateway.attest_request/3` and `attest_result/3` return
   `{:error, :schema_digest_mismatch}` when `:output_schema_sha256` differs
   from the digest the `:manifest` declares. The caller's value was written

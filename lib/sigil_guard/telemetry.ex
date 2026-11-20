@@ -330,9 +330,14 @@ defmodule SigilGuard.Telemetry do
     emit(
       [:sigil_guard, :mcp, :request],
       %{system_time: System.system_time()},
-      Map.take(metadata, @mcp_metadata_keys)
+      settled(Map.take(metadata, @mcp_metadata_keys))
     )
   end
+
+  # An accepted confirmation leaves the reason it was asked for in the audit
+  # metadata. The decision is allowed, so its event states no denial.
+  defp settled(%{verdict: :allowed} = metadata), do: Map.delete(metadata, :deny_reason)
+  defp settled(metadata), do: metadata
 
   @doc "Return all SigilGuard telemetry events known to this version."
   @spec events() :: [event_name(), ...]

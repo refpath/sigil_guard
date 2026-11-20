@@ -2,15 +2,15 @@
 
 This is the canonical execution checklist for SigilGuard v3, the embedded
 Agent Trust Profile runtime. V3 is a deliberate, spec-governed breaking
-release: every architectural decision (D1-D22) is closed, research-backed,
+release: every architectural decision (D1-D45) is closed, research-backed,
 and recorded below with rationale (see Closed Decisions). Milestones F
-through M13 were executed in order. M14 is an open backlog of spec
-requirements that no code implements; each of its tasks needs a design
-decision before work starts. A task is done only when its AC bullets hold and
-its named test families exist. Migration lives in `MIGRATING-1.0.md`, `CHANGELOG.md`, and release
-notes - never in permanent legacy runtime shims.
+through M13 were executed in order. M14 closed the requirements that a
+spec-to-code review found unmet: each was implemented or decided, and the
+decisions are D23 to D45. A task is done only when its AC bullets hold and
+its named test families exist. Migration lives in `MIGRATING-1.0.md`,
+`CHANGELOG.md`, and release notes - never in permanent legacy runtime shims.
 
-This file, the research notes (`../research/R.01`-`R.11`), and the specs
+This file, the research notes (`../research/R.01`-`R.12`), and the specs
 (`../specs/SP.01`-`SP.19`) are the complete, self-contained plan of record.
 An implementer needs nothing outside `docs/` and the codebase. The decisions
 were derived from primary-source research and adversarially verified against
@@ -20,7 +20,7 @@ research note.
 ## Orientation (Read First)
 
 Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. Milestones F through M13 are complete. M14 is open.
+rewrite. Milestones F through M14 are complete.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
@@ -62,8 +62,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 308 / 312 tasks done (98.7%).** Milestones: 16 complete, 1 open.
-**Current milestone: M14 open - spec conformance backlog.**
+**Overall: 312 / 312 tasks done (100.0%).** Milestones: 17 complete.
+**Current milestone: none open.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 13 | 17 | 76% | Open |
-| — | **Total** | **308** | **312** | **98.7%** | 16 done |
+| M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
+| — | **Total** | **312** | **312** | **100.0%** | 17 done |
 
 ### Release Handoff
 
@@ -114,9 +114,8 @@ are maintainer-owned operations and are intentionally outside this checklist.
 After the owner-managed package flow, validate the reference consumer against
 the actual 1.0.0 package artifact as release handoff evidence.
 
-M14 records requirements that the specs state and no code implements. It
-was opened by a spec-to-code review on 2026-11-20 and no task in it is
-started.
+M14 records the requirements that a spec-to-code review on 2026-11-20 found
+unmet, and how each was closed.
 
 The table counts every milestone task (F through M14, including M7A) exactly
 once. The
@@ -2955,10 +2954,10 @@ standard.
 | D34 | **Attestation issuers are the keys of the bundle delegate role named `attestation`.** `Attestation.verify/3` accepts a trust bundle and resolves issuers through that role, apart from bundle signers and card issuers. | `R.12`, `SP.01`, `SP.02` |
 | D35 | **A manifest's `issuer_keyid` is declarative.** DSSE forbids security decisions on a key identifier; the gateway trusts a manifest because the host pinned it or a verified bundle carries it. | `R.12`, `SP.03` |
 | D36 | **The confirmation token's `action_digest` is the legacy digest of the context and the stripped payload.** Token preimages are frozen for issued tokens; the attestation action subject binds a different thing and is not substituted. | `SP.08` |
-| D37 | **The signed `MCP.Gateway` helpers stay fail-closed.** They block with `:legacy_envelope_removed` so a caller of the removed envelope path is refused; `ToolGateway.guard_request/3` with `attestation: :required` replaces them. | `SP.03`, `SP.08` |
+| D37 | **The signed `MCP.Gateway` helpers stay fail-closed.** They block every input, whatever it carries, so a caller of the removed envelope path is refused and nothing passes unverified; `ToolGateway.guard_request/3` with `attestation: :required` replaces them. | `SP.03`, `SP.08` |
 | D38 | **A decision correlation id is a host option.** `Gate.evaluate/3` copies `:decision_id` to the decision and the event and mints none, because a decision depends on its inputs only. | `SP.05`, `SP.07` |
 | D39 | **The sandbox matrix applies in the gate only when the context declares an isolation level.** The `absent` column is reachable through `BoundaryPolicy.evaluate/2`; applying it by default would quarantine every tool call of a host that declares none. | `SP.04`, `SP.07` |
-| D40 | **The telemetry attribute set is what the mapper emits.** MCP protocol fields are on the MCP event only. `sigilguard.profile`, `sigilguard.context.digest`, `sigilguard.quarantine.ref`, and `sigilguard.attestation.*` are not part of the contract, and there is no forwarder flag: the host attaches a handler and calls `Telemetry.otel_attributes/4`. | `R.12`, `SP.05` |
+| D40 | **The telemetry attribute set is what the mapper emits.** MCP protocol fields are on the MCP event only. `sigilguard.profile`, `sigilguard.context.digest`, `sigilguard.quarantine.ref`, and `sigilguard.attestation.*` are not part of the contract. There is no `opentelemetry_api` forwarder and no flag for one: the host attaches a handler and calls `Telemetry.otel_attributes/4`, or passes a function to `Telemetry.attach_otel_forwarder/3`. | `R.12`, `SP.05` |
 | D41 | **The `action` subject of a gateway attestation is the digest of the raw MCP message: method, tool, and arguments.** The projection is rebuilt in JSON-RPC shape before it is read. Releases up to 1.0.5 bound the tool name only, so this is a wire change with a MIGRATING entry. | `SP.01`, `SP.03` |
 | D42 | **`from_decision/3` writes a generated nonce, timestamps with three fractional digits, the decision's matched rules, its checked evidence references, and the `boundary` mirror.** These are additions that an in-toto consumer ignores when it does not know them. | `R.12`, `SP.01` |
 | D43 | **Agent-to-agent trust keeps three earlier choices and tightens two.** Peer trust resolution is an explicit option; a card that fails verification returns its error; inbound request verification is host-composed. `quarantined` follows the indicators whatever the verdict, and `resource.audience` binds a response to its requester. | `SP.13` |
@@ -3135,21 +3134,23 @@ exercised by this milestone.
 
 ## M14 - Spec Conformance Backlog
 
-> References: the sections of `SP.01` to `SP.15` that say a behaviour is not
-> implemented, and their unchecked acceptance criteria
+> References: `SP.01` to `SP.15`, `R.12`, Closed Decisions D23 to D45
 > Effort: XL
-> Status: open
+> Status: complete
 > Dependencies: a design decision per task
 
 A review on 2026-11-20 compared every spec with the code. Where the code was
 wrong it was fixed, with regression tests; `CHANGELOG.md` lists those fixes.
-Where a spec required behaviour that no code implements, the spec now states
-what the code does, and the requirement is recorded here. Specs that still
-carry such requirements have status `implemented/partial`.
+Where a spec required behaviour that no code implemented, the requirement
+was recorded here and then closed in one of two ways: the code now does it,
+or a decision says why it does not and the spec states what the code does.
+Each task carries a `Resolved` note, and no spec has status
+`implemented/partial` any more.
 
-No task below is started. Several change decision outcomes, attested
-statement content, or the confirmation token for existing consumers, so each
-needs its design confirmed against the consumer contracts before work begins.
+Three closures change what an existing consumer sees, and
+`MIGRATING-1.0.md` has an entry for each: the `action` digest of a gateway
+attestation (M14.07), the `quarantined` flag of an agent response (M14.12),
+and the sandbox class of a tool result (M14.05).
 
 - [x] M14.01 Repo policy facts in the kernel (`SP.04`, `SP.07`, `SP.11`).
   - AC: the gate passes `RepoPolicy.policy_facts/2` to `BoundaryPolicy` as
@@ -3200,12 +3201,19 @@ needs its design confirmed against the consumer contracts before work begins.
     digest. Both continue forms stay accepted on every hook phase: a
     continue return cannot weaken a decision. Tests: `Runtime.GateTest`.
 
-- [ ] M14.05 Sandbox matrix defaults (`SP.04`, `SP.07`, `SP.03`).
+- [x] M14.05 Sandbox matrix defaults (`SP.04`, `SP.07`, `SP.03`).
   - AC: the `absent` column is reachable through the gate for a tool phase
     with no declared isolation level, or the spec drops it; `guard_result/3`
     resolves the manifest so a result uses its declared classes.
   - Note: the first item changes decisions for hosts that declare no
     isolation level.
+  - Resolved: Decided (D39): the gate applies the matrix only when the
+    context declares an isolation level, and the `absent` column stays
+    reachable through `BoundaryPolicy.evaluate/2`. `guard_result/3` resolves
+    the pinned manifest of the tool the host context names, so a result uses
+    its declared classes. A tool name inside the result is never used for
+    the lookup: it is the tool's own output.
+
 - [x] M14.06 Scanner time bound and stream binding (`SP.04`, `SP.07`).
   - AC: `:scanner_timeout` and `:stream_holdback_overflow` are produced and
     tested, or removed from the error tables; stream chunks bind to payload
@@ -3271,7 +3279,7 @@ needs its design confirmed against the consumer contracts before work begins.
     trust-on-first-use for a chain (R.12). The bundle-state Statement is
     dropped from SP.02. Tests: `TrustBundle.GoldenFixtureTest`.
 
-- [ ] M14.10 Confirmation token alignment (`SP.03`, `SP.08`).
+- [x] M14.10 Confirmation token alignment (`SP.03`, `SP.08`).
   - AC: the token `action_digest` follows SP.01 Digest Computation and the
     body is JCS, or the specs adopt the legacy digest as the contract; direct
     `Confirmation.issue/5` and `verify/5` apply the strip rule; the token
@@ -3279,12 +3287,29 @@ needs its design confirmed against the consumer contracts before work begins.
     tokens can bind a manifest; the signed `MCP.Gateway` helpers verify
     attestations or are removed.
   - Note: the token format is a consumer contract.
-- [ ] M14.11 Gateway error data and telemetry (`SP.03`, `SP.05`, `SP.16`).
+  - Resolved: Decided (D36): the token `action_digest` is the legacy digest;
+    the specs state it as the contract. `Confirmation` applies the strip
+    rule itself, so direct `issue/5` and `verify/5` calls agree with the
+    gateway. A verified inbound attestation must name the actor the host
+    identified (`:actor_mismatch`). A result token may bind the pinned
+    manifest (`manifest_binding: :when_claimed`), and a request token always
+    must. Decided (D37): the signed `MCP.Gateway` helpers stay fail-closed.
+
+- [x] M14.11 Gateway error data and telemetry (`SP.03`, `SP.05`, `SP.16`).
   - AC: gateway denials carry the registry fields the spec lists; the MCP
     event carries manifest and result facts and the gate event the protocol
     fields; a decision id is minted and shared by span, audit event, and
     evidence references; the mapper emits the attributes SP.05 lists, or the
     spec drops them.
+  - Resolved: Drift denials carry both digests and the drifted preimage
+    fields; an expired manifest denial carries `expires_at`; an attestation
+    denial carries the verification error. The MCP event carries the deny
+    reason, manifest and result facts, and the gate event the sandbox id and
+    matched rule ids. Decided (D38): the decision id is the host's
+    `:decision_id` option, carried by every decision of the call. Decided
+    (D40): protocol fields are on the MCP event only, and the attributes no
+    code emits are out of the contract.
+
 - [x] M14.12 Agent-to-agent trust (`SP.13`).
   - AC: peer trust resolves from configured or bundle actor rules when no
     resolver is passed; `quarantined` reflects indicators regardless of
@@ -3350,11 +3375,18 @@ needs its design confirmed against the consumer contracts before work begins.
     first secret and the BM.03 quarantine fixture was blocked.
     `bench/baseline.json` needs a refresh for the changed rows.
 
-- [ ] M14.17 Release evidence and examples (`SP.05`, `SP.14`).
+- [x] M14.17 Release evidence and examples (`SP.05`, `SP.14`).
   - AC: the publish workflow checks the SBOM digest against a value it did
     not compute from the same file; a consumer can run the SBOM structural
     check outside a `sigil_guard` checkout; illustrative modules live under
     `examples/` or the spec keeps the current wording.
+  - Resolved: Decided (D45): a digest check needs a value from another step.
+    The build job runs the structural SBOM check alone; the attestation job
+    compares each downloaded artifact with the release statement. The
+    consumer-side check is `gh attestation verify`; the structural check is
+    producer-side and runs in a checkout of the released tag, which the
+    release guide states. SP.14 already says that no module ships under
+    `examples/`.
 
 ## Package verification maintenance
 

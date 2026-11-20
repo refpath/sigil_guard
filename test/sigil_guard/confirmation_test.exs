@@ -99,6 +99,11 @@ defmodule SigilGuard.ConfirmationTest do
                  digest
       end
 
+      for key <- [:_agent_confirmation, :_agent_trust, :confirmation_token] do
+        assert Confirmation.action_digest(Map.put(@request, key, "attached"), @strip_context) ==
+                 digest
+      end
+
       # Deeper occurrences are application data and stay bound.
       refute Confirmation.action_digest(
                put_in(@request, ["params", "arguments", "confirmation_token"], "other"),
