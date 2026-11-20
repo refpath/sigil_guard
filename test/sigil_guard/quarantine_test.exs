@@ -3,6 +3,8 @@ defmodule SigilGuard.QuarantineTest do
 
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Quarantine
+
   alias SigilGuard.Quarantine
 
   describe "indicator categories" do
