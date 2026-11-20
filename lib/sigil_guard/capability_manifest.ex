@@ -350,8 +350,7 @@ defmodule SigilGuard.CapabilityManifest do
   defp normalize_manifest(manifest) do
     case Digest.normalize(manifest) do
       {:ok, normalized} when is_map(normalized) -> {:ok, normalized}
-      {:ok, _} -> {:error, :invalid_manifest}
-      {:error, _} -> {:error, :invalid_manifest}
+      _ -> {:error, :invalid_manifest}
     end
   end
 

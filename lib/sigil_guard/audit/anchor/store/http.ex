@@ -415,8 +415,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   defp decode_object(body, _) do
     case SigilGuard.Canonical.JSON.decode(body) do
       {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
-      {:ok, _} -> {:error, :invalid_body}
-      {:error, _} -> {:error, :invalid_body}
+      _ -> {:error, :invalid_body}
     end
   end
 

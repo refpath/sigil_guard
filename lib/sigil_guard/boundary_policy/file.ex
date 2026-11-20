@@ -259,7 +259,6 @@ defmodule SigilGuard.BoundaryPolicy.File do
         cond do
           header == "[repo]" -> take_repo(rest, acc)
           header in @sections -> take_folded_section(header, rest, acc)
-          section_header?(header) -> {:error, :invalid_policy_file}
           true -> {:error, :invalid_policy_file}
         end
     end

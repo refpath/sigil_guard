@@ -110,8 +110,7 @@ defmodule SigilGuard.TrustProfile do
     case Map.fetch(predicate, "statement_type") do
       {:ok, ^expected_type} -> :ok
       {:ok, type} when is_binary(type) -> {:error, :unknown_statement_type}
-      {:ok, _} -> {:error, :invalid_payload}
-      :error -> {:error, :invalid_payload}
+      _ -> {:error, :invalid_payload}
     end
   end
 

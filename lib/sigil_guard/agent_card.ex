@@ -215,8 +215,7 @@ defmodule SigilGuard.AgentCard do
   defp require_canonical(card, payload) do
     case encode_card(card) do
       {:ok, ^payload} -> :ok
-      {:ok, _} -> {:error, :invalid_agent_card}
-      {:error, _} -> {:error, :invalid_agent_card}
+      _ -> {:error, :invalid_agent_card}
     end
   end
 
@@ -257,8 +256,7 @@ defmodule SigilGuard.AgentCard do
   defp normalize_card(card) do
     case Digest.normalize(card) do
       {:ok, normalized} when is_map(normalized) -> {:ok, normalized}
-      {:ok, _} -> {:error, :invalid_agent_card}
-      {:error, _} -> {:error, :invalid_agent_card}
+      _ -> {:error, :invalid_agent_card}
     end
   end
 
