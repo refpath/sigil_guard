@@ -22,13 +22,13 @@ defmodule SigilGuard.Audit.Checkpoint do
 
   alias SigilGuard.Attestation.Statement
   alias SigilGuard.Audit
+  alias SigilGuard.Audit.SignatureMetadata
   alias SigilGuard.Canonical.LegacyJSON
   alias SigilGuard.Crypto
 
   @kind "sigil_guard.audit.checkpoint"
   @version 1
   @algorithm "sha256-merkle-v1"
-  @signature_algorithm "Ed25519"
   @checkpoint_state_predicate_type "https://sigilguard.dev/audit-checkpoint-state/v1"
   @checkpoint_profile "sigil_guard_agent_trust/v1"
   @empty_root_input "sigil-audit-empty-v1"
@@ -306,15 +306,13 @@ defmodule SigilGuard.Audit.Checkpoint do
     issuer = Keyword.fetch!(opts, :issuer)
     issued_at = Keyword.get_lazy(opts, :issued_at, &SigilGuard.Clock.timestamp/0)
     unsigned = unsigned_checkpoint(checkpoint)
-    signature = signer.sign(canonical_bytes(unsigned))
+    fields = %{"issuer" => issuer, "issued_at" => issued_at}
 
-    Map.put(unsigned, "signature", %{
-      "algorithm" => @signature_algorithm,
-      "issuer" => issuer,
-      "issued_at" => issued_at,
-      "digest" => digest(unsigned),
-      "signature" => Base.url_encode64(signature, padding: false)
-    })
+    Map.put(
+      unsigned,
+      "signature",
+      SignatureMetadata.sign(canonical_bytes(unsigned), signer, fields)
+    )
   end
 
   @doc """
@@ -337,7 +335,7 @@ defmodule SigilGuard.Audit.Checkpoint do
          :ok <- verify_event_summary(checkpoint, events),
          {:ok, canonical} <- checkpoint_canonical_bytes(checkpoint),
          digest = Crypto.sha256_hex(canonical),
-         {:ok, signature_status} <- verify_signature_status(checkpoint, opts, canonical, digest) do
+         {:ok, signature_status} <- verify_signature_status(checkpoint, opts, canonical) do
       {:ok,
        %{
          checkpoint: unsigned_checkpoint(checkpoint),
@@ -491,10 +489,10 @@ defmodule SigilGuard.Audit.Checkpoint do
     end
   end
 
-  defp verify_signature_status(checkpoint, opts, canonical, digest) do
+  defp verify_signature_status(checkpoint, opts, canonical) do
     case field(checkpoint, "signature") do
       nil -> verify_unsigned(opts)
-      signature when is_map(signature) -> verify_signed(signature, opts, canonical, digest)
+      signature when is_map(signature) -> verify_signed(signature, opts, canonical)
       _ -> {:error, :invalid_signature_metadata}
     end
   end
@@ -507,125 +505,9 @@ defmodule SigilGuard.Audit.Checkpoint do
     end
   end
 
-  defp verify_signed(signature, opts, canonical, digest) do
-    with {:ok, fields} <- signature_fields(signature),
-         :ok <- validate_signature_digest(digest, fields.digest),
-         {:ok, public_key} <- public_key(fields.issuer, opts),
-         {:ok, decoded_signature} <- decode_signature(fields.signature),
-         :ok <- verify_ed25519(canonical, decoded_signature, public_key) do
-      {:ok, %{status: :verified, issuer: fields.issuer}}
-    end
-  end
-
-  defp signature_fields(%{} = signature) do
-    fields = %{
-      issuer: field(signature, "issuer"),
-      algorithm: field(signature, "algorithm"),
-      digest: field(signature, "digest"),
-      signature: field(signature, "signature")
-    }
-
-    with :ok <- require_binary(fields.issuer, :missing_issuer),
-         :ok <- require_binary(fields.algorithm, :missing_algorithm),
-         :ok <-
-           require_field(signature, "algorithm", @signature_algorithm, :unsupported_algorithm),
-         :ok <- require_binary(fields.digest, :missing_digest),
-         :ok <- require_binary(fields.signature, :missing_signature),
-         true <- SigilGuard.Canonical.JSON.unique_keys?(signature) do
-      {:ok, fields}
-    else
-      false -> {:error, :invalid_signature_metadata}
-      error -> error
-    end
-  end
-
-  defp validate_signature_digest(digest, claimed_digest) do
-    if Crypto.secure_compare(digest, claimed_digest) do
-      :ok
-    else
-      {:error, :digest_mismatch}
-    end
-  end
-
-  defp public_key(issuer, opts) do
-    public_keys = Keyword.get(opts, :public_keys, %{})
-
-    if is_map(public_keys) do
-      with {:ok, encoded} <- public_key_source(public_keys, issuer, opts) do
-        decode_public_key(encoded)
-      end
-    else
-      {:error, :invalid_public_keys}
-    end
-  end
-
-  defp public_key_source(public_keys, issuer, opts) do
-    case Map.fetch(public_keys, issuer) do
-      {:ok, value} when is_binary(value) -> {:ok, value}
-      {:ok, _} -> {:error, :invalid_key}
-      :error -> fallback_public_key(opts)
-    end
-  end
-
-  defp fallback_public_key(opts) do
-    case Keyword.get(opts, :public_key_b64u) do
-      value when is_binary(value) -> {:ok, value}
-      _ -> {:error, :unknown_issuer}
-    end
-  end
-
-  defp decode_public_key(value) do
-    case decode_base64(value) do
-      key when is_binary(key) and byte_size(key) === 32 -> {:ok, key}
-      key when is_binary(key) -> {:error, :invalid_key}
-      nil -> {:error, :invalid_base64}
-    end
-  end
-
-  defp decode_signature(value) do
-    case decode_base64(value) do
-      signature when is_binary(signature) and byte_size(signature) === 64 -> {:ok, signature}
-      signature when is_binary(signature) -> {:error, :invalid_signature}
-      nil -> {:error, :invalid_base64}
-    end
-  end
-
-  defp verify_ed25519(canonical, signature, public_key) do
-    if :crypto.verify(:eddsa, :none, canonical, signature, [
-         public_key,
-         :ed25519
-       ]) do
-      :ok
-    else
-      {:error, :invalid_signature}
-    end
-  rescue
-    ErlangError -> {:error, :invalid_signature}
-  end
-
-  defp decode_base64(value) do
-    case decode_url64(value) do
-      nil -> decode_64(value)
-      decoded -> decoded
-    end
-  end
-
-  defp decode_url64(value) do
-    with :error <- Base.url_decode64(value, padding: false),
-         :error <- Base.url_decode64(value, padding: true) do
-      nil
-    else
-      {:ok, decoded} -> decoded
-    end
-  end
-
-  defp decode_64(value) do
-    with :error <- Base.decode64(value, padding: false),
-         :error <- Base.decode64(value, padding: true) do
-      nil
-    else
-      {:ok, decoded} -> decoded
-    end
+  defp verify_signed(signature, opts, canonical) do
+    with {:ok, issuer} <- SignatureMetadata.verify(signature, canonical, opts),
+         do: {:ok, %{status: :verified, issuer: issuer}}
   end
 
   defp validate_links([], nil), do: :ok

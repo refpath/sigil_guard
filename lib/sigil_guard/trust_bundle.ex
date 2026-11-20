@@ -501,7 +501,7 @@ defmodule SigilGuard.TrustBundle do
     with :ok <- SigilGuard.Limits.check(envelope),
          payload when is_binary(payload) <-
            Map.get(envelope, "payload") || Map.get(envelope, :payload),
-         {:ok, bytes} <- decode_base64(payload),
+         {:ok, bytes} <- SigilGuard.Crypto.decode_base64(payload),
          {:ok, %{} = document} <- SigilGuard.Canonical.JSON.decode(bytes),
          :ok <- SigilGuard.Limits.check(document) do
       document
@@ -511,21 +511,6 @@ defmodule SigilGuard.TrustBundle do
   end
 
   defp envelope_document(_), do: nil
-
-  defp decode_base64(value) when is_binary(value) do
-    [
-      &Base.url_decode64(&1, padding: false),
-      &Base.url_decode64(&1, padding: true),
-      &Base.decode64(&1, padding: false),
-      &Base.decode64(&1, padding: true)
-    ]
-    |> Enum.reduce_while(:error, fn decoder, :error ->
-      case decoder.(value) do
-        {:ok, bytes} -> {:halt, {:ok, bytes}}
-        :error -> {:cont, :error}
-      end
-    end)
-  end
 
   defp positive_integer(value) when is_binary(value) do
     case Integer.parse(value) do

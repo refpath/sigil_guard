@@ -217,14 +217,8 @@ defmodule SigilGuard.TrustBundle.Quarantine do
 
   defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
 
-  defp decode_base64(value) when is_binary(value) and byte_size(value) <= 1_048_576 do
-    with :error <- Base.url_decode64(value, padding: false),
-         :error <- Base.url_decode64(value, padding: true),
-         :error <- Base.decode64(value, padding: false),
-         :error <- Base.decode64(value, padding: true) do
-      nil
-    end
-  end
+  defp decode_base64(value) when is_binary(value) and byte_size(value) <= 1_048_576,
+    do: SigilGuard.Crypto.decode_base64(value)
 
   defp decode_base64(_), do: nil
 end

@@ -12,15 +12,10 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   the checkpoint signing pattern (`SigilGuard.Audit.Checkpoint.canonical_bytes/1`).
   """
 
-  @signature_algorithm "Ed25519"
+  alias SigilGuard.Audit.SignatureMetadata
+
   @metadata_keys ~w(signature)
   @metadata_atom_keys [:signature]
-  @atom_fields %{
-    "algorithm" => :algorithm,
-    "digest" => :digest,
-    "issuer" => :issuer,
-    "signature" => :signature
-  }
 
   @typedoc "Store-specific persistence receipt for an anchor record."
   @type t :: %{required(String.t()) => term()}
@@ -64,18 +59,13 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   def sign(receipt, signer, opts) when is_map(receipt) and is_atom(signer) and is_list(opts) do
     issuer = Keyword.fetch!(opts, :issuer)
     unsigned_receipt = unsigned(receipt)
+    canonical = canonical_bytes(unsigned_receipt)
 
-    signature =
-      unsigned_receipt
-      |> canonical_bytes()
-      |> signer.sign()
-
-    Map.put(unsigned_receipt, "signature", %{
-      "issuer" => issuer,
-      "algorithm" => @signature_algorithm,
-      "digest" => digest(unsigned_receipt),
-      "signature" => Base.url_encode64(signature, padding: false)
-    })
+    Map.put(
+      unsigned_receipt,
+      "signature",
+      SignatureMetadata.sign(canonical, signer, %{"issuer" => issuer})
+    )
   end
 
   @doc """
@@ -111,41 +101,10 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   end
 
   defp verify_signature(receipt, signature, opts) do
-    with {:ok, fields} <- signature_fields(signature),
-         {:ok, canonical} <- receipt_canonical_bytes(receipt),
-         :ok <- validate_signature_digest(canonical, fields.digest),
-         {:ok, public_key} <- public_key(fields.issuer, opts),
-         {:ok, decoded_signature} <- decode_signature(fields.signature) do
-      verify_ed25519(canonical, decoded_signature, public_key)
-    end
+    with {:ok, canonical} <- receipt_canonical_bytes(receipt),
+         {:ok, _} <- SignatureMetadata.verify(signature, canonical, opts),
+         do: :ok
   end
-
-  defp signature_fields(%{} = signature) do
-    fields = %{
-      issuer: field(signature, "issuer"),
-      algorithm: field(signature, "algorithm"),
-      digest: field(signature, "digest"),
-      signature: field(signature, "signature")
-    }
-
-    with :ok <- require_binary(fields.issuer, :missing_issuer),
-         :ok <- require_binary(fields.algorithm, :missing_algorithm),
-         :ok <- require_algorithm(fields.algorithm),
-         :ok <- require_binary(fields.digest, :missing_digest),
-         :ok <- require_binary(fields.signature, :missing_signature),
-         true <- SigilGuard.Canonical.JSON.unique_keys?(signature) do
-      {:ok, fields}
-    else
-      false -> {:error, :invalid_signature_metadata}
-      error -> error
-    end
-  end
-
-  defp require_binary(value, _) when is_binary(value) and value != "", do: :ok
-  defp require_binary(_, reason), do: {:error, reason}
-
-  defp require_algorithm(@signature_algorithm), do: :ok
-  defp require_algorithm(_), do: {:error, :unsupported_algorithm}
 
   defp receipt_canonical_bytes(receipt) do
     with true <- SigilGuard.Canonical.JSON.unique_keys?(receipt),
@@ -156,95 +115,5 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
     end
   end
 
-  defp validate_signature_digest(canonical, claimed_digest) do
-    digest = SigilGuard.Crypto.sha256_hex(canonical)
-
-    if SigilGuard.Crypto.secure_compare(digest, claimed_digest) do
-      :ok
-    else
-      {:error, :digest_mismatch}
-    end
-  end
-
-  defp public_key(issuer, opts) do
-    public_keys = Keyword.get(opts, :public_keys, %{})
-
-    if is_map(public_keys) do
-      with {:ok, encoded} <- public_key_source(public_keys, issuer, opts) do
-        decode_public_key(encoded)
-      end
-    else
-      {:error, :invalid_public_keys}
-    end
-  end
-
-  defp public_key_source(public_keys, issuer, opts) do
-    case Map.fetch(public_keys, issuer) do
-      {:ok, value} when is_binary(value) -> {:ok, value}
-      {:ok, _} -> {:error, :invalid_key}
-      :error -> fallback_public_key(opts)
-    end
-  end
-
-  defp fallback_public_key(opts) do
-    case Keyword.get(opts, :public_key_b64u) do
-      value when is_binary(value) -> {:ok, value}
-      _ -> {:error, :unknown_issuer}
-    end
-  end
-
-  defp decode_public_key(value) do
-    case decode_base64(value) do
-      key when is_binary(key) and byte_size(key) == 32 -> {:ok, key}
-      key when is_binary(key) -> {:error, :invalid_key}
-      nil -> {:error, :invalid_base64}
-    end
-  end
-
-  defp decode_signature(value) do
-    case decode_base64(value) do
-      signature when is_binary(signature) and byte_size(signature) == 64 -> {:ok, signature}
-      signature when is_binary(signature) -> {:error, :invalid_signature}
-      nil -> {:error, :invalid_base64}
-    end
-  end
-
-  defp decode_base64(value) do
-    case decode_url64(value) do
-      nil -> decode_64(value)
-      decoded -> decoded
-    end
-  end
-
-  defp decode_url64(value) do
-    with :error <- Base.url_decode64(value, padding: false),
-         :error <- Base.url_decode64(value, padding: true) do
-      nil
-    else
-      {:ok, decoded} -> decoded
-    end
-  end
-
-  defp decode_64(value) do
-    with :error <- Base.decode64(value, padding: false),
-         :error <- Base.decode64(value, padding: true) do
-      nil
-    else
-      {:ok, decoded} -> decoded
-    end
-  end
-
-  defp verify_ed25519(canonical, signature, public_key) do
-    if :crypto.verify(:eddsa, :none, canonical, signature, [public_key, :ed25519]) do
-      :ok
-    else
-      {:error, :invalid_signature}
-    end
-  rescue
-    ErlangError -> {:error, :invalid_signature}
-  end
-
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
-
-  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 end

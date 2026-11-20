@@ -5,6 +5,21 @@ defmodule SigilGuard.Crypto do
   @spec sha256_hex(iodata()) :: String.t()
   def sha256_hex(data), do: Base.encode16(:crypto.hash(:sha256, data), case: :lower)
 
+  # Keys and signatures arrive in either base64 alphabet, with or without
+  # padding. The url-safe alphabet is tried first because the library writes
+  # it.
+  @doc false
+  @spec decode_base64(term()) :: {:ok, binary()} | :error
+  def decode_base64(value) when is_binary(value) do
+    with :error <- Base.url_decode64(value, padding: false),
+         :error <- Base.url_decode64(value, padding: true),
+         :error <- Base.decode64(value, padding: false) do
+      Base.decode64(value, padding: true)
+    end
+  end
+
+  def decode_base64(_), do: :error
+
   # A SHA-256 digest as the library writes it: 64 lowercase hex digits.
   @doc false
   @spec sha256_hex?(term()) :: boolean()
