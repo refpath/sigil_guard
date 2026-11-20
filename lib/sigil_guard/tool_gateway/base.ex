@@ -48,6 +48,7 @@ defmodule SigilGuard.ToolGateway.Base do
   alias SigilGuard.MCP.Protocol
   alias SigilGuard.MCP.SecurityPayload
   alias SigilGuard.Runtime
+  alias SigilGuard.Scanner
   alias SigilGuard.Telemetry
 
   @blocked_code -31_990
@@ -768,8 +769,8 @@ defmodule SigilGuard.ToolGateway.Base do
   @spec sanitized_result(term(), Decision.t(), term(), keyword()) :: map()
   def sanitized_result(result, %Decision{} = decision, id, opts) do
     payload =
-      decision
-      |> sanitized_payload()
+      result
+      |> redacted_payload(decision, opts)
       |> preserve_result_type(result)
       |> Protocol.ensure_result_type(result, opts)
 
@@ -777,6 +778,63 @@ defmodule SigilGuard.ToolGateway.Base do
     |> jsonrpc_result(id, opts)
     |> put_in(["result"], payload)
   end
+
+  # The gate scans the structured projection of a result, so its sanitized
+  # text is that projection: field names and values on separate lines. A
+  # released result keeps the original shape instead, with every string in
+  # `content` and `structuredContent` redacted by the same scanner. Output
+  # contract transforms and quarantine replacements apply to the projection
+  # only; a decision with either releases its sanitized text.
+  defp redacted_payload(result, %Decision{} = decision, opts) do
+    with %{} = body <- result_body(result),
+         [] <- decision.indicators,
+         [] <- Map.get(decision.audit_metadata, :output_contract_transforms) || [],
+         fields when map_size(fields) > 0 <- Map.take(body, ["content", "structuredContent"]),
+         {:ok, payload} <- redact_strings(fields, scan_opts(opts)) do
+      payload
+    else
+      _ -> sanitized_payload(decision)
+    end
+  end
+
+  defp result_body(%{"result" => body}) when is_map(body), do: body
+  defp result_body(%{"content" => _} = body), do: body
+  defp result_body(_), do: nil
+
+  defp scan_opts(opts),
+    do: Keyword.take(opts, [:patterns, :pipeline, :validate, :min_confidence, :max_input_bytes])
+
+  defp redact_strings(text, opts) when is_binary(text) do
+    case Scanner.scan_result(text, opts) do
+      {:ok, _} -> {:ok, text}
+      {:hit, hits} -> {:ok, Scanner.redact(text, hits)}
+      {:error, _} -> :error
+    end
+  end
+
+  defp redact_strings(list, opts) when is_list(list) do
+    Enum.reduce_while(list, {:ok, []}, fn item, {:ok, acc} ->
+      case redact_strings(item, opts) do
+        {:ok, redacted} -> {:cont, {:ok, [redacted | acc]}}
+        :error -> {:halt, :error}
+      end
+    end)
+    |> then(fn
+      {:ok, reversed} -> {:ok, Enum.reverse(reversed)}
+      :error -> :error
+    end)
+  end
+
+  defp redact_strings(map, opts) when is_map(map) and not is_struct(map) do
+    Enum.reduce_while(map, {:ok, %{}}, fn {key, value}, {:ok, acc} ->
+      case redact_strings(value, opts) do
+        {:ok, redacted} -> {:cont, {:ok, Map.put(acc, key, redacted)}}
+        :error -> {:halt, :error}
+      end
+    end)
+  end
+
+  defp redact_strings(other, _), do: {:ok, other}
 
   defp sanitized_payload(%Decision{sanitized_text: text}) when is_binary(text) do
     %{

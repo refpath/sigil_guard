@@ -599,6 +599,15 @@ An attestation digest input of the shape `{:error, reason}` (for example a
 `sandbox_id` taken from a failed lookup) is refused with `:invalid_payload`.
 Releases up to 1.0.5 left it out, which attested "no sandbox".
 
+### Redacted Results Keep Their Shape
+
+A result the gateway releases with `action: :redact` keeps its `content`
+items and `structuredContent`, with each string redacted in place.
+Releases up to 1.0.5 replaced the content with one text item holding the
+gate's scan projection: field names and values on separate lines. A
+decision with output-contract transforms or quarantine indicators still
+releases the gate's sanitized text.
+
 ### Switch Options
 
 Boolean options are read one way. `true` and `false` behave as documented;

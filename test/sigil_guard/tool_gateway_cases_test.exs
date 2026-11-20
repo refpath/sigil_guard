@@ -221,4 +221,47 @@ defmodule SigilGuard.ToolGatewayCasesTest do
       assert decision.audit_metadata.deny_reason == :unknown_manifest
     end
   end
+
+  describe "a released redacted result" do
+    defp result(body), do: %{"jsonrpc" => "2.0", "id" => 7, "result" => body}
+
+    test "keeps the original shape with each string redacted" do
+      body = %{
+        "content" => [
+          %{"type" => "text", "text" => "first token AKIAIOSFODNN7EXAMPLE"},
+          %{"type" => "text", "text" => "no secret here"}
+        ],
+        "structuredContent" => %{"key" => "AKIAIOSFODNN7EXAMPLE", "count" => 2}
+      }
+
+      assert {:ok, response, decision} =
+               ToolGateway.guarded_result(result(body), trust_level: :high)
+
+      assert decision.action == :redact
+
+      assert response["result"]["content"] == [
+               %{"type" => "text", "text" => "first token [AWS_KEY]"},
+               %{"type" => "text", "text" => "no secret here"}
+             ]
+
+      assert response["result"]["structuredContent"] == %{"key" => "[AWS_KEY]", "count" => 2}
+      refute inspect(response) =~ "AKIAIOSFODNN7EXAMPLE"
+      refute inspect(response) =~ "protocol_version"
+      assert response["id"] == 7
+    end
+
+    test "falls back to the gate's sanitized text when the scan cannot run on the original" do
+      body = %{"content" => [%{"type" => "text", "text" => "token AKIAIOSFODNN7EXAMPLE"}]}
+      decision = ToolGateway.guard_result(result(body), trust_level: :high)
+
+      response =
+        SigilGuard.ToolGateway.Base.sanitized_result(result(body), decision, 7,
+          pipeline: :not_a_pipeline
+        )
+
+      assert [%{"type" => "text", "text" => text}] = response["result"]["content"]
+      assert text == decision.sanitized_text
+      refute text =~ "AKIAIOSFODNN7EXAMPLE"
+    end
+  end
 end

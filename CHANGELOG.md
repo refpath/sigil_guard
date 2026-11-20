@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- A redacted result released by `ToolGateway.guarded_result/3` and the
+  `MCP.Gateway` result helpers keeps its original shape: each string in
+  `content` and `structuredContent` is redacted in place. It was released as
+  the gate's scan projection, one text item listing field names such as
+  `kind`, `method` and `protocol_version` beside the redacted values.
 - The repository tasks `mix sigil.docs_lint`, `mix sigil.livebook_check` and
   `mix sigil.migration_gate` are now `mix sigil_guard.docs_lint`,
   `mix sigil_guard.livebook_check` and `mix sigil_guard.migration_gate`, in

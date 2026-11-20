@@ -657,6 +657,19 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
              ) == {:error, :unsafe_receipt_url}
     end
 
+    test "a redacted result is released in its original shape" do
+      result = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "result" => %{"content" => [%{"type" => "text", "text" => "key AKIAIOSFODNN7EXAMPLE"}]}
+      }
+
+      assert {:ok, response, %{action: :redact}} =
+               SigilGuard.ToolGateway.guarded_result(result, trust_level: :high)
+
+      assert response["result"]["content"] == [%{"type" => "text", "text" => "key [AWS_KEY]"}]
+    end
+
     test "the runtime owns the state tables the stateful calls use" do
       runtime = Process.whereis(SigilGuard.Runtime)
 
