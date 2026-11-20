@@ -5,6 +5,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Audit.Anchor.Store.HTTP` refuses receipt metadata with an atom
+  key and its string twin as `:invalid_metadata`, as the local-file store
+  does. It sent both, which encodes as a duplicate JSON key.
 - `SigilGuard.PatternSets.resolve/1` keeps the entries of a set in the order
   they were supplied. It returned them reversed.
 - `SigilGuard.Audit.Checkpoint.verify/3` reports a signature without an

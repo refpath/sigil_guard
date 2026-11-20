@@ -141,12 +141,88 @@ defmodule SigilGuard.Audit.Anchor.Store do
   defp enforce_required_worm({:ok, _}, _), do: {:error, :invalid_receipt}
   defp enforce_required_worm(result, _), do: result
 
-  defp enforce_anchor_result({:ok, record}) when is_map(record) do
+  # The helpers below are shared by the built-in stores.
+
+  # A store reports a record of another kind as an invalid anchor.
+  @doc false
+  @spec validate_anchor(Anchor.t()) ::
+          :ok
+          | {:error,
+             :invalid_anchor
+             | :invalid_metadata
+             | :invalid_uri
+             | :invalid_version
+             | :invalid_worm
+             | :missing_anchored_at
+             | :missing_checkpoint_digest
+             | :missing_event_count
+             | :missing_merkle_root
+             | :missing_storage}
+  def validate_anchor(record) do
     case Anchor.validate(record) do
-      :ok -> {:ok, record}
       {:error, :invalid_kind} -> {:error, :invalid_anchor}
-      {:error, reason} -> {:error, reason}
+      result -> result
     end
+  end
+
+  # Receipt metadata must encode as a JSON object with unique keys, so an
+  # atom key and its string twin are refused.
+  @doc false
+  @spec metadata(keyword()) :: {:ok, map()} | {:error, :invalid_metadata}
+  def metadata(opts) do
+    with metadata when is_map(metadata) <- Keyword.get(opts, :metadata, %{}),
+         {:ok, _} <- Jason.encode(metadata, maps: :strict) do
+      {:ok, metadata}
+    else
+      _ -> {:error, :invalid_metadata}
+    end
+  rescue
+    _ in [Protocol.UndefinedError, UnicodeConversionError] -> {:error, :invalid_metadata}
+  end
+
+  # A reference is a bare digest or a receipt. A receipt names its digest in
+  # `anchor_digest`, or in the fragment of its URI; `uri_digest` reads that
+  # fragment the way the store writes it. When both are present they must
+  # agree.
+  @doc false
+  @spec digest_from_ref(term(), (map() -> String.t() | nil)) ::
+          {:ok, String.t()} | {:error, :missing_digest | :digest_mismatch}
+  def digest_from_ref(digest, _) when is_binary(digest) do
+    if SigilGuard.Crypto.sha256_hex?(digest), do: {:ok, digest}, else: {:error, :missing_digest}
+  end
+
+  def digest_from_ref(%{} = receipt, uri_digest) do
+    case Field.fetch(receipt, "anchor_digest", %{"anchor_digest" => :anchor_digest}) do
+      {:ok, digest} when is_binary(digest) ->
+        with {:ok, digest} <- digest_from_ref(digest, uri_digest),
+             :ok <- check_uri_digest(uri_digest.(receipt), digest),
+             do: {:ok, digest}
+
+      {:ok, _} ->
+        {:error, :missing_digest}
+
+      :error ->
+        case uri_digest.(receipt) do
+          digest when is_binary(digest) -> digest_from_ref(digest, uri_digest)
+          _ -> {:error, :missing_digest}
+        end
+    end
+  end
+
+  def digest_from_ref(_, _), do: {:error, :missing_digest}
+
+  # A URI fragment that is not a digest says nothing about the anchor; one
+  # that is must name the same anchor.
+  @doc false
+  @spec check_uri_digest(term(), String.t()) :: :ok | {:error, :digest_mismatch}
+  def check_uri_digest(uri_digest, digest) do
+    if SigilGuard.Crypto.sha256_hex?(uri_digest) and uri_digest != digest,
+      do: {:error, :digest_mismatch},
+      else: :ok
+  end
+
+  defp enforce_anchor_result({:ok, record}) when is_map(record) do
+    with :ok <- validate_anchor(record), do: {:ok, record}
   end
 
   defp enforce_anchor_result({:ok, _}), do: {:error, :invalid_anchor}

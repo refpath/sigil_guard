@@ -40,9 +40,8 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
   alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Anchor.Receipt
+  alias SigilGuard.Audit.Anchor.Store
 
-  @kind "sigil_guard.audit.anchor.receipt"
-  @version 1
   @put_kind "sigil_guard.audit.anchor.put"
   @default_put_path "/audit/anchors"
   @default_fetch_path "/audit/anchors/:digest"
@@ -73,9 +72,9 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
           {:ok, SigilGuard.Audit.Anchor.Store.receipt()} | {:error, term()}
   def put(record, opts) when is_map(record) and is_list(opts) do
     with :ok <- validate_options(opts),
-         :ok <- validate_anchor(record),
+         :ok <- Store.validate_anchor(record),
          {:ok, url} <- put_url(opts),
-         {:ok, metadata} <- metadata(opts),
+         {:ok, metadata} <- Store.metadata(opts),
          {:ok, headers} <- headers(opts),
          {:ok, timeout} <- timeout(opts),
          transport = %{url: url, headers: headers, timeout: timeout, opts: opts},
@@ -100,7 +99,8 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   def fetch(receipt_or_digest, opts) when is_list(opts) do
     with :ok <- validate_options(opts),
          :ok <- verify_fetch_receipt_reference(receipt_or_digest, opts),
-         {:ok, digest} <- digest_from_ref(receipt_or_digest),
+         {:ok, digest} <-
+           Store.digest_from_ref(receipt_or_digest, &digest_from_uri(receipt_uri(&1))),
          {:ok, url} <- fetch_url(receipt_or_digest, opts, digest),
          {:ok, headers} <- headers(opts),
          {:ok, timeout} <- timeout(opts),
@@ -125,14 +125,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   end
 
   defp valid_max_body_bytes?(value), do: is_integer(value) and value >= 0
-
-  defp validate_anchor(record) do
-    case Anchor.validate(record) do
-      :ok -> :ok
-      {:error, :invalid_kind} -> {:error, :invalid_anchor}
-      {:error, reason} -> {:error, reason}
-    end
-  end
 
   defp put_url(opts) do
     cond do
@@ -289,22 +281,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
       {Bitwise.bsr(high, 8), Bitwise.band(high, 0xFF), Bitwise.bsr(low, 8),
        Bitwise.band(low, 0xFF)}
 
-  defp metadata(opts) do
-    case Keyword.get(opts, :metadata, %{}) do
-      metadata when is_map(metadata) -> validate_metadata_json(metadata)
-      _ -> {:error, :invalid_metadata}
-    end
-  end
-
-  defp validate_metadata_json(metadata) do
-    case Jason.encode(metadata) do
-      {:ok, _} -> {:ok, metadata}
-      {:error, _} -> {:error, :invalid_metadata}
-    end
-  rescue
-    Protocol.UndefinedError -> {:error, :invalid_metadata}
-  end
-
   defp headers(opts) do
     extra_headers = Keyword.get(opts, :headers, [])
 
@@ -345,7 +321,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     body =
       Jason.encode!(%{
         "kind" => @put_kind,
-        "version" => @version,
+        "version" => Receipt.version(),
         "anchor_digest" => Anchor.digest(record),
         "record" => record,
         "metadata" => metadata
@@ -449,7 +425,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
     with {:ok, receipt} <- receipt_body(body),
          :ok <- verify_receipt_digest(receipt, digest),
-         :ok <- validate_uri_digest(receipt, digest),
+         :ok <- Store.check_uri_digest(digest_from_uri(receipt_uri(receipt)), digest),
          :ok <- validate_receipt_fields(receipt) do
       {:ok, build_receipt(receipt, digest, request_url, metadata, response_headers)}
     end
@@ -482,17 +458,14 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     end
   end
 
-  defp validate_receipt_kind(receipt) do
-    case fetch_field(receipt, "kind") do
-      {:ok, @kind} -> :ok
-      {:ok, _} -> {:error, :invalid_receipt}
-      :error -> :ok
-    end
-  end
+  defp validate_receipt_kind(receipt), do: optional_constant(receipt, "kind", Receipt.kind())
 
-  defp validate_receipt_version(receipt) do
-    case fetch_field(receipt, "version") do
-      {:ok, @version} -> :ok
+  defp validate_receipt_version(receipt),
+    do: optional_constant(receipt, "version", Receipt.version())
+
+  defp optional_constant(receipt, key, expected) do
+    case fetch_field(receipt, key) do
+      {:ok, ^expected} -> :ok
       {:ok, _} -> {:error, :invalid_receipt}
       :error -> :ok
     end
@@ -526,8 +499,8 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
     receipt
     |> signed_receipt_field()
     |> Map.merge(%{
-      "kind" => field(receipt, "kind") || @kind,
-      "version" => field(receipt, "version") || @version,
+      "kind" => field(receipt, "kind") || Receipt.kind(),
+      "version" => field(receipt, "version") || Receipt.version(),
       "storage" => field(receipt, "storage") || "http",
       "uri" =>
         receipt_uri(receipt) || location_header(response_headers) || "#{request_url}##{digest}",
@@ -590,7 +563,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   defp normalize_record(%{"anchor" => record}) when is_map(record), do: normalize_record(record)
 
   defp normalize_record(record) when is_map(record) do
-    case validate_anchor(record) do
+    case Store.validate_anchor(record) do
       :ok -> {:ok, record}
       {:error, reason} -> {:error, reason}
     end
@@ -601,45 +574,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
       :ok
     else
       {:error, :digest_mismatch}
-    end
-  end
-
-  defp digest_from_ref(digest) when is_binary(digest) do
-    if SigilGuard.Crypto.sha256_hex?(digest), do: {:ok, digest}, else: {:error, :missing_digest}
-  end
-
-  defp digest_from_ref(%{} = receipt) do
-    case fetch_field(receipt, "anchor_digest") do
-      {:ok, digest} when is_binary(digest) ->
-        with {:ok, digest} <- digest_from_ref(digest),
-             :ok <- validate_uri_digest(receipt, digest) do
-          {:ok, digest}
-        end
-
-      {:ok, _} ->
-        {:error, :missing_digest}
-
-      :error ->
-        case digest_from_uri(receipt_uri(receipt)) do
-          digest when is_binary(digest) -> digest_from_ref(digest)
-          _ -> {:error, :missing_digest}
-        end
-    end
-  end
-
-  defp digest_from_ref(_), do: {:error, :missing_digest}
-
-  defp validate_uri_digest(receipt, digest) do
-    case digest_from_uri(receipt_uri(receipt)) do
-      uri_digest when is_binary(uri_digest) ->
-        cond do
-          not SigilGuard.Crypto.sha256_hex?(uri_digest) -> :ok
-          uri_digest == digest -> :ok
-          true -> {:error, :digest_mismatch}
-        end
-
-      _ ->
-        :ok
     end
   end
 

@@ -17,8 +17,19 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   @metadata_keys ~w(signature)
   @metadata_atom_keys [:signature]
 
+  @kind "sigil_guard.audit.anchor.receipt"
+  @version 1
+
   @typedoc "Store-specific persistence receipt for an anchor record."
   @type t :: %{required(String.t()) => term()}
+
+  @doc false
+  @spec kind() :: String.t()
+  def kind, do: @kind
+
+  @doc false
+  @spec version() :: 1
+  def version, do: @version
 
   @doc """
   Return canonical receipt bytes, excluding top-level signature metadata.

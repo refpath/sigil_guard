@@ -565,6 +565,10 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
       assert {:error, :invalid_metadata} =
                Store.put(HTTP, anchor, url: url, metadata: %{{:tuple, :key} => "bad"})
 
+      # An atom key and its string twin would encode as a duplicate JSON key.
+      assert {:error, :invalid_metadata} =
+               Store.put(HTTP, anchor, url: url, metadata: %{"note" => "a", note: "b"})
+
       assert {:error, :invalid_headers} =
                Store.put(HTTP, anchor, url: url, headers: [{"x-bad", %{nested: true}}])
 
