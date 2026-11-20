@@ -241,6 +241,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   cosigning only.
 
   A checkpoint missing the required fields fails `{:error, :invalid_checkpoint}`.
+  `verify/3` names the field that is wrong.
   """
   @spec to_statement(t()) :: {:ok, map()} | {:error, :invalid_checkpoint}
   def to_statement(checkpoint) when is_map(checkpoint) do
