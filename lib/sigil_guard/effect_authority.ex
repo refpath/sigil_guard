@@ -80,7 +80,7 @@ defmodule SigilGuard.EffectAuthority do
         }
 
   @doc """
-  Reads the binding record from a request and validates it.
+  Read the binding record from a request and validate it.
 
   The record is read from the `params` value the gateway binds: the string key
   `"params"`, or `:params` when the string key is absent. An absent record
@@ -94,7 +94,7 @@ defmodule SigilGuard.EffectAuthority do
   def fetch_binding(request), do: Record.fetch(request)
 
   @doc """
-  Validates a binding record against the closed schema.
+  Validate a binding record against the closed schema.
 
   Unknown keys, wrong types, identifiers outside 1 to 256 bytes of printable
   ASCII, unsorted or duplicate artifacts, and a `not_before` that is not
@@ -105,7 +105,7 @@ defmodule SigilGuard.EffectAuthority do
   def validate_binding(record), do: Record.validate(record)
 
   @doc """
-  Returns the lowercase-hex SHA-256 of the record's JCS bytes.
+  Return the lowercase-hex SHA-256 of the record's JCS bytes.
   """
   @doc since: "1.1.0"
   @spec binding_digest(term()) :: {:ok, String.t()} | {:error, :invalid_effect_binding}
@@ -114,7 +114,7 @@ defmodule SigilGuard.EffectAuthority do
   end
 
   @doc """
-  Returns the ledger key for the operation a record names.
+  Return the ledger key for the operation a record names.
 
   The key is the lowercase-hex SHA-256 of the JCS bytes of
   `{"operation_id": ..., "target_id": ...}`. Two records for the same operation
@@ -133,7 +133,7 @@ defmodule SigilGuard.EffectAuthority do
   end
 
   @doc """
-  Returns the lowercase-hex SHA-256 of an effect envelope's JCS bytes.
+  Return the lowercase-hex SHA-256 of an effect envelope's JCS bytes.
 
   The document is validated first. An unknown key, a float bound, an inverted
   range, unsorted or duplicate targets or operations, and a string that is not
@@ -144,7 +144,7 @@ defmodule SigilGuard.EffectAuthority do
   def envelope_digest(document), do: Envelope.digest(document)
 
   @doc """
-  Decides whether an allowed request may be dispatched now.
+  Decide whether an allowed request may be dispatched now.
 
   `decision` is the value `SigilGuard.ToolGateway.guard_request/3` returned for
   `request` and `context` with `effect_binding: :required`. `current` is an
@@ -185,7 +185,7 @@ defmodule SigilGuard.EffectAuthority do
   end
 
   @doc """
-  Returns whether a host ledger record may move from one state to another.
+  Check whether a host ledger record may move from one state to another.
 
   The states are `:claimed`, `:refused`, `:dispatched`, `:acknowledged`,
   `:cancel_requested`, `:unknown`, `:finished`, `:failed`, and `:cancelled`.
@@ -198,7 +198,7 @@ defmodule SigilGuard.EffectAuthority do
   def valid_transition?(from, to), do: Outcome.valid_transition?(from, to)
 
   @doc """
-  Separates what an outcome report claims from what the host observed.
+  Separate what an outcome report claims from what the host observed.
 
   The input is an atom-keyed closed map:
 
@@ -220,7 +220,7 @@ defmodule SigilGuard.EffectAuthority do
   def classify_outcome(input), do: Outcome.classify(input)
 
   @doc """
-  Builds the audit values for a physical-effect operation.
+  Build the audit values for a physical-effect operation.
 
   The input is an atom-keyed closed map with `:state` (a ledger state) and
   optional `:binding_digest`, `:operation_key`, `:refusal`, and `:outcome`

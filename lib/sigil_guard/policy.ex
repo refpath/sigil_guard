@@ -11,9 +11,9 @@ defmodule SigilGuard.Policy do
 
       :low < :medium < :high
 
-  - low: read-only, within workspace. Requires `:low` trust.
-  - medium: state-modifying but recoverable. Requires `:medium` trust.
-  - high: destructive or irreversible. Requires `:high` trust.
+  - low: read-only, within workspace.
+  - medium: state-modifying but recoverable.
+  - high: destructive or irreversible.
 
   ## Default Trust Thresholds
 

@@ -2,12 +2,10 @@ defmodule SigilGuard.Audit do
   @moduledoc """
   Tamper-evident audit logging for SigilGuard runtime decisions.
 
-  Each audit event carries an HMAC-SHA256 that covers the previous event's HMAC,
-  so the events form a hash chain.
-
   ## Chain Integrity
 
-  Each HMAC covers the event's canonical bytes followed by a link value:
+  Each event carries an HMAC-SHA256 over its canonical bytes followed by a link
+  value, so the events form a hash chain:
 
   1. First event: `HMAC(key, canonical_bytes(event) <> "genesis")`
   2. Subsequent events: `HMAC(key, canonical_bytes(event) <> prev_hmac)`

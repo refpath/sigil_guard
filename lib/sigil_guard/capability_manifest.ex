@@ -212,7 +212,7 @@ defmodule SigilGuard.CapabilityManifest do
             digest: nil
 
   @doc """
-  Validates and normalizes a carried capability manifest.
+  Validate and normalize a carried capability manifest.
 
   The manifest must use `sigil_guard_capability_manifest/v2`, contain only
   known fields, and carry values that agree with any supplied digest fields.
@@ -278,7 +278,7 @@ defmodule SigilGuard.CapabilityManifest do
   def digest(_), do: {:error, :invalid_manifest}
 
   @doc """
-  Compares an observed manifest with a pinned manifest.
+  Compare an observed manifest with a pinned manifest.
 
   Schema drift is reported separately from other manifest drift so callers can
   explain why cached approval became invalid. Both inputs are fully validated;

@@ -48,7 +48,7 @@ defmodule SigilGuard.MCP.Protocol do
   @typedoc "A date-versioned MCP protocol revision such as `\"2026-07-28\"`."
   @type version :: String.t()
 
-  @doc "Returns the MCP revision implemented by the modern response helpers."
+  @doc "Return the MCP revision implemented by the modern response helpers."
   @doc since: "1.0.0"
   @spec current_version() :: version()
   def current_version, do: @current_version
@@ -103,7 +103,7 @@ defmodule SigilGuard.MCP.Protocol do
   def result_type(%{result_type: value}) when is_binary(value), do: value
   def result_type(_), do: nil
 
-  @doc "Returns whether a result requests another MCP round trip."
+  @doc "Check whether a result requests another MCP round trip."
   @doc since: "1.0.0"
   @spec input_required?(term()) :: boolean()
   def input_required?(message), do: result_type(message) == "input_required"

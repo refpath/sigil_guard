@@ -13,6 +13,7 @@ defmodule SigilGuard.Hooks do
   Malformed options, a non-module hook entry, or an invalid timeout fail closed
   as `:invalid_hook_options` on a blockable phase and log-and-continue on a
   notification-only phase.
+
   Results:
 
   - `{:ok, :continue}` / `:ok` - proceed.

@@ -82,7 +82,7 @@ defmodule SigilGuard.Backend do
   end
 
   @doc """
-  Checks if a backend is available on this system.
+  Check whether a backend is available on this system.
 
   ## Examples
 
@@ -95,7 +95,7 @@ defmodule SigilGuard.Backend do
   def available?(_), do: false
 
   @doc """
-  Returns a list of all available backends on this system.
+  Return the backends available on this system.
   """
   @spec available_backends() :: [backend_type(), ...]
   def available_backends, do: [:elixir]

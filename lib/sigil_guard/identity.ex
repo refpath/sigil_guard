@@ -2,14 +2,13 @@ defmodule SigilGuard.Identity do
   @moduledoc """
   Identity provider behaviour and trust levels for SigilGuard runtime policy.
 
-  Trust levels are ordered; a higher level meets every threshold a lower one
-  meets.
-
   ## Trust Level Hierarchy
+
+  A higher level meets every threshold a lower one meets:
 
       :low < :medium < :high
 
-  - low: anonymous or unverified user. Meets only a `:low` trust threshold.
+  - low: anonymous or unverified user.
   - medium: verified identity (email, OIDC, social login).
   - high: strong verification (eIDAS, government ID, hardware key).
 
@@ -105,7 +104,7 @@ defmodule SigilGuard.Identity do
   @spiffe_segment ~r/\A[a-zA-Z0-9._-]+\z/
 
   @doc """
-  Returns whether `value` is a SPIFFE ID as the SPIFFE-ID standard defines it.
+  Check whether `value` is a SPIFFE ID as the SPIFFE-ID standard defines it.
 
   The check is pure string work. The scheme is `spiffe`. The trust domain is
   1 to 255 bytes of lowercase letters, digits, dots, dashes and underscores,
@@ -156,7 +155,7 @@ defmodule SigilGuard.Identity do
   @ed25519_did_key_chars 48
 
   @doc """
-  Returns the Ed25519 public key that a `did:key` identifier embeds.
+  Return the Ed25519 public key that a `did:key` identifier embeds.
 
   The identifier is `did:key:z` followed by the base58btc encoding of the two
   multicodec bytes `0xed 0x01` and the 32-byte key, 48 characters in all. Any

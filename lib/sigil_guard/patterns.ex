@@ -119,7 +119,7 @@ defmodule SigilGuard.Patterns do
   @secret_categories [:secret, "secret", :credential, "credential"]
 
   @doc """
-  Returns whether a hit `category` names a secret.
+  Check whether a hit `category` names a secret.
 
   The built-in patterns use `:secret`. A compiled custom pattern keeps its
   category as a string, so `"secret"` and `"credential"` count too, as do the
