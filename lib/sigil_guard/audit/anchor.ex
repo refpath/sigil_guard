@@ -185,17 +185,19 @@ defmodule SigilGuard.Audit.Anchor do
   defp require_metadata(_), do: {:error, :invalid_metadata}
 
   defp safe_digest(record) do
-    {:ok, digest(record)}
-  rescue
-    _ in [ArgumentError, FunctionClauseError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_anchor}
+    with true <- is_map(record),
+         {:ok, iodata} <- SigilGuard.Canonical.LegacyJSON.encode(record) do
+      {:ok, Crypto.sha256_hex(IO.iodata_to_binary(iodata))}
+    else
+      _ -> {:error, :invalid_anchor}
+    end
   end
 
   defp safe_checkpoint_digest(checkpoint) do
-    {:ok, Checkpoint.digest(checkpoint)}
-  rescue
-    _ in [ArgumentError, FunctionClauseError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_checkpoint}
+    case Checkpoint.fetch_digest(checkpoint) do
+      {:ok, digest} -> {:ok, digest}
+      :error -> {:error, :invalid_checkpoint}
+    end
   end
 
   defp field(map, key) when is_map(map) do
@@ -213,5 +215,5 @@ defmodule SigilGuard.Audit.Anchor do
     |> DateTime.to_iso8601()
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

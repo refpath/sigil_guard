@@ -397,10 +397,12 @@ defmodule SigilGuard.Audit.Export do
   defp require_binary(_, reason), do: {:error, reason}
 
   defp safe_digest(export) do
-    {:ok, digest(export)}
-  rescue
-    _ in [ArgumentError, FunctionClauseError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_export}
+    with true <- is_map(export),
+         {:ok, iodata} <- SigilGuard.Canonical.LegacyJSON.encode(export) do
+      {:ok, Crypto.sha256_hex(IO.iodata_to_binary(iodata))}
+    else
+      _ -> {:error, :invalid_export}
+    end
   end
 
   defp field(map, key) when is_map(map) do
@@ -415,5 +417,5 @@ defmodule SigilGuard.Audit.Export do
     |> DateTime.to_iso8601()
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

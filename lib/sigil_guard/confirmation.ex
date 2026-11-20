@@ -74,22 +74,19 @@ defmodule SigilGuard.Confirmation do
   @spec fetch_action_digest(term(), Context.t() | map() | keyword()) ::
           {:ok, String.t()} | {:error, :invalid_payload}
   def fetch_action_digest(payload, context) do
-    with {:ok, context} <- cast_context(context) do
-      # The strip rule removes the trust and confirmation metadata, so the
-      # digest is the same before and after a token is attached.
-      digest =
-        %{
-          "context" => Map.from_struct(context),
-          "payload" => SigilGuard.Attestation.strip_metadata(payload)
-        }
-        |> canonical_bytes()
-        |> Crypto.sha256_hex()
-
-      {:ok, digest}
+    # The strip rule removes the trust and confirmation metadata, so the
+    # digest is the same before and after a token is attached.
+    with {:ok, context} <- cast_context(context),
+         preimage = %{
+           "context" => Map.from_struct(context),
+           "payload" => SigilGuard.Attestation.strip_metadata(payload)
+         },
+         {:ok, iodata} <- SigilGuard.Canonical.LegacyJSON.encode(preimage) do
+      {:ok, Crypto.sha256_hex(IO.iodata_to_binary(iodata))}
+    else
+      :error -> {:error, :invalid_payload}
+      {:error, _} = error -> error
     end
-  rescue
-    _ in [ArgumentError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_payload}
   end
 
   defp cast_context(context) do
@@ -485,5 +482,5 @@ defmodule SigilGuard.Confirmation do
     |> IO.iodata_to_binary()
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

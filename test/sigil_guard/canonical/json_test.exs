@@ -42,12 +42,29 @@ defmodule SigilGuard.Canonical.JSONTest do
 
   test "legacy bytes reject normalized collisions while preserving native values" do
     for value <- [%{:a => 1, "a" => 2}, %{nested: [%{1 => true, "1" => false}]}] do
-      assert_raise ArgumentError, ~r/duplicate JSON object key/, fn ->
-        LegacyJSON.encode(value)
+      assert LegacyJSON.encode(value) == :error
+      refute LegacyJSON.valid?(value)
+
+      assert_raise ArgumentError, "value has no canonical JSON form", fn ->
+        LegacyJSON.encode!(value)
       end
     end
 
-    bytes = LegacyJSON.encode(%{1 => :ok, :values => [nil, true, false, 1, 1.0]})
+    assert {:ok, bytes} = LegacyJSON.encode(%{1 => :ok, :values => [nil, true, false, 1, 1.0]})
     assert IO.iodata_to_binary(bytes) == ~s({"1":"ok","values":[null,true,false,1,1.0]})
+  end
+
+  test "legacy bytes have no form for structs, tuples, pids, invalid UTF-8 or improper lists" do
+    for value <- [
+          ~U[2026-01-01 00:00:00Z],
+          {:a, 1},
+          self(),
+          <<255>>,
+          %{<<255>> => 1},
+          [1 | 2],
+          %{{:tuple} => 1}
+        ] do
+      assert LegacyJSON.encode(value) == :error
+    end
   end
 end

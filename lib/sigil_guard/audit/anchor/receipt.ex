@@ -148,12 +148,12 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   defp require_algorithm(_), do: {:error, :unsupported_algorithm}
 
   defp receipt_canonical_bytes(receipt) do
-    if SigilGuard.Canonical.JSON.unique_keys?(receipt),
-      do: {:ok, canonical_bytes(receipt)},
-      else: {:error, :invalid_receipt}
-  rescue
-    _ in [ArgumentError, FunctionClauseError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_receipt}
+    with true <- SigilGuard.Canonical.JSON.unique_keys?(receipt),
+         {:ok, iodata} <- SigilGuard.Canonical.LegacyJSON.encode(unsigned(receipt)) do
+      {:ok, IO.iodata_to_binary(iodata)}
+    else
+      _ -> {:error, :invalid_receipt}
+    end
   end
 
   defp validate_signature_digest(canonical, claimed_digest) do
@@ -244,7 +244,7 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
     ErlangError -> {:error, :invalid_signature}
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 
   defp field(map, key) when is_map(map) do
     case Map.fetch(map, key) do

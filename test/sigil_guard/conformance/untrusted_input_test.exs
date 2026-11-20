@@ -27,6 +27,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   alias SigilGuard.BoundaryPolicy
   alias SigilGuard.BoundaryPolicy.File, as: PolicyFile
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Canonical.LegacyJSON
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.Confirmation
   alias SigilGuard.Decision
@@ -531,7 +532,8 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
     end
 
     test "an improper list is not a JSON array" do
-      assert_raise ArgumentError, fn -> SigilGuard.Canonical.LegacyJSON.encode(@improper) end
+      assert LegacyJSON.encode(@improper) == :error
+      assert_raise ArgumentError, fn -> LegacyJSON.encode!(@improper) end
 
       assert Confirmation.fetch_action_digest(%{"a" => @improper}, []) ==
                {:error, :invalid_payload}
@@ -619,10 +621,9 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
     }
 
     body =
-      try do
-        IO.iodata_to_binary(SigilGuard.Canonical.LegacyJSON.encode(Map.merge(base, claims)))
-      rescue
-        _ in [ArgumentError, Jason.EncodeError, Protocol.UndefinedError] -> "{}"
+      case LegacyJSON.encode(Map.merge(base, claims)) do
+        {:ok, iodata} -> IO.iodata_to_binary(iodata)
+        :error -> "{}"
       end
 
     mac = :crypto.mac(:hmac, :sha256, Fixture.confirmation_key(), body)

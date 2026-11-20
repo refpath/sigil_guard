@@ -1,78 +1,85 @@
 defmodule SigilGuard.Canonical.LegacyJSON do
   @moduledoc false
 
-  @doc false
-  @spec encode(term()) :: binary() | [list() | ?[ | ?] | ?{ | ?}, ...]
-  def encode(value) when is_map(value) do
-    parts =
-      value
-      |> Enum.map(fn {key, item} -> {canonical_key(key), item} end)
-      |> require_unique_keys!()
-      |> Enum.sort_by(&elem(&1, 0))
-      |> Enum.map(fn {key, item} -> [Jason.encode!(key), ?:, encode(item)] end)
-      |> Enum.intersperse(",")
+  # The sorted-key JSON form the audit, confirmation and repo policy digests
+  # were defined over before JCS. Keys may be atoms, strings or numbers and
+  # are compared as strings; structs, improper lists and values without a
+  # JSON form have no canonical form.
 
-    [?{, parts, ?}]
+  @typep canonical :: binary() | nonempty_list(list() | ?[ | ?] | ?{ | ?})
+
+  @spec encode(term()) :: {:ok, canonical()} | :error
+  def encode(value) when is_map(value) and not is_struct(value) do
+    with {:ok, pairs} <- canonical_pairs(value),
+         {:ok, parts} <- encode_pairs(Enum.sort_by(pairs, &elem(&1, 0)), []) do
+      {:ok, [?{, Enum.intersperse(parts, ","), ?}]}
+    end
   end
 
   def encode(value) when is_list(value) do
-    value
-    |> encode_items()
-    |> Enum.intersperse(",")
-    |> then(&[?[, &1, ?]])
+    with {:ok, items} <- encode_items(value, []) do
+      {:ok, [?[, Enum.intersperse(items, ","), ?]]}
+    end
   end
+
+  def encode(value) when is_atom(value) and not is_boolean(value) and not is_nil(value),
+    do: encode_scalar(Atom.to_string(value))
 
   def encode(value)
-      when is_atom(value) and not is_boolean(value) and not is_nil(value) do
-    value
-    |> Atom.to_string()
-    |> Jason.encode!()
+      when is_binary(value) or is_number(value) or is_boolean(value) or is_nil(value),
+      do: encode_scalar(value)
+
+  def encode(_), do: :error
+
+  @spec encode!(term()) :: canonical()
+  def encode!(value) do
+    case encode(value) do
+      {:ok, iodata} -> iodata
+      :error -> raise ArgumentError, "value has no canonical JSON form"
+    end
   end
 
-  def encode(value) do
-    Jason.encode!(value)
-  end
-
-  defp encode_items([]), do: []
-  defp encode_items([head | tail]) when is_list(tail), do: [encode(head) | encode_items(tail)]
-  defp encode_items(_), do: raise(ArgumentError, "improper list is not a JSON array")
-
-  @doc false
   @spec valid?(term()) :: boolean()
-  def valid?(%_{}), do: false
+  def valid?(value), do: encode(value) != :error
 
-  def valid?(value) when is_map(value) do
-    pairs = Enum.map(value, fn {key, item} -> {canonical_key(key), item} end)
-    keys = Enum.map(pairs, &elem(&1, 0))
-
-    length(keys) == MapSet.size(MapSet.new(keys)) and
-      Enum.all?(pairs, fn {key, item} -> String.valid?(key) and valid?(item) end)
-  rescue
-    _ in [ArgumentError, Protocol.UndefinedError] -> false
+  defp encode_scalar(value) do
+    case Jason.encode(value) do
+      {:ok, json} -> {:ok, json}
+      {:error, _} -> :error
+    end
   end
 
-  def valid?([]), do: true
-  def valid?([value | rest]), do: valid?(value) and valid?(rest) and is_list(rest)
-  def valid?(value) when is_binary(value), do: String.valid?(value)
-  def valid?(value), do: is_atom(value) or is_number(value)
+  defp canonical_pairs(map) do
+    pairs = for {key, item} <- map, do: {canonical_key(key), item}
+    keys = for {key, _} <- pairs, do: key
+
+    if Enum.all?(keys, &is_binary/1) and length(keys) == MapSet.size(MapSet.new(keys)),
+      do: {:ok, pairs},
+      else: :error
+  end
 
   defp canonical_key(key) when is_atom(key), do: Atom.to_string(key)
   defp canonical_key(key) when is_binary(key), do: key
+  defp canonical_key(key) when is_number(key), do: to_string(key)
+  defp canonical_key(_), do: nil
 
-  defp canonical_key(key) do
-    to_string(key)
-  rescue
-    UnicodeConversionError ->
-      reraise ArgumentError, "invalid Unicode in JSON object key", __STACKTRACE__
-  end
+  defp encode_pairs([], acc), do: {:ok, Enum.reverse(acc)}
 
-  defp require_unique_keys!(pairs) do
-    keys = Enum.map(pairs, &elem(&1, 0))
-
-    if length(keys) != MapSet.size(MapSet.new(keys)) do
-      raise ArgumentError, "duplicate JSON object key after normalization"
+  defp encode_pairs([{key, item} | rest], acc) do
+    with {:ok, encoded_key} <- encode_scalar(key),
+         {:ok, encoded_item} <- encode(item) do
+      encode_pairs(rest, [[encoded_key, ?:, encoded_item] | acc])
     end
-
-    pairs
   end
+
+  defp encode_items([], acc), do: {:ok, Enum.reverse(acc)}
+
+  defp encode_items([head | tail], acc) do
+    case encode(head) do
+      {:ok, encoded} -> encode_items(tail, [encoded | acc])
+      :error -> :error
+    end
+  end
+
+  defp encode_items(_, _), do: :error
 end

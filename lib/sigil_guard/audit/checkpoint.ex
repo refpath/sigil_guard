@@ -206,6 +206,19 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   @doc """
+  Return `{:ok, digest}` as `digest/1` computes it, or `:error` for a value
+  that is not a checkpoint map with a canonical form.
+  """
+  @doc since: "1.1.0"
+  @spec fetch_digest(term()) :: {:ok, String.t()} | :error
+  def fetch_digest(checkpoint) do
+    case checkpoint_canonical_bytes(checkpoint) do
+      {:ok, canonical} -> {:ok, digest_canonical_bytes(canonical)}
+      {:error, _} -> :error
+    end
+  end
+
+  @doc """
   Build the DSSE checkpoint-state statement for `checkpoint`.
 
   Returns the in-toto Statement whose registered predicate type is
@@ -460,12 +473,12 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp checkpoint_canonical_bytes(checkpoint) do
-    if SigilGuard.Canonical.JSON.unique_keys?(checkpoint),
-      do: {:ok, canonical_bytes(checkpoint)},
-      else: {:error, :invalid_checkpoint}
-  rescue
-    _ in [ArgumentError, FunctionClauseError, Jason.EncodeError, Protocol.UndefinedError] ->
-      {:error, :invalid_checkpoint}
+    with true <- is_map(checkpoint) and SigilGuard.Canonical.JSON.unique_keys?(checkpoint),
+         {:ok, iodata} <- LegacyJSON.encode(unsigned_checkpoint(checkpoint)) do
+      {:ok, IO.iodata_to_binary(iodata)}
+    else
+      _ -> {:error, :invalid_checkpoint}
+    end
   end
 
   defp verify_signature_status(checkpoint, opts, canonical, digest) do
@@ -658,7 +671,7 @@ defmodule SigilGuard.Audit.Checkpoint do
     Map.drop(checkpoint, @metadata_keys ++ @metadata_atom_keys)
   end
 
-  defp canonical_iodata(value), do: LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: LegacyJSON.encode!(value)
 
   defp digest_canonical_bytes(canonical) do
     canonical

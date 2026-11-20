@@ -1084,5 +1084,5 @@ defmodule SigilGuard.RepoPolicy do
     }
   end
 
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
+  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end
