@@ -59,7 +59,7 @@ defmodule SigilGuard.Identity.StaticTest do
       assert Static.trust_level(%{}) == :low
     end
 
-    test "malformed mapping entries are ignored defensively" do
+    test "malformed mapping entries are skipped" do
       put_mappings([:bad, {123, :high}, {"user:*", :medium}])
       assert Static.trust_level("user:alice") == :medium
       assert Static.trust_level("service:api") == :low

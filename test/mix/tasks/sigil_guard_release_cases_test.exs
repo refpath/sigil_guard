@@ -46,7 +46,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
     end
   end
 
-  test "rejects an environment without a ref name" do
+  test "an environment without a ref name is refused" do
     sha = String.duplicate("a", 40)
 
     for environment <- [
@@ -66,7 +66,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
     assert VerifyReleaseRef.verify("1.0.0", %{"GITHUB_REF_NAME" => "v1.0.0"}) == :ok
   end
 
-  test "rejects arguments of the wrong type", context do
+  test "arguments of the wrong type are refused", context do
     environment = %{"GITHUB_REF_NAME" => "v1.0.0"}
 
     assert VerifyReleaseRef.verify(100, environment, context.repository) ==
@@ -78,7 +78,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
     assert VerifyReleaseRef.verify("1.0.0", environment, nil) == {:error, :invalid_environment}
   end
 
-  test "rejects a version whose tag is not in the checkout", context do
+  test "a version whose tag is not in the checkout cannot be resolved", context do
     environment = %{
       "GITHUB_REF" => "refs/tags/v1.0.1",
       "GITHUB_REF_NAME" => "v1.0.1",
@@ -90,7 +90,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
              VerifyReleaseRef.verify("1.0.1", environment, context.repository)
   end
 
-  test "run/1 accepts no arguments" do
+  test "run/1 refuses any argument" do
     assert_raise Mix.Error, ~r/does not accept arguments/, fn ->
       VerifyReleaseRef.run(["--tag", "v1.0.0"])
     end

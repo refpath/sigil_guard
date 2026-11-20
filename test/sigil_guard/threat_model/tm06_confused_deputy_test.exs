@@ -90,7 +90,7 @@ defmodule SigilGuard.ThreatModel.TM06ConfusedDeputyTest do
     end
   end
 
-  describe "a stored consent cannot be replayed to a new audience or reused expired (row 6)" do
+  describe "a stored consent cannot be replayed or used after expiry (row 6)" do
     test "a consent attestation's nonce is single-use per actor (replay scope)" do
       envelope = signed_consent(%{"nonce" => "consent-nonce"})
       opts = [now: @now, replay: true]
@@ -173,7 +173,7 @@ defmodule SigilGuard.ThreatModel.TM06ConfusedDeputyTest do
   end
 
   describe "malformed approvals fail closed" do
-    test "a malformed token is rejected before claims validation" do
+    test "a token that is not payload.signature is rejected as :invalid_token" do
       assert {:error, :invalid_token} =
                Confirmation.verify("not-a-token", @payload, @approval_context, @confirmation_key,
                  now: @now,

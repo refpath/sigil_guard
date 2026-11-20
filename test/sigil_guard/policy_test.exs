@@ -136,14 +136,14 @@ defmodule SigilGuard.PolicyTest do
       assert :high = Policy.classify_risk("custom_action", risk_mappings: mappings)
     end
 
-    test "treats invalid risk mappings as high risk for compatibility callers" do
+    test "an invalid risk mapping classifies as :high" do
       assert :high = Policy.classify_risk("read_file", risk_mappings: %{"read_file" => :critical})
       assert :high = Policy.classify_risk("read_file", risk_mappings: :invalid)
     end
   end
 
   describe "trust_threshold/1" do
-    test "returns correct defaults for all risk levels" do
+    test "each risk level's default threshold is the same trust level" do
       assert :low = Policy.trust_threshold(:low)
       assert :medium = Policy.trust_threshold(:medium)
       assert :high = Policy.trust_threshold(:high)

@@ -8,7 +8,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGateCasesTest do
 
   alias Mix.Tasks.SigilGuard.MigrationGate
 
-  test "raises with every finding when the guide lacks a mapping or has a broken link" do
+  test "a guide that lacks a mapping or has a broken link raises with every finding" do
     root =
       fixture_root(%{
         "MIGRATING-1.0.md" => "# Migrating\n\nSee [the old guide](docs/gone.md).\n"
@@ -28,7 +28,7 @@ defmodule Mix.Tasks.SigilGuard.MigrationGateCasesTest do
              "MIGRATING-1.0.md:3: invalid_link: missing link target: docs/gone.md"
   end
 
-  test "raises when the guide is absent" do
+  test "an absent guide raises" do
     root = fixture_root(%{})
 
     assert_raise Mix.Error,

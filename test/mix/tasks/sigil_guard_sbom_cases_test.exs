@@ -92,7 +92,7 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
       end)
     end
 
-    test "rejects runtime dependency tuples of an unsupported shape" do
+    test "a runtime dependency tuple of an unsupported shape is refused, and a dev-only one is skipped" do
       for dependency <- [{:odd, "~> 1.0", [:not_keyword]}, {:odd, nil, []}, {:odd, 5}] do
         with_config([dependency], fn ->
           assert Sbom.verify_document(%{}) == {:error, {:unsupported_runtime_dependency, :odd}}
@@ -144,7 +144,7 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
   end
 
   describe "generate/1 lockfile and fetched metadata" do
-    test "rejects a runtime dependency that the lock pins to git, direct or transitive" do
+    test "a runtime dependency the lock pins to git, or does not list, is refused" do
       direct =
         write_lock(
           ~s(%{\n  "jason": {:git, "https://example.invalid/jason.git", "#{@git_revision}", []},\n}\n)
@@ -179,7 +179,7 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
       end)
     end
 
-    test "rejects fetched package metadata that is absent, differs from the lock, or names no licence" do
+    test "fetched package metadata that is absent, differs from the lock or names no licence is refused" do
       lock =
         write_lock(
           ~s(%{\n  "jason": {:hex, :jason, "1.4.5", "aa", [:mix], [], "hexpm", "bb"},\n}\n)
@@ -242,7 +242,7 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
   end
 
   describe "verify_document/1 malformed documents" do
-    test "rejects creation info, namespace, packages and relationships of the wrong type" do
+    test "creation info, namespace, packages and relationships of the wrong type are refused" do
       sbom = Sbom.generate(created_at: @created_at)
       assert :ok = Sbom.verify_document(sbom)
 
@@ -270,7 +270,7 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
   end
 
   describe "run/1 with --sha256" do
-    test "verifies the file against the digest and refuses any other bytes" do
+    test "a file verifies against its digest and any other bytes are refused" do
       output = Path.join(Tmp.dir("sbom"), "sigil_guard.spdx.json")
 
       File.write!(

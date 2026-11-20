@@ -6,7 +6,7 @@ defmodule SigilGuard.CapabilityManifestCasesTest do
   alias SigilGuard.CapabilityManifest
 
   describe "new/1" do
-    test "rejects a UI block without a visibility list or with a resource URI that is not a string" do
+    test "a UI block without a visibility list, or with a non-string resource URI, is refused" do
       for ui <- [
             %{"resource_uri" => "ui://repo/review"},
             %{"resource_uri" => "ui://repo/review", "visibility" => "app"},
