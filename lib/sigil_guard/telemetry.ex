@@ -324,7 +324,12 @@ defmodule SigilGuard.Telemetry do
     :telemetry.execute(event, measurements, metadata)
   end
 
-  @doc false
+  @doc """
+  Emit `[:sigil_guard, :mcp, :request]` for a gateway decision.
+
+  Only the documented MCP metadata keys are emitted; the tool gateway calls
+  this for every request decision.
+  """
   @spec emit_mcp_decision(map()) :: :ok
   def emit_mcp_decision(metadata) when is_map(metadata) do
     emit(

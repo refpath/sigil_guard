@@ -59,7 +59,11 @@ defmodule SigilGuard.Audit.Proof do
 
   def inclusion(_, _), do: {:error, :out_of_range}
 
-  @doc false
+  @doc """
+  Build inclusion proofs for several event indices against one Merkle tree.
+
+  Equivalent to calling `inclusion/2` per index, with the tree built once.
+  """
   @spec inclusions([Audit.t()], Enumerable.t()) ::
           {:ok, [inclusion_proof()]} | {:error, :out_of_range | :unsigned_event}
   def inclusions(events, indices) do

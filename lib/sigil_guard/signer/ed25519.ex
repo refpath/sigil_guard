@@ -34,7 +34,7 @@ defmodule SigilGuard.Signer.Ed25519 do
   @private_key_bytes 32
   @start_schema [
     private_key: [
-      type: {:custom, __MODULE__, :validate_private_key_option, []},
+      type: {:custom, SigilGuard.Config.Validators, :ed25519_private_key, []},
       required: true,
       doc: "Raw 32-byte Ed25519 seed."
     ]
@@ -82,11 +82,6 @@ defmodule SigilGuard.Signer.Ed25519 do
   def start_options_docs do
     NimbleOptions.docs(@start_schema)
   end
-
-  @doc false
-  @spec validate_private_key_option(term()) :: {:ok, binary()} | {:error, String.t()}
-  def validate_private_key_option(private_key) when is_binary(private_key), do: {:ok, private_key}
-  def validate_private_key_option(_), do: {:error, "expected a binary Ed25519 seed"}
 
   @doc "Sign `message` with the private key the signer process holds."
   @impl SigilGuard.Signer

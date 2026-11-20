@@ -136,7 +136,13 @@ defmodule SigilGuard.TrustBundle do
   defp do_load(source, opts),
     do: quarantine_error(:invalid_source, %{source: source}, opts)
 
-  @doc false
+  @doc """
+  Load the trust bundle a validated configuration names, or do nothing for
+  `trust_bundle: :none`.
+
+  `SigilGuard.Runtime` calls this when it starts. A source that does not load
+  raises `SigilGuard.ConfigError`, so a misconfigured bundle stops the boot.
+  """
   @spec load_configured!(keyword(), keyword()) :: :ok
   def load_configured!(config, opts \\ [])
 

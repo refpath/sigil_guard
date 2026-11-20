@@ -108,7 +108,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
     Enum.filter(list(), &(Map.get(&1, :bundle_id) == diagnostic_id(bundle_id)))
   end
 
-  @doc false
+  @doc "Remove every quarantine record. Intended for tests."
   @spec clear() :: :ok
   def clear do
     if :ets.whereis(@table) != :undefined, do: :ets.delete_all_objects(@table)

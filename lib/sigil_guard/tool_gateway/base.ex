@@ -401,7 +401,7 @@ defmodule SigilGuard.ToolGateway.Base do
     end
   end
 
-  @doc false
+  @doc "Return whether a decision lets the host run the call: allowed with `:allow` or `:redact`."
   @spec executable?(Decision.t()) :: boolean()
   def executable?(%Decision{verdict: :allowed, action: action}), do: action in [:allow, :redact]
   def executable?(%Decision{}), do: false
@@ -457,7 +457,7 @@ defmodule SigilGuard.ToolGateway.Base do
     end
   end
 
-  @doc false
+  @doc "Fetch the binary `:confirmation_key` option."
   @spec confirmation_key(keyword()) :: {:ok, binary()} | {:error, :missing_confirmation_key}
   def confirmation_key(opts) do
     case Keyword.get(opts, :confirmation_key) do
@@ -495,9 +495,12 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  # A confirm decision uses `action: :confirm`; its `effect` is the action to run
-  # after acceptance. Default to `:allow` when a bare confirm records no effect.
-  @doc false
+  @doc """
+  Return the action to run once a confirm decision is accepted.
+
+  A confirm decision has `action: :confirm`, and its `effect` is the action
+  that follows acceptance. A confirm decision without an effect is `:allow`.
+  """
   @spec confirmed_action(Decision.t()) :: :allow | :redact | :quarantine
   def confirmed_action(%Decision{effect: effect}) when effect in [:allow, :redact, :quarantine],
     do: effect
@@ -574,7 +577,7 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  @doc false
+  @doc "Return the JSON-RPC id of a request or result map (`id` or `request_id`), or nil."
   @spec request_id(term()) :: term()
   def request_id(payload) when is_map(payload),
     do: Enum.find_value([:id, "id", :request_id, "request_id"], &Map.get(payload, &1))
@@ -594,7 +597,12 @@ defmodule SigilGuard.ToolGateway.Base do
          do: {:error, :missing_confirmation_token}
   end
 
-  @doc false
+  @doc """
+  Find a confirmation token carried in a request's metadata.
+
+  Returns `{:ok, token}`, `{:error, :invalid_confirmation_token}` for a value
+  that is not a string, or `:error` when the request carries none.
+  """
   @spec nested_confirmation_token(term()) ::
           {:ok, String.t()} | {:error, :invalid_confirmation_token} | :error
   def nested_confirmation_token(payload) when is_map(payload) do
@@ -723,7 +731,11 @@ defmodule SigilGuard.ToolGateway.Base do
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
 
-  @doc false
+  @doc """
+  Wrap a result as a JSON-RPC 2.0 response with the given id, keeping an
+  existing response envelope and adding the result type the protocol
+  revision requires.
+  """
   @spec jsonrpc_result(term(), term(), keyword()) :: %{required(String.t()) => term()}
   def jsonrpc_result(%{"jsonrpc" => _, "id" => id, "result" => result} = source, _, opts) do
     %{
@@ -749,7 +761,10 @@ defmodule SigilGuard.ToolGateway.Base do
     }
   end
 
-  @doc false
+  @doc """
+  Build the JSON-RPC response that releases a decision's sanitized text in
+  place of the original result content.
+  """
   @spec sanitized_result(term(), Decision.t(), term(), keyword()) :: map()
   def sanitized_result(result, %Decision{} = decision, id, opts) do
     payload =
@@ -953,9 +968,12 @@ defmodule SigilGuard.ToolGateway.Base do
     |> Map.new()
   end
 
-  # Quarantine indicators carry an id. Advisory indicators from a hook or the
-  # adaptive detector need not.
-  @doc false
+  @doc """
+  Return the ids of the indicators that have one.
+
+  Quarantine indicators carry an id under `:id` or `"id"`; advisory
+  indicators from a hook or the adaptive detector need not.
+  """
   @spec indicator_ids([term()]) :: [term()]
   def indicator_ids(indicators) do
     indicators

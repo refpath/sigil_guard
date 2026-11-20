@@ -163,7 +163,13 @@ defmodule SigilGuard.Audit do
     %{event | actor: classify_field(event.actor, effective_field_hash_key(opts))}
   end
 
-  @doc false
+  @doc """
+  Return the stored form of one actor field.
+
+  The redaction placeholder and an existing `hash_field/2` value are kept as
+  they are; any other value is hashed with `field_hash_key`. `classify/2`
+  applies this to the actor field.
+  """
   @spec classify_field(term(), term()) :: String.t()
   def classify_field(@redacted_placeholder, _), do: @redacted_placeholder
 

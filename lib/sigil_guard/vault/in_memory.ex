@@ -52,7 +52,7 @@ defmodule SigilGuard.Vault.InMemory do
   @master_key_bytes 32
   @start_schema [
     master_key: [
-      type: {:custom, __MODULE__, :validate_master_key_option, []},
+      type: :any,
       doc: "Raw 32-byte AES-256-GCM master key."
     ]
   ]
@@ -70,10 +70,6 @@ defmodule SigilGuard.Vault.InMemory do
   def start_options_docs do
     NimbleOptions.docs(@start_schema)
   end
-
-  @doc false
-  @spec validate_master_key_option(term()) :: {:ok, term()}
-  def validate_master_key_option(master_key), do: {:ok, master_key}
 
   @doc """
   Encrypt `plaintext` and store it under a new vault id.

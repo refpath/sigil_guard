@@ -25,7 +25,11 @@ defmodule SigilGuard.BoundaryPolicy.Match do
     "none" => nil
   }
 
-  @doc false
+  @doc """
+  Map declared side effects to the sandbox classes `:read`, `:write`,
+  `:execute` and `:network`, without duplicates. Unknown effects are left
+  out.
+  """
   @spec effect_classes([term()]) :: [:read | :write | :execute | :network]
   def effect_classes(effects) when is_list(effects) do
     effects

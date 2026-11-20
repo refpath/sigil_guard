@@ -77,7 +77,10 @@ defmodule SigilGuard.TrustBundle.Cache do
   @spec get(bundle_id :: String.t()) :: {:ok, TrustBundle.t()} | :error
   def get(bundle_id) when is_binary(bundle_id), do: fetch(bundle_id)
 
-  @doc false
+  @doc """
+  Return the root descriptor pinned for a bundle id, or `:error` when none is
+  pinned. Rotation verification starts from it.
+  """
   @spec root_pin(bundle_id :: String.t()) :: {:ok, root_pin()} | :error
   def root_pin(bundle_id) when is_binary(bundle_id) do
     case lookup(bundle_id) do
@@ -87,7 +90,10 @@ defmodule SigilGuard.TrustBundle.Cache do
     end
   end
 
-  @doc false
+  @doc """
+  Return the key ids revoked for a bundle id. Revocations accumulate and are
+  never lifted by a later bundle.
+  """
   @spec revoked_keyids(bundle_id :: String.t()) :: MapSet.t(String.t())
   def revoked_keyids(bundle_id) when is_binary(bundle_id) do
     case lookup(bundle_id) do
@@ -96,7 +102,10 @@ defmodule SigilGuard.TrustBundle.Cache do
     end
   end
 
-  @doc false
+  @doc """
+  Return the digest of the rotation accepted for a root version of a bundle
+  id. A different rotation for the same version is a fork.
+  """
   @spec rotation_digest(bundle_id :: String.t(), root_version :: pos_integer()) ::
           {:ok, String.t()} | :error
   def rotation_digest(bundle_id, root_version)
@@ -157,7 +166,10 @@ defmodule SigilGuard.TrustBundle.Cache do
     end
   end
 
-  @doc false
+  @doc """
+  Remove every cached bundle, pin, rotation and revocation. Intended for
+  tests; a running host loses its rollback floors.
+  """
   @spec clear() :: :ok
   def clear do
     if :ets.whereis(@table) != :undefined, do: :ets.delete_all_objects(@table)

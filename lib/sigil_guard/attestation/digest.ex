@@ -643,7 +643,13 @@ defmodule SigilGuard.Attestation.Digest do
 
   defp maybe_manifest_digest(_, _), do: {:ok, nil}
 
-  @doc false
+  @doc """
+  Return the manifest digest a verification is bound to by its options.
+
+  `:manifest_digest` (a lowercase SHA-256 hex string) wins over `:manifest`
+  (a `SigilGuard.CapabilityManifest` or manifest map, digested). Neither
+  option is `{:ok, nil}`.
+  """
   @spec option_manifest_digest(keyword()) :: {:ok, String.t() | nil} | {:error, error_reason()}
   def option_manifest_digest(opts) do
     cond do
