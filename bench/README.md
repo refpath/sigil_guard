@@ -49,6 +49,14 @@ Run the suites without builds, tests, or other heavy work beside them.
 Scenarios that take microseconds vary by several percent between runs on a
 workstation; compare complete runs on the same machine and versions.
 
+A clock that reports nanoseconds can advance in coarser steps: about 42 ns
+on Apple silicon. Benchee repeats a fast function only when the reported
+resolution is coarse, so a 450 ns scenario would move in 9% steps. The
+harness times each scenario before the run, and one that takes less than
+10 µs runs enough calls per sample to take about 10 µs. The samples are
+divided back to one call before the statistics, so every page reports per
+call.
+
 ## Fixture Preconditions
 
 A scenario is named for a path through the code. Before timing starts, each

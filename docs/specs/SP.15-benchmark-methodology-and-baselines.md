@@ -191,6 +191,16 @@ statement had expired, so the scenario timed a verification that ended in
 `:expired_attestation`. The fixture preconditions above exist so that a
 scenario cannot be published under a name it does not measure.
 
+Every scenario that takes less than 10 µs per call runs in batches: the
+harness times the scenario before the run, picks the number of calls that
+takes about 10 µs (at most 100,000), times that many calls per sample, and
+divides each sample by the batch size before Benchee computes the
+statistics. Run time, memory and reductions are reported per call. The
+reason is the clock: `:erlang.monotonic_time/0` reports nanoseconds on macOS
+but advances in steps of about 41.7 ns on Apple silicon, and Benchee repeats
+fast functions only when the reported resolution is coarser than a
+nanosecond. A smoke run times single calls.
+
 The committed `bench/baseline.json` comes from a run before these
 corrections. Its rows for BM.02 at 1 KiB, the BM.03 quarantine path, BM.04,
 BM.05 verify, BM.06, and BM.07 describe the earlier fixtures until a

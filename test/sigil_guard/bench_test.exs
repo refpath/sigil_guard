@@ -145,6 +145,35 @@ defmodule SigilGuard.BenchTest do
       assert Bench.smoke?(["--smoke"])
     end
 
+    test "a scenario faster than the target runs in batches and reports per call" do
+      assert Bench.batch_size(fn -> :ok end, true) == 1
+      assert Bench.batch_size(fn -> Process.sleep(1) end, false) == 1
+
+      fast = Bench.batch_size(fn -> :crypto.hash(:sha256, "x") end, false)
+      assert fast > 1 and fast <= 100_000
+
+      counter = :counters.new(1, [])
+      Bench.batched(fn -> :counters.add(counter, 1, 1) end, 7).()
+      assert :counters.get(counter, 1) == 7
+
+      sample = fn values -> %{samples: values, statistics: nil} end
+
+      scenario = %{
+        name: "BM.28 sha256 hex 1k",
+        run_time_data: sample.([7_000, 14_000]),
+        memory_usage_data: sample.([700]),
+        reductions_data: sample.([]),
+        input: nil
+      }
+
+      %{scenarios: [divided]} = Bench.per_call(%{scenarios: [scenario]}, %{scenario.name => 7})
+
+      assert divided.run_time_data.samples == [1_000.0, 2_000.0]
+      assert divided.memory_usage_data.samples == [100.0]
+
+      assert Bench.per_call(%{scenarios: [scenario]}, %{}) == %{scenarios: [scenario]}
+    end
+
     test "CI=true selects the smoke budgets" do
       previous = System.get_env("CI")
 

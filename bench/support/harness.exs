@@ -45,6 +45,8 @@ defmodule SigilGuard.Bench do
   @smoke_dir "bench/output/smoke"
   @full_config [warmup: 2, time: 5, memory_time: 2]
   @smoke_config [warmup: 0, time: 0.01, memory_time: 0]
+  @batch_target_ns 10_000
+  @max_batch 100_000
 
   @doc "Run a suite when its file is the script, not when another file loads it."
   @spec script(module()) :: :ok
@@ -122,24 +124,36 @@ defmodule SigilGuard.Bench do
 
   defp run_suite(suite, smoke?, dir) do
     file = Path.join(dir, suite.id() <> ".md")
+    scenarios = suite.scenarios()
+    batches = Map.new(scenarios, fn {name, fun} -> {name, batch_size(fun, smoke?)} end)
 
     # Benchee is a development dependency. Naming it through a variable keeps
     # this file loadable in the test environment, which checks the fixtures.
     benchee = Benchee
+    formatter = Benchee.Formatter
 
-    result =
-      benchee.run(
-        suite.scenarios(),
-        Keyword.merge(bench_config(smoke?),
-          percentiles: [99],
-          print: [fast_warning: false],
-          formatters: [
-            Benchee.Formatters.Console,
-            {Benchee.Formatters.Markdown,
-             file: file, description: page_description(suite, smoke?)}
-          ]
-        )
+    config =
+      Keyword.merge(bench_config(smoke?),
+        percentiles: [99],
+        print: [fast_warning: false],
+        formatters: [
+          Benchee.Formatters.Console,
+          {Benchee.Formatters.Markdown, file: file, description: page_description(suite, smoke?)}
+        ]
       )
+
+    # The stages of `Benchee.run/2`, with the samples of batched scenarios
+    # divided back to one call before the statistics are computed.
+    result =
+      config
+      |> benchee.init()
+      |> benchee.system()
+      |> add_jobs(benchee, scenarios, batches)
+      |> benchee.collect()
+      |> per_call(batches)
+      |> benchee.statistics()
+      |> benchee.relative_statistics()
+      |> formatter.output()
 
     stats = scenario_stats(result)
     place_header!(file, page_header(smoke?, suite_derived(suite, stats)))
@@ -153,8 +167,77 @@ defmodule SigilGuard.Bench do
     #{String.trim(suite.description())}
 
     Mode: #{mode(smoke?)}. Values are measured for this environment, not ratified SLO bounds.
+    Scenarios that take less than #{div(@batch_target_ns, 1_000)} µs run in batches of calls;
+    every value is per call.
     """
   end
+
+  defp add_jobs(suite, benchee, scenarios, batches) do
+    Enum.reduce(scenarios, suite, fn {name, fun}, acc ->
+      benchee.benchmark(acc, name, batched(fun, Map.fetch!(batches, name)))
+    end)
+  end
+
+  @doc """
+  How many calls of `fun` one timed sample runs.
+
+  A clock that reports nanoseconds may advance in coarser steps (about 42 ns
+  on Apple silicon), and Benchee repeats a fast function only when the
+  reported resolution is coarse. A scenario under the target therefore runs
+  enough calls per sample to take about #{div(@batch_target_ns, 1_000)} µs, which keeps one clock
+  step under half a percent of a sample. A smoke run times single calls.
+  """
+  @spec batch_size((-> term()), boolean()) :: pos_integer()
+  def batch_size(_, true), do: 1
+
+  def batch_size(fun, false) do
+    fun.()
+    {calls, elapsed_ns} = time_calls(fun, 1, 0)
+    per_call = max(div(elapsed_ns, calls), 1)
+
+    if per_call >= @batch_target_ns,
+      do: 1,
+      else: min(div(@batch_target_ns + per_call - 1, per_call), @max_batch)
+  end
+
+  defp time_calls(fun, calls, elapsed_ns) when elapsed_ns < 2_000_000 and calls < 1_000_000 do
+    start = System.monotonic_time(:nanosecond)
+    Enum.each(1..calls, fn _ -> fun.() end)
+    time_calls(fun, calls * 2, elapsed_ns + System.monotonic_time(:nanosecond) - start)
+  end
+
+  defp time_calls(_, calls, elapsed_ns), do: {calls - 1, elapsed_ns}
+
+  @doc "A function that runs `fun` `n` times."
+  @spec batched((-> term()), pos_integer()) :: (-> term())
+  def batched(fun, 1), do: fun
+  def batched(fun, n), do: fn -> Enum.each(1..n, fn _ -> fun.() end) end
+
+  @doc """
+  Divide the samples of each batched scenario by its batch size, so the
+  statistics and the pages describe one call.
+  """
+  @spec per_call(map(), %{required(String.t()) => pos_integer()}) :: map()
+  def per_call(%{scenarios: scenarios} = suite, batches) do
+    %{
+      suite
+      | scenarios: Enum.map(scenarios, &scenario_per_call(&1, Map.get(batches, &1.name, 1)))
+    }
+  end
+
+  defp scenario_per_call(scenario, 1), do: scenario
+
+  defp scenario_per_call(scenario, n) do
+    %{
+      scenario
+      | run_time_data: divide_samples(scenario.run_time_data, n),
+        memory_usage_data: divide_samples(scenario.memory_usage_data, n),
+        reductions_data: divide_samples(scenario.reductions_data, n)
+    }
+  end
+
+  defp divide_samples(%{samples: samples} = data, n),
+    do: %{data | samples: Enum.map(samples, &(&1 / n))}
 
   defp suite_derived(suite, stats) do
     if function_exported?(suite, :derived, 1), do: suite.derived(stats), else: %{}
