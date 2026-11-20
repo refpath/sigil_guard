@@ -126,12 +126,10 @@ defmodule SigilGuard.Signer.Ed25519 do
       {:ok, validated} ->
         {:ok, validated}
 
-      {:error, %NimbleOptions.ValidationError{key: :private_key, message: message}} ->
-        if String.contains?(message, "required") do
-          {:error, :missing_private_key}
-        else
-          {:error, :invalid_private_key}
-        end
+      {:error, %NimbleOptions.ValidationError{key: :private_key}} ->
+        if Keyword.has_key?(opts, :private_key),
+          do: {:error, :invalid_private_key},
+          else: {:error, :missing_private_key}
 
       {:error, %NimbleOptions.ValidationError{}} ->
         {:error, :invalid_options}

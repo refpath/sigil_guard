@@ -177,7 +177,7 @@ defmodule SigilGuard.TrustBundle.Verify do
          {:ok, public_keys} <- public_keys(document),
          {:ok, revoked_keyids} <- revoked_keyids(document),
          {:ok, threshold} <- threshold(role, opts),
-         :ok <- known_authorized_signer?(signatures, role, revoked_keyids) do
+         :ok <- check_authorized_signer(signatures, role, revoked_keyids) do
       {:ok,
        %{
          role: role,
@@ -320,8 +320,8 @@ defmodule SigilGuard.TrustBundle.Verify do
 
       true ->
         with {:ok, terminal} <- walk_rotations(chain, genesis, Map.fetch!(document, "bundle_id")),
-             :ok <- sequence_at_rotation_floor?(document, terminal) do
-          terminal_root_matches?(terminal, current_root, document)
+             :ok <- check_sequence_at_rotation_floor(document, terminal) do
+          check_terminal_root(terminal, current_root, document)
         end
     end
   end
@@ -389,21 +389,20 @@ defmodule SigilGuard.TrustBundle.Verify do
          {:ok, payload} <- decode_base64(fields.payload),
          {:ok, document} <- decode_document(payload),
          {:ok, :rotation, document} <- Schema.validate(document),
-         :ok <- next_root_version?(document, previous),
+         :ok <- check_next_root_version(document, previous),
          {:ok, next} <- rotation_root(document),
-         :ok <- floor_advances?(next, previous),
+         :ok <- check_floor_advances(next, previous),
          :ok <- verify_rotation_threshold(signatures, previous, fields.payload_type, payload),
          :ok <- verify_rotation_threshold(signatures, next, fields.payload_type, payload) do
       {:ok, next}
     else
       {:ok, :bundle, _} -> {:error, :invalid_bundle_format}
       {:error, :threshold_not_met} -> {:error, :rotation_below_threshold}
-      {:error, :unknown_key_id} -> {:error, :rotation_below_threshold}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp next_root_version?(document, previous) do
+  defp check_next_root_version(document, previous) do
     root_version = positive_integer!(Map.fetch!(document, "root_version"))
 
     if root_version == previous.version + 1 do
@@ -433,14 +432,14 @@ defmodule SigilGuard.TrustBundle.Verify do
   # Each rotation raises the floor above the rotation before it. The first
   # rotation in a chain has no predecessor here: the genesis document is not
   # part of the chain.
-  defp floor_advances?(%{rollback_floor: next}, %{rollback_floor: previous})
+  defp check_floor_advances(%{rollback_floor: next}, %{rollback_floor: previous})
        when next <= previous,
        do: {:error, :sequence_below_floor}
 
-  defp floor_advances?(_, _), do: :ok
+  defp check_floor_advances(_, _), do: :ok
 
   # A bundle may not sit below the floor its own root rotation set.
-  defp sequence_at_rotation_floor?(document, %{rollback_floor: floor}) do
+  defp check_sequence_at_rotation_floor(document, %{rollback_floor: floor}) do
     if positive_integer!(Map.fetch!(document, "sequence")) >= floor,
       do: :ok,
       else: {:error, :sequence_below_floor}
@@ -456,7 +455,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     verify_threshold(signatures, context, payload_type, payload)
   end
 
-  defp terminal_root_matches?(terminal, current_root, document) do
+  defp check_terminal_root(terminal, current_root, document) do
     {:ok, keys} = public_keys(document)
 
     if Map.take(keys, terminal.keyids) == Map.take(terminal.keys, terminal.keyids) and
@@ -492,7 +491,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     end
   end
 
-  defp known_authorized_signer?(signatures, role, revoked_keyids) do
+  defp check_authorized_signer(signatures, role, revoked_keyids) do
     authorized = MapSet.new(Map.fetch!(role, "keyids"))
 
     known? =
@@ -522,12 +521,12 @@ defmodule SigilGuard.TrustBundle.Verify do
       end)
 
     case result do
-      {:ok, verified} -> threshold_met?(verified, context.threshold)
+      {:ok, verified} -> check_threshold(verified, context.threshold)
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp threshold_met?(verified, threshold) do
+  defp check_threshold(verified, threshold) do
     if MapSet.size(verified) >= threshold do
       :ok
     else
@@ -573,13 +572,13 @@ defmodule SigilGuard.TrustBundle.Verify do
   defp verify_freshness(document, bundle_role, opts) do
     with {:ok, now} <- now(opts),
          {:ok, max_skew_ms} <- max_skew_ms(opts),
-         :ok <- document_fresh?(document, now, max_skew_ms),
-         :ok <- role_fresh?(get_in(document, ["roles", "root"]), now, max_skew_ms) do
-      role_fresh?(bundle_role, now, max_skew_ms)
+         :ok <- check_document_fresh(document, now, max_skew_ms),
+         :ok <- check_role_fresh(get_in(document, ["roles", "root"]), now, max_skew_ms) do
+      check_role_fresh(bundle_role, now, max_skew_ms)
     end
   end
 
-  defp document_fresh?(document, now, max_skew_ms) do
+  defp check_document_fresh(document, now, max_skew_ms) do
     issued_at = parse_timestamp!(Map.fetch!(document, "issued_at"))
     expires_at = parse_timestamp!(Map.fetch!(document, "expires_at"))
 
@@ -595,7 +594,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     end
   end
 
-  defp role_fresh?(role, now, max_skew_ms) do
+  defp check_role_fresh(role, now, max_skew_ms) do
     expires_at = parse_timestamp!(Map.fetch!(role, "expires_at"))
 
     if DateTime.after?(now, DateTime.add(expires_at, max_skew_ms, :millisecond)) do

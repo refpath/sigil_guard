@@ -94,6 +94,8 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Fail closed for signed MCP requests that lack valid Agent Trust evidence.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec issue_signed_confirmation_token(term(), ctx(), Decision.t(), binary(), keyword()) ::
           {:ok, String.t()} | {:error, term()}
   def issue_signed_confirmation_token(request, context, %Decision{} = decision, key, opts \\ []) do
@@ -135,6 +137,8 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Fail closed for legacy signed MCP requests and optional confirmation tokens.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guard_signed_confirmed_request(term(), ctx(), keyword()) :: Decision.t()
   def guard_signed_confirmed_request(request, context \\ %{}, opts \\ []) do
     Base.guard_signed_confirmed_request(request, context, opts)
@@ -143,8 +147,10 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Fail closed for legacy signed, possibly confirmed MCP requests and return a JSON-RPC error.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guarded_signed_confirmed_request(term(), ctx(), keyword()) ::
-          {:ok, Decision.t()} | {:error, map(), Decision.t()}
+          {:error, map(), Decision.t()}
   def guarded_signed_confirmed_request(request, context \\ %{}, opts \\ []) do
     Base.guarded_signed_confirmed_request(request, context, opts)
   end
@@ -152,6 +158,8 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Fail closed for legacy signed MCP tool requests before execution.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guard_signed_request(term(), ctx(), keyword()) :: Decision.t()
   def guard_signed_request(request, context \\ %{}, opts \\ []) do
     Base.guard_signed_request(request, context, opts)
@@ -160,8 +168,9 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Fail closed for legacy signed MCP tool requests and return a JSON-RPC error.
   """
-  @spec guarded_signed_request(term(), ctx(), keyword()) ::
-          {:ok, Decision.t()} | {:error, map(), Decision.t()}
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
+  @spec guarded_signed_request(term(), ctx(), keyword()) :: {:error, map(), Decision.t()}
   def guarded_signed_request(request, context \\ %{}, opts \\ []) do
     Base.guarded_signed_request(request, context, opts)
   end
@@ -169,8 +178,11 @@ defmodule SigilGuard.MCP.Gateway do
   @doc """
   Reject legacy signed MCP request metadata without running the runtime gate.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec verify_request_envelope(term(), keyword()) ::
-          {:ok, %{identity: String.t(), envelope: map()}} | {:error, atom()}
+          {:error,
+           :invalid_envelope | :legacy_envelope_removed | :missing_envelope | :missing_identity}
   def verify_request_envelope(request, opts \\ []) do
     Base.verify_request_envelope(request, opts)
   end

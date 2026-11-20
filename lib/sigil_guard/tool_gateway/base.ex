@@ -118,6 +118,8 @@ defmodule SigilGuard.ToolGateway.Base do
   Fail closed for signed MCP requests that do not carry a valid Agent Trust
   attestation.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec issue_signed_confirmation_token(
           term(),
           Context.t() | map() | keyword(),
@@ -197,6 +199,8 @@ defmodule SigilGuard.ToolGateway.Base do
   @doc """
   Fail closed for signed MCP tool requests and optional confirmation tokens.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guard_signed_confirmed_request(term(), Context.t() | map() | keyword(), keyword()) ::
           Decision.t()
   def guard_signed_confirmed_request(request, context \\ %{}, opts \\ []) do
@@ -209,6 +213,8 @@ defmodule SigilGuard.ToolGateway.Base do
   @doc """
   Fail closed for signed, possibly confirmed MCP requests and return a JSON-RPC error.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guarded_signed_confirmed_request(term(), Context.t() | map() | keyword(), keyword()) ::
           {:error, map(), Decision.t()}
   def guarded_signed_confirmed_request(request, context \\ %{}, opts \\ []) do
@@ -223,6 +229,8 @@ defmodule SigilGuard.ToolGateway.Base do
   The 1.0 runtime has no accepting path for envelope-shaped request metadata:
   the decision is always a block that names the reason.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guard_signed_request(term(), Context.t() | map() | keyword(), keyword()) :: Decision.t()
   def guard_signed_request(request, context \\ %{}, opts \\ []) do
     case verify_request_envelope(request, opts) do
@@ -232,8 +240,10 @@ defmodule SigilGuard.ToolGateway.Base do
   end
 
   @doc """
-  Guard a signed MCP tool request and return either an allow decision or JSON-RPC error.
+  Fail closed for a signed MCP tool request and return the JSON-RPC error.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec guarded_signed_request(term(), Context.t() | map() | keyword(), keyword()) ::
           {:error, map(), Decision.t()}
   def guarded_signed_request(request, context \\ %{}, opts \\ []) do
@@ -248,6 +258,8 @@ defmodule SigilGuard.ToolGateway.Base do
   The 1.0 runtime removed verdict-only envelopes, so envelope-shaped metadata
   currently fails closed with `:legacy_envelope_removed`.
   """
+  @doc deprecated:
+         "Always fails closed. Use SigilGuard.ToolGateway.guard_request/3 with attestation: :required."
   @spec verify_request_envelope(term(), keyword()) :: {:error, atom()}
   def verify_request_envelope(request, _ \\ []) do
     with {:ok, envelope} <- request_envelope(request),

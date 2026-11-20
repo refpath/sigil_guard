@@ -121,15 +121,15 @@ defmodule SigilGuard.TrustBundle do
   end
 
   # sobelow_skip ["Traversal.FileModule"]
-  defp do_load({:priv, app, rel}, opts) when is_atom(app) and is_binary(rel) do
-    path = Application.app_dir(app, Path.join("priv", rel))
-
-    case File.open(path, [:read, :binary], &IO.binread(&1, 1_048_577)) do
-      {:ok, bytes} when is_binary(bytes) -> load_binary(bytes, {:priv, app, rel}, opts)
-      _ -> quarantine_error(:invalid_source, %{source: {:priv, app, rel}}, opts)
+  defp do_load({:priv, app, rel} = source, opts) when is_atom(app) and is_binary(rel) do
+    with dir when is_list(dir) <- :code.lib_dir(app),
+         path = Path.join([List.to_string(dir), "priv", rel]),
+         {:ok, bytes} when is_binary(bytes) <-
+           File.open(path, [:read, :binary], &IO.binread(&1, 1_048_577)) do
+      load_binary(bytes, source, opts)
+    else
+      _ -> quarantine_error(:invalid_source, %{source: source}, opts)
     end
-  rescue
-    ArgumentError -> quarantine_error(:invalid_source, %{source: {:priv, app, rel}}, opts)
   end
 
   defp do_load(source, opts),

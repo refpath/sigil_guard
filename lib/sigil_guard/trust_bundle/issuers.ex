@@ -31,9 +31,9 @@ defmodule SigilGuard.TrustBundle.Issuers do
       |> Map.take(role_keyids(role))
       |> Map.drop(MapSet.to_list(revoked))
 
-    with :ok <- fresh?(role, opts),
-         :ok <- fresh?(document, opts),
-         :ok <- fresh?(get_in(document, ["roles", "root"]) || %{}, opts) do
+    with :ok <- check_fresh(role, opts),
+         :ok <- check_fresh(document, opts),
+         :ok <- check_fresh(get_in(document, ["roles", "root"]) || %{}, opts) do
       {:ok, authorized, {:bundle, keys, Map.get(role, "threshold", 1), revoked}}
     end
   end
@@ -97,7 +97,7 @@ defmodule SigilGuard.TrustBundle.Issuers do
 
   defp bundle_keys(_), do: %{}
 
-  defp fresh?(%{"expires_at" => expiry}, opts) when is_binary(expiry) do
+  defp check_fresh(%{"expires_at" => expiry}, opts) when is_binary(expiry) do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
     skew = Keyword.get(opts, :max_skew_ms, @default_max_skew_ms)
 
@@ -111,8 +111,8 @@ defmodule SigilGuard.TrustBundle.Issuers do
     end
   end
 
-  defp fresh?(%{"expires_at" => _}, _), do: {:error, :untrusted_issuer}
-  defp fresh?(_, _), do: :ok
+  defp check_fresh(%{"expires_at" => _}, _), do: {:error, :untrusted_issuer}
+  defp check_fresh(_, _), do: :ok
 
   defp reject_revoked(envelope, {:bundle, _, _, revoked}) do
     if Enum.any?(signature_keyids(envelope), &MapSet.member?(revoked, &1)),
