@@ -2,15 +2,15 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fai-agent-under-attack.livemd)
 
-This is the conference demo.
+This chapter is the live demonstration of the track.
 
 An assistant reads a poisoned deployment result. The text asks it to copy a
 credential into an outbound webhook. A live model may refuse, comply, or do
-something surprising. That uncertainty is useful on stage — but it must not be
-where the security guarantee lives.
+something surprising. That uncertainty is useful on stage, but the security
+decision must not depend on it.
 
-The model is the planner. The Elixir host owns the tool callback. SigilGuard
-sits between the two.
+The model plans, the Elixir host owns the tool callback, and SigilGuard sits
+between them.
 
 ```mermaid
 sequenceDiagram
@@ -74,10 +74,9 @@ ai_model = System.get_env("LB_SIGILGUARD_MODEL") || "openai:gpt-5-mini"
 
 ## Build A Planner That Cannot Execute Tools
 
-ReqLLM exposes proposed tool calls as data. The callback below deliberately
-returns an error: even if someone accidentally asks ReqLLM to execute the tool,
-it still cannot reach our demo side effect. The host extracts a proposal and
-runs its own guarded dispatcher later.
+ReqLLM exposes proposed tool calls as data. The callback below returns an error,
+so a request to ReqLLM to execute the tool still cannot reach the demo side
+effect. The host extracts a proposal and runs its own guarded dispatcher later.
 
 ```elixir
 defmodule SigilGuardTalk.Planner do
@@ -161,8 +160,8 @@ defmodule SigilGuardTalk.Planner do
 end
 ```
 
-Now ask the selected planner. A provider refusal appears as `tool_call: nil`.
-That is a perfectly good model outcome; it is not the enforcement proof.
+Ask the selected planner. A provider refusal appears as `tool_call: nil`. A
+refusal is a valid model outcome and proves nothing about enforcement.
 
 ```elixir
 planner_result =
@@ -180,7 +179,7 @@ planner_result =
 ```
 
 > **On stage:** this is the unpredictable reveal. If the model refuses, say so.
-> If it proposes the call, show the exact arguments. Both outcomes are honest.
+> If it proposes the call, show the exact arguments.
 
 ## The Host Constructs The Boundary
 
@@ -237,7 +236,7 @@ end
 ## Prove The Worst Case Every Time
 
 Whether the live model complied or refused, replay the malicious candidate
-through the production authority path. This fixed cell is what makes the talk
+through the production authority path. This fixed cell makes the talk
 rehearsable and the security conclusion deterministic.
 
 ```elixir
@@ -299,10 +298,9 @@ SigilGuardTalk.Webhook.reset()
 > **On stage:** read out `callback_invocations: 0` after `action: :block`. The
 > effect was unreachable.
 
-## Safe Work Still Works
+## A Benign Message Reaches The Callback
 
-A security boundary that blocks everything is not useful. Send a benign status
-message through the identical context and dispatcher.
+Send a benign status message through the identical context and dispatcher.
 
 ```elixir
 safe_candidate = %{
@@ -359,7 +357,7 @@ true = Enum.any?(result_decision.indicators, &(&1.id == :ignore_instructions))
 }
 ```
 
-## What This Demo Actually Proves
+## What This Demo Proves
 
 It does not prove that a particular model always follows or refuses prompt
 injection. It proves:

@@ -4,8 +4,8 @@
 
 SigilGuard provides security fixes for the latest `1.x` release line.
 
-After `1.0.0` is published, the final `0.2.x` release line receives security
-fixes for six months.
+The final `0.2.x` release line receives security fixes for six months after the
+`1.0.0` release of 2026-08-24, until 2027-02-24.
 
 ## Reporting A Vulnerability
 

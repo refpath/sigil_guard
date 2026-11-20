@@ -208,8 +208,7 @@ session lifecycle fact.
 The core defines a behaviour for an optional classifier; it does not ship a
 model runtime. A valid indicator can raise the risk ladder and join the
 evidence. It cannot authorize anything. A broken or malformed detector degrades
-to no indicators and records `:adaptive_error` rather than introducing a second
-unreliable authority engine.
+to no indicators and records `:adaptive_error`.
 
 ```elixir
 defmodule RuntimeTalk.AdaptiveDetector do
@@ -240,15 +239,14 @@ true = Enum.any?(adaptive.indicators, &(&1.source == :adaptive))
 
 `BoundaryPolicy.evaluate/2` keeps the action `:allow` here because no policy
 rule names the advisory signal. Through `Runtime.Gate.evaluate/3`, which every
-gateway uses, the raised risk goes back through the risk and trust ladder: a
-medium-trust caller now needs confirmation and a low-trust caller is blocked.
-The last section of this notebook shows that path.
+gateway uses, the raised risk goes back through the risk and trust ladder. A
+medium-trust caller then needs confirmation and a low-trust caller is blocked.
 
 ## Observe Decisions Without Leaking Payloads
 
-SigilGuard emits bounded telemetry metadata. Raw content is not an event
-field. This local handler captures one runtime gate event and immediately
-detaches, the same shape a metrics or logging integration would receive.
+SigilGuard emits bounded telemetry metadata. Raw content is not an event field.
+This local handler captures one runtime gate event, in the shape a metrics or
+logging integration receives, and then detaches.
 
 ```elixir
 parent = self()
@@ -331,14 +329,11 @@ true = Map.has_key?(span_attributes, "sigilguard.payload.digest")
 
 ## Takeaway
 
-Streaming safety requires state across chunks. Extensions stay deny-side or
-advisory. Telemetry describes the decision without becoming a second copy of
-sensitive content. Those three constraints let a host add sophistication
-without weakening the small deterministic kernel underneath it.
-
 ## Evidence Digests, Decision Ids, And Advisory Risk
 
-Runtime.Stream evidence digests and a stream-decided deny reason.
+`Runtime.Stream` records the byte count and SHA-256 of what it received and what
+it emitted. Invalid UTF-8 halts the stream with `deny_reason: :invalid_utf8` and
+nothing emitted.
 
 ```elixir
 sha256 = fn bytes -> Base.encode16(:crypto.hash(:sha256, bytes), case: :lower) end
@@ -368,7 +363,10 @@ true = broken_stream.halted?
 }
 ```
 
-Gate.evaluate/3 `:decision_id`; the gate event's `sandbox_id` and `matched_rule_ids`; the attributes `sigilguard.rules.matched`, `sigilguard.decision.id`, `sigilguard.sandbox.id`.
+`Gate.evaluate/3` accepts a host `:decision_id`, and the gate event carries it
+with `sandbox_id` and `matched_rule_ids`. The OpenTelemetry mapping always
+exports `sigilguard.rules.matched` and adds `sigilguard.decision.id` and
+`sigilguard.sandbox.id` only with `include_high_cardinality: true`.
 
 ```elixir
 capture = fn event, fun ->
@@ -446,7 +444,8 @@ false = Map.has_key?(metric_attributes, "sigilguard.sandbox.id")
 }
 ```
 
-The MCP request event's `deny_reason` and `decision_id`, and `sigilguard.deny_reason`.
+The MCP request event carries `deny_reason` and `decision_id`. The mapping
+exports the reason as `sigilguard.deny_reason`.
 
 ```elixir
 {denied_call, mcp_event, mcp_measurements, mcp_metadata} =
@@ -482,7 +481,7 @@ Map.take(mcp_attributes, [
 ])
 ```
 
-An advisory signal through Runtime.Gate re-enters the risk and trust ladder.
+Through `Runtime.Gate`, an advisory signal re-enters the risk and trust ladder.
 
 ```elixir
 gate_with_detector = fn trust_level, opts ->

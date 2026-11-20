@@ -402,7 +402,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - `SigilGuard.Audit.classify/2` treats an actor as already hashed only when it
   is `fh1:` plus 64 lowercase hexadecimal characters. A value that merely
   starts with `fh1:` was stored unchanged and is now hashed.
-- `mix sigil.docs_lint` reports a test module that a spec table cites and
+- `mix sigil_guard.docs_lint` reports a test module that a spec table cites and
   `test/` does not define.
 - Answer malformed input without raising across the public entry points. A
   context that is not a map or keyword list, a foreign struct or an improper
@@ -439,24 +439,27 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased Breaking Changes For 1.0.0
 
-SigilGuard 1.0 is a deliberate breaking release. Apply
-[`MIGRATING-1.0.md`](MIGRATING-1.0.md) before moving a 0.2.x consumer to the
-1.0 line.
+SigilGuard 1.0 breaks compatibility with 0.2.x. Apply
+[`MIGRATING-1.0.md`](MIGRATING-1.0.md) before moving a 0.2.x consumer to the 1.0
+line.
 
-- Hardened trust-bundle authority transitions, concurrent rollback floors and
-  cumulative revocations. Successors changing delegated authority require the
-  new root quorum to countersign; revoked or expired card issuers fail closed.
-- Fixed cold security modules, actor/tool policy facts, MCP object-key scanning,
-  full replay retention, atomic rate quotas and bounded untrusted work/state.
+- Trust-bundle verification checks authority transitions, rollback floors under
+  concurrent loads, and cumulative revocations. Successors changing delegated
+  authority require the new root quorum to countersign; revoked or expired card
+  issuers fail closed.
+- Fixed defects in rarely exercised security modules, actor and tool policy
+  facts, MCP object-key scanning, replay retention for the full accepted
+  lifetime, atomic rate quotas, and bounds on untrusted work and state.
 - Rejected ambiguous null-valued application map fields while preserving v3
   signed bytes. See the [audit acceptance changes](MIGRATING-1.0.md#audit-hardening-of-v3-acceptance).
 - Fixed overlapping redaction, unbounded streaming candidates, UTF-8 chunk
-  boundaries and JCS float formatting. Added independent float vectors,
-  measured scanner improvements and comparable performance regression gates.
-- Updated development dependencies including Mint 1.10.0 security fixes and
-  Muex 0.9.1. Mutation reports distinguish killed, compiler-invalid and proven
-  equivalent mutations; broader bounded security campaigns retain strict scores.
-- Added strict deployment guidance and a fresh unpacked-Hex consumer check.
+  boundaries and JCS float formatting. Added independent JCS float test vectors,
+  scanner performance measurements, and a benchmark baseline comparison.
+- Updated development dependencies including Mint 1.10.0 security fixes and Muex
+  0.9.1. Mutation reports distinguish killed, compiler-invalid and
+  proven-equivalent mutants.
+- Added the Strict Deployment guide and a consumer check that runs against an
+  unpacked Hex package.
 
 - Removed `SigilGuard.Registry`, `SigilGuard.Registry.Bundle`, and
   `SigilGuard.Registry.Cache`; use
@@ -495,18 +498,16 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
   locators, and never infers findings or control satisfaction.
 - Removed Finch from the runtime dependency set; HTTP anchor stores use the
   host-provided `SigilGuard.HTTPClient` behaviour.
-- Runtime dependencies are intentionally limited to `:telemetry`,
-  `:nimble_options`, and `:jason`; integrations, notebooks, and adaptive
-  detector examples add no runtime dependency, and `mix deps.audit` is clean
-  for the 1.0.0 release line. The test-only Bypass/Cowboy tree currently
-  resolves Cowlib 2.19.0, for which Hex reports CVE-2026-43966 and
-  CVE-2026-43969, plus CVE-2026-43971 published on 2026-08-18; Cowlib is absent
-  from the production dependency tree, all three advisories are explicitly
-  acknowledged in the Hex project configuration, affected encoders are not
-  called by SigilGuard, and no patched Hex release is available as of
-  2026-08-19. The canonical gate runs both `mix deps.audit` and
-  `mix hex.audit`. Recheck the exceptions before 2026-09-19 and immediately
-  before release, whichever comes first.
+- Runtime dependencies are `:telemetry`, `:nimble_options`, and `:jason`;
+  integrations, notebooks, and adaptive detector examples add no runtime
+  dependency, and `mix deps.audit` is clean for the 1.0.0 release line. The
+  test-only Bypass/Cowboy tree currently resolves Cowlib 2.19.0, for which Hex
+  reports CVE-2026-43966 and CVE-2026-43969, plus CVE-2026-43971 published on
+  2026-08-18; Cowlib is absent from the production dependency tree, all three
+  advisories are explicitly acknowledged in the Hex project configuration,
+  affected encoders are not called by SigilGuard, and no patched Hex release is
+  available as of 2026-08-19. The canonical gate runs both `mix deps.audit` and
+  `mix hex.audit`.
 - Added a canonical full-history secret scan using a pinned,
   checksum-verified Gitleaks binary. Its ignore file contains only exact
   fingerprints for reviewed synthetic scanner fixtures.
@@ -529,14 +530,14 @@ SigilGuard 1.0 is a deliberate breaking release. Apply
 - Boundary hook telemetry now covers successful and failed invocations with a
   native-time duration measurement and a normalized `hook_result`, matching the
   observability contract instead of reporting failures only.
-- Reconciled the profile, gateway, and boundary specs to the final 1.0 event
-  families and made boundary-policy decision telemetry use the shared policy
-  shape with a system-time measurement.
+- Boundary-policy decision telemetry uses the shared policy event shape with a
+  system-time measurement. The profile, gateway and boundary specs list the 1.0
+  event families.
 - MCP gateway decision telemetry now fires after protocol/result enrichment on
   success and pre-gate denial paths; protocol revision and result type remain
   opt-in high-cardinality OpenTelemetry attributes.
-- Revalidated reader-facing research and specification links, replacing moved
-  SLSA, NIST, IETF, llm-guard, mcp-use, and historical crate references.
+- Fixed moved SLSA, NIST, IETF, llm-guard, mcp-use and historical crate links in
+  the research notes and specs.
 - Expanded `notebooks/` into an eleven-chapter, offline-validated Livebook
   tutorial track with conference/workshop run sheets, a deterministic AI-agent
   attack replay, and an optional ReqLLM proposal path using Livebook secrets;

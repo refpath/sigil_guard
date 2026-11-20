@@ -2,10 +2,10 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fhermes-integration.livemd)
 
-Framework integration should be boring. The request is guarded immediately
-before the callback that owns side effects; the result is guarded immediately
-before it returns to model context. Everything else — supervision, transport,
-routing, and protocol negotiation — remains the framework's job.
+The request is guarded immediately before the callback that owns side effects;
+the result is guarded immediately before it returns to model context.
+Supervision, transport, routing, and protocol negotiation remain the framework's
+job.
 
 This notebook exercises that placement against a tiny Hermes-shaped stub. It
 does not install `hermes_mcp`, so the tutorial remains offline and does not
@@ -34,7 +34,7 @@ local_checkout? = File.regular?(Path.join(repo_root, "mix.exs"))
 Mix.install([sigil_guard_dep], install_opts)
 ```
 
-## Transport Changes Labels, Not The Kernel
+## One Gate For Every Transport
 
 The same gateway works for HTTP MCP, stdio MCP, and an in-process tool. The
 host supplies a canonical server/resource identifier; SigilGuard never tries
@@ -237,7 +237,9 @@ redaction_error
 
 ## The Adapter-Shaped Entry Points
 
-SigilGuard.MCP.Gateway.guarded_request/3 and guarded_result/3 (tuple shapes for an adapter).
+`SigilGuard.MCP.Gateway.guarded_request/3` returns `{:ok, decision}` or
+`{:error, error_response, decision}`, and `guarded_result/3` returns
+`{:ok, released, decision}`. An adapter can match these tuples directly.
 
 ```elixir
 alias SigilGuard.MCP.Gateway
@@ -287,7 +289,9 @@ result_side = Keyword.merge(adapter_context, phase: :tool_result, origin: :tool,
 }
 ```
 
-Gateway.stream_result/2, guarded_result_chunk/3, finish_guarded_result_stream/2.
+`Gateway.stream_result/2`, `guarded_result_chunk/3` and
+`finish_guarded_result_stream/2` apply the stream holdback to a result, so a
+credential split across two chunks reaches the client as `[AWS_KEY]`.
 
 ```elixir
 guarded_stream = Gateway.stream_result(result_side, stream_window_bytes: 64)
@@ -316,7 +320,7 @@ true = String.ends_with?(streamed, "[AWS_KEY] done")
 %{frames: 3, final: final_stream_decision.verdict, tail: String.slice(streamed, -24, 24)}
 ```
 
-## Summary
+## Outcomes Of The Three Calls
 
 ```elixir
 %{

@@ -2,8 +2,8 @@
 
 ## Gate Verdicts
 
-SigilGuard gates return `%SigilGuard.Decision{}`. Treat `action` as the 1.0
-verdict.
+SigilGuard gates return `%SigilGuard.Decision{}`. Branch on `action`, not on the
+legacy `verdict` field.
 
 ```elixir
 alias SigilGuard.ToolGateway
@@ -98,8 +98,8 @@ matchers include `phase`, `origin`, `sink`, `zone`, `trust`, `sensitivity`,
 
 Repo-policy decisions inside `[repo]` are `allow`, `require_approval`, or
 `block`. The runtime gate applies a compiled repo policy passed as
-`repo_policy:` at phase `:repo_change`, where `require_approval` becomes the
-1.0 `:confirm` verdict.
+`repo_policy:` at phase `:repo_change`, where `require_approval` becomes a
+`:confirm` action.
 
 `SigilGuard.BoundaryPolicy.File.load/1` reads this file. Its `repo` field is
 the compiled `[repo]` section, which `SigilGuard.RepoPolicy.evaluate/2` checks

@@ -2,10 +2,9 @@ defmodule SigilGuard.Quarantine do
   @moduledoc """
   Deterministic quarantine checks for untrusted tool and resource content.
 
-  This is intentionally small and local: it catches common prompt-injection
-  and tool-poisoning indicators before content is passed onward to a model
-  or privileged tool. It is not a replacement for policy; it produces
-  evidence for the runtime gate.
+  It runs locally and matches the built-in or bundle-supplied prompt-injection
+  and tool-poisoning indicators before content reaches a model or a privileged
+  tool. It does not replace policy; it produces evidence for the runtime gate.
   """
 
   alias SigilGuard.Context

@@ -2,11 +2,12 @@ defmodule SigilGuard.AdaptiveDetector do
   @moduledoc """
   Advisory adaptive-detection behaviour for the boundary kernel.
 
-  The behaviour lives in core; model-backed implementations (e.g. an ONNX
-  classifier) live in optional post-GA packages. Results are strictly advisory:
-  returned indicators join the indicator list with source `:adaptive` and feed
-  the risk ladder (`:high` severity raises risk to `:high`, `:medium` to at
-  least `:medium`), but they never lower risk and never produce an allow.
+  SigilGuard defines the behaviour and ships no implementation; a model-backed
+  detector, such as an ONNX classifier, belongs in a separate optional package.
+  Results are advisory: returned indicators join the indicator list with source
+  `:adaptive` and feed the risk ladder (`:high` severity raises risk to `:high`,
+  `:medium` to at least `:medium`), but they never lower risk and never produce
+  an allow.
 
   `run/2` is the core-side entry point. With `:adaptive_detector` unset or `nil`
   the behaviour is absent and the result is empty, so a decision is byte-identical

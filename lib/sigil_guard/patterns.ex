@@ -1,13 +1,13 @@
 defmodule SigilGuard.Patterns do
   @moduledoc """
-  Pattern compilation and management for sensitivity scanning.
+  Built-in secret patterns and pattern compilation for the scanner.
 
-  Provides built-in patterns for common credential and secret formats, plus
-  support for loading patterns from explicit compatibility bundles.
+  The built-in patterns cover common credential and secret formats;
+  compatibility bundles can supply more.
 
   ## Built-in Patterns
 
-  The following patterns are included by default (no registry dependency):
+  The built-in set covers:
 
     * AWS access keys (`AKIA`, `ABIA`, `ACCA`, `ASIA` prefixes)
     * Generic API key assignments
@@ -20,7 +20,7 @@ defmodule SigilGuard.Patterns do
 
   Resolve verified local patterns with `SigilGuard.TrustBundle.pattern_sets/1`
   or `SigilGuard.Runtime.scanner_options/2`, then pass the resulting options to
-  scanning and boundary evaluation. No remote pattern cache exists.
+  scanning and boundary evaluation.
   """
 
   @typedoc """

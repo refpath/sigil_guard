@@ -29,8 +29,6 @@ def deps do
 end
 ```
 
-The validation pin resolved to `langchain` `0.8.14` and `req_llm` `1.17.1`.
-
 Allowed structured values keep their original types. The callbacks reject
 `:redact` until the host implements and revalidates a schema-specific transform;
 scanner text is not a replacement for a map. Context trust and guard options
@@ -175,9 +173,6 @@ defmodule MyApp.LLM.SigilGuardPipelineStep do
 end
 ```
 
-The step still follows the same invariant: gate model-to-tool arguments before
-side effects and tool-to-model results before model exposure.
-
 ## Denial Handling
 
 Both LangChain and ReqLLM callbacks can return ordinary `{:error, reason}`
@@ -192,7 +187,7 @@ Hosts that surface the denial over MCP can convert the same decision with
 
 ## Validation Procedure
 
-Before editing this guide:
+To revalidate the guide against new LangChain or ReqLLM releases:
 
 1. Create a scratch project outside this repo.
 2. Add `{:langchain, "~> 0.8"}`, `{:req_llm, "~> 1.17"}`, and the SigilGuard

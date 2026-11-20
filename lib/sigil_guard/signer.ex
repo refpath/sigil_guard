@@ -13,8 +13,7 @@ defmodule SigilGuard.Signer do
 
   ## Implementing a Custom Signer
 
-  Any module implementing this behaviour can be used for attestation signing.
-  Common use cases include HSM-backed keys, cloud KMS, or hardware tokens:
+  A signer can keep its key in an HSM, a cloud KMS or a hardware token:
 
       defmodule MyApp.HsmSigner do
         @behaviour SigilGuard.Signer

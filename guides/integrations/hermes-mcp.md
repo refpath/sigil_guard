@@ -157,9 +157,6 @@ defmodule MyApp.MCPServer do
 end
 ```
 
-Guard request payloads before side effects, and guard result payloads before
-model exposure.
-
 ## Plug Placement
 
 Use a Plug before the Hermes transport when HTTP requests need early rejection,
@@ -247,14 +244,14 @@ payload content.
 
 ## MCP v2 (`2026-07-28`) Adapter Contract
 
-The validation record above is for the named Hermes/Anubis versions; do not
-infer MCP v2 support from SigilGuard. The adapter remains responsible
-for protocol negotiation, `server/discover`, subscription delivery, and
-constructing and validating the standard request `_meta`, including
-`protocolVersion` and `clientCapabilities`.
+The validation record covers only the named Hermes and Anubis versions.
+SigilGuard's MCP v2 support does not mean Hermes or Anubis supports MCP v2. The
+adapter remains responsible for protocol negotiation, `server/discover`,
+subscription delivery, and constructing and validating the standard request
+`_meta`, including `protocolVersion` and `clientCapabilities`.
 
-When the adapter has negotiated the modern revision, pass it explicitly while
-guarding successful results:
+When the adapter has negotiated `2026-07-28`, pass it explicitly while guarding
+successful results:
 
 ```elixir
 SigilGuard.ToolGateway.guarded_result(result, context,
@@ -267,10 +264,9 @@ This inserts `resultType: "complete"` only when absent and preserves every
 existing discriminator for host-side validation. Unknown future protocol dates
 are not treated as v2. Forward the full JSON-RPC request/result map to the
 gateway whenever issuing confirmation or Agent Trust evidence. The shared
-structured projection intentionally binds nested keys, non-string values,
-client capabilities, behavior-changing extension metadata, `inputResponses`,
-and `requestState`; passing only a concatenated text view loses the security
-contract.
+structured projection binds nested keys, non-string values, client capabilities,
+behavior-changing extension metadata, `inputResponses`, and `requestState`;
+passing only a concatenated text view loses the security contract.
 
 For MCP Apps, set `origin: :app` and the trusted `mcp_server` in the boundary
 context. The pinned manifest must expose the tool to `"app"` and name that same
@@ -283,7 +279,7 @@ permissions.
 
 ## Anubis Variant
 
-Anubis is the maintained fork path for new deployments. The same SigilGuard
+Anubis is the maintained fork. Use it for new deployments. The same SigilGuard
 placement applies: guard in the component `execute/2` callback and before the
 Streamable HTTP Plug.
 
@@ -318,7 +314,7 @@ end
 
 ## Validation Procedure
 
-Before marking this guide complete:
+To revalidate the guide against a new Hermes or Anubis release:
 
 1. Create a scratch project outside this repo.
 2. Add the pinned `hermes_mcp` dependency and SigilGuard path dependency.

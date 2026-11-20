@@ -5,7 +5,7 @@
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/sigil_guard.git`
 3. Install dependencies: `mix setup`
-4. Create a feature branch: `git checkout -b feature/amazing-feature`
+4. Create a branch: `git checkout -b feat/short-description`
 
 ## Development
 
@@ -46,7 +46,8 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 Releases are managed by maintainers using git_ops:
 
 1. Ensure the complete gate passes: `./bin/check`
-2. Run `mix release` (alias for `mix git_ops.release`) — updates changelog, bumps version, commits, and tags
+2. Run `mix release` (alias for `mix git_ops.release`). It updates the
+   changelog, bumps the version, commits, and tags.
 3. Push with tags: `git push --follow-tags`
 4. CI verifies the exact version tag and commit, then validates, attests, and
    publishes through isolated jobs
@@ -68,6 +69,6 @@ verification rejects an unprotected tag.
 3. Add tests for new functionality
 4. Submit a PR with a clear description
 
-## Questions?
+## Questions
 
 Open an issue for questions or discussions.

@@ -2,8 +2,11 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fagent-trust-gateway.livemd)
 
-A model asking for a tool is not yet an authorized tool call. Between those
-two facts, a production host needs to answer three different questions:
+A model asking for a tool is not yet an authorized tool call. Before it becomes
+one, a production host checks three things: 1. The tool definition is still the
+one that was reviewed. 2. A human approved this exact action in this exact
+context. 3. The next system can verify the decision without trusting the host's
+prose.
 
 1. Is this still the tool definition we reviewed?
 2. Did a human approve this exact action in this exact context?
@@ -34,7 +37,7 @@ local_checkout? = File.regular?(Path.join(repo_root, "mix.exs"))
 Mix.install([sigil_guard_dep], install_opts)
 ```
 
-## Pin The Capability, Not Merely Its Name
+## Pin The Whole Capability
 
 This is a carried v2 capability manifest. It binds the description, complete
 schemas, side effects, network posture, sandbox requirement, scopes, and
@@ -146,8 +149,7 @@ allowed =
 ```
 
 Change the declared network posture after review and the request never reaches
-runtime policy. Manifest drift fails before useful-but-untrusted arguments can
-distract us.
+runtime policy. Manifest drift is rejected before the arguments are evaluated.
 
 ```elixir
 drifted_manifest = Map.put(manifest, "network_access", "outbound")
@@ -197,10 +199,10 @@ pending = SigilGuard.ToolGateway.guard_request(confirmation_request, context, co
 }
 ```
 
-The opaque HMAC token is not a reusable “yes.” It is bound to the normalized
+The opaque HMAC token approves one action. It is bound to the normalized
 payload, actor, boundary, sandbox identity, and manifest digest, and it has a
-short lifetime. The fixed key below is tutorial material; production hosts
-load a rotated key from their own secret system.
+short lifetime. The fixed key below is tutorial material; production hosts load
+a rotated key from their own secret system.
 
 ```elixir
 alias SigilGuard.{Attestation, ReplayStore, ToolGateway}
@@ -249,8 +251,8 @@ replay =
 %{verdict: replay.verdict, reason: replay.audit_metadata.confirmation_reason}
 ```
 
-Approval also dies if the payload changes. We disable consumption here only so
-the cell isolates binding from replay protection; production should keep the
+A payload change also invalidates the approval. We disable consumption here only
+so the cell isolates binding from replay protection; production should keep the
 one-shot default.
 
 ```elixir
@@ -327,7 +329,7 @@ trust_material = %{"conference-demo" => GatewayTalkSigner.public_key()}
 ```
 
 An inbound peer can require that envelope before accepting the request. The
-transport field `_agent_trust` is deliberately separate from user arguments.
+transport field `_agent_trust` is separate from user arguments.
 
 ```elixir
 attested_request = Attestation.attach(request, envelope)
@@ -364,9 +366,8 @@ missing_attestation =
 
 ## What To Take Away
 
-The manifest binds the tool definition. The confirmation binds temporary human
-authority. The attestation binds portable evidence. None of them transfers
-callback ownership to the model, and none replaces the runtime boundary gate.
+None of the three objects transfers callback ownership to the model or replaces
+the runtime boundary gate.
 
 ```elixir
 %{
@@ -380,7 +381,9 @@ callback ownership to the model, and none replaces the runtime boundary gate.
 
 ## Drift Data, Statements, And Result Tokens
 
-CapabilityManifest.drifted_fields/2 and the drift denial data (audit metadata and JSON-RPC error data).
+`CapabilityManifest.drifted_fields/2` names the fields that changed. A drift
+denial carries the same list, with the expected and received manifest digests,
+in its audit metadata and in its JSON-RPC error data.
 
 ```elixir
 {:ok, drifted_fields} =
@@ -407,7 +410,9 @@ Map.take(drift_error, [
 ])
 ```
 
-Attestation.from_decision/3: generated nonce, `nonce: false`, millisecond timestamps, `boundary` mirror.
+`Attestation.from_decision/3` generates a nonce unless `nonce: false` is passed,
+writes `issued_at` and `expires_at` with millisecond precision, and mirrors
+phase, origin and sink under `boundary`.
 
 ```elixir
 gate_payload = SigilGuard.MCP.SecurityPayload.for_gate(request, :request)
@@ -439,7 +444,8 @@ false = Map.has_key?(without_nonce["predicate"], "nonce")
 }
 ```
 
-SigilGuard.Signer.Ed25519, the built-in signer process.
+`SigilGuard.Signer.Ed25519` is the built-in signer process. Its envelopes verify
+against the key id that `Envelope.keyid/1` derives from its public key.
 
 ```elixir
 alias SigilGuard.Signer.Ed25519, as: BuiltInSigner
@@ -474,7 +480,10 @@ built_in_keyid = SigilGuard.Attestation.Envelope.keyid(BuiltInSigner.public_key(
 %{keyid: built_in_keyid, verified_with_its_key: true}
 ```
 
-`attestation_error` on a gateway denial, the actor check, and `expires_at` on an expired manifest.
+A gateway denial records the attestation failure in `attestation_error`. An hour
+later the envelope is `:expired_attestation`, and another actor or changed
+arguments give `:digest_mismatch`. An expired manifest is denied with
+`:manifest_expired` and reports its `expires_at`.
 
 ```elixir
 attestation_opts = [
@@ -524,7 +533,10 @@ after_manifest_expiry =
 }
 ```
 
-Guard_result/3 with a pinned manifest, `request_action_digest:`, ToolGateway.attest_result/3, Attestation.verify/3 `require_manifest: true`.
+`ToolGateway.guard_result/3` checks a result against the pinned manifest and
+records the `request_action_digest:` of the request it answers.
+`ToolGateway.attest_result/3` signs that binding, and `Attestation.verify/3`
+with `require_manifest: true` checks it.
 
 ```elixir
 request_action_digest =
@@ -594,7 +606,9 @@ true = output_decision.audit_metadata.manifest_digest == capability.digest
 }
 ```
 
-A result confirmation token that binds the pinned manifest, and what an accepted token releases.
+A result confirmation token binds the pinned manifest, so it is refused under
+another manifest with `:manifest_digest_mismatch`. An accepted token releases
+the sanitized text (`:redact`, `release_status: :confirmed_sanitized`).
 
 ```elixir
 poisoned_output = %{

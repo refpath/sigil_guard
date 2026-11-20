@@ -14,8 +14,8 @@ and the target protocol.
 ## 1. Carry a binding record
 
 The request names what it will act on in a closed record under
-`params._meta["dev.sigilguard/effect"]`. Every value is a string. An unknown
-key or a malformed value is refused.
+`params._meta["dev.sigilguard/effect"]`. Every leaf value is a string. An
+unknown key or a malformed value is refused.
 
 ```json
 {
@@ -39,12 +39,12 @@ key or a malformed value is refused.
 }
 ```
 
-`operation_id` is one per intended effect on a target. `policy_epoch` must
+Use one `operation_id` per intended effect on a target. `policy_epoch` must
 change whenever the trust bundle sequence, the policy file, or a revocation
-changes. `target.environment` is `physical` or `simulated`; an approval for
-one never admits against the other. Express quantities in integer base units:
-an effect envelope bounds integers only, and `120` and `120.0` are different
-values to a confirmation token.
+changes. `target.environment` is `physical` or `simulated`; an approval for one
+never admits against the other. Express quantities in integer base units: an
+effect envelope bounds integers only, and `120` and `120.0` are different values
+to a confirmation token.
 
 ## 2. Guard with `effect_binding: :required`
 
@@ -145,8 +145,8 @@ the request:
 }
 ```
 
-`admit/5` returns `:ok` or the first failing reason as a bare atom, such as
-`:target_mismatch`, `:policy_epoch_mismatch`, `:stale_current_facts`, or
+`admit/5` returns `:ok` or `{:error, reason}` for the first failing check, such
+as `:target_mismatch`, `:policy_epoch_mismatch`, `:stale_current_facts`, or
 `:effect_deadline_passed`. The result is not a credential. It applies to the
 dispatch that follows immediately.
 
@@ -220,9 +220,10 @@ new approval. The library keeps no record of which envelopes are approved.
 - **Acceptance criterion.** Which observations count, how many are required,
   and whether their sources are independent is the host's decision.
 
-`EffectAuthority.valid_transition?/2` is the shared ledger state table. A
-cancel request moves a record to `cancel_requested`. It becomes `cancelled`
-only on evidence that the work did not complete.
+`EffectAuthority.valid_transition?/2` answers whether a ledger record may move
+from one state to another. A cancel request moves a record to
+`cancel_requested`. It becomes `cancelled` only on evidence that the work did
+not complete.
 
 ## Limits
 

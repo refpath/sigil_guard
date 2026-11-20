@@ -2,10 +2,11 @@ defmodule SigilGuard.Scanner do
   @moduledoc """
   Sensitivity scanning and redaction for text content.
 
-  Scans strings for sensitive content (credentials, API keys, PII) using
-  a staged deterministic pipeline over compiled regex patterns. The pipeline
-  validates and enriches regex candidates with confidence and signal metadata,
-  then provides redaction with configurable replacement hints.
+  Scans strings for credentials and other secrets with a staged deterministic
+  pipeline over compiled regex patterns. The built-in patterns cover secrets
+  only; PII detection needs host-supplied patterns. The pipeline validates and
+  enriches regex candidates with confidence and signal metadata, then provides
+  redaction with configurable replacement hints.
 
   ## Pipeline Extensions
 
@@ -41,8 +42,8 @@ defmodule SigilGuard.Scanner do
   @doc """
   Scan text for sensitive content using the given patterns.
 
-  Returns `{:ok, text}` if no hits are found, or `{:hit, hits}` with a list
-  of `SigilGuard.Patterns.scan_hit()` structs describing each match.
+  Returns `{:ok, text}` if no hits are found, or `{:hit, hits}` with one
+  `t:SigilGuard.Patterns.scan_hit/0` map per match.
 
   ## Options
 
@@ -181,7 +182,8 @@ defmodule SigilGuard.Scanner do
   defp merge_span(span, spans), do: [span | spans]
 
   @doc """
-  Scan and redact in a single pass. Returns the redacted text.
+  Scan text and redact every hit in one call. Returns the redacted text, or the
+  text unchanged when nothing matches.
   """
   @spec scan_and_redact(String.t(), keyword()) :: String.t()
   def scan_and_redact(text, opts \\ []) do

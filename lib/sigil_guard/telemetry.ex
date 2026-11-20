@@ -3,9 +3,8 @@ defmodule SigilGuard.Telemetry do
   Telemetry event definitions and span helpers for SigilGuard.
 
   SigilGuard emits the `:telemetry` events listed below. Attach handlers to
-  them for metrics, logging, or alerting. The helpers in this module
-  can also translate SigilGuard metadata into OpenTelemetry-style string
-  attributes for span/event exporters.
+  them. The helpers in this module can also translate SigilGuard metadata into
+  OpenTelemetry-style string attributes for span/event exporters.
 
   ## Subscribing to Events
 
@@ -327,8 +326,8 @@ defmodule SigilGuard.Telemetry do
   @doc """
   Emit `[:sigil_guard, :mcp, :request]` for a gateway decision.
 
-  Only the documented MCP metadata keys are emitted; the tool gateway calls
-  this for every request decision.
+  Only the documented MCP metadata keys are emitted; the tool gateway calls this
+  for every request and result decision.
   """
   @spec emit_mcp_decision(map()) :: :ok
   def emit_mcp_decision(metadata) when is_map(metadata) do
@@ -396,11 +395,11 @@ defmodule SigilGuard.Telemetry do
   @doc """
   Convert SigilGuard telemetry metadata to OpenTelemetry-style attributes.
 
-  Official semantic-convention names are used only where they clearly fit
-  (`url.full`). Every other attribute uses the `sigilguard.*` namespace.
-  High-cardinality attributes (digests, hashes, opaque ids, URIs) are
-  dropped unless `include_high_cardinality: true` is passed in `opts`, so metric
-  pipelines stay bounded while span exporters can opt in.
+  The one OpenTelemetry semantic-convention name used is `url.full`; every other
+  attribute uses the `sigilguard.*` namespace. High-cardinality attributes
+  (digests, hashes, opaque ids, URIs) are dropped unless
+  `include_high_cardinality: true` is passed in `opts`, so metric pipelines stay
+  bounded while span exporters can opt in.
 
   The actor, identity, and confirmation actor are never exported in clear.
   With `field_hash_key: key` each becomes `SigilGuard.Audit.hash_field/2` of

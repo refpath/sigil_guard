@@ -32,8 +32,6 @@ def deps do
 end
 ```
 
-The validation pin resolved to `tidewave` `0.6.1` and `bandit` `1.12.0`.
-
 ## Example Policy
 
 This repository ships a Tidewave policy at
@@ -55,28 +53,26 @@ Load it at application boot in development:
 
 ## Integration Limitation
 
-Tidewave 0.6.1 requires its public Plug to run before body parsing and raises
-if `conn.body_params` is already populated. The previous guide's wrapper
-matched a parsed body, so allowed calls raised; unparsed calls bypassed the
-wrapper's guard. Its compile-only validation did not detect this failure.
+Tidewave 0.6.1 requires its public Plug to run before body parsing and raises if
+`conn.body_params` is already populated. A wrapper that matches a parsed body
+therefore raises on allowed calls, and unparsed calls bypass its guard.
+Compile-only validation does not catch this.
 
 There is no validated drop-in SigilGuard Plug adapter for this version. Do not
-mount the old wrapper, call Tidewave's private router to bypass its checks,
-or assume a policy helper intercepts requests automatically. A host transport
-adapter is separate work: it must preserve Tidewave's local-address and Origin
-checks and define bounded parsing and body replay. This library does not
-implement that adapter.
+mount such a wrapper, call Tidewave's private router to bypass its checks, or
+assume a policy helper intercepts requests automatically. A host transport
+adapter must preserve Tidewave's local-address and Origin checks and define
+bounded parsing and body replay. This library does not implement that adapter.
 
 ## Authorization At A Host-Owned Message Seam
 
-The following pure helper can be used where a host already owns the decoded
-message and dispatch. `boundary` must contain trusted actor, tool, manifest,
-isolation and digest facts constructed for that request, as required by
-`SigilGuard.Boundary`. Tool identity and the complete request payload digest are checked before
-policy evaluation.
-A policy allow still requires scanning the complete request. Only `:allow`
-returns the original value; structured `:redact` is refused until the host
-implements and revalidates a schema-specific transform.
+Use the pure helper below where a host already owns the decoded message and
+dispatch. `boundary` must contain trusted actor, tool, manifest, isolation and
+digest facts constructed for that request, as required by `SigilGuard.Boundary`.
+Tool identity and the complete request payload digest are checked before policy
+evaluation. A policy allow still requires scanning the complete request. Only
+`:allow` returns the original value; structured `:redact` is refused until the
+host implements and revalidates a schema-specific transform.
 
 ```elixir
 defmodule MyApp.TidewavePolicy do

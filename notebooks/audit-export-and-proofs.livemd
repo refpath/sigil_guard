@@ -2,10 +2,10 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Faudit-export-and-proofs.livemd)
 
-Auditability is more than writing JSON lines. We want to detect deletion and
-reordering, prove one event belongs to a large log without disclosing the rest,
-show that a later checkpoint extends an earlier one, and carry the result into
-another assurance system without overstating what it proves.
+An audit trail has to detect deletion and reordering inside the chain, prove one
+event belongs to a large log without disclosing the rest, show that a later
+checkpoint extends an earlier one, and carry the result into another assurance
+system without overstating what it proves.
 
 This chapter builds that evidence path entirely in memory. External WORM
 storage is represented by an anchor record; the host still owns the actual
@@ -33,7 +33,7 @@ local_checkout? = File.regular?(Path.join(repo_root, "mix.exs"))
 Mix.install([sigil_guard_dep], install_opts)
 ```
 
-## Build A Signed Audit Chain
+## Build An HMAC Audit Chain
 
 ```elixir
 alias SigilGuard.Audit
@@ -66,10 +66,10 @@ events = Audit.build_chain(unsigned_events, chain_key)
 }
 ```
 
-Actor classification happens before signing, so the chain covers the
+Actor classification happens before chaining, so the HMAC chain covers the
 privacy-preserving actor value. Destroying the separate field-hash key later is
-a crypto-erasure strategy. `Audit.classify/2` does not use the chain key as
-the field-hash key: given the same key for both, it writes the fixed value
+a crypto-erasure strategy. `Audit.classify/2` does not use the chain key as the
+field-hash key: given the same key for both, it writes the fixed value
 `"redacted-v1"` instead of a hash.
 
 ## Create And Verify A Checkpoint
@@ -194,7 +194,7 @@ issuer = "did:web:audit-livebook"
 
 An operator signature proves who produced the checkpoint. Witness signatures
 reduce dependence on that one operator key. Witnesses sign the identical DSSE
-payload; they do not rewrite the checkpoint to insert their opinion.
+payload and leave the checkpoint unchanged.
 
 ```elixir
 defmodule AuditWitnessOne do
@@ -317,10 +317,10 @@ true = String.starts_with?(cloud_event["data"]["actor"], "fh1:")
 
 ## Project Bounded OSCAL Observations
 
-OSCAL projection is deliberately observation-only. The host supplies the
-assessment plan, reviewed controls, subject, wording, and collection time. The
-adapter binds those observations to the exact canonical export digest; it does
-not declare a control satisfied or manufacture assessment authority.
+OSCAL projection emits observations only. The host supplies the assessment plan,
+reviewed controls, subject, wording, and collection time. The adapter binds
+those observations to the exact canonical export digest; it does not declare a
+control satisfied or manufacture assessment authority.
 
 ```elixir
 oscal_context = %{
@@ -397,7 +397,9 @@ tampered =
 
 ## Reading The Log
 
-Audit.tip/1, Audit.query/2, Audit.hash_field/2.
+`Audit.tip/1` returns the last index and HMAC, `Audit.query/2` filters by type
+or index range, and `Audit.hash_field/2` reproduces the classified actor value
+(`"redacted-v1"` without a key).
 
 ```elixir
 {:ok, chain_tip} = Audit.tip(events)

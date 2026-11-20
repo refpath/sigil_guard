@@ -44,7 +44,7 @@ when moving production code to the 1.0 release line.
   `sigil_guard_capability_manifest/v2`.
 - Move MCP denial handling to `-31990..-31984` and continue branching on
   `error.data.status`.
-- Pass `protocol_version: "2026-07-28"` from adapters that want modern
+- Pass `protocol_version: "2026-07-28"` from adapters that want the `2026-07-28`
   `resultType` behavior.
 - Treat MCP Apps rendering, CSP enforcement, and browser sandboxing as
   host-owned after `SigilGuard.MCP.AppResource` verification.
@@ -548,8 +548,7 @@ or inspect those names outside the `:sigil_guard` application environment.
 
 ## Error Changes
 
-Some 0.2.x error atoms were reconciled for 1.0 trust-bundle and configuration
-contracts.
+1.0 renames these 0.2.x and draft error atoms:
 
 | 0.2.x / draft atom | 1.0 atom | Meaning |
 |-----------------|---------|---------|
@@ -648,9 +647,9 @@ gateway decision for another value is blocked with
 
 ## Version Pinning
 
-`~> 0.2` users do not auto-upgrade to 1.0. The 1.0 release is intentionally a
-major-version break, so existing 0.2.x consumers stay on the `0.2.x` line until
-they edit their dependency requirement.
+`~> 0.2` users do not auto-upgrade to 1.0. 1.0 is a major-version break, so
+existing 0.2.x consumers stay on the `0.2.x` line until they edit their
+dependency requirement.
 
 For the 1.0 release line, use:
 
@@ -860,11 +859,11 @@ The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
 
 ## Audit hardening of v3 acceptance
 
-The security audit preserves signed v3 byte contracts while narrowing unsafe
-acceptance paths. Application null-valued map fields now fail `:invalid_payload`
-instead of colliding with absent fields. Nullable profile fields and null array
-elements keep their defined meanings. MCP key scanning uses a separate scan view
-so existing confirmation preimages do not acquire scanner-generated keys.
+Signed v3 bytes stay valid, and these ambiguous inputs are now rejected.
+Application null-valued map fields now fail `:invalid_payload` instead of
+colliding with absent fields. Nullable profile fields and null array elements
+keep their defined meanings. MCP key scanning uses a separate scan view so
+existing confirmation preimages do not acquire scanner-generated keys.
 
 Root rotations that introduce delegate authority require the new root quorum to
 countersign the successor envelope. Existing frozen payload bytes remain valid;
@@ -906,9 +905,9 @@ sentinel byte; rejected loads preserve the last valid cached bundle.
 `:invalid_description` for malformed arguments without losing existing entries.
 Plaintext remains arbitrary binary data; descriptions are UTF-8 strings.
 
-`Runtime.Stream.new/2` now raises a deliberate `ArgumentError` for malformed
-option containers or uncompiled patterns instead of failing later with a field
-access error. Invalid window values still select the conservative default.
+`Runtime.Stream.new/2` now raises `ArgumentError` for malformed option
+containers or uncompiled patterns instead of failing later with a field access
+error. Invalid window values still select the conservative default.
 
 Integration examples now preserve the original structured value on `:allow`
 and refuse `:redact` until the host supplies a validated schema-specific

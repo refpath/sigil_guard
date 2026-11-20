@@ -6,10 +6,11 @@ not authenticate arbitrary first-contact network input. Remote retrieval,
 authentication, delivery timeouts and release provenance belong to the host.
 
 Use `enforce_declared_threshold: true` when loading bundles. Rotation always
-requires both declared root quorums. A rotated successor that introduces delegate
-authority also needs the new root quorum to countersign its unchanged DSSE payload:
-rotation v1 documents authenticate root keys, not the successor's delegates.
-Keep the complete chain and persist host-approved rollback state across restarts.
+requires both declared root quorums. A rotated successor that introduces
+delegate authority also needs the new root quorum to countersign its unchanged
+DSSE payload, because rotation v1 documents authenticate root keys and not the
+successor's delegates. Keep the complete chain and persist host-approved
+rollback state across restarts.
 
 Enable attestation replay consumption at execution boundaries. Confirmation
 verification consumes by default; `consume: false` is inspection only. Replay
@@ -40,12 +41,12 @@ emission. A finite `max_match_bytes` hint alone cannot prove an unbounded regex
 safe. Hosts must not dispatch halted streams or treat partial output as a final
 whole-message authorization.
 
-Application maps containing null-valued fields cannot be signed under the v3
-omission rule. Omit optional fields deliberately, or represent explicit clearing
-as an application-defined operation/value. JSON null in arrays retains its
-meaning. Fixed nullable MCP wrapper fields retain their profile semantics; this
-exception does not apply to application arguments. Existing unambiguous v3
-payload bytes, frozen vectors and confirmation preimages remain unchanged.
+Application maps containing null-valued fields cannot be signed, because a null
+field would digest like an absent one. Digesting such a map returns
+`:invalid_payload`. Omit optional fields deliberately, or represent explicit
+clearing as an application-defined operation/value. JSON null in arrays retains
+its meaning. Fixed nullable MCP wrapper fields retain their profile semantics;
+this exception does not apply to application arguments.
 
 Require verified capability manifests for privileged tool execution. Tool names,
 actor identity, resource URIs and digests are policy facts; a tool name by itself
@@ -65,15 +66,16 @@ dispatched; one with different digests is refused. After a restart a record in
 automatically. Carry `operation_id` in the target protocol's order or goal
 identity where it has one. The library does not evaluate arguments against a
 pinned `input_schema`, and it does not decide which observations accept an
-outcome: both stay with the host. It plans no motion, is not part of an
+outcome. Both stay with the host. It plans no motion, is not part of an
 emergency or protective stop, and its output is not a certification or a claim
-of conformity with a machinery or cybersecurity standard. See
-[Physical-effect requests](physical-effects.md).
+of conformity with a machinery or cybersecurity standard. See [Physical-effect
+requests](physical-effects.md).
 
-The MCP conformance suite tests a host transport adapter, not this transport-free
-core. Run the [official suite](https://github.com/modelcontextprotocol/conformance)
-against the actual host adapter in its release pipeline. SigilGuard's local
-fixtures prove library contracts; they do not claim certification of a host or
-full protection against prompt injection. The OWASP Agent Control Standard and
-LLM Top 10 2026 provide control-mapping inputs; map verified library evidence and
-host obligations separately as those documents evolve.
+The MCP conformance suite tests a host transport adapter, not this
+transport-free core. Run the [official
+suite](https://github.com/modelcontextprotocol/conformance) against the actual
+host adapter in its release pipeline. SigilGuard's local fixtures test library
+contracts. They do not certify a host or claim full protection against prompt
+injection. The OWASP Agent Control Standard and LLM Top 10 2026 provide
+control-mapping inputs; map verified library evidence and host obligations
+separately as those documents evolve.

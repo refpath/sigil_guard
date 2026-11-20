@@ -17,20 +17,21 @@
 
 ---
 
-SigilGuard is an embedded security runtime for MCP v2 and agent-tool
-boundaries, in native Elixir. MCP specifications are date-versioned; throughout
-this project, “MCP v2” means the final `2026-07-28` revision. SigilGuard sits
-between a language model and the tools it can reach, decides whether a tool
-call, a tool result, or a model output may cross a boundary, and produces
-signed, tamper-evident evidence of every decision. It runs in-process on the
-BEAM: no sidecar, no proxy hop, no network call on the decision path.
+SigilGuard is an embedded security runtime for MCP v2 and agent-tool boundaries,
+in native Elixir. MCP specifications are date-versioned; throughout this
+project, “MCP v2” means the final `2026-07-28` revision. SigilGuard sits between
+a language model and the tools it can reach, decides whether a tool call, a tool
+result, or a model output may cross a boundary, and can produce signed,
+tamper-evident evidence of each decision through attestations and the audit
+chain. It runs in-process on the BEAM: no sidecar, no proxy hop, no network call
+on the decision path.
 
 A model with access to private data, exposure to untrusted content, and the
-ability to act or communicate outward is one poisoned tool description or
-prompt-injected result away from doing real damage. Model-level guardrails help
-but are probabilistic. SigilGuard is the deterministic layer underneath: signed
-trust material, capability manifests pinned by digest, source-to-sink policy,
-and human-in-the-loop confirmation bound to the exact action.
+ability to act or communicate outward can be steered by one poisoned tool
+description or prompt-injected result. Model-level guardrails help but are
+probabilistic. SigilGuard is the deterministic layer underneath: signed trust
+material, capability manifests pinned by digest, source-to-sink policy, and
+human-in-the-loop confirmation bound to the exact action.
 
 ## Why embedded
 
@@ -116,20 +117,18 @@ Scanning and policy are also available on their own:
 {:confirm, _reason} = SigilGuard.policy_verdict("create_user", :low)
 ```
 
-The gate is transport-agnostic: an MCP server, an agent loop, or a gateway
-calls it before tool execution, after tool results, and before outbound writes,
-without pulling any specific MCP adapter into the core. The MCP gateway,
-attestation signing, confirmation flow, trust bundles, and audit chain build on
-this same decision. The [architecture](docs/README.md) covers the full surface.
+The gate depends on no transport and pulls no MCP adapter into the core. An MCP
+server, an agent loop or a gateway calls it before tool execution, after tool
+results and before outbound writes. The MCP gateway, attestation signing,
+confirmation flow, trust bundles, and audit chain build on this same decision.
 
 ## Livebook Tutorials
 
-The executable [Livebook tutorial track](notebooks/README.md) teaches the
-complete public surface as one agent-security story. It starts with scanner and
-boundary fundamentals, puts an optional live ReqLLM proposal behind a
-host-owned tool callback, and continues through manifests, confirmations,
-attestations, MCP v2/Apps, streaming, trust bundles, agent-to-agent trust, and
-portable audit evidence.
+The executable [Livebook tutorial track](notebooks/README.md) starts with
+scanner and boundary fundamentals, puts an optional live ReqLLM proposal behind
+a host-owned tool callback, and continues through manifests, confirmations,
+attestations, MCP v2/Apps, streaming, trust bundles, agent-to-agent trust,
+portable audit evidence, and physical-effect requests.
 
 Every chapter also runs without a provider or network connection. The AI
 chapter uses a deterministic adversarial replay by default, so the security
@@ -141,22 +140,22 @@ the callback.
 mix sigil_guard.livebook_check
 ```
 
-Start with [An AI Agent Under Attack](notebooks/ai-agent-under-attack.livemd)
-for the conference demo, or follow the full self-study path from the tutorial
-catalog.
+For a live demonstration, start with [An AI Agent Under
+Attack](notebooks/ai-agent-under-attack.livemd). For self-study, follow the
+order in the tutorial catalog.
 
 ## Agent Trust Profile
 
-The 1.0 release line has one wire profile: `sigil_guard_agent_trust/v1`.
-Agent Trust evidence is a DSSE envelope over a JCS-canonical in-toto-style
-statement, with payload and context digests bound to the boundary decision.
-The public metadata keys are:
+SigilGuard has one wire profile: `sigil_guard_agent_trust/v1`. Agent Trust
+evidence is a DSSE envelope over a JCS-canonical in-toto-style statement, with
+payload and context digests bound to the boundary decision. The public metadata
+keys are:
 
 | Key | Purpose |
 |-----|---------|
 | `_agent_trust` | Carries an Agent Trust attestation envelope for a tool request or result. |
 | `_agent_confirmation` | Carries a short-lived confirmation token for a confirm-required action. |
-| `confirmation_token` | Compatibility-neutral token field for hosts that do not want a SigilGuard-prefixed metadata name. |
+| `confirmation_token` | Alternative key the gateways read a confirmation token from, for hosts that prefer a name without the `_agent_` prefix. |
 
 `SigilGuard.Attestation.strip_metadata/1` removes those keys at the payload
 root and inside `params` before digest computation, in atom and string forms.
@@ -164,17 +163,17 @@ All other fields are ordinary user payload.
 
 ## Agent Trust Gateway
 
-`SigilGuard.ToolGateway` is the 1.0 entry point for MCP-shaped tool calls and
-tool results. It combines capability-manifest checks, boundary policy,
-confirmation tokens, and Agent Trust attestations.
+`SigilGuard.ToolGateway` is the entry point for MCP-shaped tool calls and tool
+results. It combines capability-manifest checks, boundary policy, confirmation
+tokens, and Agent Trust attestations.
 
 Start with `SigilGuard.ToolGateway` when your host already owns the request and
 result maps and wants the full enforcement surface. Use `SigilGuard.MCP.Gateway`
 when wiring an MCP transport that wants JSON-RPC-compatible helper names and
-tuple responses; it is a thin permanent facade over `ToolGateway`.
+tuple responses; it is a thin facade over `ToolGateway`.
 
 Guard a tool request against a pinned manifest. Build the manifest with
-`SigilGuard.CapabilityManifest.new/1`: `attest_request/3` and
+`SigilGuard.CapabilityManifest.new/1`. `attest_request/3` and
 `issue_confirmation/5` bind the manifest digest only when they receive the
 struct.
 
@@ -413,14 +412,15 @@ SigilGuard plugs into them through behaviours:
 
 ## Telemetry
 
-SigilGuard emits `:telemetry` events for scanning, gate decisions, MCP
-requests, policy verdicts, trust-bundle verification, and audit logging. Each
-decision event carries the sanitized boundary metadata (phase, actor, origin,
-sink, tool, trust zone, verdict, and digests); raw payloads are kept out by
-default. Use `SigilGuard.Telemetry.otel_attributes/4` to map them into
-OpenTelemetry-style attributes under the `sigilguard.*` namespace. The mapper
-never exports an actor or identity in clear: pass `field_hash_key:` to get the
-`fh1:` digest the audit chain stores, or it emits `redacted-v1`.
+SigilGuard emits `:telemetry` events for scanning, gate decisions, MCP requests,
+policy verdicts, trust-bundle verification, and audit logging. Each decision
+event carries the sanitized boundary metadata (phase, actor, origin, sink, tool,
+trust zone, verdict, and digests); raw payloads are kept out by default. Use
+`SigilGuard.Telemetry.otel_attributes/4` to map them into OpenTelemetry-style
+attributes under the `sigilguard.*` namespace. The mapper never exports an actor
+or identity in clear. Those attributes appear only with
+`include_high_cardinality: true`. With `field_hash_key:` they carry the `fh1:`
+digest the audit chain stores, and without a key they are `redacted-v1`.
 
 ## Development
 
@@ -435,9 +435,10 @@ mix sigil_guard.sbom --output dist/sigil_guard.spdx.json
 ```
 
 The full gate fetches the locked dependency graph, checks the production build
-and Hex package, and then enforces coverage at or above 95% plus the repository's
-security, documentation, type, and migration checks. Security modules carry
-negative, tamper, replay, expiration, and malformed-input tests.
+and Hex package, and then enforces coverage at or above 95% plus the
+repository's security, documentation, type, and migration checks. Threat-model
+tests for every mitigation and detection claim live in
+`test/sigil_guard/threat_model/`.
 
 ## Architecture
 
@@ -453,8 +454,7 @@ module topology, and the runtime, MCP, and audit-evidence flows, with diagrams.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for
-guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

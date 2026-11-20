@@ -2,21 +2,12 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fquick-start.livemd)
 
-An agent does not become safe because its prompt says “be careful.” It becomes
-operable when the host labels every boundary crossing and retains the final
-authority to allow, redact, confirm, quarantine, or block it.
+A prompt that says "be careful" does not make an agent safe. The host has to
+label every boundary crossing and keep the final authority to allow, redact,
+confirm, quarantine, or block it.
 
-This chapter builds that mental model with one synthetic deployment log. By the
-end you will have scanned it, redacted it, moved it across two different
-boundaries, and seen why the sink matters as much as the bytes.
-
-## What You Will Learn
-
-- How a notebook works both from a checkout and from its Run in Livebook badge.
-- The difference between detecting a signal and deciding an action.
-- The boundary fields that should accompany every tool or MCP decision.
-- Why the same payload can be redacted for a model and blocked for an external
-  sink.
+The chapter scans and redacts one synthetic deployment log, sends it across two
+boundaries, and shows that the sink matters as much as the bytes.
 
 ## Setup
 
@@ -51,7 +42,7 @@ Mix.install([sigil_guard_dep], install_opts)
 }
 ```
 
-## Detection Is Evidence, Not Authority
+## Detection Produces Evidence
 
 Our sample credential is a public, synthetic test value. It is safe to use in
 documentation, but the scanner treats it exactly like the corresponding
@@ -92,11 +83,10 @@ redacted_log
 
 ## Label The Crossing
 
-A useful boundary answers eight questions: when is this happening, where did
-the data come from, where is it going, who caused it, which trust zone is
-involved, which tool is acting, and which action/payload digests are bound to
-the decision? The simple facade fills digests when it can, but production
-adapters should carry the complete context they already know.
+A boundary records eight facts: the phase, the origin, the sink, the actor, the
+trust zone, the tool, and the action and payload digests bound to the decision.
+The simple facade fills digests when it can, but production adapters should
+carry the complete context they already know.
 
 ```elixir
 model_boundary = [
@@ -221,9 +211,9 @@ policy_matrix
 
 ## Takeaway
 
-The scanner found a fact. The boundary supplied meaning. The gate retained
-authority. The rest of the tutorial track (manifests, confirmations,
-attestations, trust bundles, streams, agent cards, and audit proofs) makes
-that same decision harder to confuse, replay, repudiate, or bypass.
+The scanner reports a signal, the boundary labels the crossing, and the gate
+decides. Later chapters add manifests, confirmations, attestations, trust
+bundles, streams, agent cards, and audit proofs so that the same decision is
+harder to confuse, replay, repudiate, or bypass.
 
 Next: [Policy And The Lethal Trifecta](policy-and-lethal-trifecta.livemd).

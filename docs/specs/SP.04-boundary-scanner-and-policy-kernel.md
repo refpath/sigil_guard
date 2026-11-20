@@ -17,17 +17,16 @@ sigil_guard:
 
 ## Executive Summary
 
-V3 evolves SigilGuard from a scanner with policy helpers into a boundary-aware
-policy kernel. Regex remains a fast candidate extractor, but final decisions
-must bind source, sink, actor, tool capability, sandbox identity, action digest,
-payload digest, context digest, scanner signals, lifecycle phase, and matched
-rules. This revision fixes the v3 policy-file grammar, filenames, and digest;
-sink-aware output contracts and their transforms (D8); the sandbox
-`isolation_level` enum and fail-closed mismatch matrix; the full
-`SigilGuard.Hooks` contract; the advisory adaptive-detector behaviour (D5);
-the additive scanner-hit extension (D17); and the streaming holdback
-property-test specification. It realizes R.06 rows 1, 9, 10, and 11
-(test families TM.08 and TM.09).
+In v3 SigilGuard is a boundary-aware policy kernel. Regex remains a fast
+candidate extractor, but final decisions must bind source, sink, actor, tool
+capability, sandbox identity, action digest, payload digest, context digest,
+scanner signals, lifecycle phase, and matched rules. This revision fixes the v3
+policy-file grammar, filenames, and digest; sink-aware output contracts and
+their transforms (D8); the sandbox `isolation_level` enum and fail-closed
+mismatch matrix; the full `SigilGuard.Hooks` contract; the advisory
+adaptive-detector behaviour (D5); the additive scanner-hit extension (D17); and
+the streaming holdback property-test specification. It realizes R.06 rows 1, 9,
+10, and 11 (test families TM.08 and TM.09).
 
 ## Business Value
 
@@ -38,8 +37,10 @@ property-test specification. It realizes R.06 rows 1, 9, 10, and 11
   deterministic decision kernel with digest-bound evidence.
 - **Beneficiary:** Host applications using SigilGuard at MCP, repo, CI,
   tool-output, and model-ingress boundaries.
-- **Impact:** Explainable decisions, better precision, safer streaming, and a
-  reusable policy contract that encodes the lethal-trifecta defense (R.06).
+- **Impact:** decisions that name their matched rules, staged validation that
+  discards placeholder and low-entropy candidates, a streaming holdback for
+  secrets split across chunks, and a reusable policy contract that encodes the
+  lethal-trifecta defense (R.06).
 
 ## Technical Architecture
 
@@ -289,11 +290,10 @@ SP.07 *Gate ↔ Kernel Delegation*.
 
 `absent` is NOT a member of the `isolation_level` enum — it is the nil /
 no-value case. The four enum values are the only values `Context` stores or
-`validate/1` accepts. Separately, the policy-file `isolation:` matcher
-(Policy File Schema below) accepts five KEYWORDS — the four enum values plus
-`absent` — where `absent` matches only the nil case and is never implied by
-any enum value. Enum membership (4) and matcher keywords (5) are distinct on
-purpose; do not conflate them.
+`validate/1` accepts. Separately, the policy-file `isolation:` matcher (Policy
+File Schema below) accepts five KEYWORDS — the four enum values plus `absent` —
+where `absent` matches only the nil case and is never implied by any enum value.
+Enum membership (4) and matcher keywords (5) are distinct.
 
 ### Fail-Closed Default (Normative)
 
@@ -950,9 +950,8 @@ Parsing shell commands into ASTs to score execution risk is explicitly out of
 scope for v1.0. Command risk is shell-dialect and host specific; deterministic
 coverage would need a parser per dialect, and the kernel already gates the
 `execute` side-effect class through the sandbox matrix and denies untrusted
-content into execution sinks via rules. Hosts keep their own
-analyzers (the reference consumer keeps its own command analyzer). Revisit
-post-GA.
+content into execution sinks via rules. Hosts keep their own analyzers (the
+reference consumer keeps its own command analyzer). It stays deferred (D18).
 
 ## Module Map
 

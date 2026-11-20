@@ -2,15 +2,14 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Ftrust-bundles-identity-and-vault.livemd)
 
-Runtime policy is only as trustworthy as the material it consumes. A pattern
-set fetched ad hoc from the network, an actor label supplied by a model, or a
-provider key copied into tool arguments can undermine an otherwise careful
-gate.
+Runtime policy depends on the material it consumes. A pattern set fetched ad hoc
+from the network, an actor label supplied by a model, or a provider key copied
+into tool arguments can undermine an otherwise careful gate.
 
 This chapter operates the local side of that problem: a signed offline trust
 bundle, per-boot rollback state, audit-safe quarantine, host-resolved identity,
-and an encrypted in-memory vault. SigilGuard intentionally performs no trust
-bundle HTTP fetch. The host owns transport and passes bytes into verification.
+and an encrypted in-memory vault. SigilGuard performs no trust bundle HTTP
+fetch. The host owns transport and passes bytes into verification.
 
 ## Setup
 
@@ -36,10 +35,9 @@ Mix.install([sigil_guard_dep], install_opts)
 
 ## Build A Deterministic Development Bundle
 
-`dev_bundle/1` exists for development and tests. It produces a real signed
-DSSE bundle, marks its provenance as `dev`, and is intentionally not a
-substitute for production key ceremony. The fixed seed and clock make this
-tutorial repeatable.
+`dev_bundle/1` exists for development and tests. It produces a real signed DSSE
+bundle and marks its provenance as `dev`. It does not replace a production key
+ceremony. The fixed seed and clock make this tutorial repeatable.
 
 ```elixir
 alias SigilGuard.TrustBundle
@@ -106,12 +104,12 @@ true = loaded_from_bytes.digest == bundle.digest
 %{source: elem(loaded_from_bytes.source, 0), digest_stable?: true}
 ```
 
-## Resolve Pattern Sets Deliberately
+## Pattern Sets Are Replaced Independently
 
-Each of the three sets — secrets, injection, and poisoning — is independently
-replaceable. Providing a custom secret set replaces that set; absent injection
-and poisoning sets keep their built-in defaults. This avoids an update to one
-class accidentally disabling the others.
+The secret, injection, and poisoning sets are each replaceable on their own.
+Providing a custom secret set replaces that set; absent injection and poisoning
+sets keep their built-in defaults. This avoids an update to one class
+accidentally disabling the others.
 
 ```elixir
 {:ok, pattern_sets} = TrustBundle.pattern_sets(bundle)
@@ -284,14 +282,13 @@ false = Vault.exists?(vault_id, InMemory)
 
 ## Takeaway
 
-Trust bundles bring reviewed policy material to the process without giving core
-a network client. Identity comes from the host, not the prompt. Secrets remain
-opaque until a narrow callback needs them. Together those choices prevent the
-security plane from becoming another source of ambient authority.
-
 ## Bundle Roles, Identity Helpers, And Vault Failure
 
-Attestation.verify/3 with a verified %TrustBundle{} (the `attestation` delegate role), :untrusted_issuer, TrustBundle.verify/2, Attestation.sign/3, Envelope.sign_many/2.
+`Attestation.verify/3` accepts a verified `%TrustBundle{}` and trusts only keys
+in its `attestation` delegate role. A statement signed by the bundle or root key
+fails with `:untrusted_issuer`, and a key outside the bundle fails with
+`:unknown_key_id`. The cell builds the bundle with `Envelope.sign_many/2` and
+`TrustBundle.verify/2` and signs statements with `Attestation.sign/3`.
 
 ```elixir
 alias SigilGuard.Attestation
@@ -396,7 +393,9 @@ end
 }
 ```
 
-Identity.spiffe_id?/1 and Identity.did_key_public_key/1.
+`Identity.spiffe_id?/1` checks SPIFFE ID syntax, and
+`Identity.did_key_public_key/1` extracts the 32-byte key from a `did:key`.
+Neither grants trust.
 
 ```elixir
 true = Identity.spiffe_id?("spiffe://conference/operators/alice")
@@ -419,7 +418,8 @@ did = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
 }
 ```
 
-Vault.InMemory answering {:error, :vault_unavailable} when its process is not running.
+When its process is not running, `Vault.InMemory` answers
+`{:error, :vault_unavailable}`.
 
 ```elixir
 :ok = GenServer.stop(vault_pid)

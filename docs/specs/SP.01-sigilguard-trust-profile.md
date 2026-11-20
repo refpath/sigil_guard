@@ -15,15 +15,15 @@ sigil_guard:
 
 ## Executive Summary
 
-SigilGuard v3 is a deliberate breaking release built around a SigilGuard-owned
-Agent Trust Profile: DSSE-enveloped, JCS-canonical, in-toto-style statements
-signed over action, payload, context, and manifest digests. This spec is the
-normative pillar every other v3 spec references. It fixes the envelope and
-canonical encoding (R.02), the statement type registry, the exact digest
-field lists per statement type, the golden-vector fixtures, the public API
-sketches, the final v3 configuration surface, the profile-wide error
-taxonomy, the replay and expiry defaults, and the Envelope-to-Attestation
-migration mapping. The old upstream protocol remains historical input only.
+SigilGuard v3 is a breaking release built around a SigilGuard-owned Agent Trust
+Profile: DSSE-enveloped, JCS-canonical, in-toto-style statements signed over
+action, payload, context, and manifest digests. Every other v3 spec references
+this one. It fixes the envelope and canonical encoding (R.02), the statement
+type registry, the exact digest field lists per statement type, the
+golden-vector fixtures, the public API sketches, the final v3 configuration
+surface, the profile-wide error taxonomy, the replay and expiry defaults, and
+the Envelope-to-Attestation migration mapping. The old upstream protocol remains
+historical input only.
 
 ## Business Value
 
@@ -950,11 +950,11 @@ host needs in addition when a request has an external physical effect.
 
 ### Operational Defaults Rationale (Normative Anchor)
 
-These cross-cutting default values are chosen against established norms, not
-arbitrarily; the owning specs reference this table rather than re-justifying.
-All are overridable defaults. Application keys exist only where the
-configuration table above lists one, and only `SigilGuard.Attestation` reads
-`:max_skew_ms` from the application environment.
+The table gives the norm or reason behind each cross-cutting default; the owning
+specs reference it instead of restating the reason. All are overridable
+defaults. Application keys exist only where the configuration table above lists
+one, and only `SigilGuard.Attestation` reads `:max_skew_ms` from the application
+environment.
 
 | Default | Value | Rationale / norm | Owner |
 |---------|-------|------------------|-------|

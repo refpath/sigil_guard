@@ -1,10 +1,9 @@
 defmodule SigilGuard.Vault do
   @moduledoc """
-  Secure vaulting behaviour and utilities for SigilGuard runtimes.
+  Behaviour and helpers for host-owned secret storage.
 
-  Provides an interface for encrypting, decrypting, and managing sensitive
-  values (API keys, tokens, credentials) that should never appear in logs
-  or tool call parameters.
+  A backend encrypts, decrypts and checks secret values, such as API keys, that
+  must not appear in logs or tool call parameters.
 
   ## Behaviour
 

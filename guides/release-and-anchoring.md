@@ -1,10 +1,9 @@
 # Release Verification and WORM Anchoring
 
-This guide covers two host-owned operational surfaces: verifying a release's
-SBOM and provenance, and implementing a write-once/read-many (WORM) or
-append-only audit anchor store. SigilGuard ships the primitives; transport,
-storage, and CI are owned by the host. The library performs no network calls
-of its own in any decision path.
+Verifying a release's SBOM and provenance, and running a write-once/read-many
+(WORM) or append-only audit anchor store, are host operations. SigilGuard ships
+the primitives; the host owns transport, storage, and CI. The library performs
+no network calls of its own in any decision path.
 
 ## Verifying a release SBOM
 
@@ -48,7 +47,8 @@ If the SBOM on disk has drifted from the attested bytes, verification fails
 fast with `:sbom_digest_mismatch` before any structural check runs. The digest
 comparison is case-insensitive on the expected value.
 
-Verify the build provenance itself with the GitHub CLI, gating publish on it:
+Verify the build provenance with the GitHub CLI and gate publication on the
+result:
 
 ```bash
 gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard
@@ -87,12 +87,12 @@ check, run it in a `sigil_guard` checkout of the released tag after
 The tagged-release workflow accepts only the exact Mix-project version tag at
 the triggering commit. It produces build provenance with `actions/attest`, then
 signs the predicate from `mix sigil_guard.release_statement` against both the
-tarball and SBOM. The predicate's `release` object directly records the package,
-version, artifact names, and SHA-256 values. Both predicate types are verified
-before the environment-scoped publish job starts. Release verification also
-fails unless GitHub reports the exact version tag as protected by a tag
-ruleset. That job requires a fresh Hex build and the downloaded registry tar
-to match the attested package byte for byte.
+tarball and SBOM. The predicate's `release` object records the package, version,
+artifact names, and SHA-256 values. Both predicate types are verified before the
+environment-scoped publish job starts. Release verification also fails unless
+GitHub reports the exact version tag as protected by a tag ruleset. The publish
+job requires a fresh Hex build and the downloaded registry tar to match the
+attested package byte for byte.
 
 ### Required GitHub release settings
 
@@ -116,18 +116,20 @@ alone is not a protected publication boundary and the release must not proceed.
 ## Implementing a WORM / append-only anchor store
 
 Audit checkpoints and exports are the tamper-evidence layer; anchoring writes a
-compact receipt to external storage so the chain tail cannot be silently
-truncated. `SigilGuard.Audit.Anchor.Store.LocalFile` appends to a local file;
-for durable WORM storage (object-lock buckets, transparency logs, WORM
-appliances) a host provides an HTTP endpoint and reaches it through the
-`SigilGuard.Audit.Anchor.Store.HTTP` adapter plus a `SigilGuard.HTTPClient`.
+compact receipt to external storage, so removing events that an anchored
+checkpoint covers becomes detectable. Events appended after the latest anchor
+are unprotected until the next one. `SigilGuard.Audit.Anchor.Store.LocalFile`
+appends to a local file; for durable WORM storage (object-lock buckets,
+transparency logs, WORM appliances) a host provides an HTTP endpoint and reaches
+it through the `SigilGuard.Audit.Anchor.Store.HTTP` adapter plus a
+`SigilGuard.HTTPClient`.
 
 ### The HTTP client seam
 
-The anchor HTTP store performs no network itself — it routes every request
-through a host-provided `SigilGuard.HTTPClient`, the library's only
-sanctioned HTTP seam. Configure it per call (`http_client:` in the store options) or in
-the application environment:
+The anchor HTTP store makes no network calls itself. It routes every request
+through a host-provided `SigilGuard.HTTPClient`, the library's only sanctioned
+HTTP seam. Configure it per call (`http_client:` in the store options) or in the
+application environment:
 
 ```elixir
 # config/runtime.exs
@@ -147,8 +149,8 @@ defmodule MyApp.AnchorHTTPClient do
 end
 ```
 
-With no resolvable client the store fails closed with
-`:http_client_not_configured` at first use — never a silent no-op.
+With no resolvable client, the store fails closed with
+`:http_client_not_configured` at first use.
 
 ### Requiring WORM semantics
 

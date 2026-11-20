@@ -67,7 +67,7 @@ defmodule SigilGuard.Confirmation do
   end
 
   @doc """
-  Safely compute the deterministic action digest.
+  Compute the deterministic action digest without raising.
 
   Returns `{:error, :invalid_payload}` when the payload or context cannot be
   represented as canonical JSON for action binding.

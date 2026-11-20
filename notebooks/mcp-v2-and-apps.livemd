@@ -7,9 +7,9 @@ the distinctions the signature was supposed to protect. `false`, `0`, `nil`, and
 same operation. Neither are an interim MCP result and a completed one.
 
 This chapter keeps those distinctions intact for the `2026-07-28` MCP revision,
-then verifies the resource metadata that accompanies an MCP App. SigilGuard is
-the security kernel in this story; protocol negotiation, JSON Schema
-evaluation, OAuth, and browser sandbox construction remain host work.
+then verifies the resource metadata that accompanies an MCP App. SigilGuard
+supplies the security checks. Protocol negotiation, JSON Schema evaluation,
+OAuth, and browser sandbox construction remain host work.
 
 ## Setup
 
@@ -314,8 +314,3 @@ from_other_server = guard_as.(:app, "other-mcp")
 ```
 
 ## Takeaway
-
-Keep the protocol value structured, bind every behavior-changing field, and
-make browser capabilities pass reviewed allowlists. SigilGuard gives the host
-small, deterministic helpers for those jobs without pretending to be the MCP
-transport or the browser sandbox.

@@ -39,10 +39,10 @@ guarded payload, where the existing SP.01 digests already cover it.
   A valid signature or a consumed nonce is then read as more than it is: as
   proof that the target, calibration, and policy are still the reviewed ones,
   that the action has not already happened, or that it succeeded.
-- **Solution:** One closed binding record, one deny-only admission check
-  against host-supplied current facts, a truthful replay contract, a durable
-  host ledger contract for effects, and separate outputs for authentication
-  and physical acceptance.
+- **Solution:** One closed binding record, one deny-only admission check against
+  host-supplied current facts, a replay contract that states its per-boot
+  limits, a durable host ledger contract for effects, and separate outputs for
+  authentication and physical acceptance.
 - **Beneficiary:** Hosts that place SigilGuard in front of a device,
   controller, or fleet interface, and operators who must explain a refusal
   or an outcome afterwards.
@@ -200,10 +200,10 @@ still match. Only a comparison against current facts detects it.
 | PE.14 | `EffectAuthority.admit/5` takes the gateway decision and refuses with `:not_authorized` unless that decision allows this exact request. It then compares the binding with current facts in the fixed order under Admission Order and returns the first failing reason as a bare atom, with no value from the record, the arguments, or the facts. Equal inputs give equal results; the function reads no clock, process state, or application environment. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "refuses a decision that does not allow this exact request", "returns the first failing reason of steps 1 to 6", "returns the first failing reason of steps 7 to 14", "equal inputs give equal results", "the modules read no clock, process state, ETS, or application environment" |
 | PE.15 | `target.environment` is a closed enum, `physical` or `simulated`. A binding approved for one never admits against the other (`:target_environment_mismatch`), even when `target.id` is equal. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "the target environment is compared after the target id", "a simulated target never satisfies an envelope for the physical one" |
 
-`:digest_mismatch` identifies the violated boundary, the approval binding,
-and not the element that changed. This is deliberate: a token carries
-digests only, so it cannot disclose what was approved. A host that retained
-the approved record can name the changed element itself.
+`:digest_mismatch` identifies the violated boundary, the approval binding, and
+not the element that changed. A token carries digests only, so it cannot
+disclose what was approved. A host that retained the approved record can name
+the changed element itself.
 
 ### Adaptive Envelope
 

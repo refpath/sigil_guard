@@ -2,10 +2,10 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fpolicy-and-lethal-trifecta.livemd)
 
-The dangerous agent shape is not “an LLM with tools.” It is an agent that can
-read private data, consume untrusted instructions, and communicate externally
-in the same flow. Remove any one edge and the risk drops sharply. Leave all
-three connected and a prompt injection can become an exfiltration path.
+The dangerous agent shape is one that can read private data, consume untrusted
+instructions, and communicate externally in the same flow. Remove any one edge
+and the risk drops sharply. Leave all three connected and a prompt injection can
+become an exfiltration path.
 
 SigilGuard turns those edges into ordinary, reviewable policy data. This
 chapter compiles one policy file, exercises its boundary rules, applies its
@@ -35,10 +35,10 @@ Mix.install([sigil_guard_dep], install_opts)
 
 ## One File, Three Kinds Of Policy
 
-The `[rules]` section governs runtime boundaries. `[repo]` governs proposed
-file changes. `[contracts]` constrains content that is otherwise allowed to
-cross an outbound sink. These are separate jobs, but keeping them in one
-signed and reviewable artifact makes the authority legible.
+The `[rules]` section governs runtime boundaries. `[repo]` governs proposed file
+changes. `[contracts]` constrains content that is otherwise allowed to cross an
+outbound sink. The three sections do separate jobs in one reviewable file with
+one digest.
 
 ```elixir
 policy_text = """
@@ -80,8 +80,8 @@ the same.
 
 ## Make The Three Edges Explicit
 
-Here is the risky path: a tool supplied private content, the content came from
-an untrusted zone, and the agent wants to send it outside the system.
+In the risky path, a tool supplied private content, the content came from an
+untrusted zone, and the agent wants to send it outside the system.
 
 ```elixir
 digest = String.duplicate("a", 64)
@@ -107,10 +107,10 @@ true = Enum.any?(blocked.matched_rules, &(&1.rule_id == "line_5"))
 %{action: blocked.action, reason: blocked.reason, rules: blocked.matched_rules}
 ```
 
-> **On stage:** draw the three edges before evaluating. The point is not the
-> phrase “lethal trifecta”; it is that every edge is now a typed policy input.
+> **On stage:** draw the three edges before evaluating. Each edge is a typed
+> policy input.
 
-## Trust Changes The Workflow, Not The Facts
+## Trust Changes The Workflow
 
 A high-trust actor does not turn private, untrusted content into public data.
 The policy changes the workflow from a hard block to exact human approval.
@@ -252,16 +252,13 @@ There is no lossy conversion to “make it fit.”
 
 ## Takeaway
 
-Policy is doing three different forms of work: deciding whether a boundary may
-be crossed, deciding which repository paths an agent may change, and
-constraining the bytes that leave after an allow. Keeping those jobs explicit
-is what makes the result deterministic and auditable.
-
 Next: [An AI Agent Under Attack](ai-agent-under-attack.livemd).
 
 ## The Gate Applies The Policy File
 
-A `sensitivity:` rule through Runtime.Gate (host states `source_sensitivity` in context.metadata).
+`Runtime.Gate` applies a `sensitivity:` rule when the host states
+`source_sensitivity` in `context.metadata`. Without that label the rule does not
+match and the payload is allowed.
 
 ```elixir
 gate_egress = fn metadata ->
@@ -293,7 +290,8 @@ unlabelled_through_gate = gate_egress.(%{})
 }
 ```
 
-The gate evaluates the file's [repo] section at a repo change and reports the repo policy facts.
+At a `:repo_change` phase, `Runtime.Gate` evaluates the file's `[repo]` section
+and reports the repo policy facts in `audit_metadata`.
 
 ```elixir
 gate_change = fn paths ->
@@ -335,7 +333,8 @@ true =
 }
 ```
 
-Runtime.Gate applies the [contracts] section of a :boundary_policy file; `output_contracts: false`.
+`Runtime.Gate` applies the `[contracts]` section of a `:boundary_policy` file.
+Pass `output_contracts: false` to skip it.
 
 ```elixir
 egress_context = [

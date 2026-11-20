@@ -133,8 +133,8 @@ peer_card = %{
 }
 ```
 
-Change the card after signing and verification fails. Signed metadata does not
-make mutability safe; it makes mutation detectable.
+Change the card after signing and verification fails. The signature makes any
+change to the card detectable.
 
 ```elixir
 tampered_card_envelope = Map.put(card_envelope, "payload", Base.url_encode64("{}", padding: false))
@@ -278,9 +278,9 @@ unknown_predicate = Jason.decode!(unknown_json)["predicate"]
 
 ## Authenticate A Response, Then Scan It
 
-The peer signs its response with the key declared in its card. The response
-also carries a back-reference to the exact request action digest, preventing a
-valid response from being replayed against a different request.
+The peer signs its response with the key declared in its card. The response also
+carries the exact request action digest, so a valid response cannot be replayed
+against a different request.
 
 ```elixir
 alias SigilGuard.Attestation.Digest
@@ -335,8 +335,8 @@ response_decision = %{allow_decision | phase: :tool_result}
 }
 ```
 
-**On stage:** verification succeeded. Now send the authenticated bytes through
-the result boundary. Producer authenticity is not content safety.
+**On stage:** verification succeeded. Send the authenticated bytes through the
+result boundary. Producer authenticity is not content safety.
 
 ```elixir
 result_gate =
@@ -364,12 +364,13 @@ true = result_gate.action in [:block, :confirm, :quarantine]
 
 Verify the card through issuer trust, verify the response through the key in
 that card, bind it to the request, and then treat the result as untrusted
-content. Agent-to-agent authentication closes an identity gap; it does not
-abolish prompt injection.
+content. A verified peer can still return a prompt injection.
 
 ## Audience, Capability, And Peer Trust Zone
 
-`audience:` on attest and verify; `capability:` and `context:` on verify_agent_response/3.
+Pass `audience:` when you attest and verify a response to address it to one
+requester. `verify_agent_response/3` also checks `capability:` against the card
+and `context:` against the signed context digest.
 
 ```elixir
 requester_id = request_context.identity
@@ -433,7 +434,9 @@ end
 }
 ```
 
-AgentTrust.peer_trust_zone/1 and the `quarantined` flag of an agent_response statement.
+`AgentTrust.peer_trust_zone/1` reads the trust zone from a verified card and
+returns `:untrusted` without one. A responder that gates its own output records
+the result in the statement's `quarantined` flag.
 
 ```elixir
 peer_zone = AgentTrust.peer_trust_zone(verified_card)

@@ -223,8 +223,8 @@ defmodule SigilGuard.TrustBundle do
   @doc """
   Verify a decoded DSSE trust-bundle envelope.
 
-  This verifies the envelope, schema, bundle role, signature threshold,
-  revocations, and freshness checks for the complete trust bundle.
+  Checks the envelope, schema, bundle role, signature threshold, revocations and
+  freshness of the complete trust bundle.
 
   ## Options
 
@@ -233,10 +233,10 @@ defmodule SigilGuard.TrustBundle do
     * `:max_skew_ms` - accepted future clock skew for bundle and role expiry.
       Defaults to `60_000`.
     * `:enforce_declared_threshold` - when `true`, enforce the bundle role's
-      declared threshold. For compatibility, the 1.0 release line defaults to an effective
-      threshold of `1`; bundle documents still carry their declared threshold,
-      and root rotation documents always enforce full declared old-root and
-      new-root thresholds.
+      declared threshold. Defaults to `false`, which applies an effective
+      threshold of `1`; bundle documents keep their declared threshold, and root
+      rotation documents always enforce full declared old-root and new-root
+      thresholds.
     * `:quarantine` - when `true`, records failed verification attempts in
       `SigilGuard.TrustBundle.Quarantine`. Defaults to `true`.
   """

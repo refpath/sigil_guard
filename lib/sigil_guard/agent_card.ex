@@ -4,7 +4,7 @@ defmodule SigilGuard.AgentCard do
 
   An agent card is to an agent what a capability manifest is to a tool: signed
   metadata that steers a counterpart's behavior. It is supply-chain input, never
-  trusted context - card `name`/`description` entering model context MUST still
+  trusted context. A card `name` or `description` entering model context MUST
   cross the boundary pipeline like any untrusted content.
 
   A card is a closed-schema map. `new/1` validates and normalizes it, `digest/1`
@@ -12,11 +12,10 @@ defmodule SigilGuard.AgentCard do
   the card in a DSSE envelope, and `verify/2,3` resolves the issuer against
   bundle-declared card signers, enforces JCS byte-equality, and checks freshness.
 
-  Trust flows from the bundle: issuers declared in its `"agent_card"` delegate
-  role sign cards, cards list the agent's own keys, and those
-  agent keys sign the agent's attestations. Agent keys never appear in the
-  bundle. Card trust comes from the bundle, never from the transport that
-  delivered the card.
+  Issuers declared in the bundle's `"agent_card"` delegate role sign cards,
+  cards list the agent's own keys, and those agent keys sign the agent's
+  attestations. Agent keys never appear in the bundle, and the transport that
+  delivered a card adds no trust.
 
   ## Example
 

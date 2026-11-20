@@ -190,7 +190,8 @@ defmodule SigilGuard.Context do
   def validate(_), do: {:error, :invalid_context}
 
   @doc """
-  Return the action string used by policy evaluation.
+  Return the action string used by policy evaluation: the context action or
+  tool, else the payload action, tool or name, else "tool_call".
   """
   @spec action_name(t(), term()) :: String.t()
   def action_name(%__MODULE__{} = context, payload) do
@@ -203,10 +204,10 @@ defmodule SigilGuard.Context do
   def action_name(_, payload), do: action_name(new(%{}), payload)
 
   @doc """
-  Strictly fetch the action string used by runtime policy evaluation.
-
-  Missing fields fall back through the known aliases. Present non-binary fields
-  are treated as malformed instead of being hidden by later aliases.
+  Fetch the action string used by runtime policy evaluation, reporting a
+  malformed field as an error. A missing field falls back to the next of context
+  action, context tool, then payload action, tool and name. Present non-binary
+  fields are treated as malformed instead of being hidden by later aliases.
   """
   @spec fetch_action_name(t(), term()) :: {:ok, String.t()} | {:error, :invalid_action}
   def fetch_action_name(%__MODULE__{} = context, payload) do
@@ -225,7 +226,8 @@ defmodule SigilGuard.Context do
   end
 
   @doc """
-  Strictly extract scan text from common payload shapes.
+  Return a binary payload, or the first `text`, `content`, `output` or `body`
+  value of a map payload; report a present non-binary field as an error.
 
   Missing fields return `{:ok, nil}`. Present non-binary text fields are treated
   as malformed instead of being hidden by later aliases.
@@ -244,7 +246,8 @@ defmodule SigilGuard.Context do
   def fetch_text(_), do: {:ok, nil}
 
   @doc """
-  Extract scan text from common payload shapes.
+  Return the scan text like `fetch_text/1`, or `nil` when there is none or a
+  field is malformed.
   """
   @spec text(term()) :: String.t() | nil
   def text(payload) do

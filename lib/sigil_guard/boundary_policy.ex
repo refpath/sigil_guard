@@ -14,12 +14,12 @@ defmodule SigilGuard.BoundaryPolicy do
   2. Kernel invariants (never overridable): `trust_zone: :untrusted` at
      `:tool_request` blocks; secret hits headed to an external sink block or
      redact per `:on_sensitive`; quarantine indicators quarantine.
-  3. Sandbox mismatch matrix: at the tool phases, when the boundary
-     declares a `tool` or a `sandbox`, the side-effect class and `isolation_level`
-     select a cell; an absent/`:none` isolation defaults to `:quarantine` (reason
-     `:sandbox_required`) unless a matching `[rules]` line carries an `isolation:`
-     matcher - the only sanctioned weakening. A tool-phase boundary that declares
-     neither a tool nor a sandbox is out of the matrix's scope.
+  3. Sandbox mismatch matrix: at the tool phases, when the boundary declares a
+     `tool` or a `sandbox`, the side-effect class and `isolation_level` select a
+     cell; an absent/`:none` isolation defaults to `:quarantine` (reason
+     `:sandbox_required`) unless a matching `[rules]` line carries an
+     `isolation:` matcher, the only sanctioned weakening. A tool-phase boundary
+     that declares neither a tool nor a sandbox is out of the matrix's scope.
   4. Repository policy facts: the `:repo_facts` map contributes `:block` on a
      repo `block` verdict and `:confirm` on `require_approval`; matched repo
      rules surface in the explanation.
@@ -33,13 +33,11 @@ defmodule SigilGuard.BoundaryPolicy do
   never a verdict source: it may only raise risk and add indicators (source
   `:adaptive`); a degraded run records `:adaptive_error` in the audit metadata.
 
-  This module owns the combination engine and the always-present invariants.
-
   ## Examples
 
-  The canonical policy's first rules encode the lethal trifecta—private
-  data, untrusted-content exposure, and an external sink. Low- and medium-trust
-  actors are blocked outright; a high-trust actor is routed to `confirm`:
+  The first rules of the canonical policy encode the lethal trifecta: private
+  data, exposure to untrusted content, and an external sink. Low- and
+  medium-trust actors are blocked; a high-trust actor gets `confirm`:
 
       iex> alias SigilGuard.BoundaryPolicy
       ...> alias SigilGuard.BoundaryPolicy.File, as: PolicyFile

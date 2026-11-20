@@ -1,14 +1,13 @@
 # SigilGuard Architecture
 
 SigilGuard is an embedded native-Elixir security runtime for MCP and agent-tool
-boundaries. It runs in-process on the BEAM and depends on no hosted registry,
-no Rust/NIF backend, and no network call on the decision path. This document
-maps its architecture: the component layers, the module topology, and the
-runtime, MCP, and audit-evidence flows.
+boundaries. It runs in-process on the BEAM and depends on no hosted registry, no
+Rust/NIF backend, and no network call on the decision path.
 
-The architecture is the **Agent Trust Profile**: signed local trust bundles,
-canonical agent and MCP attestations, a deterministic boundary policy kernel,
-staged scanning with quarantine, and exportable tamper-evident audit evidence.
+SigilGuard calls this design the Agent Trust Profile: signed local trust
+bundles, canonical agent and MCP attestations, a deterministic boundary policy
+kernel, staged scanning with quarantine, and exportable tamper-evident audit
+evidence.
 
 ## Component Layers
 
@@ -106,15 +105,18 @@ flowchart TD
     Host --> IdentityB[Identity]
     Host --> HTTPClient[HTTPClient]
 
-    API --> Infra[Caller-supervised Runtime · Config · Telemetry · ReplayStore]
+    API --> Infra[Runtime (application- or host-supervised) · Config · Telemetry
+    · ReplayStore]
 ```
 
 ## Boundary Flows
 
 ### Runtime Gate
 
-A payload and its boundary context become a deterministic decision. No external
-sink is allowed unless an explicit source-to-sink rule permits it.
+A payload and its boundary context become a deterministic decision. A secret
+headed to an external sink is blocked or redacted whatever the policy says.
+Other traffic follows the policy file's rules and `default`, and with no policy
+file it is allowed.
 
 ```mermaid
 sequenceDiagram
@@ -174,8 +176,9 @@ sequenceDiagram
 
 ### Audit Evidence
 
-Every decision links into a tamper-evident chain with signed checkpoints,
-inclusion and consistency proofs, and portable exports for external anchoring.
+The host appends decisions to a tamper-evident chain as audit events. The chain
+adds signed checkpoints, inclusion and consistency proofs, and portable exports
+for external anchoring.
 
 ```mermaid
 flowchart LR
@@ -210,7 +213,8 @@ flowchart LR
 
 - No public hosted registry dependency.
 - No Rust or NIF backend path.
-- No remote network trust in core decision paths by default.
+- No network calls in core decision paths. Remote trust material reaches
+  SigilGuard only through host-owned transport.
 - No ML model weights in core; adaptive detection is an optional behaviour with
   a deterministic nil-path.
 - No inferred assessment findings or control-satisfaction claims; hosts and

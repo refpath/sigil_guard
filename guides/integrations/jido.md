@@ -12,10 +12,9 @@ Validation record:
   warnings were not suppressed or treated as proof of compatibility for the
   unused optional facilities.
 
-Jido actions are a natural SigilGuard insertion point: guard the action input
-inside `run/2` before side effects, thread the agent identity into the boundary
-context, and return a normal Jido action error when SigilGuard denies the
-operation. Do not raise for policy denials.
+In a Jido action, guard the input inside `run/2` before side effects, put the
+agent identity into the boundary context, and return a normal Jido action error
+when SigilGuard denies the operation. Do not raise for policy denials.
 
 ## Dependencies
 
@@ -39,8 +38,8 @@ context are trusted host inputs, never copied from model arguments.
 
 ## Guarded Action
 
-Wrap effectful action execution in a SigilGuard request gate. The action
-returns `{:error, reason}` on denial, preserving Jido's action error contract.
+Wrap effectful action execution in a SigilGuard request gate. On denial the
+action returns `{:error, reason}`, which is Jido's action error contract.
 
 ```elixir
 defmodule MyApp.Actions.GuardedEcho do
@@ -155,7 +154,7 @@ can convert the same decision to JSON-RPC with
 
 ## Validation Procedure
 
-Before editing this guide:
+To revalidate the guide against a new Jido release:
 
 1. Create a scratch project outside this repo.
 2. Add `{:jido, "~> 2.3.2"}` and the SigilGuard path dependency.

@@ -256,7 +256,7 @@ defmodule SigilGuard.CapabilityManifest do
   def new(_), do: {:error, :invalid_manifest}
 
   @doc """
-  Returns the canonical digest for a manifest.
+  Return the lowercase-hex SHA-256 of the manifest's JCS-canonical preimage.
 
   A validated `%SigilGuard.CapabilityManifest{}` reuses its stored digest.
   Carried maps are validated and normalized first.
@@ -311,8 +311,8 @@ defmodule SigilGuard.CapabilityManifest do
   Name the preimage fields in which an observed manifest differs from the
   pinned one.
 
-  `verify/2` answers whether a manifest drifted. This says where: each name is
-  a key of the digest preimage, such as `"description_sha256"`,
+  `verify/2` reports whether a manifest drifted; this function names the fields.
+  Each name is a key of the digest preimage, such as `"description_sha256"`,
   `"input_schema_sha256"` or `"side_effects"`, in sorted order. The list is
   empty when the two digests are equal. Both manifests are validated first.
 

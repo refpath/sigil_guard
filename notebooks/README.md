@@ -1,10 +1,10 @@
 # SigilGuard Livebook Tutorials
 
-These notebooks teach SigilGuard as a security boundary, not as a bag of API
-calls. The running example is an Elixir agent that reads useful but untrusted
-content, proposes tool calls, and occasionally tries to move data somewhere it
-should not. We start with one deterministic decision and finish with signed,
-portable evidence for the complete tool and agent lifecycle.
+These notebooks teach SigilGuard as a security boundary. The running example is
+an Elixir agent that reads useful but untrusted content, proposes tool calls,
+and occasionally tries to move data somewhere it should not. We start with one
+deterministic decision and finish with signed, portable evidence for the
+complete tool and agent lifecycle.
 
 Every chapter is executable. Most code cells match the outcome they teach, so
 a changed result fails the run instead of leaving the prose stale.
@@ -44,13 +44,13 @@ For self-study, follow the chapters in this order:
     actuator command to a record, admit it against current facts, and treat
     the device report as a claim.
 
-The chapters are deliberately small enough to run independently. Each one
-reintroduces the context it needs rather than relying on hidden notebook state.
+Each chapter runs independently and reintroduces the context it needs instead of
+relying on hidden notebook state.
 
 ## A 45-Minute Conference Talk
 
-The strongest talk is a story about authority. A model can propose; it cannot
-authorize itself.
+The talk follows one claim: a model can propose a tool call, but it cannot
+authorize it.
 
 | Time | Notebook | Beat |
 |------|----------|------|
@@ -59,12 +59,12 @@ authorize itself.
 | 17–29 min | Agent Trust Gateway | Pin the manifest, issue exact approval, attach signed evidence, then change one byte. |
 | 29–35 min | Runtime, Streaming, And Telemetry | Split a credential across chunks and show why holdback matters. |
 | 35–42 min | Audit Export And Proofs | Verify one event without replaying the whole log and project a bounded assessment observation. |
-| 42–45 min | Quick Start summary | Return to the claim: useful AI, deterministic authority, signed evidence. |
+| 42–45 min | Quick Start summary | Return to the opening claim that a model can propose but cannot authorize itself. |
 
-The code cells marked **On stage** are the reveal points; the audit chapter
-has none and is shown as a whole. Evaluate the setup
-cells before the room arrives, collapse implementation-heavy sections, and
-keep the deterministic AI replay ready even when you intend to use a provider.
+The **On stage** notes mark the reveal points; the audit chapter has none and is
+shown as a whole. Evaluate the setup cells before the room arrives, collapse
+implementation-heavy sections, and keep the deterministic AI replay ready even
+when you intend to use a provider.
 
 ## A 90-Minute Workshop
 
@@ -73,7 +73,7 @@ Scenarios, and Audit in full. Use MCP v2/Apps, runtime extensions, bundles, and
 A2A as choose-your-own-depth exercises. Ask attendees to change one boundary
 dimension at a time and predict the decision before evaluating the cell.
 
-Good exercises are deliberately adversarial:
+Suggested adversarial exercises:
 
 - Change only the sink from `:model` to `:external`.
 - Alter the approved payload after a confirmation token is issued.
@@ -100,15 +100,14 @@ Without a provider key, the notebook replays a fixed worst-case proposal and
 runs entirely offline. To use a live OpenAI model, add `OPENAI_API_KEY` as a
 Livebook secret and reevaluate the setup cell. Livebook exposes it to notebook
 code as `LB_OPENAI_API_KEY`; the notebook then installs the pinned ReqLLM
-version and asks the model for a tool proposal. The provider call may vary — a
-responsible model can refuse the poisoned instruction — but the fixed replay
+version and asks the model for a tool proposal. The provider's answer may vary,
+and a responsible model can refuse the poisoned instruction. The fixed replay
 still proves the denial path on every run.
 
-This separation is intentional. A conference demo should make the
-non-deterministic part interesting, not make the security conclusion
-non-deterministic. The model never owns the callback and ReqLLM never executes
-the demo tool automatically. The host extracts the proposal, constructs the
-request, asks SigilGuard, and dispatches only `:allow`.
+The live model is the unpredictable part of the demo. The security conclusion
+does not depend on it. The model never owns the callback and ReqLLM never
+executes the demo tool automatically. The host extracts the proposal, constructs
+the request, asks SigilGuard, and dispatches only `:allow`.
 
 Never paste a provider key into a code cell or commit notebook output that
 contains one. Livebook's secret store is the expected path. The demo payloads
@@ -132,9 +131,9 @@ use documented synthetic credentials.
 
 Host-owned concerns remain host-owned in the tutorials: transport negotiation,
 OAuth, complete JSON Schema validation, browser sandbox/CSP construction,
-durable vault storage, external audit-anchor HTTP, and provider credentials.
-The notebooks show SigilGuard's seam for each concern without pretending the
-library operates the surrounding system.
+durable vault storage, external audit-anchor HTTP, and provider credentials. The
+notebooks show SigilGuard's seam for each concern and leave the surrounding
+system to the host.
 
 ## Dependency Modes
 

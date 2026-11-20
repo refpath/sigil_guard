@@ -2,13 +2,12 @@ defmodule SigilGuard.Audit do
   @moduledoc """
   Tamper-evident audit logging for SigilGuard runtime decisions.
 
-  Provides structured audit events with HMAC-SHA256 chain integrity.
-  Each event's HMAC incorporates the previous event's HMAC, forming a
-  hash chain that detects any tampering, insertion, or deletion of events.
+  Each audit event carries an HMAC-SHA256 that covers the previous event's HMAC,
+  so the events form a hash chain.
 
   ## Chain Integrity
 
-  The HMAC chain works as follows:
+  Each HMAC covers the event's canonical bytes followed by a link value:
 
   1. First event: `HMAC(key, canonical_bytes(event) <> "genesis")`
   2. Subsequent events: `HMAC(key, canonical_bytes(event) <> prev_hmac)`
@@ -33,8 +32,8 @@ defmodule SigilGuard.Audit do
 
   ## Audit Logger Behaviour
 
-  Implement `SigilGuard.Audit.Logger` to persist audit events to your
-  preferred backend (database, file, external service):
+  Implement `SigilGuard.Audit.Logger` to persist audit events in a host-owned
+  store:
 
       defmodule MyApp.AuditLogger do
         @behaviour SigilGuard.Audit.Logger
@@ -114,8 +113,8 @@ defmodule SigilGuard.Audit do
   `hash_field(value, field_hash_key)` returns
   `"fh1:" <> lowercase-hex HMAC-SHA256(field_hash_key, value)`. The field-hash
   key is host-supplied per call and MUST differ from the chain HMAC key. When no
-  key (or an empty/non-binary key or value) is supplied the value fails closed to
-  the fixed `"redacted-v1"` placeholder - never a silent clear value.
+  key (or an empty/non-binary key or value) is supplied the value fails closed
+  to the fixed `"redacted-v1"` placeholder; it never returns the clear value.
 
   ## Examples
 
@@ -142,10 +141,10 @@ defmodule SigilGuard.Audit do
 
   The `hashed`-class `actor` field is replaced by its `hash_field/2` form; the
   `clear`-class fields (`id`, `type`, `action`, `result`, `timestamp`) are left
-  verbatim. `metadata` is outside the chain preimage (host-classified) and is not
-  transformed. Apply `classify/2` before `sign_event/3` so the chain HMAC and
-  Merkle root cover the hashed actor - destroying the field-hash key
-  (crypto-erasure) then leaves every chain and proof verification green.
+  verbatim. `metadata` is outside the chain preimage (host-classified) and is
+  not transformed. Apply `classify/2` before `sign_event/3` so the chain HMAC
+  and Merkle root cover the hashed actor. Destroying the field-hash key
+  (crypto-erasure) then leaves every chain and proof verification passing.
 
   Options:
 

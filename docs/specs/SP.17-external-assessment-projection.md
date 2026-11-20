@@ -249,8 +249,8 @@ file, dereference a URI, publish an artifact, or register it with a service.
 - No finding or control-satisfaction state is accepted as input or emitted.
 - Exact reviewed controls are required; `include-all` is forbidden.
 - Each observation must identify its controls and assessed subjects explicitly.
-- Actor and raw audit metadata are not read, preventing accidental identity or
-  payload disclosure from the aggregate export.
+- Actor and raw audit metadata are not read, so the projection cannot disclose
+  identities or payloads from the aggregate export.
 - Loss markers remain in the emitted document and state that signature, actor,
   issuance-time, and assessment-conclusion bindings are absent.
 - URI references are data only. Fragment/query-only locators are rejected, and

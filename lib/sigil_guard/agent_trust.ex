@@ -8,9 +8,8 @@ defmodule SigilGuard.AgentTrust do
   fails closed to a `quarantine` verdict with `peer_trust` `low` and no bound
   card digest.
 
-  Exchange roles are fixed: the requester invokes a capability on the responder,
-  and the governing card is always the responder's - exactly as the manifest for
-  a tool call is always the tool's.
+  The requester invokes a capability on the responder, and the governing card is
+  always the responder's, as the manifest for a tool call is always the tool's.
 
   ## Result payloads are never exempt from scanning
 

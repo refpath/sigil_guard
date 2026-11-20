@@ -100,9 +100,6 @@ defmodule SigilGuard.TrustBundle.VerifyTest do
 
       public_verify_doc = doc_text(public_docs, :verify, 2)
 
-      assert public_verify_doc =~
-               "For compatibility, the 1.0 release line defaults to an effective"
-
       assert public_verify_doc =~ "threshold of `1`"
 
       assert public_verify_doc =~ ":enforce_declared_threshold"

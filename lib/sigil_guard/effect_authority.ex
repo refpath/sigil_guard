@@ -161,8 +161,8 @@ defmodule SigilGuard.EffectAuthority do
     * `:envelope` - the approved effect envelope document, when the record
       names one.
 
-  The checks run in the SP.19 admission order and the first failure is
-  returned as a bare atom. The result is not a credential: it applies to the
+  The checks run in the SP.19 admission order, and the first failure is returned
+  as `{:error, reason}`. The result is not a credential: it applies to the
   dispatch that follows immediately, and a refusal never upgrades a verdict.
   """
   @doc since: "1.1.0"

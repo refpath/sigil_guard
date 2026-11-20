@@ -2,14 +2,14 @@ defmodule SigilGuard.ToolGateway do
   @moduledoc """
   Enforces manifests, attestations, and confirmations around tool boundaries.
 
-  `SigilGuard.ToolGateway` is the enforcement core for MCP-shaped tool calls
-  and results. It combines pinned `SigilGuard.CapabilityManifest` values,
-  Agent Trust attestation verification, action-bound confirmation tokens, and
-  `SigilGuard.Runtime.Gate` boundary decisions.
-  `SigilGuard.MCP.Gateway` is the stable transport-facing facade that delegates
-  here with MCP compatibility defaults.
+  `SigilGuard.ToolGateway` is the enforcement core for MCP-shaped tool calls and
+  results. It combines pinned `SigilGuard.CapabilityManifest` values, Agent
+  Trust attestation verification, action-bound confirmation tokens, and
+  `SigilGuard.Runtime.Gate` boundary decisions. `SigilGuard.MCP.Gateway` is the
+  transport-facing facade over this module; its functions turn confirmation
+  handling off unless their name contains "confirmed".
 
-  The gateway remains transport-neutral. The host owns protocol negotiation,
+  The gateway is transport-neutral. The host owns protocol negotiation,
   `server/discover`, subscriptions, authorization, transport headers, schema
   validation, and execution. For MCP v2 (`2026-07-28`), pass the selected
   revision in the request `_meta` or through `:protocol_version`. SigilGuard
@@ -17,7 +17,7 @@ defmodule SigilGuard.ToolGateway do
   it does not claim that a decoded map is wire-valid.
 
   Manifest checks run before the runtime gate. Confirmation and attestation
-  digests use a structured security projection, preserving map keys, arrays,
+  digests cover a structured security projection. It keeps map keys, arrays,
   numbers, booleans, nulls, multi-round-trip input, request state, client
   capabilities, and extension metadata that can affect behavior. JSON-RPC
   correlation fields and operational tracing metadata are excluded.
@@ -26,7 +26,7 @@ defmodule SigilGuard.ToolGateway do
 
   Use `guard_request/3` before executing a tool and `guard_result/3` before
   returning output to a model. The `guarded_request/3` and `guarded_result/3`
-  variants also shape adapter-friendly JSON-RPC responses. Use
+  variants also return the JSON-RPC response tuple an adapter sends. Use
   `verify_manifest/2` whenever a discovered tool definition is refreshed.
 
   ## Examples
@@ -111,7 +111,8 @@ defmodule SigilGuard.ToolGateway do
     * `:manifests` - map of tool name to pinned manifest, or `{pinned, observed}`
       tuples when the observed manifest is supplied separately.
     * `:require_manifest` - block unknown tools when no manifest resolves.
-      Defaults to `true` when manifests are configured, otherwise `false`.
+      Defaults to `true` when `:manifests` or `:trust_bundle` is given,
+      otherwise `false`.
     * `:allow_suspicious_params` - explicit boundary-policy escape hatch for
       disclosed suspicious required parameters.
     * `:attestation` - `:off`, `:optional`, or `:required`.

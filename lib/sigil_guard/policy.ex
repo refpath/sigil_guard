@@ -2,9 +2,10 @@ defmodule SigilGuard.Policy do
   @moduledoc """
   Risk classification and trust-gated policy enforcement for SigilGuard.
 
-  Maps actions to risk levels and evaluates whether a given trust level is
-  sufficient to proceed. Supports configurable risk mappings, confirmation
-  flow for borderline cases, and rate limiting.
+  `evaluate/3` maps an action to a risk level and compares the caller's trust
+  level with that level's threshold, returning `{:confirm, reason}` when the
+  caller is one level short. `rate_check/2` applies a per-identity fixed-window
+  limit. Risk mappings and thresholds are options.
 
   ## Risk Level Hierarchy
 
@@ -154,7 +155,7 @@ defmodule SigilGuard.Policy do
   end
 
   @doc """
-  Perform a rate check for an identity performing an action.
+  Count one request for `identity` against its fixed-window limit.
 
   Returns `:ok` if within limits, or `{:error, :rate_limited}` if exceeded.
   Malformed input is refused the same way: an identity that is not a binary
@@ -179,10 +180,9 @@ defmodule SigilGuard.Policy do
     * `:rate_store` — ETS table name for rate tracking (default: `:sigil_guard_rates`)
 
   The default table is created and owned by `SigilGuard.Runtime`; without a
-  running runtime every check fails with `:rate_limited`. A custom
-  `:rate_store` table is created on first use
-  and owned by the first calling process — its rate state is lost if that
-  process exits.
+  running runtime every check fails with `:rate_limited`. A custom `:rate_store`
+  table is created on first use and owned by the first calling process; its rate
+  state is lost when that process exits.
   """
   @spec rate_check(String.t(), keyword()) :: :ok | {:error, :rate_limited}
   def rate_check(identity, opts \\ []) do
@@ -204,7 +204,8 @@ defmodule SigilGuard.Policy do
   a custom `:rate_store` table from a process that outlives the callers (the
   table is owned by the process that creates it).
 
-  Safe to call concurrently — creation races resolve to the existing table.
+  Concurrent calls are safe, because a creation race resolves to the existing
+  table.
   """
   @spec ensure_rate_table(atom()) :: :ok
   def ensure_rate_table(table \\ @default_rate_table) do

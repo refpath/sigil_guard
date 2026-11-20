@@ -2,7 +2,8 @@ defmodule SigilGuard.Identity do
   @moduledoc """
   Identity provider behaviour and trust levels for SigilGuard runtime policy.
 
-  Trust levels form a monotonic hierarchy — higher levels subsume lower ones.
+  Trust levels are ordered; a higher level meets every threshold a lower one
+  meets.
 
   ## Trust Level Hierarchy
 

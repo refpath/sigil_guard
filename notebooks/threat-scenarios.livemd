@@ -2,10 +2,9 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fthreat-scenarios.livemd)
 
-Security APIs make more sense when we attack them. This lab starts with one
-reviewed write tool, then changes the words, schema, and authority around it.
-Every scenario asks the same operational question: does the changed action
-reach a side-effecting callback?
+This lab starts with one reviewed write tool, then changes the words, schema,
+and authority around it. Each scenario checks whether the changed action can
+reach a side-effecting callback.
 
 The examples use a synthetic manifest and credential. They perform no file
 write and no network call.
@@ -128,7 +127,7 @@ rug_pull_refresh = SigilGuard.ToolGateway.verify_list_changed([rug_pulled], opts
 }
 ```
 
-## Stale Approval Dies After Manifest Drift
+## A Stale Approval Fails After Manifest Drift
 
 ```elixir
 alias SigilGuard.{CapabilityManifest, Confirmation}
@@ -281,7 +280,10 @@ matching_authority =
 
 ## Manifest Binding On A Stale Approval
 
-Confirmation.verify/5 `manifest_binding: :when_claimed`.
+By default `Confirmation.verify/5` requires the token to carry the manifest
+digest the caller passes. With `manifest_binding: :when_claimed`, a token that
+claims no manifest is accepted, and a token that claims a different one is still
+refused.
 
 ```elixir
 {:ok, unbound_token} =
@@ -324,7 +326,7 @@ claimed_other_manifest =
 }
 ```
 
-## Summary
+## Scenario Results
 
 ```elixir
 %{

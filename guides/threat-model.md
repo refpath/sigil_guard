@@ -1,11 +1,11 @@
 # SigilGuard Threat Model
 
-This guide is the operator- and integrator-facing rendering of SigilGuard's
-threat model. Every claim is scoped to what the library controls: SigilGuard is
-an embedded runtime that mediates MCP and agent-tool boundaries. It is not host
-authentication, transport security, sandbox execution, model behavior, or
-ecosystem tooling. The underlying research note, with sources and derivations,
-lives in `docs/research/` in the source repository.
+This is SigilGuard's threat model for operators and integrators. Each claim
+covers only what the library controls. SigilGuard is an embedded runtime that
+mediates MCP and agent-tool boundaries. It is not host authentication, transport
+security, sandbox execution, model behavior, or ecosystem tooling. The
+underlying research note, with sources and derivations, lives in
+`docs/research/` in the source repository.
 
 ## Control Mapping
 
@@ -34,10 +34,10 @@ lives in `docs/research/` in the source repository.
 | 21 | Human-agent trust exploitation through spoofed or forged approval | ASI09 | Confirmation tokens bind the exact action digest including `sandbox_id`; single-use and TTL defeat replayed or forged approvals. | mitigates (the token); out-of-scope (human judgment) | TM.06 |
 | 22 | Repudiation, audit tamper, or truncation | ASI08, ASI03 | Audit HMAC chain, Merkle checkpoints, inclusion and consistency proofs, and external anchors make tamper and truncation detectable. | mitigates + detects | TM.12 |
 
-Summary: the table has 22 rows. Twelve rows claim mitigation, some jointly with
-detection. Three rows are detection or partial evidence claims. Seven rows are
-out-of-scope, evidence-only, or analogous-pattern claims. Out-of-scope rows may
-still record evidence or detect drift, but they do not claim prevention.
+Of the 22 rows, twelve claim mitigation, some jointly with detection, three are
+detection or partial-evidence claims, and seven are out-of-scope, evidence-only,
+or analogous-pattern claims. Out-of-scope rows may still record evidence or
+detect drift, but they do not claim prevention.
 
 ## Claim Levels
 
@@ -67,9 +67,10 @@ responsibility:
   identity or audience and binds it into attestations. It does not run the
   authorization server, mint tokens, or manage consent cookies.
 - **Session and transport security** — TLS, stream resumption, WebSocket auth,
-  subscription delivery, and request routing belong to the host transport.
-  MCP v2 (`2026-07-28`) removes protocol sessions; SigilGuard adds per-action
-  nonce/replay and manifest-list invalidation as assists.
+  subscription delivery, and request routing belong to the host transport. MCP
+  v2 (`2026-07-28`) removes protocol sessions; SigilGuard adds per-action
+  nonce/replay checks and manifest-list invalidation on top of the host
+  transport.
 - **MCP Apps rendering** — iframe origin isolation, sandbox attributes, CSP
   headers, and browser permission enforcement are host-owned. SigilGuard
   verifies pinned resource bytes and declared domain/permission subsets and
@@ -106,11 +107,10 @@ responsibility:
 
 Every mitigation or detection row maps to a threat-model test module under
 `test/sigil_guard/threat_model/`. Evidence-only and out-of-scope rows are tested
-only for the signals SigilGuard actually owns.
+only for the signals SigilGuard owns.
 
-MCP v2 regression coverage also lives in
-`MCP.SecurityPayloadTest`, `MCP.ProtocolTest`, `MCP.AppResourceTest`,
-`CapabilityManifestTest`, and `ToolGatewayTest`. These cases cover structural
-argument tampering, MRTR state and input responses, modern result
-discrimination, header injection, UI metadata drift, app cross-server calls,
-and undeclared browser capabilities.
+MCP v2 regression coverage also lives in `MCP.SecurityPayloadTest`,
+`MCP.ProtocolTest`, `MCP.AppResourceTest`, `CapabilityManifestTest`, and
+`ToolGatewayTest`. These cases cover structural argument tampering, MRTR state
+and input responses, `resultType` discrimination, header injection, UI metadata
+drift, app cross-server calls, and undeclared browser capabilities.
