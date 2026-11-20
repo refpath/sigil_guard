@@ -267,7 +267,7 @@ defmodule SigilGuard.RepoPolicy do
   def canonical_bytes(%__MODULE__{} = policy) do
     policy
     |> canonical_map()
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
 
@@ -985,7 +985,7 @@ defmodule SigilGuard.RepoPolicy do
       "matched_rule_ids" => attrs.matched_rule_ids,
       "unmatched_paths" => attrs.unmatched_paths
     }
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
     |> Crypto.sha256_hex()
   end
@@ -1008,6 +1008,4 @@ defmodule SigilGuard.RepoPolicy do
         end)
     }
   end
-
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

@@ -31,7 +31,6 @@ defmodule SigilGuard.EffectAuthority do
   """
   @moduledoc since: "1.1.0"
 
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Confirmation
   alias SigilGuard.Context
   alias SigilGuard.Crypto
@@ -322,7 +321,7 @@ defmodule SigilGuard.EffectAuthority do
 
   # A validated record holds ASCII strings only, which JCS always encodes.
   defp jcs_digest(value) do
-    {:ok, bytes} = JCS.encode(value)
-    Crypto.sha256_hex(bytes)
+    {:ok, digest} = Crypto.jcs_sha256_hex(value)
+    digest
   end
 end

@@ -307,8 +307,8 @@ defmodule SigilGuard.TrustBundle.Cache do
   end
 
   defp document_digest!(document) do
-    {:ok, bytes} = SigilGuard.Canonical.JCS.encode(document)
-    Crypto.sha256_hex(bytes)
+    {:ok, digest} = Crypto.jcs_sha256_hex(document)
+    digest
   end
 
   defp decoded_keys(%{"keys" => keys}) do

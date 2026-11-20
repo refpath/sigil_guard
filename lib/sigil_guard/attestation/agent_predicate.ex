@@ -8,7 +8,6 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   `SigilGuard.Attestation` and `SigilGuard.AgentTrust`.
   """
 
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
   alias SigilGuard.Field
 
@@ -170,13 +169,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   @spec action_digest(statement_type(), map(), keyword()) ::
           {:ok, String.t()} | {:error, error_reason()}
   def action_digest(statement_type, payload, opts \\ []) do
-    with {:ok, preimage} <- action_preimage(statement_type, payload, opts),
-         {:ok, canonical} <- JCS.encode(preimage) do
-      {:ok, Crypto.sha256_hex(canonical)}
-    else
-      {:error, :invalid_map} -> {:error, :invalid_payload}
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, preimage} <- action_preimage(statement_type, payload, opts), do: digest(preimage)
   end
 
   @doc """
@@ -186,13 +179,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   @spec delegation_chain_digest(map()) ::
           {:ok, String.t()} | {:error, error_reason()}
   def delegation_chain_digest(payload) when is_map(payload) do
-    with {:ok, chain} <- request_delegation_chain(payload),
-         {:ok, canonical} <- JCS.encode(chain) do
-      {:ok, Crypto.sha256_hex(canonical)}
-    else
-      {:error, :invalid_map} -> {:error, :invalid_payload}
-      {:error, reason} -> {:error, reason}
-    end
+    with {:ok, chain} <- request_delegation_chain(payload), do: digest(chain)
   end
 
   def delegation_chain_digest(_), do: {:error, :invalid_payload}
@@ -352,6 +339,13 @@ defmodule SigilGuard.Attestation.AgentPredicate do
       {:ok, nil} -> nil
       {:ok, value} -> value
       :error -> nil
+    end
+  end
+
+  defp digest(value) do
+    case Crypto.jcs_sha256_hex(value) do
+      {:error, :invalid_map} -> {:error, :invalid_payload}
+      result -> result
     end
   end
 

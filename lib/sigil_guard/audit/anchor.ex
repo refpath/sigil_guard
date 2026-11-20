@@ -112,7 +112,7 @@ defmodule SigilGuard.Audit.Anchor do
   @spec canonical_bytes(t()) :: binary()
   def canonical_bytes(record) when is_map(record) do
     record
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
 
@@ -206,6 +206,4 @@ defmodule SigilGuard.Audit.Anchor do
 
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value), do: value
-
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

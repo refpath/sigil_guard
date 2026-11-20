@@ -130,7 +130,7 @@ defmodule SigilGuard.Audit.Export do
   @spec canonical_bytes(t()) :: binary()
   def canonical_bytes(export) when is_map(export) do
     export
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
 
@@ -404,6 +404,4 @@ defmodule SigilGuard.Audit.Export do
   end
 
   defp field(map, key) when is_map(map), do: Field.get(map, key, @atom_fields)
-
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

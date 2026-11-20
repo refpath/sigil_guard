@@ -10,7 +10,6 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
@@ -380,8 +379,8 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp document_digest(document) do
-    {:ok, bytes} = JCS.encode(document)
-    Crypto.sha256_hex(bytes)
+    {:ok, digest} = Crypto.jcs_sha256_hex(document)
+    digest
   end
 
   defp revoked_keyids(document) do

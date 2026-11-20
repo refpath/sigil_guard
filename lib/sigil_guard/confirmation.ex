@@ -500,9 +500,7 @@ defmodule SigilGuard.Confirmation do
 
   defp canonical_bytes(value) do
     value
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
-
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

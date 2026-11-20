@@ -8,7 +8,6 @@ defmodule SigilGuard.Attestation.Digest do
   """
 
   alias SigilGuard.Attestation
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Context
   alias SigilGuard.Crypto
   alias SigilGuard.Field
@@ -415,12 +414,11 @@ defmodule SigilGuard.Attestation.Digest do
   end
 
   defp normalized_jcs_digest(value) do
-    with {:ok, normalized} <- normalize(value),
-         {:ok, canonical} <- JCS.encode(normalized) do
-      {:ok, Crypto.sha256_hex(canonical)}
-    else
-      {:error, :invalid_map} -> {:error, :invalid_payload}
-      {:error, reason} -> {:error, reason}
+    with {:ok, normalized} <- normalize(value) do
+      case Crypto.jcs_sha256_hex(normalized) do
+        {:error, :invalid_map} -> {:error, :invalid_payload}
+        result -> result
+      end
     end
   end
 

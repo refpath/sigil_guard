@@ -27,7 +27,7 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   def canonical_bytes(receipt) when is_map(receipt) do
     receipt
     |> unsigned()
-    |> canonical_iodata()
+    |> SigilGuard.Canonical.LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
 
@@ -114,6 +114,4 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
       _ -> {:error, :invalid_receipt}
     end
   end
-
-  defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

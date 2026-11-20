@@ -1,7 +1,6 @@
 defmodule SigilGuard.EffectAuthority.Envelope do
   @moduledoc false
 
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
   alias SigilGuard.EffectAuthority.Record
   alias SigilGuard.Limits
@@ -46,8 +45,8 @@ defmodule SigilGuard.EffectAuthority.Envelope do
   @spec digest(term()) :: {:ok, String.t()} | {:error, :invalid_effect_envelope}
   def digest(document) do
     with :ok <- validate(document),
-         {:ok, bytes} <- JCS.encode(document) do
-      {:ok, Crypto.sha256_hex(bytes)}
+         {:ok, digest} <- Crypto.jcs_sha256_hex(document) do
+      {:ok, digest}
     else
       {:error, _} -> {:error, :invalid_effect_envelope}
     end

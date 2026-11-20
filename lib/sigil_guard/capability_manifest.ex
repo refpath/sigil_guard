@@ -29,7 +29,6 @@ defmodule SigilGuard.CapabilityManifest do
   @moduledoc since: "1.0.0"
 
   alias SigilGuard.Attestation.Digest
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
   alias SigilGuard.Field
 
@@ -248,7 +247,7 @@ defmodule SigilGuard.CapabilityManifest do
          :ok <- validate_carried_digests(manifest, computed),
          :ok <- validate_suspicious_params(manifest, computed),
          preimage <- preimage(manifest, computed),
-         {:ok, digest} <- digest_preimage(preimage) do
+         {:ok, digest} <- sha256_jcs(preimage) do
       {:ok, struct!(__MODULE__, struct_fields(manifest, computed, preimage, digest))}
     end
   end
@@ -266,7 +265,7 @@ defmodule SigilGuard.CapabilityManifest do
           {:ok, String.t()} | {:error, :invalid_manifest | :unsupported_number_range}
   def digest(%__MODULE__{digest: digest}) when is_binary(digest), do: {:ok, digest}
 
-  def digest(%__MODULE__{preimage: preimage}) when is_map(preimage), do: digest_preimage(preimage)
+  def digest(%__MODULE__{preimage: preimage}) when is_map(preimage), do: sha256_jcs(preimage)
 
   def digest(manifest) when is_map(manifest) do
     case new(manifest) do
@@ -751,14 +750,6 @@ defmodule SigilGuard.CapabilityManifest do
     end
   end
 
-  defp digest_preimage(preimage) do
-    case JCS.encode(preimage) do
-      {:ok, canonical} -> {:ok, Crypto.sha256_hex(canonical)}
-      {:error, :unsupported_number_range} -> {:error, :unsupported_number_range}
-      {:error, _} -> {:error, :invalid_manifest}
-    end
-  end
-
   defp optional_sha256_jcs(manifest, field) do
     case Map.fetch(manifest, field) do
       {:ok, value} -> sha256_jcs(value)
@@ -774,10 +765,9 @@ defmodule SigilGuard.CapabilityManifest do
   end
 
   defp sha256_jcs(value) do
-    case JCS.encode(value) do
-      {:ok, canonical} -> {:ok, Crypto.sha256_hex(canonical)}
-      {:error, :unsupported_number_range} -> {:error, :unsupported_number_range}
-      {:error, _} -> {:error, :invalid_manifest}
+    case Crypto.jcs_sha256_hex(value) do
+      {:error, reason} when reason != :unsupported_number_range -> {:error, :invalid_manifest}
+      result -> result
     end
   end
 

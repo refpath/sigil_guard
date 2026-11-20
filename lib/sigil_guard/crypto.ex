@@ -5,6 +5,13 @@ defmodule SigilGuard.Crypto do
   @spec sha256_hex(iodata()) :: String.t()
   def sha256_hex(data), do: Base.encode16(:crypto.hash(:sha256, data), case: :lower)
 
+  @doc false
+  @spec jcs_sha256_hex(term()) :: {:ok, String.t()} | {:error, atom()}
+  def jcs_sha256_hex(value) do
+    with {:ok, canonical} <- SigilGuard.Canonical.JCS.encode(value),
+         do: {:ok, sha256_hex(canonical)}
+  end
+
   # Keys and signatures arrive in either base64 alphabet, with or without
   # padding. The url-safe alphabet is tried first because the library writes
   # it.

@@ -201,7 +201,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   def canonical_bytes(checkpoint) when is_map(checkpoint) do
     checkpoint
     |> unsigned_checkpoint()
-    |> canonical_iodata()
+    |> LegacyJSON.encode!()
     |> IO.iodata_to_binary()
   end
 
@@ -563,8 +563,6 @@ defmodule SigilGuard.Audit.Checkpoint do
   defp unsigned_checkpoint(checkpoint) do
     Map.drop(checkpoint, @metadata_keys ++ @metadata_atom_keys)
   end
-
-  defp canonical_iodata(value), do: LegacyJSON.encode!(value)
 
   defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
 end
