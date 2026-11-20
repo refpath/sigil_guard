@@ -60,6 +60,11 @@ defmodule SigilGuard.RepoPolicyCasesTest do
     assert RepoPolicy.compile(%RepoPolicy{rules: ["allow docs/**"]}) == {:error, :invalid_rule}
 
     assert RepoPolicy.compile(%RepoPolicy{
+             rules: [%{decision: :allow, agents: ["*"], actions: ["*"], paths: ["../etc"]}]
+           }) ==
+             {:error, :path_traversal_pattern}
+
+    assert RepoPolicy.compile(%RepoPolicy{
              rules: [%{decision: :allow, agents: ["*"], actions: ["*"], paths: "docs/**"}]
            }) ==
              {:error, :missing_paths}

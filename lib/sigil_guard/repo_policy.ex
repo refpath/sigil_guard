@@ -252,14 +252,11 @@ defmodule SigilGuard.RepoPolicy do
   """
   @spec evaluate(t(), map() | keyword()) :: Decision.t()
   def evaluate(%__MODULE__{} = policy, context) do
-    context = context_map(context)
-
-    case context_string(context, ~w(agent identity actor), :invalid_agent) do
-      {:ok, agent} ->
-        evaluate_with_agent(policy, context, agent)
-
-      {:error, reason} ->
-        invalid_context_decision(nil, "invalid", reason)
+    with {:ok, context} <- context_map(context),
+         {:ok, agent} <- context_string(context, ~w(agent identity actor), :invalid_agent) do
+      evaluate_with_agent(policy, context, agent)
+    else
+      {:error, reason} -> invalid_context_decision(nil, "invalid", reason)
     end
   end
 
@@ -364,11 +361,16 @@ defmodule SigilGuard.RepoPolicy do
        when is_list(path_matchers),
        do: {:ok, rule}
 
-  defp ensure_compiled_rule(%{paths: paths} = rule, _) do
-    with {:ok, path_matchers} <- compile_path_matchers(paths) do
-      {:ok, Map.put(rule, :path_matchers, path_matchers)}
+  # Paths from a hand-built struct go through the same checks as paths from a
+  # raw policy: traversal, absolute paths and empty patterns are refused.
+  defp ensure_compiled_rule(%{paths: paths} = rule, _) when is_list(paths) do
+    with {:ok, paths} <- normalize_patterns(paths),
+         {:ok, path_matchers} <- compile_path_matchers(paths) do
+      {:ok, Map.merge(rule, %{paths: paths, path_matchers: path_matchers})}
     end
   end
+
+  defp ensure_compiled_rule(%{paths: _}, _), do: {:error, :missing_paths}
 
   defp ensure_compiled_rule(_, index), do: compile_rule(nil, index)
 
@@ -927,11 +929,14 @@ defmodule SigilGuard.RepoPolicy do
     field_or_default(context, ~w(changed_paths changed_files files paths), [])
   end
 
+  # A context that is neither a map nor a keyword list names no agent, action
+  # or path, so it is refused instead of evaluated as empty.
   defp context_map(context) when is_list(context),
-    do: if(Keyword.keyword?(context), do: Map.new(context), else: %{})
+    do:
+      if(Keyword.keyword?(context), do: {:ok, Map.new(context)}, else: {:error, :invalid_context})
 
-  defp context_map(context) when is_map(context), do: context
-  defp context_map(_), do: %{}
+  defp context_map(context) when is_map(context) and not is_struct(context), do: {:ok, context}
+  defp context_map(_), do: {:error, :invalid_context}
 
   defp evaluate_with_agent(policy, context, agent) do
     case context_string(context, ~w(action), :invalid_action) do

@@ -184,9 +184,7 @@ defmodule SigilGuard.Context do
   end
 
   def validate(context) when is_map(context) or is_list(context) do
-    context
-    |> new()
-    |> validate()
+    with {:ok, context} <- cast(context), do: validate(context)
   end
 
   def validate(_), do: {:error, :invalid_context}

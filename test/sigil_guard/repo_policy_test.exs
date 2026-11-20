@@ -732,15 +732,15 @@ defmodule SigilGuard.RepoPolicyTest do
       assert decision.changed_paths == []
     end
 
-    test "uses default action and nil identity for malformed contexts" do
+    test "a context that is neither a map nor a keyword list is blocked" do
       policy = compile!(default: :allow, rules: [])
 
-      decision = RepoPolicy.evaluate(policy, :bad_context)
+      for context <- [:bad_context, [1, 2], "context", ~U[2026-01-01 00:00:00Z]] do
+        decision = RepoPolicy.evaluate(policy, context)
 
-      assert decision.verdict == :allow
-      assert decision.agent == nil
-      assert decision.action == "modify"
-      assert decision.changed_paths == []
+        assert decision.verdict == :block
+        assert decision.reason =~ "invalid_context"
+      end
     end
   end
 

@@ -247,7 +247,8 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
       assert {:ok, _} = Cache.put(second)
       assert Cache.check(second) == :ok
       assert Cache.check(first) == {:error, :sequence_below_floor}
-      assert Cache.check(%TrustBundle{}) == :ok
+      assert Cache.check(%TrustBundle{}) == {:error, :invalid_bundle}
+      assert Cache.put(%TrustBundle{}) == {:error, :invalid_bundle}
     end
   end
 

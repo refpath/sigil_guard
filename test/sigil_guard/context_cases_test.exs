@@ -56,4 +56,52 @@ defmodule SigilGuard.ContextCasesTest do
 
     assert SigilGuard.redact("key=AKIAIOSFODNN7EXAMPLE", hits) == "key=[AWS_KEY]"
   end
+
+  test "validate/1 refuses a list that is not a keyword list instead of raising" do
+    assert SigilGuard.Context.validate([1, 2]) == {:error, :invalid_context}
+    assert SigilGuard.Context.validate(phase: :tool_result) == :ok
+  end
+
+  test "a sandbox whose string key is nil is read as no isolation, as the boundary check reads it" do
+    boundary = %{
+      phase: :tool_request,
+      source: :model,
+      origin: :model,
+      sink: :tool,
+      trust_level: :high,
+      actor: %{id: "agent-1"},
+      sandbox: %{"isolation_level" => nil, isolation_level: :bogus},
+      action_digest: String.duplicate("a", 64),
+      payload_digest: String.duplicate("b", 64),
+      context_digest: String.duplicate("c", 64)
+    }
+
+    decision = SigilGuard.BoundaryPolicy.evaluate(boundary)
+    assert "sandbox.matrix.execute.absent" in Enum.map(decision.matched_rules, & &1.rule_id)
+  end
+
+  test "an event's traceparent is written only from well-formed W3C ids" do
+    event = SigilGuard.Audit.new_event("tool_call", "agent-1", "read_file", "allowed")
+    trace = String.duplicate("a", 32)
+    span = String.duplicate("b", 16)
+
+    with_ids = fn trace_id, span_id ->
+      %{event | metadata: %{"trace_id" => trace_id, "span_id" => span_id}}
+      |> SigilGuard.Audit.CloudEvents.project()
+      |> Map.get("traceparent")
+    end
+
+    assert with_ids.(trace, span) == "00-#{trace}-#{span}-01"
+
+    for {trace_id, span_id} <- [
+          {"short", span},
+          {trace, "short"},
+          {String.duplicate("A", 32), span},
+          {String.duplicate("0", 32), span},
+          {trace, String.duplicate("0", 16)},
+          {trace <> "\r\n", span}
+        ] do
+      assert with_ids.(trace_id, span_id) == nil
+    end
+  end
 end

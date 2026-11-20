@@ -617,6 +617,12 @@ most switches by truthiness, so `nil` forwarded from an unset host setting
 turned `:cache`, `:quarantine` and `:output_contracts` off, and `"true"`
 left `require_manifest:` off. Pass booleans.
 
+### Malformed Repository Policy Contexts
+
+`RepoPolicy.evaluate/2` blocks with `invalid_context` when the context is
+neither a map nor a keyword list. Releases up to 1.0.5 evaluated such a
+context as empty, so the policy default decided the change.
+
 ### Malformed Policy Options
 
 `BoundaryPolicy.evaluate/2` blocks with `invalid_options` when `:policy` is

@@ -5,6 +5,20 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.RepoPolicy.evaluate/2` blocks a context that is neither a map
+  nor a keyword list. It evaluated it as an empty context, so the policy
+  default decided. Paths of a hand-built `%RepoPolicy{}` rule get the same
+  traversal and absolute-path checks as a raw policy's.
+- `SigilGuard.TrustBundle.Cache.check/1` and `put/1` return
+  `{:error, :invalid_bundle}` for a bundle without a binary id and a
+  positive sequence. `check/1` returned `:ok` and `put/1` raised.
+- `SigilGuard.Context.validate/1` returns `{:error, :invalid_context}` for a
+  list that is not a keyword list. It raised.
+- The boundary kernel reads a sandbox's isolation level with the precedence
+  `Boundary.validate/1` checks, so a sandbox map with both key forms can no
+  longer raise in the sandbox matrix.
+- A CloudEvents projection carries `traceparent` only for well-formed W3C
+  trace and span ids.
 - The HTTP anchor store judges an IPv6 receipt host that embeds an IPv4
   address (IPv4-mapped, IPv4-compatible, NAT64 `64:ff9b::/96`, 6to4
   `2002::/16`) by that address, and refuses multicast, broadcast, reserved

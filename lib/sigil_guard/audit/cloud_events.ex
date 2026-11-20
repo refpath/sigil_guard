@@ -43,7 +43,8 @@ defmodule SigilGuard.Audit.CloudEvents do
 
   Emits `specversion` `1.0`, `type` `io.sigilguard.decision.v1`, and a
   privacy-filtered `data` object. A `traceparent` extension is added only when
-  both `trace_id` and `span_id` are present in the event metadata.
+  the event metadata holds a W3C `trace_id` (32 lowercase hex digits) and
+  `span_id` (16), neither all zeros.
   """
   @spec project(Audit.t(), keyword()) :: cloud_event()
   def project(%Audit{} = event, opts \\ []) when is_list(opts) do
@@ -74,12 +75,21 @@ defmodule SigilGuard.Audit.CloudEvents do
     }
   end
 
+  # W3C Trace Context: a 32-hex-digit trace id and a 16-hex-digit span id,
+  # lowercase and not all zero. Other values would produce a header that
+  # downstream tracers reject or misread, so they are left out.
   defp maybe_put_traceparent(envelope, metadata) do
     with trace_id when is_binary(trace_id) <- Map.get(metadata, "trace_id"),
-         span_id when is_binary(span_id) <- Map.get(metadata, "span_id") do
+         span_id when is_binary(span_id) <- Map.get(metadata, "span_id"),
+         true <- trace_field?(trace_id, 32) and trace_field?(span_id, 16) do
       Map.put(envelope, "traceparent", "00-#{trace_id}-#{span_id}-01")
     else
       _ -> envelope
     end
+  end
+
+  defp trace_field?(value, size) do
+    byte_size(value) == size and value =~ ~r/\A[0-9a-f]+\z/ and
+      value != String.duplicate("0", size)
   end
 end

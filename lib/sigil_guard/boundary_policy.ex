@@ -353,11 +353,16 @@ defmodule SigilGuard.BoundaryPolicy do
     |> Enum.max_by(fn {verdict, _} -> Verdict.rank(verdict) end, fn -> {:allow, nil} end)
   end
 
+  # The same key precedence as `Boundary.validate/1`: a present string key wins,
+  # even when it is nil, so the level read here is the level validated there.
   defp sandbox_level(%Boundary{sandbox: sandbox}) when is_map(sandbox) do
-    case Map.get(sandbox, "isolation_level") || Map.get(sandbox, :isolation_level) do
-      nil -> :absent
-      level -> level
-    end
+    level =
+      case Map.fetch(sandbox, "isolation_level") do
+        {:ok, level} -> level
+        :error -> Map.get(sandbox, :isolation_level)
+      end
+
+    if is_nil(level), do: :absent, else: level
   end
 
   defp sandbox_level(_), do: :absent

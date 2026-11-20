@@ -22,7 +22,11 @@ defmodule SigilGuard.TrustBundle.Cache do
         }
   @typedoc "Why `put/1` refused a bundle."
   @type put_error ::
-          :sequence_below_floor | :forked_root_chain | :revoked_key | :cache_unavailable
+          :sequence_below_floor
+          | :forked_root_chain
+          | :revoked_key
+          | :cache_unavailable
+          | :invalid_bundle
 
   @doc """
   Create the trust-bundle ETS table if it does not already exist.
@@ -135,7 +139,7 @@ defmodule SigilGuard.TrustBundle.Cache do
     end
   end
 
-  def check(%TrustBundle{}), do: :ok
+  def check(%TrustBundle{}), do: {:error, :invalid_bundle}
 
   @doc """
   Accept a verified trust-bundle snapshot if it advances the sequence floor.
@@ -154,6 +158,8 @@ defmodule SigilGuard.TrustBundle.Cache do
       [row] -> put_existing(bundle, row)
     end
   end
+
+  def put(%TrustBundle{}), do: {:error, :invalid_bundle}
 
   @doc """
   Return the current monotonic floor for a bundle id.
