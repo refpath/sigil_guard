@@ -1,4 +1,4 @@
-# Physical-Effect Requests: Bind, Admit, Then Record
+# Physical-Effect Requests
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fphysical-effect-requests.livemd)
 
@@ -32,7 +32,10 @@ Mix.install([sigil_guard_dep], install_opts)
 
 ## Carry A Binding Record
 
-The host puts the binding record under `_meta` of the tool call. With `effect_binding: :required`, `ToolGateway.guard_request/3` refuses a request without one and records the record's digest, `EffectAuthority.binding_digest/1`, in the decision.
+The host puts the binding record under `_meta` of the tool call. With
+`effect_binding: :required`, `ToolGateway.guard_request/3` refuses a request
+without one and records the record's digest, `EffectAuthority.binding_digest/1`,
+in the decision.
 
 ```elixir
 alias SigilGuard.{EffectAuthority, ToolGateway}
@@ -95,7 +98,9 @@ without_record =
 
 ## Admit Against Current Facts
 
-An allowed request is not yet a command. `EffectAuthority.admit/5` compares the binding record with facts the host observes now and names the first fact that does not hold.
+An allowed request is not yet a command. `EffectAuthority.admit/5` compares
+the binding record with facts the host observes now and names the first fact
+that does not hold.
 
 ```elixir
 dispatch_time = ~U[2026-11-19 12:01:00.000Z]
@@ -142,7 +147,9 @@ refusals
 
 ## A Signed Report Is A Claim
 
-A device report says what it did; it does not prove it. `EffectAuthority.classify_outcome/1` sorts the report and `audit_fields/1` gives the values to record.
+A device report says what it did; it does not prove it.
+`EffectAuthority.classify_outcome/1` sorts the report and `audit_fields/1`
+gives the values to record.
 
 ```elixir
 report = %{
@@ -184,3 +191,5 @@ true = audit_fields.(observed).result_info.success
   audit_result: audit_fields.(observed).result
 }
 ```
+
+Next: [SigilGuard Livebook Tutorials](README.md).

@@ -1,16 +1,14 @@
-# Integrating At The Framework Seam: A Hermes-Shaped MCP Server
+# Hermes Integration Stub
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fhermes-integration.livemd)
 
-The request is guarded immediately before the callback that owns side effects;
-the result is guarded immediately before it returns to model context.
-Supervision, transport, routing, and protocol negotiation remain the framework's
-job.
-
-This notebook exercises that placement against a tiny Hermes-shaped stub. It
-does not install `hermes_mcp`, so the tutorial remains offline and does not
-pretend a stub validates a moving framework API. The versioned compile record
-and production wiring live in `guides/integrations/hermes-mcp.md`.
+This notebook guards a request immediately before the callback that owns side
+effects, and the result immediately before it returns to model context, using a
+small Hermes-shaped stub. Supervision, transport, routing, and protocol
+negotiation remain the framework's job. The notebook does not install
+`hermes_mcp`, so it stays offline and does not pretend a stub validates a moving
+framework API; the versioned compile record and production wiring live in
+`guides/integrations/hermes-mcp.md`.
 
 ## Setup
 
@@ -329,3 +327,5 @@ true = String.ends_with?(streamed, "[AWS_KEY] done")
   denied_status: error_response["error"]["data"]["status"]
 }
 ```
+
+Next: [Physical-Effect Requests](physical-effect-requests.livemd).

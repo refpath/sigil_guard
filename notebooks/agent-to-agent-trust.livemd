@@ -1,15 +1,13 @@
-# Agent-To-Agent Trust: Authenticate The Peer, Distrust The Content
+# Agent-To-Agent Trust
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fagent-to-agent-trust.livemd)
 
-An agent card is the peer equivalent of a tool capability manifest. It says
-which agent, endpoint, key, protocol, and capabilities an issuer vouches for.
-It does not say that every sentence the agent returns is safe to place in model
-context.
-
-This chapter keeps those two claims separate. We verify and bind a peer card,
-protect an ordered delegation chain, sign a response with the peer's own key,
-and still scan the authenticated result for prompt injection.
+This chapter verifies and binds a peer agent card, protects an ordered
+delegation chain, signs a response with the peer's own key, and still scans the
+authenticated result for prompt injection. An agent card is the peer equivalent
+of a tool capability manifest: it says which agent, endpoint, key, protocol, and
+capabilities an issuer vouches for, not that every sentence the agent returns is
+safe to place in model context.
 
 ## Setup
 
@@ -335,8 +333,8 @@ response_decision = %{allow_decision | phase: :tool_result}
 }
 ```
 
-**On stage:** verification succeeded. Send the authenticated bytes through the
-result boundary. Producer authenticity is not content safety.
+> **On stage:** verification succeeded. Send the authenticated bytes through
+> the result boundary. Producer authenticity is not content safety.
 
 ```elixir
 result_gate =
@@ -491,3 +489,5 @@ false = response_statement["predicate"]["quarantined"]
 Verify the card through issuer trust, verify the response through the key in
 that card, bind it to the request, and then treat the result as untrusted
 content. A verified peer can still return a prompt injection.
+
+Next: [Audit Export And Proofs](audit-export-and-proofs.livemd).

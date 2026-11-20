@@ -1,13 +1,11 @@
-# Threat Lab: Poisoning, Rug Pulls, Schema Injection, And Confused Authority
+# Threat Scenarios
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fthreat-scenarios.livemd)
 
-This lab starts with one reviewed write tool, then changes the words, schema,
-and authority around it. Each scenario checks whether the changed action can
-reach a side-effecting callback.
-
-The examples use a synthetic manifest and credential. They perform no file
-write and no network call.
+This lab starts with one reviewed write tool, changes the words, schema, and
+authority around it, and checks whether each changed action can reach a
+side-effecting callback. The examples use a synthetic manifest and credential
+and perform no file write and no network call.
 
 ## Setup
 
@@ -87,6 +85,9 @@ opts = [
 
 ## Tool Poisoning Is Rejected
 
+A changed description changes the manifest digest, so the poisoned definition
+no longer matches the reviewed pin.
+
 ```elixir
 poisoned =
   Map.put(
@@ -102,13 +103,21 @@ poison_result =
     require_manifest: true
   )
 
+clean_result = SigilGuard.ToolGateway.verify_manifest(manifest["name"], opts)
+
+{:ok, _capability} = clean_result
+{:error, :manifest_digest_mismatch} = poison_result
+
 %{
-  clean_manifest: SigilGuard.ToolGateway.verify_manifest(manifest["name"], opts) |> elem(0),
+  clean_manifest: elem(clean_result, 0),
   poisoned_manifest: poison_result
 }
 ```
 
 ## Rug Pulls Fail On List Refresh
+
+A description swapped after review fails when a list change makes the host
+verify the tools again, while the unchanged list still verifies.
 
 ```elixir
 rug_pulled =
@@ -121,6 +130,9 @@ rug_pulled =
 clean_refresh = SigilGuard.ToolGateway.verify_list_changed([manifest], opts)
 rug_pull_refresh = SigilGuard.ToolGateway.verify_list_changed([rug_pulled], opts)
 
+{:ok, [_verified]} = clean_refresh
+{:error, :manifest_digest_mismatch} = rug_pull_refresh
+
 %{
   clean_refresh: elem(clean_refresh, 0),
   rug_pull_refresh: rug_pull_refresh
@@ -128,6 +140,9 @@ rug_pull_refresh = SigilGuard.ToolGateway.verify_list_changed([rug_pulled], opts
 ```
 
 ## A Stale Approval Fails After Manifest Drift
+
+A confirmation token issued against the reviewed manifest digest verifies only
+while the tool keeps that digest.
 
 ```elixir
 alias SigilGuard.{CapabilityManifest, Confirmation}
@@ -173,6 +188,9 @@ changed_manifest =
     consume: false
   )
 
+{:ok, _claims} = same_manifest
+{:error, :manifest_digest_mismatch} = changed_manifest
+
 %{
   issued_for: benign_digest,
   same_manifest: elem(same_manifest, 0),
@@ -181,6 +199,9 @@ changed_manifest =
 ```
 
 ## Schema Injection Forces Confirmation
+
+A manifest that adds a required `apiKey` parameter and discloses it in
+`suspicious_params` turns the call into a confirmation instead of an allow.
 
 ```elixir
 request = %{
@@ -207,6 +228,10 @@ schema_decision =
     require_manifest: true
   )
 
+:confirm = schema_decision.action
+{:confirm, "suspicious_required_param"} = schema_decision.verdict
+["apiKey"] = schema_decision.audit_metadata.suspicious_params
+
 %{
   action: schema_decision.action,
   verdict: schema_decision.verdict,
@@ -215,6 +240,9 @@ schema_decision =
 ```
 
 ## Undisclosed Schema Injection Fails Closed
+
+The same required parameter without the `suspicious_params` disclosure fails
+manifest verification.
 
 ```elixir
 undisclosed =
@@ -225,6 +253,8 @@ undisclosed_result =
     manifests: %{"repo_file_write" => manifest},
     server: manifest["server"]
   )
+
+{:error, :suspicious_required_param} = undisclosed_result
 
 %{
   undisclosed_schema: undisclosed_result
@@ -338,3 +368,5 @@ claimed_other_manifest =
   confused_deputy: confused_deputy.verdict
 }
 ```
+
+Next: [MCP v2 And MCP Apps](mcp-v2-and-apps.livemd).

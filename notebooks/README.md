@@ -18,39 +18,39 @@ mix sigil_guard.livebook_check
 
 For self-study, follow the chapters in this order:
 
-1. [Quick Start](quick-start.livemd) — scan a payload and make the first
+1. [Quick Start](quick-start.livemd): scan a payload and make the first
    boundary decision.
-2. [Policy And The Lethal Trifecta](policy-and-lethal-trifecta.livemd) — turn
+2. [Policy And The Lethal Trifecta](policy-and-lethal-trifecta.livemd): turn
    source, sink, sensitivity, and trust into policy data.
-3. [An AI Agent Under Attack](ai-agent-under-attack.livemd) — put a real or
+3. [An AI Agent Under Attack](ai-agent-under-attack.livemd): put a real or
    replayed model proposal behind an enforceable tool boundary.
-4. [The Agent Trust Gateway](agent-trust-gateway.livemd) — pin the tool,
+4. [The Agent Trust Gateway](agent-trust-gateway.livemd): pin the tool,
    approve the exact action, and sign the evidence.
-5. [Threat Scenarios](threat-scenarios.livemd) — exercise poisoning, rug pull,
+5. [Threat Scenarios](threat-scenarios.livemd): exercise poisoning, rug pull,
    schema injection, and stale approval defenses.
-6. [MCP v2 And MCP Apps](mcp-v2-and-apps.livemd) — preserve structured MCP
+6. [MCP v2 And MCP Apps](mcp-v2-and-apps.livemd): preserve structured MCP
    semantics and verify browser-facing resources.
-7. [Runtime, Streaming, And Telemetry](runtime-streaming-and-telemetry.livemd)
-   — stop split secrets, add deny-side extensions, and observe safely.
-8. [Trust Bundles, Identity, And Vault](trust-bundles-identity-and-vault.livemd)
-   — operate local trust material and host-owned secrets.
-9. [Agent-To-Agent Trust](agent-to-agent-trust.livemd) — authenticate peer
+7. [Runtime, Streaming, And Telemetry](runtime-streaming-and-telemetry.livemd):
+   stop split secrets, add deny-side extensions, and observe safely.
+8. [Trust Bundles, Identity, And Vault](trust-bundles-identity-and-vault.livemd):
+   operate local trust material and host-owned secrets.
+9. [Agent-To-Agent Trust](agent-to-agent-trust.livemd): authenticate peer
    capabilities without trusting peer content.
-10. [Audit Export And Proofs](audit-export-and-proofs.livemd) — build the
+10. [Audit Export And Proofs](audit-export-and-proofs.livemd): build the
     evidence chain, proofs, anchor record, and OSCAL observation.
-11. [Hermes Integration Stub](hermes-integration.livemd) — place the same gate
+11. [Hermes Integration Stub](hermes-integration.livemd): place the same gate
     in an MCP framework seam without adding a framework dependency.
-12. [Physical-Effect Requests](physical-effect-requests.livemd) — bind an
+12. [Physical-Effect Requests](physical-effect-requests.livemd): bind an
     actuator command to a record, admit it against current facts, and treat
     the device report as a claim.
 
 Each chapter runs independently and reintroduces the context it needs instead of
 relying on hidden notebook state.
 
-## A 45-Minute Conference Talk
+## Running The Track As A Talk
 
-The talk follows one claim: a model can propose a tool call, but it cannot
-authorize it.
+A 45-minute talk follows one claim: a model can propose a tool call, but it
+cannot authorize it.
 
 | Time | Notebook | Beat |
 |------|----------|------|
@@ -159,8 +159,8 @@ the normal offline validation never installs it or performs provider requests.
 - Clear outputs containing provider responses before publishing a recording or
   sharing the notebook.
 - Increase editor and output font sizes before screen sharing.
-- Do not attach the notebook runtime to a production node for a conference
-  demo; all examples are designed for Livebook's standalone runtime.
+- Do not attach the notebook runtime to a production node for a live demo;
+  all examples are designed for Livebook's standalone runtime.
 
 ## Primary Documentation Used
 

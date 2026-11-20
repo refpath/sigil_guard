@@ -1,19 +1,15 @@
-# The Agent Trust Gateway: Pin, Approve, Attest
+# The Agent Trust Gateway
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fagent-trust-gateway.livemd)
 
-A model asking for a tool is not yet an authorized tool call. Before it becomes
-one, a production host checks three things: 1. The tool definition is still the
-one that was reviewed. 2. A human approved this exact action in this exact
-context. 3. The next system can verify the decision without trusting the host's
-prose.
+This chapter turns a model's tool request into an authorized call with
+capability manifests, confirmation tokens, and DSSE attestations. Each object
+binds a different thing and answers one of the questions a production host asks
+before it executes:
 
 1. Is this still the tool definition we reviewed?
 2. Did a human approve this exact action in this exact context?
 3. Can the next system verify what was decided without trusting our prose?
-
-This chapter answers them with capability manifests, confirmation tokens, and
-DSSE attestations. Each object binds a different thing.
 
 ## Setup
 
@@ -236,8 +232,8 @@ approved =
 %{verdict: approved.verdict, confirmation: approved.audit_metadata.confirmation_status}
 ```
 
-**On stage:** reuse the same request immediately. A token is one-shot by
-default; the second call is a replay, not another authorization.
+> **On stage:** reuse the same request immediately. A token is one-shot by
+> default; the second call is a replay, not another authorization.
 
 ```elixir
 replay =
@@ -665,3 +661,5 @@ the runtime boundary gate.
   signed_evidence: accepted_attestation.verdict
 }
 ```
+
+Next: [Threat Scenarios](threat-scenarios.livemd).

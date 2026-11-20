@@ -1,15 +1,14 @@
-# Operating Local Trust: Bundles, Identity, And The Vault
+# Trust Bundles, Identity, And Vault
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Ftrust-bundles-identity-and-vault.livemd)
 
-Runtime policy depends on the material it consumes. A pattern set fetched ad hoc
-from the network, an actor label supplied by a model, or a provider key copied
-into tool arguments can undermine an otherwise careful gate.
-
-This chapter operates the local side of that problem: a signed offline trust
-bundle, per-boot rollback state, audit-safe quarantine, host-resolved identity,
-and an encrypted in-memory vault. SigilGuard performs no trust bundle HTTP
-fetch. The host owns transport and passes bytes into verification.
+This chapter operates the local material that runtime policy depends on: a
+signed offline trust bundle, per-boot rollback state, audit-safe quarantine,
+host-resolved identity, and an encrypted in-memory vault. A pattern set fetched
+ad hoc from the network, an actor label supplied by a model, or a provider key
+copied into tool arguments can undermine an otherwise careful gate. SigilGuard
+performs no trust bundle HTTP fetch; the host owns transport and passes bytes
+into verification.
 
 ## Setup
 
@@ -430,3 +429,5 @@ false = Vault.exists?(vault_id, InMemory)
 
 %{vault_running?: Process.whereis(InMemory) != nil, encrypt: :vault_unavailable}
 ```
+
+Next: [Agent-To-Agent Trust](agent-to-agent-trust.livemd).

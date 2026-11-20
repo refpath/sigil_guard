@@ -2,15 +2,12 @@
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fai-agent-under-attack.livemd)
 
-This chapter is the live demonstration of the track.
-
-An assistant reads a poisoned deployment result. The text asks it to copy a
-credential into an outbound webhook. A live model may refuse, comply, or do
-something surprising. That uncertainty is useful on stage, but the security
-decision must not depend on it.
-
-The model plans, the Elixir host owns the tool callback, and SigilGuard sits
-between them.
+This chapter is the live demonstration of the track. An assistant reads a
+poisoned deployment result whose text asks it to copy a credential into an
+outbound webhook. A live model may refuse, comply, or do something surprising.
+That uncertainty is useful on stage, but the security decision must not depend
+on it: the model plans, the Elixir host owns the tool callback, and SigilGuard
+sits between them.
 
 ```mermaid
 sequenceDiagram
@@ -368,6 +365,6 @@ injection. It proves:
 4. The same boundary runs after tool execution before content returns to the
    model.
 5. A fixed replay makes the enforcement claim reproducible even when the live
-   model or conference Wi-Fi is not.
+   model or the venue network is not.
 
 Next: [The Agent Trust Gateway](agent-trust-gateway.livemd).

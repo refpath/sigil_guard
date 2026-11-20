@@ -1,14 +1,12 @@
-# Audit Evidence: Chains, Merkle Proofs, Witnesses, Anchors, And OSCAL
+# Audit Export And Proofs
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Faudit-export-and-proofs.livemd)
 
-An audit trail has to detect deletion and reordering inside the chain, prove one
-event belongs to a large log without disclosing the rest, show that a later
-checkpoint extends an earlier one, and carry the result into another assurance
-system without overstating what it proves.
-
-This chapter builds that evidence path entirely in memory. External WORM
-storage is represented by an anchor record; the host still owns the actual
+This chapter builds an audit evidence path in memory: a chain that detects
+deletion and reordering, a proof that one event belongs to a large log without
+disclosing the rest, a check that a later checkpoint extends an earlier one, and
+an export into another assurance system that does not overstate what it proves.
+An anchor record stands in for external WORM storage; the host still owns the
 storage client and retention policy.
 
 ## Setup
@@ -425,3 +423,5 @@ true = Enum.all?(events, &(&1.actor == classified_actor))
   actor_without_key: Audit.hash_field("did:web:alice", nil)
 }
 ```
+
+Next: [Hermes Integration Stub](hermes-integration.livemd).

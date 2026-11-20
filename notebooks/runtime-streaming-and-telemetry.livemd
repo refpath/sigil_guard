@@ -1,15 +1,13 @@
-# Runtime Safety: Streaming, Hooks, Adaptive Signals, And Telemetry
+# Runtime, Streaming, And Telemetry
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fruntime-streaming-and-telemetry.livemd)
 
-A single-shot sanitizer is not automatically safe for a streaming response.
-The bytes `AKIAIOS` and `FODNN7EXAMPLE` look harmless when inspected as two
-independent chunks; together they are the synthetic AWS credential used
-throughout this tutorial track.
-
-This chapter starts at that concrete failure mode, then adds the extension and
-observability seams a host needs in production. Extensions may raise risk or
-deny an action, but they cannot turn a deterministic denial into an allow.
+This chapter starts with a streaming failure and then adds the extension and
+observability seams a host needs in production. The bytes `AKIAIOS` and
+`FODNN7EXAMPLE` look harmless as two independent chunks; together they are the
+synthetic AWS credential used throughout this track, so a single-shot sanitizer
+is not enough for a streaming response. Extensions may raise risk or deny an
+action, but they cannot turn a deterministic denial into an allow.
 
 ## Setup
 
@@ -503,3 +501,5 @@ detector = [adaptive_detector: RuntimeTalk.AdaptiveDetector]
   high_trust_with_detector: gate_with_detector.(:high, detector).action
 }
 ```
+
+Next: [Trust Bundles, Identity, And Vault](trust-bundles-identity-and-vault.livemd).

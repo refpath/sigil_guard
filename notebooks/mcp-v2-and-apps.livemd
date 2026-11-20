@@ -1,14 +1,13 @@
-# MCP 2026-07-28 And MCP Apps: Preserve Meaning Before You Guard It
+# MCP v2 And MCP Apps
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fmcp-v2-and-apps.livemd)
 
-A security wrapper that flattens a structured protocol message into text loses
-the distinctions the signature was supposed to protect. `false`, `0`, `nil`, and a missing field are not the
-same operation. Neither are an interim MCP result and a completed one.
-
-This chapter keeps those distinctions intact for the `2026-07-28` MCP revision,
-then verifies the resource metadata that accompanies an MCP App. SigilGuard
-supplies the security checks. Protocol negotiation, JSON Schema evaluation,
+This chapter carries structured messages of the `2026-07-28` MCP revision
+through the guard intact, then verifies the resource metadata that accompanies
+an MCP App. A wrapper that flattens a message into text loses the distinctions
+the signature protects: `false`, `0`, `nil`, and a missing field are different
+operations, and so are an interim MCP result and a completed one. SigilGuard
+supplies the security checks; protocol negotiation, JSON Schema evaluation,
 OAuth, and browser sandbox construction remain host work.
 
 ## Setup
@@ -215,8 +214,8 @@ app_opts = [
 }
 ```
 
-**On stage:** add one unreviewed origin. A declared CSP is input to policy, not
-permission granted by the server to itself.
+> **On stage:** add one unreviewed origin. A declared CSP is input to policy,
+> not permission granted by the server to itself.
 
 ```elixir
 expanded_resource =
@@ -312,3 +311,5 @@ from_other_server = guard_as.(:app, "other-mcp")
   browser_enforcement: "host-owned"
 }
 ```
+
+Next: [Runtime, Streaming, And Telemetry](runtime-streaming-and-telemetry.livemd).

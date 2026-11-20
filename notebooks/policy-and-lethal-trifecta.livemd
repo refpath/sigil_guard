@@ -1,15 +1,13 @@
-# Policy As Data: The Lethal Trifecta
+# Policy And The Lethal Trifecta
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fpolicy-and-lethal-trifecta.livemd)
 
-The dangerous agent shape is one that can read private data, consume untrusted
-instructions, and communicate externally in the same flow. Remove any one edge
-and the risk drops sharply. Leave all three connected and a prompt injection can
-become an exfiltration path.
-
-SigilGuard turns those edges into ordinary, reviewable policy data. This
-chapter compiles one policy file, exercises its boundary rules, applies its
-repository rules, and enforces its outbound data contract.
+This chapter compiles one policy file, exercises its boundary rules, applies
+its repository rules, and enforces its outbound data contract. The policy
+targets the lethal trifecta: an agent that reads private data, consumes
+untrusted instructions, and communicates externally in the same flow, where a
+prompt injection can become an exfiltration path. Removing any one edge drops
+the risk sharply, and SigilGuard expresses each edge as reviewable policy data.
 
 ## Setup
 

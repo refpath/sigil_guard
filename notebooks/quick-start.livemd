@@ -1,13 +1,12 @@
-# SigilGuard Quick Start: Put A Boundary Around The Model
+# Quick Start
 
 [![Run in Livebook](https://livebook.dev/badge/v1/blue.svg)](https://livebook.dev/run?url=https%3A%2F%2Fgithub.com%2Frefpath%2Fsigil_guard%2Fblob%2Fmain%2Fnotebooks%2Fquick-start.livemd)
 
-A prompt that says "be careful" does not make an agent safe. The host has to
-label every boundary crossing and keep the final authority to allow, redact,
-confirm, quarantine, or block it.
-
-The chapter scans and redacts one synthetic deployment log, sends it across two
-boundaries, and shows that the sink matters as much as the bytes.
+This chapter scans and redacts one synthetic deployment log, then sends it
+across two boundaries to show that the sink matters as much as the bytes. A
+prompt that says "be careful" does not make an agent safe; the host labels every
+boundary crossing and keeps the final authority to allow, redact, confirm,
+quarantine, or block it.
 
 ## Setup
 
