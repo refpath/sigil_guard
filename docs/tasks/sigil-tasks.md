@@ -62,8 +62,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 312 / 312 tasks done (100.0%).** Milestones: 17 complete.
-**Current milestone: none open.**
+**Overall: 321 / 324 tasks done (99.1%).** Milestones: 17 complete.
+**Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -84,7 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| — | **Total** | **312** | **312** | **100.0%** | 17 done |
+| M15 | Benchmarks and library conformance | 9 | 12 | 75% | In progress |
+| — | **Total** | **321** | **324** | **99.1%** | 17 done |
 
 ### Release Handoff
 
@@ -117,7 +118,11 @@ the actual 1.0.0 package artifact as release handoff evidence.
 M14 records the requirements that a spec-to-code review on 2026-11-20 found
 unmet, and how each was closed.
 
-The table counts every milestone task (F through M14, including M7A) exactly
+M15 adds per-area benchmarks and brings the library in line with the Elixir
+library guidelines and anti-pattern guides. Three of its tasks need a quiet
+benchmark runner or a decision.
+
+The table counts every milestone task (F through M15, including M7A) exactly
 once. The
 Mandatory Gates section is a recurring pre-commit checklist and the Deferred
 section is post-1.0.0 parking; neither is counted here.
@@ -3387,6 +3392,81 @@ and the sandbox class of a tool result (M14.05).
     producer-side and runs in a checkout of the released tag, which the
     release guide states. SP.14 already says that no module ships under
     `examples/`.
+
+## M15 - Benchmarks And Library Conformance
+
+> References: `SP.15`, the Elixir library guidelines and anti-pattern guides
+> Effort: L
+> Status: in progress
+> Dependencies: none
+
+A review on 2026-11-20 measured the library, checked it against the Elixir
+library guidelines and the code, design and process anti-pattern guides, and
+traced every line no test executed.
+
+- [x] M15.01 Benchmark suites per area (`SP.15`).
+  - AC: one Benchee suite per area under `bench/`, each with fixture
+    preconditions run before timing and in `mix test`, writing a Markdown
+    report that is an ExDoc extra; every baseline scenario still measured.
+  - Resolved: ten suites, 79 scenarios BM.01 to BM.31. Tests:
+    `SigilGuard.BenchTest`.
+- [x] M15.02 Design conformance.
+  - AC: no table created outside the runtime; no option read by truthiness
+    on a security path; no atom resolved from external input; no rescue
+    around host code; host callbacks end with their caller.
+  - Resolved: state tables are created by `SigilGuard.Runtime` only and the
+    stateful calls fail closed without it; `consume:` is strict; decision
+    names, matcher fields, context keys and manifests use closed lookups;
+    `SigilGuard.BoundedCall` runs hooks and detectors; `?`-named functions
+    that return `:ok` or an error are renamed; the remaining items are listed
+    under M15.12.
+- [x] M15.03 Strict Credo over every source directory.
+  - Resolved: 102 checks over `lib`, `test`, `bench`, `bin`, `config` and the
+    tool configuration, with measured bounds for ABC size, module
+    dependencies, duplicated code and struct size.
+- [x] M15.04 Malformed input that raised or was silently dropped.
+  - Resolved: empty-match patterns, rotation chain entries, genesis roots
+    without keys, non-UTF-8 receipt hosts, model-phase confirmation tokens,
+    `{:error, _}` digest inputs, undigestable suspicious-parameter requests,
+    unreadable policy files, malformed `:max_body_bytes`, and SBOM entries.
+    `CHANGELOG.md` and `MIGRATING-1.0.md` list each.
+- [x] M15.05 Unreachable code.
+  - Resolved: clauses no input can reach are removed; defensive clauses on
+    public functions are kept.
+- [x] M15.06 Tests for untested decision paths.
+  - AC: line coverage at or above the 95% floor with tests that assert
+    decisions or error values.
+  - Resolved: line coverage 99.1%.
+- [x] M15.07 Notebooks.
+  - Resolved: each tutorial shows the API added since it was written;
+    Tutorial 12 covers physical-effect requests; stale statements corrected;
+    `mix sigil.livebook_check` passes.
+- [x] M15.08 Published prose.
+  - Resolved: marketing language, filler and decorative formatting removed
+    from the README, guides, notebooks and configuration comments.
+- [x] M15.09 Quarantine prefilter cost.
+  - Resolved: the prefilter searches words in an ASCII-lowercased copy
+    instead of running a regex alternation; `Quarantine.inspect/3` on 1 KiB
+    went from about 98 to 23 microseconds.
+- [ ] M15.10 Benchmark baseline refresh (`SP.15`).
+  - AC: three full runs on one quiet runner with every scenario median
+    within +/-5%; `bench/baseline.json` replaced in its own commit.
+  - Open: runs on a shared workstation spread up to 15%.
+- [ ] M15.11 Intermittent failure of the untrusted-input gateway property.
+  - AC: the property "a mutated context or option value is answered, not
+    raised" passes in every full run, or the input that raises is fixed.
+  - Open: it failed in two of about fifteen full runs on 2026-11-20 and in
+    none of 40 isolated runs of 300 cases, so it depends on state another
+    test leaves; the seed was not captured.
+- [ ] M15.12 Remaining design-audit items.
+  - Open, each needing a decision: one boolean-option helper for every
+    switch (some read truthiness, some only `true`); a tagged-tuple
+    `LegacyJSON.encode/1` with `encode!/1` on top; a non-raising scan
+    variant for the gate and output contracts; the `Mix.Tasks.Sigil.*`
+    namespace; `@doc` and `@spec` beside `@impl` on behaviour
+    implementations; `TrustBundle.Cache.fetch/1`; passing hooks a projection
+    of the options; a behaviour for the scanner pipeline; and the 33-field
+    `CapabilityManifest` struct, which is a consumer contract.
 
 ## Package verification maintenance
 
