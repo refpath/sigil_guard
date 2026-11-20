@@ -1,10 +1,9 @@
 defmodule SigilGuard.TrustBundle do
   @moduledoc """
-  Public API for embedded SigilGuard trust bundles.
+  Loads and verifies embedded SigilGuard trust bundles.
 
   Trust bundles are local, DSSE-signed JSON documents. The full schema,
-  role-threshold verification, cache, quarantine, and development bootstrap
-  behavior are implemented in `SigilGuard.TrustBundle.Schema`,
+  role-threshold verification, cache and quarantine are implemented in `SigilGuard.TrustBundle.Schema`,
   `SigilGuard.TrustBundle.Verify`, `SigilGuard.TrustBundle.Cache`, and
   `SigilGuard.TrustBundle.Quarantine`. Core
   verification never fetches remote material; hosts own any transport and pass

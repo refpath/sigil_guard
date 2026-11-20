@@ -238,13 +238,11 @@ defmodule SigilGuard.Audit.Export do
     case Keyword.get(opts, :inclusion_proofs) do
       nil -> {:ok, nil}
       :all when events == [] -> {:error, :out_of_range}
-      :all -> inclusion_proofs(events, 0..(length(events) - 1))
-      indices when is_list(indices) -> inclusion_proofs(events, indices)
+      :all -> Proof.inclusions(events, 0..(length(events) - 1))
+      indices when is_list(indices) -> Proof.inclusions(events, indices)
       _ -> {:error, :invalid_inclusion_proofs}
     end
   end
-
-  defp inclusion_proofs(events, indices), do: Proof.inclusions(events, indices)
 
   defp maybe_consistency_proof(events, opts) do
     case Keyword.get(opts, :consistency_proof) do

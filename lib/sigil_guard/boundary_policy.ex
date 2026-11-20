@@ -116,11 +116,6 @@ defmodule SigilGuard.BoundaryPolicy do
     }
   }
 
-  # Manifest side effects (`none`, `read`, `write`, `delete`, `execute`, and
-  # `privileged`) plus the matrix-native `network` value map to four classes.
-  # Unmapped and `none` values contribute no class; the strictest remaining
-  # cell decides. To fail closed, `delete` folds into `write` and
-  # `privileged` into `execute`.
   @advisory_metadata_keys [:adaptive_error, :advisory_risk_level]
 
   @typedoc "A compiled policy: `%{default: verdict | nil, rules: list}` or nil."

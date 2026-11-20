@@ -137,7 +137,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
   # `SigilGuard.Audit.ProofTest`.
   defp defined_test_modules(root) do
     for file <- Path.wildcard(Path.join(root, "test/**/*.{ex,exs}")),
-        {:ok, body} <- [read_file(file)],
+        {:ok, body} <- [File.read(file)],
         [_, module] <- Regex.scan(~r/^\s*defmodule\s+([A-Za-z0-9_.]+Test)\s+do/m, body),
         suffix <- module_suffixes(String.split(module, ".")),
         into: MapSet.new(),
@@ -208,7 +208,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
   end
 
   defp lines(path) do
-    case read_file(path) do
+    case File.read(path) do
       {:ok, body} ->
         body
         |> String.split("\n")
@@ -219,10 +219,8 @@ defmodule Mix.Tasks.SigilGuard.DocsLint do
     end
   end
 
-  defp read_file(path), do: File.read(path)
-
   defp task_body(path) do
-    case read_file(path) do
+    case File.read(path) do
       {:ok, body} -> body
       {:error, _} -> ""
     end

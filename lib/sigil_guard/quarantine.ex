@@ -102,7 +102,7 @@ defmodule SigilGuard.Quarantine do
     %{
       verdict: verdict,
       indicators: indicators,
-      content_hash: hash(text),
+      content_hash: SigilGuard.Crypto.sha256_hex(text),
       sanitized_text: sanitized_text(text, active_indicators, indicators)
     }
   end
@@ -111,7 +111,7 @@ defmodule SigilGuard.Quarantine do
     %{
       verdict: :safe,
       indicators: [],
-      content_hash: hash(""),
+      content_hash: SigilGuard.Crypto.sha256_hex(""),
       sanitized_text: nil
     }
   end
@@ -274,13 +274,7 @@ defmodule SigilGuard.Quarantine do
   defp prefilter_active?(%{prefilter: []}, _), do: true
 
   defp prefilter_active?(%{prefilter: prefilter}, lowercase),
-    do: contains_any?(lowercase, prefilter)
-
-  defp contains_any?(text, tokens) do
-    Enum.any?(tokens, fn token ->
-      :binary.match(text, token) != :nomatch
-    end)
-  end
+    do: String.contains?(lowercase, prefilter)
 
   # A term that is not a context gets the defaults, which never select the
   # tool-result downgrade.
@@ -307,10 +301,4 @@ defmodule SigilGuard.Quarantine do
   end
 
   defp high_severity?(indicators), do: Enum.any?(indicators, &(&1.severity == :high))
-
-  defp hash(text) do
-    :sha256
-    |> :crypto.hash(text)
-    |> Base.encode16(case: :lower)
-  end
 end

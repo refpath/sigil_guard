@@ -2,7 +2,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   @moduledoc """
   Boundary-policy file grammar parser.
 
-  Parses the 1.0 line-oriented policy file into a compiled
+  Parses the line-oriented `version 3` policy file into a compiled
   `%SigilGuard.BoundaryPolicy.File{}`: an ordered
   list of `[rules]`, an optional `default` verdict, the `[contracts]` section
   compiled by `SigilGuard.BoundaryPolicy.Contract` into a `%{sink => contract}`
@@ -272,7 +272,9 @@ defmodule SigilGuard.BoundaryPolicy.File do
   defp expect_version(numbered) do
     case skip_ignored(numbered) do
       [{line, _} | rest] ->
-        if strip(line) == @version_line, do: {:ok, rest}, else: {:error, :invalid_policy_file}
+        if String.trim(line) == @version_line,
+          do: {:ok, rest},
+          else: {:error, :invalid_policy_file}
 
       [] ->
         {:error, :invalid_policy_file}
@@ -287,7 +289,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
         {:ok, acc}
 
       [{line, _} | rest] ->
-        header = strip(line)
+        header = String.trim(line)
 
         cond do
           header == "[repo]" -> take_repo(rest, acc)
@@ -302,7 +304,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
 
   defp take_repo(numbered, acc) do
     {body, rest} =
-      Enum.split_while(numbered, fn {line, _} -> not section_header?(strip(line)) end)
+      Enum.split_while(numbered, fn {line, _} -> not section_header?(String.trim(line)) end)
 
     text = Enum.map_join(body, "\n", fn {line, _} -> line end)
 
@@ -317,7 +319,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
       {:error, :invalid_policy_file}
     else
       {body, rest} =
-        Enum.split_while(numbered, fn {line, _} -> not section_header?(strip(line)) end)
+        Enum.split_while(numbered, fn {line, _} -> not section_header?(String.trim(line)) end)
 
       logical = fold(body)
 
@@ -344,7 +346,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   end
 
   defp rules_line("default " <> rest, _, %{default: nil} = acc) do
-    case decision(strip(rest)) do
+    case decision(String.trim(rest)) do
       {:ok, default} -> {:ok, %{acc | default: default}}
       :error -> {:error, :invalid_policy_file}
     end
@@ -428,9 +430,9 @@ defmodule SigilGuard.BoundaryPolicy.File do
       content = strip_comment(raw)
 
       cond do
-        strip(content) == "" -> acc
-        continuation?(raw) and acc != [] -> fold_append(acc, strip(content))
-        true -> [{strip(content), n} | acc]
+        String.trim(content) == "" -> acc
+        continuation?(raw) and acc != [] -> fold_append(acc, String.trim(content))
+        true -> [{String.trim(content), n} | acc]
       end
     end)
     |> Enum.reverse()
@@ -441,14 +443,12 @@ defmodule SigilGuard.BoundaryPolicy.File do
   defp continuation?(raw), do: raw != "" and String.first(raw) in [" ", "\t"]
 
   defp skip_ignored(numbered) do
-    Enum.drop_while(numbered, fn {line, _} -> strip(strip_comment(line)) == "" end)
+    Enum.drop_while(numbered, fn {line, _} -> String.trim(strip_comment(line)) == "" end)
   end
 
   defp strip_comment(line) do
     hd(String.split(line, "#", parts: 2))
   end
-
-  defp strip(line), do: String.trim(line)
 
   defp section_header?(line), do: Regex.match?(@section_regex, line)
 

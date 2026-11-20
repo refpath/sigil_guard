@@ -609,8 +609,4 @@ defmodule SigilGuard.Audit do
   defp generate_timestamp do
     DateTime.to_iso8601(DateTime.utc_now(:millisecond))
   end
-
-  # Constant-time comparison to prevent timing attacks on HMAC
-  # verification. Regular == short-circuits on the first differing
-  # byte, leaking information about matching prefix length.
 end

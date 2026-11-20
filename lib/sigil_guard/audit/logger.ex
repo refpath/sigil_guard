@@ -2,8 +2,7 @@ defmodule SigilGuard.Audit.Logger do
   @moduledoc """
   Behaviour for audit event persistence backends.
 
-  Implement this behaviour to persist audit events to your preferred
-  storage (database, file system, external service, etc.).
+  A host implements `log/1` to write each event to storage it owns.
 
   ## Example
 

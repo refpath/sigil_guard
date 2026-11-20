@@ -221,7 +221,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   def digest(checkpoint) when is_map(checkpoint) do
     checkpoint
     |> canonical_bytes()
-    |> digest_canonical_bytes()
+    |> Crypto.sha256_hex()
   end
 
   @doc """
@@ -232,7 +232,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   @spec fetch_digest(term()) :: {:ok, String.t()} | :error
   def fetch_digest(checkpoint) do
     case checkpoint_canonical_bytes(checkpoint) do
-      {:ok, canonical} -> {:ok, digest_canonical_bytes(canonical)}
+      {:ok, canonical} -> {:ok, Crypto.sha256_hex(canonical)}
       {:error, _} -> :error
     end
   end
@@ -256,7 +256,7 @@ defmodule SigilGuard.Audit.Checkpoint do
     with :ok <- verify_static_fields(checkpoint),
          :ok <- valid_chain_id(field(checkpoint, "chain_id")),
          {:ok, canonical} <- checkpoint_canonical_bytes(checkpoint) do
-      {:ok, checkpoint_statement(checkpoint, digest_canonical_bytes(canonical))}
+      {:ok, checkpoint_statement(checkpoint, Crypto.sha256_hex(canonical))}
     else
       _ -> {:error, :invalid_checkpoint}
     end
@@ -345,7 +345,7 @@ defmodule SigilGuard.Audit.Checkpoint do
          :ok <- validate_links(events, prev_hmac),
          :ok <- verify_event_summary(checkpoint, events),
          {:ok, canonical} <- checkpoint_canonical_bytes(checkpoint),
-         digest = digest_canonical_bytes(canonical),
+         digest = Crypto.sha256_hex(canonical),
          {:ok, signature_status} <- verify_signature_status(checkpoint, opts, canonical, digest) do
       {:ok,
        %{
@@ -691,11 +691,6 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp canonical_iodata(value), do: LegacyJSON.encode!(value)
-
-  defp digest_canonical_bytes(canonical) do
-    canonical
-    |> Crypto.sha256_hex()
-  end
 
   defp field(map, key) when is_map(map) do
     case Map.fetch(map, key) do

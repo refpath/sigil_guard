@@ -1,6 +1,6 @@
 defmodule SigilGuard.Audit.Actor do
   @moduledoc """
-  Typed actor information for audit events.
+  Who performed an audited action, as the host identified them.
 
   ## Fields
 

@@ -1,6 +1,6 @@
 defmodule SigilGuard.Lifecycle do
   @moduledoc """
-  The 1.0 lifecycle phase taxonomy.
+  The closed set of agent lifecycle phases.
 
   Nine phases form a closed set shared by `SigilGuard.Boundary`, the
   `SigilGuard.Hooks` behaviour, and policy-file `phase:` matchers. Each phase is
@@ -19,7 +19,7 @@ defmodule SigilGuard.Lifecycle do
   | `:model_egress` | yes |
   | `:session_end` | no |
 
-  The legacy `SigilGuard.Context` phases map onto this set:
+  The `SigilGuard.Context` phases map onto this set:
   `:inbound_user -> :model_ingress`, `:outbound_model -> :model_egress`,
   `:repo_change -> :file_changed`; `:tool_request`/`:tool_result` are unchanged.
   """
@@ -107,7 +107,7 @@ defmodule SigilGuard.Lifecycle do
   def cast(_), do: :error
 
   @doc """
-  Map a legacy `SigilGuard.Context` phase to its lifecycle phase.
+  Map a `SigilGuard.Context` phase to its lifecycle phase.
 
   Returns `:error` for unknown context phases.
   """

@@ -8,7 +8,7 @@ defmodule SigilGuard.Audit.Anchor do
   compact summary that can be compared later without storing raw audit events in
   the external system.
 
-  The module is storage-agnostic by design. S3 Object Lock, immutable blob
+  Any append-only store can persist the returned record: S3 Object Lock, immutable blob
   storage, transparency logs, notarization services, or database append-only
   tables can all persist the returned record.
   """

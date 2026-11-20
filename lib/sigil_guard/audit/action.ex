@@ -1,6 +1,6 @@
 defmodule SigilGuard.Audit.Action do
   @moduledoc """
-  Typed action information for audit events.
+  What an audited action was and how policy treated it.
 
   ## Fields
 

@@ -1,6 +1,7 @@
 defmodule SigilGuard.AgentTrust do
   @moduledoc """
-  Agent-to-agent trust helpers for peer attestations and responses.
+  Attests and verifies `agent_request` and `agent_response` statements
+  between peer agents.
 
   These helpers compose `SigilGuard.AgentCard`, `SigilGuard.Attestation`, and
   `SigilGuard.Identity` into the `agent_request` / `agent_response` flows. A
@@ -297,7 +298,7 @@ defmodule SigilGuard.AgentTrust do
          fd_opts <-
            from_decision_opts(statement_type, params, peer_trust, card_digest: card_digest),
          {:ok, statement} <-
-           Attestation.from_decision(params.decision, attest_context(params.context), fd_opts) do
+           Attestation.from_decision(params.decision, params.context, fd_opts) do
       sign_statement(statement, params.signer, params.opts)
     end
   end
@@ -310,7 +311,7 @@ defmodule SigilGuard.AgentTrust do
       fd_opts = from_decision_opts(statement_type, params, :low, [])
 
       with {:ok, statement} <-
-             Attestation.from_decision(decision, attest_context(params.context), fd_opts),
+             Attestation.from_decision(decision, params.context, fd_opts),
            statement <- attach_unknown_peer_rule(statement),
            {:ok, envelope} <- sign_statement(statement, params.signer, params.opts) do
         emit_quarantine()
@@ -688,8 +689,6 @@ defmodule SigilGuard.AgentTrust do
       _ -> {:error, :invalid_payload}
     end
   end
-
-  defp attest_context(context), do: context
 
   defp fetch_signer(opts) do
     case Keyword.get(opts, :signer) do

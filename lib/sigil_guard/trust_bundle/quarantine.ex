@@ -116,7 +116,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   end
 
   defp diagnostic_id(value) when is_binary(value) and byte_size(value) > 1_024,
-    do: "sha256:" <> digest(value)
+    do: "sha256:" <> SigilGuard.Crypto.sha256_hex(value)
 
   defp diagnostic_id(value), do: value
 
@@ -157,11 +157,11 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   defp bundle_id(_), do: nil
 
   defp bundle_digest(%{bundle_digest: digest}) when is_binary(digest), do: digest
-  defp bundle_digest(%{payload: payload}) when is_binary(payload), do: digest(payload)
+
+  defp bundle_digest(%{payload: payload}) when is_binary(payload),
+    do: SigilGuard.Crypto.sha256_hex(payload)
 
   defp bundle_digest(_), do: nil
-
-  defp digest(payload), do: SigilGuard.Crypto.sha256_hex(payload)
 
   defp sequence(%{sequence: sequence}) when is_integer(sequence) and sequence > 0, do: sequence
   defp sequence(%{document: %{"sequence" => sequence}}), do: positive_integer(sequence)

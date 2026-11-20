@@ -1,6 +1,7 @@
 defmodule SigilGuard.Telemetry do
   @moduledoc """
-  Telemetry event definitions and span helpers for SigilGuard.
+  The `:telemetry` events SigilGuard emits and their OpenTelemetry attribute
+  mapping.
 
   SigilGuard emits the `:telemetry` events listed below. Attach handlers to
   them. The helpers in this module can also translate SigilGuard metadata into
@@ -208,7 +209,7 @@ defmodule SigilGuard.Telemetry do
   # or the redaction placeholder.
   @hashed_metadata_keys [:actor, :identity, :confirmation_actor]
 
-  # Every attribute uses the `sigilguard.*` namespace. Actor, identity, and
+  # Attributes use the `sigilguard.*` namespace, except `url.full`. Actor, identity, and
   # confirmation actor export as `.hash`; `content_hash` maps to the attestation
   # subject `payload.digest`; digests use the `<subject>.digest` family.
   @attribute_map %{

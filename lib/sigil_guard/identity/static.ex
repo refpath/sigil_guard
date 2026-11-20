@@ -2,11 +2,9 @@ defmodule SigilGuard.Identity.Static do
   @moduledoc """
   Config-driven actor-to-trust mapping for simple host deployments.
 
-  Hosts repeatedly hand-roll actor-to-trust maps; this implements the
-  `SigilGuard.Identity` behaviour over the `:trust_mappings` config so a simple
-  prefix table needs no custom module. It is a convenience, not a new seam - a
-  host `SigilGuard.Identity` implementation remains the full-power extension
-  point, and a richer mapping DSL is parked post-1.0.0.
+  Implements the `SigilGuard.Identity` behaviour over the `:trust_mappings`
+  config, so a prefix table needs no custom module. A host that needs more
+  writes its own `SigilGuard.Identity` implementation.
 
   `:trust_mappings` is an ordered list of `{pattern, trust_level}` pairs
   evaluated first-match-wins. A pattern is an exact string or a single trailing

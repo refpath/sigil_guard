@@ -2,8 +2,8 @@ defmodule SigilGuard.Scanner.Pipeline do
   @moduledoc """
   Deterministic staged scanner pipeline.
 
-  Regex matching remains the first stage for compatibility with existing
-  pattern bundles. Later stages validate candidate structure and attach
+  Regex matching is the first stage, so existing pattern bundles keep
+  working. Later stages validate candidate structure and attach
   deterministic confidence/signals so callers can distinguish a bare regex
   match from a higher-confidence secret finding.
 

@@ -1,6 +1,6 @@
 defmodule SigilGuard.Audit.Anchor.Receipt do
   @moduledoc """
-  Signing and verification helpers for external audit anchor receipts.
+  Canonical bytes, digest and Ed25519 signature for audit anchor receipts.
 
   Anchor stores return compact receipt maps that point back to an externally
   persisted audit anchor. This module defines the canonical receipt bytes used

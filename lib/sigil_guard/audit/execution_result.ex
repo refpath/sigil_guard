@@ -1,6 +1,6 @@
 defmodule SigilGuard.Audit.ExecutionResult do
   @moduledoc """
-  Typed execution result for audit events.
+  The outcome of an executed command.
 
   ## Fields
 

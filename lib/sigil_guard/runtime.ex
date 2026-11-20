@@ -24,7 +24,7 @@ defmodule SigilGuard.Runtime do
   application environment: which bundle it loads and what `scanner_options/2`
   returns. Include `runtime: false` in explicit configuration to describe that
   posture. When `:config` is omitted, the runtime validates configuration from
-  `config :sigil_guard, ...` for backwards-compatible host configuration.
+  `config :sigil_guard, ...`.
 
   The other keys are validated here and read elsewhere. `SigilGuard.Attestation`
   takes `:ttl_ms`, `:max_skew_ms` and `:replay_ttl_ms` per call and falls back

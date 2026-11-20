@@ -157,7 +157,7 @@ defmodule SigilGuard.Hooks do
 
     hooks
     |> Enum.reduce_while(empty_result(), fn module, acc ->
-      if exports?(module, callback) do
+      if function_exported?(module, callback, 2) do
         {outcome, duration} = invoke(module, callback, boundary, opts, timeout)
         fold(interpret(outcome, module, boundary.phase, blockable?, duration), acc)
       else
@@ -290,8 +290,6 @@ defmodule SigilGuard.Hooks do
       :timeout -> {:error, :hook_timeout}
     end
   end
-
-  defp exports?(module, callback), do: function_exported?(module, callback, 2)
 
   defp rule(module, phase, reason) do
     %{"id" => "hook.#{inspect(module)}.#{phase}", "explanation" => to_string(reason)}
