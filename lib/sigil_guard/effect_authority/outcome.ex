@@ -56,9 +56,13 @@ defmodule SigilGuard.EffectAuthority.Outcome do
           {:ok, SigilGuard.EffectAuthority.outcome()} | {:error, :invalid_outcome_input}
   def classify(input) do
     with true <-
-           closed?(input, [:authentication, :claimed, :observations, :required_observations], [
-             :issuer
-           ]),
+           Record.closed?(
+             input,
+             [:authentication, :claimed, :observations, :required_observations],
+             [
+               :issuer
+             ]
+           ),
          true <- input.authentication in @authentication and input.claimed in @claimed,
          true <- is_integer(input.required_observations) and input.required_observations > 0,
          true <- absent_or_identifier?(input, :issuer),
@@ -78,12 +82,13 @@ defmodule SigilGuard.EffectAuthority.Outcome do
   @spec audit_fields(term()) ::
           {:ok, SigilGuard.EffectAuthority.audit_fields()} | {:error, :invalid_audit_input}
   def audit_fields(input) do
-    with true <- closed?(input, [:state], [:binding_digest, :operation_key, :refusal, :outcome]),
+    with true <-
+           Record.closed?(input, [:state], [:binding_digest, :operation_key, :refusal, :outcome]),
          true <- is_map_key(@transitions, input.state),
-         true <- absent_or?(input, :binding_digest, &SigilGuard.Crypto.sha256_hex?/1),
-         true <- absent_or?(input, :operation_key, &SigilGuard.Crypto.sha256_hex?/1),
-         true <- absent_or?(input, :refusal, &refusal?(&1, input.state)),
-         true <- absent_or?(input, :outcome, &outcome?/1) do
+         true <- Record.absent_or?(input, :binding_digest, &SigilGuard.Crypto.sha256_hex?/1),
+         true <- Record.absent_or?(input, :operation_key, &SigilGuard.Crypto.sha256_hex?/1),
+         true <- Record.absent_or?(input, :refusal, &refusal?(&1, input.state)),
+         true <- Record.absent_or?(input, :outcome, &outcome?/1) do
       {:ok,
        %{
          result: Atom.to_string(input.state),
@@ -95,23 +100,7 @@ defmodule SigilGuard.EffectAuthority.Outcome do
     end
   end
 
-  defp closed?(input, required, optional) when is_map(input) and not is_struct(input) do
-    keys = Map.keys(input)
-
-    Enum.all?(required, &(&1 in keys)) and
-      Enum.all?(keys, &(&1 in required or &1 in optional))
-  end
-
-  defp closed?(_, _, _), do: false
-
-  defp absent_or_identifier?(input, key), do: absent_or?(input, key, &Record.identifier?/1)
-
-  defp absent_or?(input, key, valid?) do
-    case Map.fetch(input, key) do
-      {:ok, value} -> valid?.(value)
-      :error -> true
-    end
-  end
+  defp absent_or_identifier?(input, key), do: Record.absent_or?(input, key, &Record.identifier?/1)
 
   defp observations(observations, issuer) do
     if Record.bounded_list?(observations, @max_observations) and

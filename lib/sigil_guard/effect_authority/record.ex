@@ -42,14 +42,32 @@ defmodule SigilGuard.EffectAuthority.Record do
     if valid?(record), do: :ok, else: {:error, :invalid_effect_binding}
   end
 
+  # A closed map holds every required key and no key outside required and
+  # optional.
   @doc false
-  @spec closed?(map(), [String.t()], [String.t()]) :: boolean()
-  def closed?(map, required, optional) do
+  @spec closed?(term(), [term()], [term()]) :: boolean()
+  def closed?(map, required, optional) when is_map(map) and not is_struct(map) do
     keys = Map.keys(map)
 
     Enum.all?(required, &(&1 in keys)) and
       Enum.all?(keys, &(&1 in required or &1 in optional))
   end
+
+  def closed?(_, _, _), do: false
+
+  @doc false
+  @spec absent_or?(map(), term(), (term() -> boolean())) :: boolean()
+  def absent_or?(map, key, valid?) do
+    case Map.fetch(map, key) do
+      {:ok, value} -> valid?.(value)
+      :error -> true
+    end
+  end
+
+  @doc false
+  @spec check(boolean(), reason) :: :ok | {:error, reason} when reason: atom()
+  def check(true, _), do: :ok
+  def check(false, reason), do: {:error, reason}
 
   @doc false
   @spec identifier?(term()) :: boolean()
@@ -109,13 +127,6 @@ defmodule SigilGuard.EffectAuthority.Record do
     absent_or?(record, "artifacts", &artifacts?/1) and
       absent_or?(record, "frame_revision", &identifier?/1) and
       absent_or?(record, "envelope", &envelope_reference?/1)
-  end
-
-  defp absent_or?(record, key, valid?) do
-    case Map.fetch(record, key) do
-      {:ok, value} -> valid?.(value)
-      :error -> true
-    end
   end
 
   defp window?(record) do

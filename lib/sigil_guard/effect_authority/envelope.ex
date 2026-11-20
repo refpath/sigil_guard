@@ -59,7 +59,8 @@ defmodule SigilGuard.EffectAuthority.Envelope do
 
   def admit(%{"envelope" => reference} = record, {:ok, document}, subject) do
     with {:ok, sha256} <- digest(document),
-         :ok <- check(same_document?(reference, document, sha256), :effect_envelope_mismatch),
+         :ok <-
+           Record.check(same_document?(reference, document, sha256), :effect_envelope_mismatch),
          :ok <- conditions(record, document, subject),
          {:ok, operation} <- operation(document, subject) do
       parameters(operation["parameters"], arguments(subject.request))
@@ -72,16 +73,20 @@ defmodule SigilGuard.EffectAuthority.Envelope do
     do: reference["sha256"] == sha256 and reference["id"] == document["id"]
 
   defp conditions(record, document, subject) do
-    with :ok <- check(subject.actor == document["principal"], :principal_mismatch),
-         :ok <- check(record["target"] in document["targets"], :target_out_of_envelope),
-         :ok <- check(record["artifacts"] == document["artifacts"], :artifact_mismatch),
+    with :ok <- Record.check(subject.actor == document["principal"], :principal_mismatch),
+         :ok <- Record.check(record["target"] in document["targets"], :target_out_of_envelope),
+         :ok <- Record.check(record["artifacts"] == document["artifacts"], :artifact_mismatch),
          :ok <-
-           check(
+           Record.check(
              record["frame_revision"] == document["frame_revision"],
              :frame_revision_mismatch
            ),
-         :ok <- check(record["policy_epoch"] == document["policy_epoch"], :policy_epoch_mismatch) do
-      check(within_lifetime?(record, document, subject.now), :effect_envelope_expired)
+         :ok <-
+           Record.check(
+             record["policy_epoch"] == document["policy_epoch"],
+             :policy_epoch_mismatch
+           ) do
+      Record.check(within_lifetime?(record, document, subject.now), :effect_envelope_expired)
     end
   end
 
@@ -119,7 +124,7 @@ defmodule SigilGuard.EffectAuthority.Envelope do
   defp parameters(bounds, arguments) when is_map(arguments) do
     same_keys? = Enum.sort(Map.keys(arguments)) == Enum.sort(Map.keys(bounds))
 
-    check(
+    Record.check(
       same_keys? and Enum.all?(bounds, fn {name, bound} -> within?(bound, arguments[name]) end),
       :parameter_out_of_envelope
     )
@@ -131,9 +136,6 @@ defmodule SigilGuard.EffectAuthority.Envelope do
 
   defp within?(%{"range" => %{"min" => min, "max" => max}}, value),
     do: is_integer(value) and min <= value and value <= max
-
-  defp check(true, _), do: :ok
-  defp check(false, reason), do: {:error, reason}
 
   defp valid?(document) when is_map(document) do
     Limits.check(document) == :ok and Record.closed?(document, @required, @optional) and
@@ -147,8 +149,7 @@ defmodule SigilGuard.EffectAuthority.Envelope do
     document["envelope_format"] == @format and Record.identifier?(document["id"]) and
       Record.identifier?(document["principal"]) and Record.identifier?(document["policy_epoch"]) and
       match?({:ok, _}, SigilGuard.Clock.parse(document["not_after"])) and
-      (not Map.has_key?(document, "frame_revision") or
-         Record.identifier?(document["frame_revision"]))
+      Record.absent_or?(document, "frame_revision", &Record.identifier?/1)
   end
 
   defp targets?([_ | _] = targets) do

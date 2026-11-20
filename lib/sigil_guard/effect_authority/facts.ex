@@ -21,7 +21,7 @@ defmodule SigilGuard.EffectAuthority.Facts do
   @doc false
   @spec validate(term()) :: {:ok, t()} | {:error, :invalid_current_facts}
   def validate(current) when is_map(current) and not is_struct(current) do
-    with true <- closed?(current),
+    with true <- Record.closed?(current, @required, @optional),
          {:ok, target} <- target(current.target),
          {:ok, artifacts} <- artifacts(Map.fetch(current, :artifacts)),
          {:ok, observed_at} <- unix_ms(current.observed_at),
@@ -44,16 +44,9 @@ defmodule SigilGuard.EffectAuthority.Facts do
 
   def validate(_), do: {:error, :invalid_current_facts}
 
-  defp closed?(current) do
-    keys = Map.keys(current)
-
-    Enum.all?(@required, &(&1 in keys)) and
-      Enum.all?(keys, &(&1 in @required or &1 in @optional))
-  end
-
   defp identifiers?(current) do
     Record.identifier?(current.principal) and Record.identifier?(current.policy_epoch) and
-      (not Map.has_key?(current, :frame_revision) or Record.identifier?(current.frame_revision))
+      Record.absent_or?(current, :frame_revision, &Record.identifier?/1)
   end
 
   defp target(%{id: id, environment: environment} = target) when map_size(target) == 2 do

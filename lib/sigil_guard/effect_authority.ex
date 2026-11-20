@@ -281,17 +281,20 @@ defmodule SigilGuard.EffectAuthority do
   defp conditions(record, facts, actor) do
     target = record["target"]
 
-    with :ok <- check(facts.principal == actor, :principal_mismatch),
-         :ok <- check(target["id"] == facts.target["id"], :target_mismatch),
+    with :ok <- Record.check(facts.principal == actor, :principal_mismatch),
+         :ok <- Record.check(target["id"] == facts.target["id"], :target_mismatch),
          :ok <-
-           check(
+           Record.check(
              target["environment"] == facts.target["environment"],
              :target_environment_mismatch
            ),
-         :ok <- check(artifact_digests(record) == facts.artifacts, :artifact_mismatch),
+         :ok <- Record.check(artifact_digests(record) == facts.artifacts, :artifact_mismatch),
          :ok <-
-           check(record["frame_revision"] == facts.frame_revision, :frame_revision_mismatch),
-         :ok <- check(record["policy_epoch"] == facts.policy_epoch, :policy_epoch_mismatch) do
+           Record.check(
+             record["frame_revision"] == facts.frame_revision,
+             :frame_revision_mismatch
+           ),
+         :ok <- Record.check(record["policy_epoch"] == facts.policy_epoch, :policy_epoch_mismatch) do
       window(record, facts.now)
     end
   end
@@ -315,9 +318,6 @@ defmodule SigilGuard.EffectAuthority do
     {:ok, datetime} = SigilGuard.Clock.parse(timestamp)
     DateTime.to_unix(datetime, :millisecond)
   end
-
-  defp check(true, _), do: :ok
-  defp check(false, reason), do: {:error, reason}
 
   # A validated record holds ASCII strings only, which JCS always encodes.
   defp jcs_digest(value) do
