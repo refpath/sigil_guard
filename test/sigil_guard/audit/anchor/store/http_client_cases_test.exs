@@ -109,20 +109,23 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPClientCasesTest do
              Store.put(HTTP, ctx.anchor, url: "http://x/", http_client: StubClient)
   end
 
-  test "a malformed :max_body_bytes falls back to the 1 MiB default", ctx do
+  test "a malformed :max_body_bytes is refused before any request", ctx do
     for bad <- [-1, "100", :infinity, nil, 1.5] do
       stub({:ok, %{status: 200, headers: [], body: "{}"}})
 
-      assert {:ok, _} =
-               Store.put(HTTP, ctx.anchor,
-                 url: "http://x/",
-                 http_client: StubClient,
-                 max_body_bytes: bad
-               )
+      assert Store.put(HTTP, ctx.anchor,
+               url: "http://x/",
+               http_client: StubClient,
+               max_body_bytes: bad
+             ) == {:error, :invalid_options}
 
-      assert_received {:request, :post, _, opts}
-      assert opts[:max_body_bytes] == 1_048_576
+      refute_received {:request, _, _, _}
     end
+
+    stub({:ok, %{status: 200, headers: [], body: "{}"}})
+    assert {:ok, _} = Store.put(HTTP, ctx.anchor, url: "http://x/", http_client: StubClient)
+    assert_received {:request, :post, _, opts}
+    assert opts[:max_body_bytes] == 1_048_576
   end
 
   test "timeout: :infinity reaches the adapter and other atoms are refused", ctx do

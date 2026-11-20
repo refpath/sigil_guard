@@ -273,7 +273,9 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   defp production_dependency?(:prod), do: true
   defp production_dependency?(env) when is_atom(env), do: false
   defp production_dependency?(envs) when is_list(envs), do: :prod in envs
-  defp production_dependency?(_), do: false
+  # An :only value of another shape may still mean production. Listing the
+  # dependency keeps the document complete; leaving it out would hide it.
+  defp production_dependency?(_), do: true
 
   defp non_hex_runtime_source?(opts) do
     Enum.any?(@unsupported_runtime_sources, &Keyword.has_key?(opts, &1))
@@ -472,7 +474,9 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   defp lock_dependency_names(_), do: []
 
   defp optional_lock_dependency?({_, _, opts}), do: Keyword.get(opts, :optional, false)
-  defp optional_lock_dependency?(_), do: true
+
+  defp optional_lock_dependency?(entry),
+    do: Mix.raise("unsupported dependency entry in mix.lock: #{inspect(entry)}")
 
   defp lock_dependency_name({name, _, opts}), do: Keyword.get(opts, :hex, name)
 

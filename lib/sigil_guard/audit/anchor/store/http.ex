@@ -101,8 +101,16 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   def fetch(_, _), do: {:error, :missing_url}
 
   defp validate_options(opts) do
-    if Keyword.keyword?(opts), do: :ok, else: {:error, :invalid_options}
+    with true <- Keyword.keyword?(opts),
+         true <-
+           valid_max_body_bytes?(Keyword.get(opts, :max_body_bytes, @default_max_body_bytes)) do
+      :ok
+    else
+      false -> {:error, :invalid_options}
+    end
   end
+
+  defp valid_max_body_bytes?(value), do: is_integer(value) and value >= 0
 
   defp validate_anchor(record) do
     case Anchor.validate(record) do
@@ -384,12 +392,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
   defp normalize_response_headers(_), do: []
 
-  defp max_body_bytes(opts) do
-    case Keyword.get(opts, :max_body_bytes, @default_max_body_bytes) do
-      value when is_integer(value) and value >= 0 -> value
-      _ -> @default_max_body_bytes
-    end
-  end
+  defp max_body_bytes(opts), do: Keyword.get(opts, :max_body_bytes, @default_max_body_bytes)
 
   defp decode_object("", opts) do
     if Keyword.get(opts, :allow_empty?, false), do: {:ok, %{}}, else: {:error, :invalid_body}

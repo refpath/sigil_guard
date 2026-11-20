@@ -109,7 +109,9 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
 
   Content already within `max_size` is returned unchanged. Otherwise the result
   is the longest UTF-8-valid prefix of at most `max_size - 11` bytes plus the
-  11-byte marker: always valid UTF-8 and never above `max_size` bytes.
+  11-byte marker: always valid UTF-8, and never above `max_size` bytes when
+  `max_size` is at least 11. Below that the result is the marker alone; the
+  policy file parser refuses a `max_size` below 64.
 
   ## Examples
 

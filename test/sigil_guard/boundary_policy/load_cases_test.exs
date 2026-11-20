@@ -40,9 +40,10 @@ defmodule SigilGuard.BoundaryPolicy.LoadCasesTest do
   end
 
   @tag :posix_permissions
-  test "a policy file that cannot be read is reported as not found", %{dir: dir} do
+  test "a policy file that exists and cannot be read is not reported as absent", %{dir: dir} do
     File.chmod!(Path.join(dir, "custom-policy"), 0o000)
 
-    assert PolicyFile.load(dir, candidates: ["custom-policy"]) == {:error, :not_found}
+    assert PolicyFile.load(dir, candidates: ["custom-policy"]) == {:error, :unreadable_policy}
+    assert PolicyFile.load(dir, candidates: ["no-such-policy"]) == {:error, :not_found}
   end
 end

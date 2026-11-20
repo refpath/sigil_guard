@@ -256,7 +256,11 @@ defmodule SigilGuard.TrustBundle do
   Build, sign, verify, and cache a development-only trust bundle.
 
   This helper is for development and tests only. It creates a short-lived
-  bundle with `provenance.issuer_class` set to `"dev"`.
+  bundle with `provenance.issuer_class` set to `"dev"`. Without `:seed` each
+  call draws new root keys, and a cached bundle pins the first call's root
+  for the bundle id, so a second call in the same boot returns
+  `{:error, :invalid_bundle_format}`. Pass a fixed `:seed` or `cache: false`
+  to call it more than once.
 
       iex> seed = :binary.copy(<<1>>, 32)
       ...> {:ok, bundle} = SigilGuard.TrustBundle.dev_bundle(seed: seed, cache: false)

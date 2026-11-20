@@ -5,6 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}`
+  for a policy file that exists and cannot be read. It returned `:not_found`,
+  the answer for no policy file.
+- The HTTP anchor store refuses a `:max_body_bytes` that is not a
+  non-negative integer with `{:error, :invalid_options}`. It used the 1 MiB
+  default.
+- `mix sigil_guard.sbom` lists a dependency whose `:only` option has an
+  unexpected shape, and stops on a `mix.lock` dependency entry it cannot
+  read. Both were left out of the document without a message.
 - `SigilGuard.Confirmation.issue/5` and `verify/5` work at the `:inbound_user`
   and `:outbound_model` phases. The gate returns confirm verdicts there, and
   no token could be issued for them. Tokens at the other phases are unchanged.

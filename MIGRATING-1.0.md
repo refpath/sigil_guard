@@ -599,6 +599,13 @@ An attestation digest input of the shape `{:error, reason}` (for example a
 `sandbox_id` taken from a failed lookup) is refused with `:invalid_payload`.
 Releases up to 1.0.5 left it out, which attested "no sandbox".
 
+### Policy File Errors
+
+`BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}` for a
+policy file that exists and cannot be read. Releases up to 1.0.5 returned
+`{:error, :not_found}`, so a host that falls back to defaults when no policy
+file exists also did so for a file it could not read.
+
 ### Confirmation Option Values
 
 `Confirmation.verify/5` reads `consume:` as a boolean. `false` skips the

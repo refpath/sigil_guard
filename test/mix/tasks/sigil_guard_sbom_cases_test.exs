@@ -78,8 +78,16 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
       with_config(deps, fn ->
         sbom = Sbom.generate(created_at: @created_at, git_revision: @git_revision)
 
-        assert package_names(sbom) ==
-                 ["jason", "nimble_options", "sigil_guard_sbom_fixture", "telemetry"]
+        # An :only of an unexpected shape ("prod") is listed, with its own
+        # dependencies, rather than left out of the document.
+        assert package_names(sbom) == [
+                 "dialyxir",
+                 "erlex",
+                 "jason",
+                 "nimble_options",
+                 "sigil_guard_sbom_fixture",
+                 "telemetry"
+               ]
       end)
     end
 

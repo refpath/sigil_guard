@@ -131,13 +131,16 @@ defmodule SigilGuard.BoundaryPolicy.File do
   also exists. There is no silent fallback or coexistence; candidate paths
   resolve inside the repo root only. Loader options are validated before
   filesystem access; malformed containers, unknown keys, candidate sets,
-  legacy mappings, or byte limits fail with `{:error, :invalid_options}`.
+  legacy mappings, or byte limits fail with `{:error, :invalid_options}`. A
+  policy file that exists but cannot be read (for example without read
+  permission) is `{:error, :unreadable_policy}`, not `:not_found`.
   """
   @spec load(Path.t(), keyword()) ::
           {:ok, t()}
           | {:error,
              parse_error()
              | :not_found
+             | :unreadable_policy
              | {:legacy_policy_filename, Path.t(), Path.t()}}
   def load(repo_root, opts \\ [])
 
@@ -225,7 +228,11 @@ defmodule SigilGuard.BoundaryPolicy.File do
       parse(bytes)
     else
       {:error, :policy_too_large} -> {:error, :policy_too_large}
-      _ -> {:error, :not_found}
+      {:error, :enoent} -> {:error, :not_found}
+      {:ok, %{type: _}} -> {:error, :not_found}
+      # A file that exists and cannot be read is not the same as no file: a
+      # host that falls back to defaults for :not_found must not do so here.
+      {:error, _} -> {:error, :unreadable_policy}
     end
   end
 

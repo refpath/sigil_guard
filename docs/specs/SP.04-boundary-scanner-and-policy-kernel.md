@@ -475,7 +475,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
 
   @spec load(repo_root :: Path.t(), opts :: keyword()) ::
           {:ok, t()}
-          | {:error, parse_error() | :not_found}
+          | {:error, parse_error() | :not_found | :unreadable_policy}
           | {:error, {:legacy_policy_filename, Path.t(), Path.t()}}
 
   @spec parse(binary()) :: {:ok, t()} | {:error, parse_error()}

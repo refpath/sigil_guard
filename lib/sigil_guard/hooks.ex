@@ -59,7 +59,8 @@ defmodule SigilGuard.Hooks do
 
   @typedoc "Result contract for a blockable-phase callback."
   @type blockable_result ::
-          {:ok, :continue}
+          :ok
+          | {:ok, :continue}
           | {:ok, :continue, hook_signal()}
           | {:block, String.t()}
           | {:confirm, String.t()}
