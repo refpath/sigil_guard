@@ -175,9 +175,9 @@ defmodule SigilGuard.BoundaryPolicyTest do
       assert BoundaryPolicy.evaluate(base(), policy: %{default: :redact}).action == :redact
     end
 
-    test "a non-atom default falls back to confirm and a non-map policy is ignored" do
+    test "a non-atom default falls back to confirm and a non-map policy is refused" do
       assert BoundaryPolicy.evaluate(base(), policy: %{default: "block"}).action == :confirm
-      assert BoundaryPolicy.evaluate(base(), policy: :not_a_policy).action == :allow
+      assert BoundaryPolicy.evaluate(base(), policy: :not_a_policy).action == :block
     end
   end
 

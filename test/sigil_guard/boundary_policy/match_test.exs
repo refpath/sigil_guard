@@ -107,7 +107,10 @@ defmodule SigilGuard.BoundaryPolicy.MatchTest do
   end
 
   describe "matcher semantics" do
-    defp compile!(source), do: elem(PolicyFile.parse(source), 1)
+    defp compile!(source) do
+      {:ok, policy} = PolicyFile.parse(source)
+      policy
+    end
 
     test "star matches any present tool but requires the actor to match" do
       policy = compile!("version 3\n[rules]\nblock tool:* actor:svc:bot\n")
@@ -208,10 +211,16 @@ defmodule SigilGuard.BoundaryPolicy.MatchTest do
                eval([tool: nil, actor: nil, hits: [], indicators: []], policy)
     end
 
-    test "nil present-in fields and unknown matcher keys do not match" do
-      policy = compile!("version 3\n[rules]\nblock origin:user\nconfirm made_up:value\n")
+    test "a rule on origin does not match a boundary without an origin" do
+      policy = compile!("version 3\n[rules]\nblock origin:user\nconfirm\n")
 
-      assert {:allow, []} = eval([origin: nil], policy)
+      assert {:confirm, ["line_4"]} = eval([origin: nil], policy)
+      assert {:block, ["line_3"]} = eval([origin: :user], policy)
+    end
+
+    test "a policy file with an unknown matcher key does not parse" do
+      assert PolicyFile.parse("version 3\n[rules]\nconfirm made_up:value\n") ==
+               {:error, :invalid_policy_file}
     end
 
     test "malformed hit and indicator entries are skipped" do

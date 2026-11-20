@@ -81,7 +81,6 @@ defmodule SigilGuard.BoundaryPolicy do
 
   @external_sinks [:external, :network, "external", "network"]
   @risk_rank %{low: 0, medium: 1, high: 2}
-  @max_timeout_ms 4_294_967_295
 
   @sandbox_phases [:tool_request, :tool_result]
 
@@ -191,23 +190,16 @@ defmodule SigilGuard.BoundaryPolicy do
     decision
   end
 
+  # A `:policy` of another shape would match no rule and contribute no
+  # default, so the boundary would be decided as if no policy were loaded.
   defp validate_options(opts) do
-    if Keyword.keyword?(opts) do
-      hooks = Keyword.get(opts, :hooks, [])
-      detector = Keyword.get(opts, :adaptive_detector)
-      timeout = Keyword.get(opts, :hook_timeout_ms, 5_000)
-
-      if valid_hooks?(hooks) and (is_nil(detector) or is_atom(detector)) and
-           is_integer(timeout) and timeout >= 0 and timeout <= @max_timeout_ms,
-         do: :ok,
-         else: {:error, :invalid_options}
-    else
-      {:error, :invalid_options}
-    end
+    if Keyword.keyword?(opts) and valid_extension_options?(opts) and
+         valid_policy?(Keyword.get(opts, :policy)),
+       do: :ok,
+       else: {:error, :invalid_options}
   end
 
-  defp valid_hooks?(hooks),
-    do: is_list(hooks) and not List.improper?(hooks) and Enum.all?(hooks, &is_atom/1)
+  defp valid_policy?(policy), do: is_nil(policy) or is_map(policy)
 
   defp decide(boundary, opts) do
     matching = policy_matching_rules(boundary, opts)

@@ -766,15 +766,17 @@ defmodule SigilGuard.RepoPolicy do
     end)
   end
 
+  # Separators are normalized before the checks, so `..\\secrets` is a
+  # traversal and `C:\\x` an absolute path.
   defp normalize_pattern(pattern) when is_binary(pattern) do
-    pattern = String.trim(pattern)
+    pattern = normalize_separators(String.trim(pattern))
 
     cond do
       pattern == "" -> {:error, :invalid_path_pattern}
       absolute_path?(pattern) -> {:error, :absolute_path_pattern}
       traversal_path?(pattern) -> {:error, :path_traversal_pattern}
-      String.ends_with?(pattern, "/") -> {:ok, normalize_separators(pattern) <> "**"}
-      true -> {:ok, normalize_separators(pattern)}
+      String.ends_with?(pattern, "/") -> {:ok, pattern <> "**"}
+      true -> {:ok, pattern}
     end
   end
 
@@ -828,7 +830,7 @@ defmodule SigilGuard.RepoPolicy do
 
   defp normalize_separators(path), do: String.replace(path, "\\", "/")
 
-  defp absolute_path?(path), do: String.starts_with?(path, "/")
+  defp absolute_path?(path), do: String.starts_with?(path, "/") or path =~ ~r/\A[A-Za-z]:/
 
   defp traversal_path?(path) do
     path

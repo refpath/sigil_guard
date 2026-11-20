@@ -617,6 +617,12 @@ most switches by truthiness, so `nil` forwarded from an unset host setting
 turned `:cache`, `:quarantine` and `:output_contracts` off, and `"true"`
 left `require_manifest:` off. Pass booleans.
 
+### Malformed Policy Options
+
+`BoundaryPolicy.evaluate/2` blocks with `invalid_options` when `:policy` is
+neither nil nor a map. Releases up to 1.0.5 ignored such a value and decided
+the boundary without a policy.
+
 ### Policy File Errors
 
 `BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}` for a

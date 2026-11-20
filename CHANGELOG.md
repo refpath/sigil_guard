@@ -5,6 +5,17 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The HTTP anchor store judges an IPv6 receipt host that embeds an IPv4
+  address (IPv4-mapped, IPv4-compatible, NAT64 `64:ff9b::/96`, 6to4
+  `2002::/16`) by that address, and refuses multicast, broadcast, reserved
+  and site-local addresses. `[::ffff:127.0.0.1]` and
+  `[::ffff:169.254.169.254]` reached the HTTP client.
+- `SigilGuard.BoundaryPolicy.evaluate/2` blocks a `:policy` that is neither
+  nil nor a map as malformed options. It matched no rule and contributed no
+  default, so the boundary was decided as if no policy were loaded.
+- Repository policy patterns are checked after backslashes become slashes,
+  so `..\\secrets` is refused as a traversal; a drive-letter prefix such as
+  `C:` counts as an absolute path.
 - A refused confirmation token through `SigilGuard.ToolGateway.Base` records
   `deny_reason: :confirmation_failed`, as through `SigilGuard.ToolGateway`;
   both now block with the reason "Confirmation verification failed".

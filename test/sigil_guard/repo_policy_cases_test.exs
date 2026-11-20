@@ -80,4 +80,20 @@ defmodule SigilGuard.RepoPolicyCasesTest do
              %{rule_id: "r1", explanation: "Repo policy requires approval by r1"}
            ]
   end
+
+  test "a rule pattern with backslashes is checked after its separators are normalized" do
+    compile = fn path ->
+      SigilGuard.RepoPolicy.compile(%{
+        version: 1,
+        default: :block,
+        rules: [%{id: "r", decision: :allow, paths: [path]}]
+      })
+    end
+
+    assert compile.("..\\secrets") == {:error, {:path_traversal_pattern, 0}}
+    assert compile.("docs\\..\\..\\etc") == {:error, {:path_traversal_pattern, 0}}
+    assert compile.("C:\\repo") == {:error, {:absolute_path_pattern, 0}}
+    assert {:ok, policy} = compile.("src\\lib\\")
+    assert hd(policy.rules).paths == ["src/lib/**"]
+  end
 end

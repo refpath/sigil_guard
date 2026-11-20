@@ -257,14 +257,38 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   defp private_ip_tuple?({172, second, _, _}) when second in 16..31, do: true
   defp private_ip_tuple?({192, 168, _, _}), do: true
   defp private_ip_tuple?({198, second, _, _}) when second in 18..19, do: true
-  defp private_ip_tuple?({0, 0, 0, 0, 0, 0, 0, 0}), do: true
-  defp private_ip_tuple?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
+  # Multicast, reserved and broadcast are never a receipt service.
+  defp private_ip_tuple?({first, _, _, _}) when first >= 224, do: true
 
+  # An IPv6 address that carries an IPv4 address is judged by that address,
+  # so `[::ffff:127.0.0.1]` cannot reach a loopback service the IPv4 rules
+  # refuse: IPv4-mapped (::ffff:0:0/96), IPv4-compatible (::/96, which also
+  # covers :: and ::1), NAT64 (64:ff9b::/96) and 6to4 (2002::/16).
+  defp private_ip_tuple?({0, 0, 0, 0, 0, 0xFFFF, high, low}),
+    do: private_ip_tuple?(embedded_ipv4(high, low))
+
+  defp private_ip_tuple?({0, 0, 0, 0, 0, 0, high, low}),
+    do: private_ip_tuple?(embedded_ipv4(high, low))
+
+  defp private_ip_tuple?({0x64, 0xFF9B, 0, 0, 0, 0, high, low}),
+    do: private_ip_tuple?(embedded_ipv4(high, low))
+
+  defp private_ip_tuple?({0x2002, high, low, _, _, _, _, _}),
+    do: private_ip_tuple?(embedded_ipv4(high, low))
+
+  # Unique local fc00::/7, link-local fe80::/10, site-local fec0::/10 and
+  # multicast ff00::/8.
   defp private_ip_tuple?({first, _, _, _, _, _, _, _}) do
-    Bitwise.band(first, 0xFE00) == 0xFC00 or Bitwise.band(first, 0xFFC0) == 0xFE80
+    Bitwise.band(first, 0xFE00) == 0xFC00 or Bitwise.band(first, 0xFF80) == 0xFE80 or
+      Bitwise.band(first, 0xFF00) == 0xFF00
   end
 
   defp private_ip_tuple?(_), do: false
+
+  defp embedded_ipv4(high, low),
+    do:
+      {Bitwise.bsr(high, 8), Bitwise.band(high, 0xFF), Bitwise.bsr(low, 8),
+       Bitwise.band(low, 0xFF)}
 
   defp metadata(opts) do
     case Keyword.get(opts, :metadata, %{}) do

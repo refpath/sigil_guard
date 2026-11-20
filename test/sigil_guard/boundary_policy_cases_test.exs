@@ -125,4 +125,26 @@ defmodule SigilGuard.BoundaryPolicyCasesTest do
     decision = SigilGuard.Runtime.Gate.evaluate("x", [phase: :tool_result], hooks: [Foo | Bar])
     assert decision.verdict == :blocked
   end
+
+  test "a :policy that is not a policy is malformed options, not an absent policy" do
+    boundary = %{
+      phase: :tool_result,
+      source: :tool,
+      origin: :tool,
+      sink: :model,
+      trust_level: :high,
+      actor: %{id: "agent-1"},
+      action_digest: String.duplicate("a", 64),
+      payload_digest: String.duplicate("b", 64),
+      context_digest: String.duplicate("c", 64)
+    }
+
+    assert SigilGuard.BoundaryPolicy.evaluate(boundary, policy: nil).verdict == :allowed
+
+    for policy <- [:garbage, "policy", [1], 7] do
+      decision = SigilGuard.BoundaryPolicy.evaluate(boundary, policy: policy)
+      assert decision.verdict == :blocked
+      assert Enum.map(decision.matched_rules, & &1.explanation) == ["invalid_options"]
+    end
+  end
 end
