@@ -291,14 +291,13 @@ rule in the policy, from `compile/1` and from `parse/1` alike.
 | `:invalid_decision` | return tuple from `compile/1` and `parse/1` | fix the `default` value | policy not loaded. |
 | `{:absolute_path_pattern, index}`, `{:path_traversal_pattern, index}`, `{:missing_paths, index}` | return tuple from `compile/1` and `parse/1` | give the rule at least one safe relative path glob | policy not loaded. |
 | `{:invalid_path_pattern, index}` | return tuple from `compile/1` | make each path a non-empty string | policy not loaded. |
-| `:invalid_path` | not produced | none | No code returns this atom. Unsafe rule paths return the path-pattern tuples above; unsafe changed paths produce the block decision below. |
 | invalid changed path | `:block` decision from `evaluate/2` | pass a safe relative UTF-8 path or a list of them | change blocked. The reason is the string `"Repo policy blocked invalid changed path: <name>"`, where `<name>` is `invalid_changed_paths`, `invalid_changed_path`, `absolute_changed_path`, or `path_traversal`. |
 | invalid context | `:block` decision from `evaluate/2` | pass a string or atom agent and action | change blocked. The reason is `"Repo policy blocked invalid context: invalid_agent"` or the same with `invalid_action`. |
 | `:policy_too_large` | return tuple from `load/2` and `load_file/2` | reduce file size | policy load fails. |
 | `:not_found` | return tuple from `load/2` and `find_file/2` | provide policy | caller can use defaults. |
 | `:invalid_options` | return tuple from `load/2`, `find_file/2`, and `load_file/2` | pass a binary path and a keyword list containing only `:candidates` and `:max_bytes` | policy load fails closed before filesystem access. |
 | `:invalid_policy_paths`, `:missing_policy_paths`, `:invalid_policy_path`, `:absolute_policy_path`, `:policy_path_traversal` | return tuple from `load/2` and `find_file/2` | pass a non-empty list of safe repo-relative candidate strings | policy load fails after the legacy-filename probe and before candidate lookup. |
-| `:invalid_max_bytes` | return tuple from `load/2` and `load_file/2` | pass a non-negative integer | policy load fails before the file is read. `load/2` checks it only after a candidate is found, so it returns `:not_found` first when none exists. |
+| `:invalid_max_bytes` | return tuple from `load/2` and `load_file/2` | pass a non-negative integer | policy load fails before any filesystem access. |
 | `{:invalid_policy_file, type}` | return tuple from `load_file/2` | point at a regular file | policy load fails; `type` is the file type found, such as `:directory`. |
 | POSIX reason such as `:enoent` | return tuple from `load_file/2` | fix the path or its permissions | policy load fails. |
 | `{:legacy_policy_filename, legacy, replacement}` | return tuple from `load/2` and `find_file/2` | rename the file to the named v3 filename | policy load fails closed. It is returned ahead of any candidate or byte-limit error. |
@@ -306,14 +305,12 @@ rule in the policy, from `compile/1` and from `parse/1` alike.
 ## Security Considerations
 
 - Absolute paths and traversal are rejected before rule matching.
-- Loader option containers and keys are validated before filesystem access;
-  a non-keyword container or an unknown key returns
-  `{:error, :invalid_options}`. Option values are checked later and return
-  their own atoms: candidate values after the legacy-filename probe
-  (`:invalid_policy_paths` and the related atoms in Error Handling), and
-  `:max_bytes` in `load_file/2`, once a candidate has been found and before
-  the file is read (`:invalid_max_bytes`). An invalid byte limit cannot
-  bypass the file-size bound through Erlang term ordering.
+- Loader options are validated before any filesystem access. A non-keyword
+  container or an unknown key returns `{:error, :invalid_options}`. A
+  malformed value returns its own atom: `:invalid_policy_paths` and the
+  related atoms in Error Handling for `:candidates`, and `:invalid_max_bytes`
+  for `:max_bytes`. An invalid byte limit cannot bypass the file-size bound
+  through Erlang term ordering.
 - Rules match exact agent/action strings or `*`; no dynamic atom creation from
   external policy input is required.
 - `:block` always outranks weaker decisions.

@@ -5,6 +5,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.RepoPolicy.load/2` and `find_file/2` check `:candidates` and
+  `:max_bytes` before reading the filesystem. A malformed `:max_bytes` on a
+  directory without a policy file returned `:not_found`.
 - Add `SigilGuard.Identity.spiffe_id?/1`, which checks the SPIFFE-ID syntax,
   and `SigilGuard.Identity.did_key_public_key/1`, which returns the Ed25519
   key an identifier of the `did:key` method embeds. Neither is applied by the

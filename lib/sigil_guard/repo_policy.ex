@@ -177,15 +177,17 @@ defmodule SigilGuard.RepoPolicy do
     * `:candidates` - override the repo-relative candidate paths.
     * `:max_bytes` - maximum policy file size. Defaults to 256 KiB.
 
-  The option container must be a keyword list containing only these keys.
-  Malformed options return `{:error, :invalid_options}` before filesystem
-  access.
+  The option container must be a keyword list containing only these keys;
+  anything else returns `{:error, :invalid_options}`. A malformed
+  `:candidates` or `:max_bytes` value returns its own reason. Both checks run
+  before any filesystem access.
   """
   @spec load(Path.t(), keyword()) :: {:ok, t()} | {:error, term()}
   def load(repo_root, opts \\ [])
 
   def load(repo_root, opts) when is_binary(repo_root) do
     with :ok <- validate_loader_options(opts),
+         {:ok, _} <- loader_max_bytes(opts),
          {:ok, path} <- find_file(repo_root, opts) do
       load_file(path, opts)
     end
@@ -206,9 +208,9 @@ defmodule SigilGuard.RepoPolicy do
     root = Path.expand(repo_root)
 
     with :ok <- validate_loader_options(opts),
-         :ok <- reject_legacy_policy_paths(root),
          {:ok, candidates} <-
-           normalize_policy_paths(Keyword.get(opts, :candidates, @default_policy_paths)) do
+           normalize_policy_paths(Keyword.get(opts, :candidates, @default_policy_paths)),
+         :ok <- reject_legacy_policy_paths(root) do
       case first_existing_policy_path(root, candidates) do
         nil -> {:error, :not_found}
         path -> {:ok, path}
@@ -231,8 +233,7 @@ defmodule SigilGuard.RepoPolicy do
     path = Path.expand(path)
 
     with :ok <- validate_loader_options(opts),
-         {:ok, max_bytes} <-
-           normalize_max_bytes(Keyword.get(opts, :max_bytes, @default_max_policy_bytes)),
+         {:ok, max_bytes} <- loader_max_bytes(opts),
          :ok <- ensure_policy_file(path, max_bytes),
          {:ok, text} <- File.read(path) do
       parse(text)
@@ -890,6 +891,9 @@ defmodule SigilGuard.RepoPolicy do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  defp loader_max_bytes(opts),
+    do: normalize_max_bytes(Keyword.get(opts, :max_bytes, @default_max_policy_bytes))
 
   defp normalize_max_bytes(value) when is_integer(value) and value >= 0, do: {:ok, value}
   defp normalize_max_bytes(_), do: {:error, :invalid_max_bytes}

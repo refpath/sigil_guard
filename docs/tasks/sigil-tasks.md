@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 297 / 312 tasks done (95.2%).** Milestones: 16 complete, 1 open.
+**Overall: 298 / 312 tasks done (95.5%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 2 | 17 | 12% | Open |
-| — | **Total** | **297** | **312** | **95.2%** | 16 done |
+| M14 | Spec conformance backlog | 3 | 17 | 18% | Open |
+| — | **Total** | **298** | **312** | **95.5%** | 16 done |
 
 ### Release Handoff
 
@@ -3206,9 +3206,14 @@ needs its design confirmed against the consumer contracts before work begins.
     which SP.10 states. Concurrency, rotation-guidance and leakage tests are
     in `VaultTest`; shape tests are in `IdentityTest`. Sources are in R.12.
 
-- [ ] M14.14 Repo policy error atoms (`SP.11`).
+- [x] M14.14 Repo policy error atoms (`SP.11`).
   - AC: `:invalid_path` is produced or removed; a malformed loader option
     value returns `:invalid_options` before any filesystem access.
+  - Resolved: `RepoPolicy.load/2`, `find_file/2` and `load_file/2` validate
+    `:candidates` and `:max_bytes` before any filesystem access and keep
+    their specific atoms. `:invalid_path` was never produced and is removed
+    from the SP.11 error table. Tests: `RepoPolicyTest`.
+
 - [x] M14.15 Backend selection (`SP.06`).
   - AC: `SigilGuard.Backend.impl/0` and `SigilGuard.Config` agree. Today the
     first accepts a module named by the `:backend` application key and the

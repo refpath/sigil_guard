@@ -311,6 +311,30 @@ defmodule SigilGuard.RepoPolicyTest do
 
       assert {:error, :invalid_max_bytes} = RepoPolicy.load_file(path, max_bytes: :unbounded)
       assert {:error, :invalid_options} = RepoPolicy.load(:bad_root)
+    end
+
+    test "a malformed option value is refused before the filesystem is read", %{dir: dir} do
+      # Neither directory exists, and one holds a legacy filename: a filesystem
+      # probe would answer :not_found or a legacy-name error instead.
+      missing = Path.join(dir, "no-such-repo")
+      legacy = Path.join(dir, "legacy")
+      File.mkdir_p!(legacy)
+      File.write!(Path.join(legacy, ".sigil-policy"), "default allow\n")
+
+      for root <- [missing, legacy] do
+        for max_bytes <- [:unbounded, -1, 1.5, "1024"] do
+          assert RepoPolicy.load(root, max_bytes: max_bytes) == {:error, :invalid_max_bytes}
+        end
+
+        assert RepoPolicy.load(root, candidates: :bad) == {:error, :invalid_policy_paths}
+        assert RepoPolicy.find_file(root, candidates: :bad) == {:error, :invalid_policy_paths}
+        assert RepoPolicy.find_file(root, candidates: []) == {:error, :missing_policy_paths}
+
+        assert RepoPolicy.find_file(root, candidates: ["/etc/passwd"]) ==
+                 {:error, :absolute_policy_path}
+      end
+
+      assert RepoPolicy.load(missing) == {:error, :not_found}
       assert {:error, :invalid_options} = RepoPolicy.find_file(:bad_root)
       assert {:error, :invalid_options} = RepoPolicy.load_file(:bad_path)
     end
