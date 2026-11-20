@@ -1,21 +1,78 @@
 # SigilGuard Benchmarks
 
-This directory holds the reproducible benchmark harness. The methodology and
-fairness rules it implements are specified under `docs/specs/` in the source
+[Benchee](https://hexdocs.pm/benchee) suites for the calls a host makes at a
+boundary: scanning, the runtime gate, streaming, the tool gateway,
+confirmation tokens, attestations, trust bundles, agent-to-agent trust, audit
+evidence, and the primitives under them. The methodology, the scenario matrix,
+and the fairness rules are specified in `docs/specs/SP.15` of the source
 repository.
 
-## Commands
-
-```bash
-mix run bench/corpus.exs
-mix bench --smoke
-mix bench
+```sh
+mix bench            # every suite, the summary page, and benchmarks.json
+mix bench.scanner    # one suite and its page
+mix bench --smoke    # tiny budgets, written to bench/output/smoke/
+mix bench.corpus     # regenerate bench/corpus/ from the fixed seed
 mix run bench/compare.exs
 ```
 
-`mix bench --smoke` exercises every BM.01-BM.08 scenario with tiny timing
-budgets for CI. `mix bench` uses the published measurement settings:
-`warmup: 2`, `time: 5`, and `memory_time: 2`.
+Each suite writes a Markdown report to `bench/output/`. The reports are the
+Performance section of the generated documentation, and they are committed so
+that `mix docs` works on a fresh clone. Run the suites again and commit the
+reports when a timed path changes.
+
+| Suite | Writes | Measures |
+| --- | --- | --- |
+| `scanner.exs` | `output/scanner.md` | Secret scanning of clean and hit text at 1 KiB, 64 KiB and 1 MiB; scan and redact; the quarantine inspector; pattern set resolution |
+| `gate.exs` | `output/gate.md` | `Runtime.Gate.evaluate/3` on the allow, block, redact and quarantine paths; the risk and trust ladder; the policy kernel; a policy file with an output contract; repo policy |
+| `stream.exs` | `output/stream.md` | `Runtime.Stream` over 64 KiB in 512-byte chunks with a secret across a chunk boundary, against one gate pass over the same bytes |
+| `gateway.exs` | `output/gateway.md` | `ToolGateway.guard_request/3` plain, with a pinned manifest, and with a required attestation; `guard_result/3`; capability manifests; a physical-effect request and its admission check |
+| `confirmation.exs` | `output/confirmation.md` | The token digest, issuing and verifying a token, and a gateway request with an accepted token |
+| `attestation.exs` | `output/attestation.md` | Digests, `from_decision/3`, validation, signing, and verification against a key map and a trust bundle role |
+| `trust_bundle.exs` | `output/trust_bundle.md` | Cold verification, load, the warm cache read, and pattern sets of a bundle with two delegations and ten patterns |
+| `agent_trust.exs` | `output/agent_trust.md` | Agent card sign, verify and digest; attested requests and responses; response verification with every binding |
+| `audit.exs` | `output/audit.md` | Append, chain verification, checkpoints, inclusion and consistency proofs, and export |
+| `primitives.exs` | `output/primitives.md` | Canonical JSON encoding and decoding, hashing, identifier checks, vault reads, replay detection, and telemetry attributes |
+
+`mix bench` also writes `output/benchmarks.md`, a summary with every scenario,
+and `output/benchmarks.json`, which `bench/compare.exs` checks against
+`bench/baseline.json`.
+
+## Reading The Numbers
+
+Every scenario runs with two seconds of warmup, five seconds of measurement
+and two seconds of memory measurement. Each page records the machine, the
+Elixir and OTP versions, the library version and commit, and the Benchee
+configuration. A measurement describes that machine. It is not a guarantee,
+and numbers from two machines are not comparable.
+
+Run the suites without builds, tests, or other heavy work beside them.
+Scenarios that take microseconds vary by several percent between runs on a
+workstation; compare complete runs on the same machine and versions.
+
+## Fixture Preconditions
+
+A scenario is named for a path through the code. Before timing starts, each
+suite runs every fixture once and stops when it takes another path: a gate
+fixture that reaches a different action, a stream that halts before
+`finish/1`, an attestation that does not verify, a corpus with the wrong
+number of secrets. Change a fixture and its precondition together. The test
+suite runs the same preconditions, so a change to the library that moves a
+fixture to another path fails `mix test`.
+
+## Corpus
+
+`bench/corpus/` holds the committed inputs. `bench/corpus.exs` generates the
+text files from a fixed seed and copies the policy, manifest and
+physical-effect fixtures from the test suite, so regenerating reproduces the
+same bytes. Hit files embed only the documented synthetic key
+`AKIAIOSFODNN7EXAMPLE`.
+
+## Smoke Runs
+
+`--smoke`, or `CI=true`, shortens every scenario to verify that the suites
+still execute. A smoke run writes under `bench/output/smoke/`, which is not
+committed, so it never replaces the published reports. CI runs the smoke and
+checks that every baseline scenario is still present.
 
 ## Baseline Refresh
 
@@ -28,10 +85,9 @@ The commit message must state why the baseline changed: accepted performance
 change, fixture change, runner change, or Elixir/OTP bump. Silent baseline
 edits are treated as masking a regression.
 
-## Fixture Preconditions
+## Other Scripts
 
-A scenario is named for a path through the code. Before timing starts the
-harness runs each fixture once and stops when it takes another path: a gate
-fixture that reaches a different action, a stream that halts before
-`finish/1`, a corpus with the wrong number of secrets. Change a fixture and
-its precondition together.
+`bench/llm_guard_compare.exs` compares `SigilGuard.scan/1` with the Python
+llm-guard scanners on the same corpus under the fairness rules of the
+methodology spec. `bench/audit_remediation.exs` compares two revisions of the
+scanner in one BEAM instance. Neither is part of `mix bench`.

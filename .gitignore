@@ -2,6 +2,7 @@
 /cover/
 /deps/
 /doc/
+/bench/output/smoke/
 /tmp/
 erl_crash.dump
 *.ez

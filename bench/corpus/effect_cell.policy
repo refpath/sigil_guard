@@ -1,0 +1,5 @@
+version 3
+
+[rules]
+default block
+confirm tool:cell.move,cell.grip actor:spiffe://example.test/agent/planner

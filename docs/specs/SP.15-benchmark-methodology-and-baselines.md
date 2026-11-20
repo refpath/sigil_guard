@@ -37,16 +37,24 @@ spec; they are never invented in advance.
 
 ### Overview
 
-The harness is the existing Benchee suite at `bench/run.exs`, run through the
-`mix bench` alias, extended to the scenario matrix below. Results publish to
-`bench/output/benchmarks.md` (the existing convention, already an ExDoc
-extra) plus a machine-readable `bench/output/benchmarks.json` written by the
-harness from Benchee suite statistics with `Jason.encode!/2`. Corpora are
-committed fixtures generated once from fixed seeds. The deterministic
-`SigilGuard.BenchSigner` (fixed Ed25519 seed) signs the BM.05 statement, the
-only scenario that signs during a run. A `--smoke` flag runs every scenario
-with minimal budgets so CI can verify the harness itself without paying full
-measurement time.
+The harness is a set of Benchee suites under `bench/`, one per area of the
+library: `scanner`, `gate`, `stream`, `gateway`, `confirmation`,
+`attestation`, `trust_bundle`, `agent_trust`, `audit`, and `primitives`.
+Each suite is a script (`bench/<suite>.exs`, run by `mix bench.<suite>`)
+that defines a module implementing the `SigilGuard.Bench` behaviour of
+`bench/support/harness.exs`: an id, a title, a description, the scenarios,
+and the fixture preconditions. A suite writes its report to
+`bench/output/<suite>.md`. `mix bench` runs `bench/run.exs`, which runs every
+suite and then writes `bench/output/benchmarks.md`, a summary of all
+scenarios, and the machine-readable `bench/output/benchmarks.json`. Every
+report is an ExDoc extra in the Performance group.
+
+Corpora are committed fixtures generated once from fixed seeds, and signed
+fixtures use keys from fixed seeds (`bench/support/fixtures.exs`), so inputs
+are byte-identical across runs. A `--smoke` flag, or `CI=true`, runs every
+scenario with minimal budgets so CI can verify the harness without paying
+full measurement time. A smoke run writes under `bench/output/smoke/`, which
+is not committed, and never replaces a published report.
 
 ### Data Flow
 
@@ -106,12 +114,18 @@ Corpus rules:
   `SigilGuard.BenchSigner`. BM.06 verifies the committed envelope at a fixed
   `now`. The BM.07 chain takes each event id and timestamp from the event's
   index, so it has the same bytes on every run.
-- A scenario is named for a path through the code. Before timing starts the
-  harness evaluates each fixture once and aborts when it takes another
-  path: each BM.03 fixture MUST reach its named action, the BM.04 stream
-  MUST run to `finish/1` without halting and release no secret, the BM.06
-  bundle MUST have two delegations and ten patterns that resolve, and the
-  BM.07 chain MUST verify.
+- A scenario is named for a path through the code. Before timing starts each
+  suite evaluates its fixtures once (`preconditions!/0`) and aborts when one
+  takes another path. Each BM.03 fixture MUST reach its named action, the
+  BM.04 stream MUST run to `finish/1` without halting and release no secret,
+  every verification scenario MUST return `{:ok, _}` or `:ok`, every gateway
+  scenario MUST reach its named verdict with the manifest it claims, the
+  BM.06 bundle MUST have two delegations and ten patterns that resolve, and
+  the BM.07 chain MUST verify. The test suite runs the same preconditions.
+- `capability_manifest.json`, `boundary.policy`, and the `effect_*` files
+  are copies of test fixtures, written by the corpus generator so that a
+  suite reads nothing outside `bench/corpus/`. The manifest copy carries a
+  far expiry.
 
 Measurement rules: every scenario runs under Benchee with `warmup: 2`,
 `time: 5`, and `memory_time: 2` (the existing harness configuration) and
@@ -129,28 +143,62 @@ set.
 | BM.06 | `TrustBundle.verify/2` cold and `TrustBundle.Cache.get/1` warm hit | `bench/corpus/trust_bundle_delegations.json`: 1 root key, 2 delegate roles, 10 patterns | median, p99 for cold and warm separately |
 | BM.07 | Audit append (one event onto a 10k chain), checkpoint create (10k), inclusion-proof verify (10k tree) | 10,000-event chain built in the harness at start-up, with ids and timestamps taken from the event index | median, memory per operation |
 | BM.08 | `ToolGateway.guard_request/3` with `require_manifest: false` and a no-op baseline | fixed `tools/call` request map; no policy file; no-op control function in the same run | median, p99, memory for each of the two scenarios; derived: gateway median minus no-op median in microseconds |
+| BM.09 | `SigilGuard.scan_and_redact/1` at 1 KiB / 64 KiB | `hits_{1k,64k}.txt`; the result holds no secret | median, p99, memory |
+| BM.10 | `Quarantine.inspect/3` on clean text and on a prompt-injection text | `clean_1k.txt` (no indicator asserted); one fixed injection string (an indicator asserted) | median, p99, memory |
+| BM.11 | `PatternSets.resolve/1` | the ten pattern entries of the corpus bundle | median, p99, memory |
+| BM.12 | `SigilGuard.policy_verdict/3` on an allowed and a blocked action | two fixed action names with trust `high` and `low` | median, p99, memory |
+| BM.13 | `BoundaryPolicy.evaluate/2`, the kernel alone | one clean boundary with a fully attested sandbox, no policy file | median, p99, memory |
+| BM.14 | `BoundaryPolicy.File.parse/1`, and `Runtime.Gate.evaluate/3` with the parsed file | `bench/corpus/boundary.policy` (7 rules, a repo section, 3 output contracts); 20 KiB of clean text to an external sink, which the contract truncates | median, p99, memory |
+| BM.15 | `RepoPolicy.compile/1`, `RepoPolicy.evaluate/2`, and the gate at `repo_change` | a policy of five rules; a change to two allowed paths | median, p99, memory |
+| BM.16 | `ToolGateway.guard_request/3` with a pinned manifest given as a map and as a compiled struct, and with a required inbound attestation | `bench/corpus/capability_manifest.json`; a sandbox context at `vm` isolation; an attestation the gateway built for the same request | median, p99, memory |
+| BM.17 | `ToolGateway.guard_result/3` without and with a pinned manifest | one clean text result; a request action digest; the host context names the tool | median, p99, memory |
+| BM.18 | `CapabilityManifest.new/1`, `verify/2`, `drifted_fields/2` | the corpus manifest; a copy with another description | median, p99, memory |
+| BM.19 | `guard_request/3` with `effect_binding: :required`, and `EffectAuthority.admit/5` | `bench/corpus/effect_*`; the request is pending confirmation; the admitted decision is confirmed once before timing | median, p99, memory |
+| BM.20 | `Confirmation.action_digest/2`, `issue/5`, `verify/5`, and `guard_request/3` with an accepted token | a fixed request and context; verification with `consume: false`, so one token verifies repeatedly | median, p99, memory |
+| BM.21 | `Attestation.Digest.digests/3`, `Attestation.from_decision/3`, `TrustProfile.validate/1` | the BM.05 payload, context and statement | median, p99, memory |
+| BM.22 | `Attestation.verify/3` without digest recomputation, and against a trust bundle | the BM.05 envelope; an envelope signed by the key of the corpus bundle's `attestation` role | median, p99, memory |
+| BM.23 | `TrustBundle.load/2` from a map, and `TrustBundle.pattern_sets/1` | the corpus bundle; `cache: false` | median, p99, memory |
+| BM.24 | `AgentCard.sign/2`, `verify/3`, `digest/1` | one card with one key and one capability | median, p99, memory |
+| BM.25 | `AgentTrust.attest_agent_request/3` with a three-hop chain, `attest_agent_response/3`, `verify_agent_response/3` with every binding, `verify_delegation_chain/3` | the BM.24 card; `audience`, `capability`, `context` and `payload` given to the verifier | median, p99, memory |
+| BM.26 | `Audit.verify_chain/2` (1k), `Proof.inclusion/2` and `Proof.consistency/2` (10k), `Proof.verify_consistency/3`, `Export.create/2` (1k) | the BM.07 chain | median, p99, memory |
+| BM.27 | `Canonical.JCS.encode/1` and `Canonical.JSON.decode/1` | the BM.05 statement; the decoded value equals the statement | median, p99, memory |
+| BM.28 | `Crypto.sha256_hex/1` over 1 KiB and `Crypto.secure_compare/2` over 64 bytes | `clean_1k.txt` | median, p99, memory |
+| BM.29 | `Identity.spiffe_id?/1` and `Identity.did_key_public_key/1` | one SPIFFE id; the did:key specification's example identifier | median, p99, memory |
+| BM.30 | `Vault.decrypt/2` and `Vault.exists?/2` on `Vault.InMemory`; `ReplayStore.check_and_put/3` for a nonce the store has seen | one stored value; one stored nonce. Writes are not timed: each call adds an entry | median, p99, memory |
+| BM.31 | `Telemetry.otel_attributes/4` without and with high-cardinality attributes | the audit metadata of one allowed gate decision | median, p99, memory |
+
+BM.01, BM.02, and BM.09 to BM.11 are the `scanner` suite; BM.03 and BM.12
+to BM.15 the `gate` suite; BM.04 the `stream` suite; BM.08 and BM.16 to
+BM.19 the `gateway` suite; BM.20 the `confirmation` suite; BM.05, BM.21,
+and BM.22 the `attestation` suite; BM.06 and BM.23 the `trust_bundle`
+suite; BM.24 and BM.25 the `agent_trust` suite; BM.07 and BM.26 the `audit`
+suite; and BM.27 to BM.31 the `primitives` suite. A scenario name starts
+with its id.
 
 Derived figures are computed by the harness from the medians of one run and
-written to the `derived` map of `benchmarks.json` and to a "Derived figures"
-table in `benchmarks.md`. BM.08 has no percentage: the no-op control
-measures a few nanoseconds, and a ratio against it says nothing about the
-gateway.
+written to the `derived` map of `benchmarks.json`, to a "Derived figures"
+table in `benchmarks.md`, and to the page of the suite they belong to. BM.08
+has no percentage: the no-op control measures a few nanoseconds, and a ratio
+against it says nothing about the gateway.
 
 Two fixtures measured another path before 1.1.0, and numbers published from
 those runs are not comparable with later ones. The BM.04 stream ran at low
 trust, where the first secret asks for confirmation and halts the stream, so
 the scenario timed one evaluation and 127 pushes that returned at once. The
-BM.03 quarantine fixture ran at low trust and was blocked. The fixture
-preconditions above exist so that a scenario cannot be published under a
-name it does not measure.
+BM.03 quarantine fixture ran at low trust and was blocked. The BM.05
+verification read the wall clock, against which the fixture's five-minute
+statement had expired, so the scenario timed a verification that ended in
+`:expired_attestation`. The fixture preconditions above exist so that a
+scenario cannot be published under a name it does not measure.
 
-The committed `bench/baseline.json` and `bench/output/benchmarks.*` come
-from runs before these corrections. Their rows for BM.02 at 1 KiB, the
-BM.03 quarantine path, BM.04, BM.06, and BM.07 describe the earlier
-fixtures until a baseline refresh replaces them, and the published page
-says so. A refresh needs three runs within +/-5% on a quiet runner; three
-runs on a shared workstation on 2026-11-20 spread up to 15% and were not
-used.
+The committed `bench/baseline.json` comes from a run before these
+corrections. Its rows for BM.02 at 1 KiB, the BM.03 quarantine path, BM.04,
+BM.05 verify, BM.06, and BM.07 describe the earlier fixtures until a
+baseline refresh replaces them, and it has no row for BM.09 to BM.31. A
+refresh needs three runs within +/-5% on a quiet runner; three runs on a
+shared workstation on 2026-11-20 spread up to 15% and were not used. The
+published reports under `bench/output/` are from one measured run of the
+current harness and state their environment.
 
 ## Environment Disclosure Format
 
@@ -188,7 +236,9 @@ and `unknown RAM` elsewhere. Hostnames and user paths MUST NOT appear.
   regresses more than 20% against the baseline, or when a baseline scenario
   is missing from the run. It applies the same 20% limit to `memory_bytes`.
   New scenarios without baseline entries are reported and pass. A run
-  recorded with `mode: "smoke"` is checked for scenario presence only.
+  recorded with `mode: "smoke"` is checked for scenario presence only. CI
+  runs `mix bench --smoke` and then
+  `mix run bench/compare.exs --run bench/output/smoke/benchmarks.json`.
 - The gate is binding only when the run's runner class matches the baseline
   environment block; on any other hardware the job is informational.
   Cross-hardware comparison is invalid by definition. The runner class is
@@ -258,12 +308,16 @@ Shape of `bench/baseline.json` (also the per-run `benchmarks.json`):
 
 | Path | Purpose |
 |------|---------|
-| `bench/run.exs` | Benchee harness (existing), extended to the matrix plus `--smoke`. |
+| `bench/run.exs` | Runs every suite and writes the summary and `benchmarks.json`. |
+| `bench/<suite>.exs` | One suite: scenarios, fixtures, preconditions. |
+| `bench/support/harness.exs` | The `SigilGuard.Bench` behaviour and runner: budgets, smoke mode, environment block, derived figures, reports. |
+| `bench/support/fixtures.exs` | Signers with fixed seeds and the inputs the suites share. |
+| `bench/output/<suite>.md` | Published report of one suite (ExDoc extra). |
 | `bench/corpus.exs` | Seeded corpus generator. |
 | `bench/corpus/` | Committed deterministic corpus fixtures. |
 | `bench/compare.exs` | Regression gate against the baseline. |
 | `bench/baseline.json` | Committed baseline with environment block. |
-| `bench/output/benchmarks.md` | Published results (existing ExDoc extra). |
+| `bench/output/benchmarks.md` | Published summary of every scenario (ExDoc extra). |
 | `bench/output/benchmarks.json` | Machine-readable run statistics. |
 
 ## Integration Points
@@ -309,7 +363,8 @@ The harness is tooling, not a runtime surface; N/A rows are intentional.
 
 | Test | Module | What It Verifies |
 |------|--------|------------------|
-| harness smoke | CI step `mix bench --smoke` | every scenario constructs and executes with minimal budgets. |
+| harness smoke | CI step `mix bench --smoke` | every scenario constructs and executes with minimal budgets, and writes under `bench/output/smoke/`. |
+| suite wiring | `BenchTest` | every suite has a script, a `mix bench.<suite>` alias, and an ExDoc extra; scenario names are unique and cover BM.01 to BM.31; every baseline scenario is still measured. |
 | corpus determinism | `BenchTest` | two generations are byte-identical, and the committed corpus is what the generator writes. |
 | hit-count assertion | harness precondition, `BenchTest` | hit corpora contain exactly the expected synthetic secrets; one secret of the stream corpus lies across a chunk boundary. |
 | path preconditions | harness precondition, `BenchTest` | each fixture takes the path its scenario is named for. |

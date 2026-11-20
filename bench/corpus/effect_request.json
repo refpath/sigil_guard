@@ -1,0 +1,37 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "cell.move",
+    "arguments": {
+      "speed_mm_s": 120,
+      "x_mm": 250,
+      "y_mm": 100
+    },
+    "_meta": {
+      "dev.sigilguard/effect": {
+        "binding_format": "sigil_guard_effect_binding/v1",
+        "operation_id": "op-0001",
+        "target": {
+          "id": "urn:example:cell-a:arm-1",
+          "environment": "physical"
+        },
+        "artifacts": [
+          {
+            "name": "controller-config",
+            "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "name": "program",
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "frame_revision": "cal-r3",
+        "policy_epoch": "example-bundle:42:3333333333333333333333333333333333333333333333333333333333333333",
+        "not_before": "2026-11-19T12:00:00.000Z",
+        "not_after": "2026-11-19T12:05:00.000Z"
+      }
+    }
+  }
+}

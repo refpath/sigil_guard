@@ -19,7 +19,21 @@ defmodule SigilGuard.BenchCorpus do
   @bundle_file "trust_bundle_delegations.json"
   @bundle_pattern_count 10
 
-  @doc false
+  @fixtures Path.expand("../test/fixtures", __DIR__)
+  @manifest_file "capability_manifest.json"
+
+  # Fixtures the gateway suites share with the test suite, copied so that a
+  # benchmark reads nothing outside `bench/corpus/`.
+  @copied %{
+    "boundary.policy" => "boundary_policy/canonical.policy",
+    "effect_request.json" => "effect_authority/request.json",
+    "effect_cell_move.manifest.json" => "effect_authority/cell.move.manifest.json",
+    "effect_cell_grip.manifest.json" => "effect_authority/cell.grip.manifest.json",
+    "effect_cell.policy" => "effect_authority/cell.policy"
+  }
+
+  @doc "Write the corpus into `dir`. The same bytes on every call."
+  @spec generate!(Path.t()) :: :ok
   def generate!(dir \\ @dir) do
     :rand.seed(:exsss, @seed)
     File.mkdir_p!(dir)
@@ -33,18 +47,27 @@ defmodule SigilGuard.BenchCorpus do
 
     write!(dir, "stream_split_64k.txt", place_marker(hits_64k, @split_offset))
     write!(dir, @bundle_file, bundle_envelope())
+    write!(dir, @manifest_file, manifest())
+
+    for {name, source} <- @copied do
+      write!(dir, name, File.read!(Path.join(@fixtures, source)))
+    end
+
     :ok
   end
 
-  @doc false
+  @doc "The paths of the corpus files under `dir`."
+  @spec files(Path.t()) :: [Path.t()]
   def files(dir \\ @dir) do
     texts =
-      for {label, _bytes} <- @sizes,
+      for {label, _} <- @sizes,
           kind <- ["clean", "hits"] do
         Path.join(dir, "#{kind}_#{label}.txt")
       end
 
-    texts ++ [Path.join(dir, "stream_split_64k.txt"), Path.join(dir, @bundle_file)]
+    others = ["stream_split_64k.txt", @bundle_file, @manifest_file | Map.keys(@copied)]
+
+    texts ++ Enum.map(others, &Path.join(dir, &1))
   end
 
   defp clean_payload(bytes), do: payload(bytes, false)
@@ -53,7 +76,7 @@ defmodule SigilGuard.BenchCorpus do
   # bytes. That draws nothing from the generator, so the files after it keep
   # their bytes.
   defp hits_payload(bytes) when bytes < @block_bytes,
-    do: bytes |> payload(true) |> place_marker(0)
+    do: place_marker(payload(bytes, true), 0)
 
   defp hits_payload(bytes), do: payload(bytes, true)
 
@@ -94,6 +117,20 @@ defmodule SigilGuard.BenchCorpus do
   end
 
   defp write!(dir, name, payload), do: File.write!(Path.join(dir, name), payload)
+
+  # The `repo_file_write` manifest of the test suite with a far expiry, so a
+  # benchmark that guards it against the wall clock keeps working.
+  defp manifest do
+    {:ok, bytes} =
+      @fixtures
+      |> Path.join("capability_manifest/repo_file_write.manifest.json")
+      |> File.read!()
+      |> Jason.decode!()
+      |> Map.put("expires_at", "2099-01-01T00:00:00.000Z")
+      |> JCS.encode()
+
+    bytes
+  end
 
   # A signed bundle with two delegate roles and ten pattern entries. Keys come
   # from fixed seeds and the timestamps are constants, so the envelope bytes
@@ -160,7 +197,7 @@ defmodule SigilGuard.BenchCorpus do
 
   defp patterns do
     for index <- 1..@bundle_pattern_count do
-      id = index |> Integer.to_string() |> String.pad_leading(2, "0")
+      id = String.pad_leading(Integer.to_string(index), 2, "0")
 
       %{
         "set" => "secret",

@@ -1,501 +1,239 @@
-## Environment
-
-- Hardware: Apple M5 Pro, 18 cores
-- OS: unix/darwin
-- Elixir: 1.18.4 / OTP: 28
-- SigilGuard: 1.0.1 (ec939e1)
-- Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-09-11
-- Fixtures: This run predates the fixture corrections of 2026-11-20. Its `BM.04 runtime stream 64k split secret` row timed a stream that halted at its first chunk, its `BM.03 runtime gate quarantine` row timed a blocked request, and its `BM.02 scan hits 1k` row scanned text without a secret. Those three rows are not comparable with a later run.
-- Background load: Unrelated BEAM work exceeded 50% CPU in 60 of 164 sampled seconds, with a peak observed process CPU of 1303.7% (100% is one logical CPU). This shared-host run is informational, not a controlled timing comparison.
-
-
-Benchmark
-
 # SigilGuard Performance Benchmarks
 
 Mode: measured. Values are measured for this environment, not ratified SLO bounds.
+Each suite has its own page with the full Benchee statistics.
 
+## Environment
 
-## System
+- Hardware: Apple M4 Max, 16 cores, 128 GB RAM
+- OS: unix/darwin
+- Elixir: 1.20.4 / OTP: 29
+- SigilGuard: 1.0.5 (0eca0a4)
+- Benchee: warmup 2 s, time 5 s, memory_time 2 s
+- Date: 2026-11-20
 
-Benchmark suite executing on the following system:
+## Derived figures
 
-<table style="width: 1%">
-  <tr>
-    <th style="width: 1%; white-space: nowrap">Operating System</th>
-    <td>macOS</td>
-  </tr><tr>
-    <th style="white-space: nowrap">CPU Information</th>
-    <td style="white-space: nowrap">Apple M5 Pro</td>
-  </tr><tr>
-    <th style="white-space: nowrap">Number of Available Cores</th>
-    <td style="white-space: nowrap">18</td>
-  </tr><tr>
-    <th style="white-space: nowrap">Available Memory</th>
-    <td style="white-space: nowrap">48 GB</td>
-  </tr><tr>
-    <th style="white-space: nowrap">Elixir Version</th>
-    <td style="white-space: nowrap">1.18.4</td>
-  </tr><tr>
-    <th style="white-space: nowrap">Erlang Version</th>
-    <td style="white-space: nowrap">28.5.0.6</td>
-  </tr>
-</table>
+| Figure | Median (us) | Percent |
+|--------|------------:|--------:|
+| BM.04 stream median per chunk | 211.803 |  |
+| BM.04 stream overhead versus single pass | 20617.852 | 317.5 |
+| BM.08 gateway overhead versus no-op | 45.873 |  |
 
-## Configuration
+## Scanner Benchmarks
 
-Benchmark suite executing with the following configuration:
+Every boundary crossing starts with a scan, so its cost bounds everything
+built on it. The suite scans clean text and text with one documented
+synthetic secret per 4 KiB at three sizes, redacts what it finds, runs the
+quarantine inspector that looks for prompt injection, and compiles a
+bundle's pattern entries into the sets the scanner uses.
 
-<table style="width: 1%">
-  <tr>
-    <th style="width: 1%">:time</th>
-    <td style="white-space: nowrap">5 s</td>
-  </tr><tr>
-    <th>:parallel</th>
-    <td style="white-space: nowrap">1</td>
-  </tr><tr>
-    <th>:warmup</th>
-    <td style="white-space: nowrap">2 s</td>
-  </tr>
-</table>
+Full statistics: [Scanner Benchmarks](scanner.md).
 
-## Statistics
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.01 scan clean 1k | 13.834 | 17.833 | 3208 |
+| BM.01 scan clean 1m | 13612.166 | 14640.364 | 3352 |
+| BM.01 scan clean 64k | 847.958 | 979.299 | 3232 |
+| BM.02 scan hits 1k | 16.292 | 22.333 | 11096 |
+| BM.02 scan hits 1m | 14578.584 | 15439.308 | 2022456 |
+| BM.02 scan hits 64k | 872.958 | 972.637 | 127976 |
+| BM.09 scan and redact hits 1k | 16.708 | 25.709 | 10888 |
+| BM.09 scan and redact hits 64k | 900.958 | 1002.070 | 131984 |
+| BM.10 quarantine inspect clean 1k | 107.542 | 123.958 | 2168 |
+| BM.10 quarantine inspect injection | 15.417 | 22.541 | 9912 |
+| BM.11 pattern sets resolve 10 entries | 7.750 | 16.000 | 8040 |
 
+## Runtime Gate and Policy Benchmarks
 
+`SigilGuard.Runtime.Gate.evaluate/3` is the decision a host makes at each
+boundary: scan, quarantine check, risk and trust ladder, and the policy
+kernel. The suite times the four verdict paths, the ladder and the kernel
+alone, a policy file with an output contract, and repo policy for a file
+change.
 
-Run Time
+Full statistics: [Runtime Gate and Policy Benchmarks](gate.md).
 
-<table style="width: 1%">
-  <tr>
-    <th>Name</th>
-    <th style="text-align: right">IPS</th>
-    <th style="text-align: right">Average</th>
-    <th style="text-align: right">Deviation</th>
-    <th style="text-align: right">Median</th>
-    <th style="text-align: right">99th&nbsp;%</th>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.03 runtime gate allow | 135.814 | 163.335 | 42736 |
+| BM.03 runtime gate block | 26.834 | 42.708 | 52520 |
+| BM.03 runtime gate quarantine | 50.335 | 61.750 | 59784 |
+| BM.03 runtime gate redact | 38.584 | 53.793 | 53384 |
+| BM.12 policy verdict allowed | 0.541 | 0.791 | 808 |
+| BM.12 policy verdict blocked | 0.292 | 0.500 | 856 |
+| BM.13 boundary policy kernel | 2.833 | 6.001 | 3208 |
+| BM.14 policy file parse | 79.251 | 101.909 | 53872 |
+| BM.14 runtime gate with output contract | 3499.756 | 3875.911 | 453288 |
+| BM.15 repo policy compile | 10.125 | 13.625 | 12528 |
+| BM.15 repo policy evaluate | 5.500 | 9.041 | 9064 |
+| BM.15 runtime gate repo change | 37.833 | 52.875 | 88328 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.08 no-op baseline</td>
-    <td style="white-space: nowrap; text-align: right">499356.08 K</td>
-    <td style="white-space: nowrap; text-align: right">0.00200 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;55.49%</td>
-    <td style="white-space: nowrap; text-align: right">0.00200 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.00221 &micro;s</td>
-  </tr>
+## Streaming Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap; text-align: right">1685.72 K</td>
-    <td style="white-space: nowrap; text-align: right">0.59 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;707.27%</td>
-    <td style="white-space: nowrap; text-align: right">0.50 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">2.79 &micro;s</td>
-  </tr>
+`SigilGuard.Runtime.Stream` evaluates each pushed chunk together with the
+bytes it still holds back, so that a secret split across two chunks is
+caught. The suite pushes 64 KiB in 128 chunks of 512 bytes, with one
+secret across a chunk boundary, and compares that with one gate
+evaluation over the same bytes. The context has high trust, so secrets
+are redacted and every chunk is evaluated. At low trust the first secret
+asks for confirmation and halts the stream.
 
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit append onto 10k chain</td>
-    <td style="white-space: nowrap; text-align: right">569.89 K</td>
-    <td style="white-space: nowrap; text-align: right">1.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;479.13%</td>
-    <td style="white-space: nowrap; text-align: right">1.54 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">3.42 &micro;s</td>
-  </tr>
+Full statistics: [Streaming Benchmarks](stream.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">100.90 K</td>
-    <td style="white-space: nowrap; text-align: right">9.91 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;69.79%</td>
-    <td style="white-space: nowrap; text-align: right">8.54 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">44.46 &micro;s</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.04 runtime stream 64k clean | 28658.602 | 30221.029 | 5900800 |
+| BM.04 runtime stream 64k split secret | 27110.801 | 30121.749 | 5963200 |
+| BM.04 single pass gate 64k | 6492.949 | 7344.447 | 1235912 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">88.77 K</td>
-    <td style="white-space: nowrap; text-align: right">11.27 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;22.55%</td>
-    <td style="white-space: nowrap; text-align: right">11.29 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">14.17 &micro;s</td>
-  </tr>
+## Tool Gateway Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">85.74 K</td>
-    <td style="white-space: nowrap; text-align: right">11.66 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;22.75%</td>
-    <td style="white-space: nowrap; text-align: right">11.71 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">14.71 &micro;s</td>
-  </tr>
+`SigilGuard.ToolGateway` guards each MCP `tools/call` request and each
+result. The suite times a request with and without a pinned capability
+manifest and with a required inbound attestation, a result, manifest
+validation and drift comparison, and a physical-effect request with its
+admission check. The no-op baseline is an empty function in the same run.
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap; text-align: right">32.04 K</td>
-    <td style="white-space: nowrap; text-align: right">31.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;11.62%</td>
-    <td style="white-space: nowrap; text-align: right">30.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">41.58 &micro;s</td>
-  </tr>
+Full statistics: [Tool Gateway Benchmarks](gateway.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap; text-align: right">24.63 K</td>
-    <td style="white-space: nowrap; text-align: right">40.60 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;13.13%</td>
-    <td style="white-space: nowrap; text-align: right">39.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">54.92 &micro;s</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.08 no-op baseline | 0.002 | 0.003 | 0 |
+| BM.08 tool gateway guard_request | 45.875 | 57.043 | 85032 |
+| BM.16 guard_request pinned compiled manifest | 53.293 | 70.125 | 102312 |
+| BM.16 guard_request pinned manifest | 95.459 | 127.585 | 187080 |
+| BM.16 guard_request required attestation | 194.792 | 259.280 | 285160 |
+| BM.17 guard_result | 42.458 | 58.250 | 76712 |
+| BM.17 guard_result pinned manifest | 93.834 | 111.876 | 175904 |
+| BM.18 capability manifest drifted fields | 49.918 | 62.542 | 87760 |
+| BM.18 capability manifest new | 44.668 | 58.500 | 82336 |
+| BM.18 capability manifest verify | 48.418 | 66.292 | 82472 |
+| BM.19 effect authority admit | 31.584 | 44.791 | 50560 |
+| BM.19 guard_request effect binding | 260.959 | 396.973 | 470960 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap; text-align: right">20.42 K</td>
-    <td style="white-space: nowrap; text-align: right">48.98 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;8.63%</td>
-    <td style="white-space: nowrap; text-align: right">47.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">60.04 &micro;s</td>
-  </tr>
+## Confirmation Token Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap; text-align: right">19.36 K</td>
-    <td style="white-space: nowrap; text-align: right">51.66 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.19%</td>
-    <td style="white-space: nowrap; text-align: right">50.58 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">65.13 &micro;s</td>
-  </tr>
+A decision that needs approval is released by a confirmation token bound
+to the exact payload and context. The suite times the digest a token
+binds, issuing and verifying a token, and a gateway request that carries
+an accepted token. Verification runs with `consume: false`, so one token
+can be verified repeatedly; a consuming verification also writes the
+nonce to the replay store.
 
-  <tr>
-    <td style="white-space: nowrap">BM.05 attestation verify</td>
-    <td style="white-space: nowrap; text-align: right">14.15 K</td>
-    <td style="white-space: nowrap; text-align: right">70.69 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;12.87%</td>
-    <td style="white-space: nowrap; text-align: right">70.04 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">94.38 &micro;s</td>
-  </tr>
+Full statistics: [Confirmation Token Benchmarks](confirmation.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap; text-align: right">13.12 K</td>
-    <td style="white-space: nowrap; text-align: right">76.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;5.88%</td>
-    <td style="white-space: nowrap; text-align: right">75.42 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">89.21 &micro;s</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.20 confirmation action digest | 8.333 | 13.583 | 19296 |
+| BM.20 confirmation issue | 26.666 | 52.333 | 58712 |
+| BM.20 confirmation verify | 33.166 | 59.042 | 64104 |
+| BM.20 guard_request accepted token | 34.042 | 78.541 | 15560 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.05 attestation sign</td>
-    <td style="white-space: nowrap; text-align: right">11.27 K</td>
-    <td style="white-space: nowrap; text-align: right">88.74 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;5.56%</td>
-    <td style="white-space: nowrap; text-align: right">88.92 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">105.04 &micro;s</td>
-  </tr>
+## Attestation Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap; text-align: right">9.53 K</td>
-    <td style="white-space: nowrap; text-align: right">104.97 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;34.02%</td>
-    <td style="white-space: nowrap; text-align: right">88.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">243.97 &micro;s</td>
-  </tr>
+An attestation is a DSSE envelope over a JCS-canonical statement whose
+subjects are the action, payload, context and manifest digests. The suite
+times each step a host or a verifier runs: computing the digests,
+building the statement from a decision, validating it, signing, and
+verifying against a key map and against a trust bundle role. Signing and
+verification are dominated by Ed25519.
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap; text-align: right">8.39 K</td>
-    <td style="white-space: nowrap; text-align: right">119.19 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;4.83%</td>
-    <td style="white-space: nowrap; text-align: right">118.46 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">142.46 &micro;s</td>
-  </tr>
+Full statistics: [Attestation Benchmarks](attestation.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.43 K</td>
-    <td style="white-space: nowrap; text-align: right">700.73 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;2.86%</td>
-    <td style="white-space: nowrap; text-align: right">705.19 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">746.09 &micro;s</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.05 attestation sign | 89.417 | 111.834 | 51136 |
+| BM.05 attestation verify | 75.876 | 99.793 | 78816 |
+| BM.21 attestation digests | 14.667 | 29.875 | 51096 |
+| BM.21 attestation from_decision | 25.000 | 45.625 | 66072 |
+| BM.21 trust profile validate | 2.416 | 5.334 | 3480 |
+| BM.22 attestation verify signature only | 57.667 | 72.792 | 26848 |
+| BM.22 attestation verify with trust bundle | 79.376 | 97.626 | 84000 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.33 K</td>
-    <td style="white-space: nowrap; text-align: right">751.55 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;3.13%</td>
-    <td style="white-space: nowrap; text-align: right">751.08 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">808.63 &micro;s</td>
-  </tr>
+## Trust Bundle Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap; text-align: right">0.144 K</td>
-    <td style="white-space: nowrap; text-align: right">6933.51 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;16.75%</td>
-    <td style="white-space: nowrap; text-align: right">6906.11 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">10360.07 &micro;s</td>
-  </tr>
+A host verifies a trust bundle when it loads one and reads it from the
+cache afterwards. The fixture is a signed bundle with one root key, two
+delegate roles and ten pattern entries. Cold verification covers the
+envelope signature, the schema, role thresholds, freshness and the
+rollback check against the cache. The warm path is one cache read.
 
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0891 K</td>
-    <td style="white-space: nowrap; text-align: right">11226.67 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;1.32%</td>
-    <td style="white-space: nowrap; text-align: right">11201.94 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">11748.50 &micro;s</td>
-  </tr>
+Full statistics: [Trust Bundle Benchmarks](trust_bundle.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0812 K</td>
-    <td style="white-space: nowrap; text-align: right">12317.72 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;1.54%</td>
-    <td style="white-space: nowrap; text-align: right">12283.50 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">13065.22 &micro;s</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.06 trust bundle cache warm | 0.958 | 4.541 | 48 |
+| BM.06 trust bundle verify cold | 103.917 | 130.501 | 111496 |
+| BM.23 trust bundle load | 105.417 | 129.417 | 132830 |
+| BM.23 trust bundle pattern sets | 8.042 | 24.208 | 8160 |
 
-</table>
+## Agent-To-Agent Trust Benchmarks
 
+An agent exchange signs a card once and attests each request and
+response. The suite times card signing, verification and digest, an
+attested request with a three-hop delegation chain, an attested response
+bound to its requester, and the requester's verification of that
+response with every binding checked. Each attest and verify step
+verifies the peer's card envelope first, so it carries two Ed25519
+operations.
 
-Run Time Comparison
+Full statistics: [Agent-To-Agent Trust Benchmarks](agent_trust.md).
 
-<table style="width: 1%">
-  <tr>
-    <th>Name</th>
-    <th style="text-align: right">IPS</th>
-    <th style="text-align: right">Slower</th>
-  <tr>
-    <td style="white-space: nowrap">BM.08 no-op baseline</td>
-    <td style="white-space: nowrap;text-align: right">499356.08 K</td>
-    <td>&nbsp;</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.24 agent card digest | 16.167 | 38.291 | 37704 |
+| BM.24 agent card sign | 89.167 | 110.073 | 40528 |
+| BM.24 agent card verify | 66.208 | 85.585 | 49824 |
+| BM.25 attest agent request | 229.585 | 309.898 | 230992 |
+| BM.25 attest agent response | 225.126 | 298.820 | 213160 |
+| BM.25 verify agent response | 175.417 | 221.304 | 161944 |
+| BM.25 verify delegation chain | 3.500 | 8.542 | 10152 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap; text-align: right">1685.72 K</td>
-    <td style="white-space: nowrap; text-align: right">296.23x</td>
-  </tr>
+## Audit Evidence Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit append onto 10k chain</td>
-    <td style="white-space: nowrap; text-align: right">569.89 K</td>
-    <td style="white-space: nowrap; text-align: right">876.23x</td>
-  </tr>
+Every decision can append one HMAC-chained audit event, and a host
+periodically checkpoints the chain into a Merkle root and exports
+evidence. The suite appends to a chain of 10,000 events, creates a
+checkpoint over it, builds and verifies inclusion and consistency proofs,
+verifies a chain of 1,000 events, and exports it. Event ids and
+timestamps follow from the event index, so the chain has the same bytes
+on every run.
 
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">100.90 K</td>
-    <td style="white-space: nowrap; text-align: right">4948.87x</td>
-  </tr>
+Full statistics: [Audit Evidence Benchmarks](audit.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">88.77 K</td>
-    <td style="white-space: nowrap; text-align: right">5625.59x</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.07 audit append onto 10k chain | 1.792 | 2.958 | 1720 |
+| BM.07 audit checkpoint create 10k | 6932.305 | 9023.712 | 4164856 |
+| BM.07 audit inclusion verify 10k | 7.667 | 49.792 | 5808 |
+| BM.26 audit consistency proof 10k | 6600.138 | 9749.225 | 4424016 |
+| BM.26 audit consistency verify 10k | 11.542 | 124.418 | 8488 |
+| BM.26 audit export create 1k | 3782.686 | 4652.726 | 2779859 |
+| BM.26 audit inclusion proof 10k | 6687.158 | 10173.919 | 4317736 |
+| BM.26 audit verify chain 1k | 1814.738 | 2313.028 | 1536072 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">85.74 K</td>
-    <td style="white-space: nowrap; text-align: right">5823.94x</td>
-  </tr>
+## Primitive Benchmarks
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap; text-align: right">32.04 K</td>
-    <td style="white-space: nowrap; text-align: right">15587.15x</td>
-  </tr>
+The building blocks the decision paths call: RFC 8785 canonical encoding
+of a statement, strict JSON decoding, SHA-256 and constant-time
+comparison, identifier syntax checks, reads from the in-memory vault, the
+replay store's rejection of a seen nonce, and the projection of a gate
+event into OpenTelemetry attributes.
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap; text-align: right">24.63 K</td>
-    <td style="white-space: nowrap; text-align: right">20273.07x</td>
-  </tr>
+Full statistics: [Primitive Benchmarks](primitives.md).
 
-  <tr>
-    <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap; text-align: right">20.42 K</td>
-    <td style="white-space: nowrap; text-align: right">24459.41x</td>
-  </tr>
+| Scenario | Median (us) | p99 (us) | Memory (bytes) |
+|----------|------------:|---------:|---------------:|
+| BM.27 canonical json decode statement | 4.792 | 7.542 | 10824 |
+| BM.27 jcs encode statement | 13.542 | 34.167 | 43616 |
+| BM.28 secure compare 64 bytes | 0.083 | 0.125 | 0 |
+| BM.28 sha256 hex 1k | 0.541 | 0.750 | 152 |
+| BM.29 identity did:key public key | 1.208 | 2.375 | 2176 |
+| BM.29 identity spiffe id check | 1.583 | 2.917 | 712 |
+| BM.30 replay store detect replay | 0.500 | 0.708 | 400 |
+| BM.30 vault decrypt | 1.250 | 2.625 | 352 |
+| BM.30 vault exists | 0.792 | 1.292 | 288 |
+| BM.31 telemetry otel attributes | 2.917 | 4.208 | 5896 |
+| BM.31 telemetry otel attributes high cardinality | 2.750 | 7.292 | 5128 |
 
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap; text-align: right">19.36 K</td>
-    <td style="white-space: nowrap; text-align: right">25796.04x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.05 attestation verify</td>
-    <td style="white-space: nowrap; text-align: right">14.15 K</td>
-    <td style="white-space: nowrap; text-align: right">35297.48x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap; text-align: right">13.12 K</td>
-    <td style="white-space: nowrap; text-align: right">38054.41x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.05 attestation sign</td>
-    <td style="white-space: nowrap; text-align: right">11.27 K</td>
-    <td style="white-space: nowrap; text-align: right">44312.18x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap; text-align: right">9.53 K</td>
-    <td style="white-space: nowrap; text-align: right">52418.34x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap; text-align: right">8.39 K</td>
-    <td style="white-space: nowrap; text-align: right">59517.17x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.43 K</td>
-    <td style="white-space: nowrap; text-align: right">349915.91x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.33 K</td>
-    <td style="white-space: nowrap; text-align: right">375289.3x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap; text-align: right">0.144 K</td>
-    <td style="white-space: nowrap; text-align: right">3462290.26x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0891 K</td>
-    <td style="white-space: nowrap; text-align: right">5606105.74x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0812 K</td>
-    <td style="white-space: nowrap; text-align: right">6150929.47x</td>
-  </tr>
-
-</table>
-
-
-
-Memory Usage
-
-<table style="width: 1%">
-  <tr>
-    <th>Name</th>
-    <th style="text-align: right">Average</th>
-    <th style="text-align: right">Factor</th>
-  </tr>
-  <tr>
-    <td style="white-space: nowrap">BM.08 no-op baseline</td>
-    <td style="white-space: nowrap">0 KB</td>
-    <td>&nbsp;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap">0.0469 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.07 audit append onto 10k chain</td>
-    <td style="white-space: nowrap">1.67 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap">6.69 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1k</td>
-    <td style="white-space: nowrap">3.25 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap">3.25 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap">58.29 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap">60.05 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.08 tool gateway guard_request</td>
-    <td style="white-space: nowrap">101.51 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap">64.55 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.05 attestation verify</td>
-    <td style="white-space: nowrap">73.99 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap">54.30 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.05 attestation sign</td>
-    <td style="white-space: nowrap">72.97 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.04 runtime stream 64k split secret</td>
-    <td style="white-space: nowrap">78.37 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap">48.43 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
-    <td style="white-space: nowrap">3.27 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap">129.02 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap">4067.81 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 1m</td>
-    <td style="white-space: nowrap">3.39 KB</td>
-    <td>&mdash;</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap">2024.05 KB</td>
-    <td>&mdash;</td>
-  </tr>
-</table>

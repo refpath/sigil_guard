@@ -8,7 +8,8 @@ defmodule SigilGuard.LLMGuardCompare do
   @python_json "bench/output/llm_guard_python.json"
   @secret "AKIAIOSFODNN7EXAMPLE"
 
-  @doc false
+  @doc "Run both scanners over the corpus and write the comparison."
+  @spec run() :: :ok
   def run do
     File.mkdir_p!("bench/output")
 
@@ -31,11 +32,7 @@ defmodule SigilGuard.LLMGuardCompare do
     for corpus <- @corpora, into: %{} do
       payload = File.read!(Path.join("bench/corpus", corpus))
 
-      samples =
-        for _ <- 1..@iterations do
-          {time, _result} = :timer.tc(fn -> SigilGuard.scan(payload) end)
-          System.convert_time_unit(time, :microsecond, :nanosecond)
-        end
+      samples = for _ <- 1..@iterations, do: sample(payload)
 
       {"sigil_guard.scan #{corpus}",
        %{
@@ -48,6 +45,15 @@ defmodule SigilGuard.LLMGuardCompare do
        }}
     end
   end
+
+  defp sample(payload) do
+    {time, _} = :timer.tc(fn -> SigilGuard.scan(payload) end)
+    System.convert_time_unit(time, :microsecond, :nanosecond)
+  end
+
+  # The child commands need the caller's tool paths and caches, so the
+  # environment is kept apart from the credentials a shell may hold.
+  @scrubbed_env [{"HEX_API_KEY", nil}, {"GITHUB_TOKEN", nil}, {"GH_TOKEN", nil}]
 
   defp llm_guard_results do
     {output, status} =
@@ -66,6 +72,7 @@ defmodule SigilGuard.LLMGuardCompare do
           "--output",
           @python_json
         ],
+        env: @scrubbed_env,
         stderr_to_stdout: true
       )
 
@@ -174,7 +181,10 @@ defmodule SigilGuard.LLMGuardCompare do
   end
 
   defp cpu_info do
-    case System.cmd("sysctl", ["-n", "machdep.cpu.brand_string"], stderr_to_stdout: true) do
+    case System.cmd("sysctl", ["-n", "machdep.cpu.brand_string"],
+           env: @scrubbed_env,
+           stderr_to_stdout: true
+         ) do
       {cpu, 0} -> String.trim(cpu)
       _ -> inspect(:erlang.system_info(:cpu_topology), limit: 8)
     end
@@ -186,7 +196,10 @@ defmodule SigilGuard.LLMGuardCompare do
   end
 
   defp git_commit do
-    case System.cmd("git", ["rev-parse", "--short", "HEAD"], stderr_to_stdout: true) do
+    case System.cmd("git", ["rev-parse", "--short", "HEAD"],
+           env: @scrubbed_env,
+           stderr_to_stdout: true
+         ) do
       {commit, 0} -> String.trim(commit)
       _ -> "unknown"
     end

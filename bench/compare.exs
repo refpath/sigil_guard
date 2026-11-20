@@ -11,7 +11,8 @@ defmodule SigilGuard.BenchCompare do
           | {:warn, String.t()}
           | {:pass, String.t()}
 
-  @doc false
+  @doc "Compare a run with the baseline. Halts with status 1 on a failure."
+  @spec main([String.t()]) :: :ok
   def main(argv \\ System.argv()) do
     opts = parse_args(argv)
 
@@ -34,7 +35,8 @@ defmodule SigilGuard.BenchCompare do
     end
   end
 
-  @doc false
+  @doc "Compare two benchmark documents and return the findings."
+  @spec compare(term(), term()) :: {:ok, [finding()]} | {:error, [finding()]}
   def compare(baseline, run) when is_map(baseline) and is_map(run) do
     with :ok <- validate_document(baseline, "baseline"),
          :ok <- validate_document(run, "run") do
@@ -46,7 +48,8 @@ defmodule SigilGuard.BenchCompare do
 
   def compare(_, _), do: {:error, [{:fail, "benchmark documents must be JSON objects"}]}
 
-  @doc false
+  @doc "Check that `document` has the shape of a benchmark run or baseline."
+  @spec validate_document(map(), String.t()) :: :ok | {:error, String.t()}
   def validate_document(document, label) do
     with :ok <- require_field(document, "schema", label),
          :ok <- require_field(document, "environment", label),
@@ -55,9 +58,8 @@ defmodule SigilGuard.BenchCompare do
          :ok <- require_schema(document, label),
          :ok <- require_environment(document["environment"], label),
          :ok <- require_recorded_at(document["recorded_at"], label),
-         :ok <- require_mode(document, label),
-         :ok <- require_scenarios(document["scenarios"], label) do
-      :ok
+         :ok <- require_mode(document, label) do
+      require_scenarios(document["scenarios"], label)
     end
   end
 
@@ -142,7 +144,7 @@ defmodule SigilGuard.BenchCompare do
 
   defp pass_if_empty(findings, message \\ "no binding benchmark regressions")
   defp pass_if_empty([], message), do: [{:pass, message}]
-  defp pass_if_empty(findings, _message), do: findings
+  defp pass_if_empty(findings, _), do: findings
 
   defp percent(_, 0), do: "unbounded increase from zero"
 
@@ -174,20 +176,20 @@ defmodule SigilGuard.BenchCompare do
 
   defp require_environment(_, label), do: {:error, "#{label} environment must be an object"}
 
-  defp require_recorded_at(date, _label) when is_binary(date) do
+  defp require_recorded_at(date, _) when is_binary(date) do
     case Date.from_iso8601(date) do
       {:ok, _} -> :ok
       {:error, _} -> {:error, "recorded_at must be an ISO 8601 date"}
     end
   end
 
-  defp require_recorded_at(_, _label), do: {:error, "recorded_at must be a string"}
+  defp require_recorded_at(_, _), do: {:error, "recorded_at must be a string"}
 
   defp require_mode(%{"mode" => mode}, label) when mode not in ["measured", "smoke"] do
     {:error, "#{label} mode must be measured or smoke"}
   end
 
-  defp require_mode(_, _label), do: :ok
+  defp require_mode(_, _), do: :ok
 
   defp smoke_run?(%{"mode" => "smoke"}), do: true
   defp smoke_run?(_), do: false
@@ -223,7 +225,7 @@ defmodule SigilGuard.BenchCompare do
   end
 
   defp parse_args(argv) do
-    {opts, _argv, invalid} =
+    {opts, _, invalid} =
       OptionParser.parse(argv,
         strict: [baseline: :string, run: :string, require_comparable: :boolean],
         aliases: [b: :baseline, r: :run]
@@ -242,9 +244,9 @@ defmodule SigilGuard.BenchCompare do
 
   defp print_findings(findings) do
     Enum.each(findings, fn
-      {:pass, message} -> IO.puts("PASS: #{message}")
-      {:warn, message} -> IO.puts("WARN: #{message}")
-      {:fail, message} -> IO.puts("FAIL: #{message}")
+      {:pass, message} -> Mix.shell().info("PASS: #{message}")
+      {:warn, message} -> Mix.shell().info("WARN: #{message}")
+      {:fail, message} -> Mix.shell().error("FAIL: #{message}")
     end)
   end
 end

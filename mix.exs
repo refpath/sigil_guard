@@ -4,6 +4,7 @@ defmodule SigilGuard.MixProject do
   @version "1.0.5"
   @source_url "https://github.com/refpath/sigil_guard"
 
+  @spec project() :: keyword()
   def project do
     [
       app: :sigil_guard,
@@ -24,6 +25,7 @@ defmodule SigilGuard.MixProject do
     ]
   end
 
+  @spec application() :: keyword()
   def application do
     [
       extra_applications: [:logger, :crypto],
@@ -31,6 +33,7 @@ defmodule SigilGuard.MixProject do
     ]
   end
 
+  @spec cli() :: keyword()
   def cli do
     [
       preferred_envs: [
@@ -100,7 +103,7 @@ defmodule SigilGuard.MixProject do
         guides
         notebooks
         docs/README.md
-        bench/output/benchmarks.md
+        bench/output/*.md
         .formatter.exs
         mix.exs
         README.md
@@ -156,6 +159,16 @@ defmodule SigilGuard.MixProject do
         "guides/integrations/tidewave.md": [title: "Tidewave Integration"],
         "guides/release-and-anchoring.md": [title: "Release and Anchoring"],
         "bench/output/benchmarks.md": [title: "Benchmarks"],
+        "bench/output/scanner.md": [title: "Scanner Benchmarks"],
+        "bench/output/gate.md": [title: "Runtime Gate and Policy Benchmarks"],
+        "bench/output/stream.md": [title: "Streaming Benchmarks"],
+        "bench/output/gateway.md": [title: "Tool Gateway Benchmarks"],
+        "bench/output/confirmation.md": [title: "Confirmation Token Benchmarks"],
+        "bench/output/attestation.md": [title: "Attestation Benchmarks"],
+        "bench/output/trust_bundle.md": [title: "Trust Bundle Benchmarks"],
+        "bench/output/agent_trust.md": [title: "Agent-To-Agent Trust Benchmarks"],
+        "bench/output/audit.md": [title: "Audit Evidence Benchmarks"],
+        "bench/output/primitives.md": [title: "Primitive Benchmarks"],
         "MIGRATING-1.0.md": [title: "Migrating to 1.0"],
         "CHANGELOG.md": [title: "Changelog"],
         "SECURITY.md": [title: "Security"],
@@ -169,7 +182,7 @@ defmodule SigilGuard.MixProject do
         Tutorials: ~r/notebooks/,
         "Getting Started": ~r/README/,
         Guides: ~r/guides/,
-        Performance: ~r/benchmarks/,
+        Performance: ~r{bench/output/},
         Reference: ~r/MIGRATING|CHANGELOG|SECURITY|CONTRIBUTING|AGENTS|LICENSE/
       ],
       groups_for_modules: [
@@ -307,8 +320,22 @@ defmodule SigilGuard.MixProject do
       setup: ["deps.get", "deps.compile"],
       lint: ["format --check-formatted", "credo --strict", "dialyzer"],
       "test.cover": ["coveralls"],
-      bench: ["run bench/run.exs"],
       ci: ["setup", "lint", "test.cover"],
+
+      # Benchmarks: `bench` runs every suite and writes the summary; a
+      # `bench.<suite>` alias runs one and writes its page.
+      bench: ["run bench/run.exs"],
+      "bench.scanner": ["run bench/scanner.exs"],
+      "bench.gate": ["run bench/gate.exs"],
+      "bench.stream": ["run bench/stream.exs"],
+      "bench.gateway": ["run bench/gateway.exs"],
+      "bench.confirmation": ["run bench/confirmation.exs"],
+      "bench.attestation": ["run bench/attestation.exs"],
+      "bench.trust_bundle": ["run bench/trust_bundle.exs"],
+      "bench.agent_trust": ["run bench/agent_trust.exs"],
+      "bench.audit": ["run bench/audit.exs"],
+      "bench.primitives": ["run bench/primitives.exs"],
+      "bench.corpus": ["run bench/corpus.exs"],
 
       # Release
       release: ["git_ops.release"]

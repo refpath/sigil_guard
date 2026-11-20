@@ -130,7 +130,7 @@ jobs:
       - name: Compare benchmark smoke to baseline
         env:
           MIX_ENV: dev
-        run: mix run bench/compare.exs
+        run: mix run bench/compare.exs --run bench/output/smoke/benchmarks.json
 
   dialyzer:
     name: Dialyzer

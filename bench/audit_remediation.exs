@@ -7,7 +7,8 @@ for {path, original, renamed} <- [
       {"lib/sigil_guard/scanner/pipeline.ex", "SigilGuard.Scanner.Pipeline",
        "SigilGuard.BenchmarkBaselinePipeline"}
     ] do
-  {source, 0} = System.cmd("git", ["show", "#{baseline_ref}:#{path}"])
+  {source, 0} =
+    System.cmd("git", ["show", "#{baseline_ref}:#{path}"], env: [{"GIT_TERMINAL_PROMPT", "0"}])
 
   source =
     String.replace(source, "defmodule #{original} do", "defmodule #{renamed} do", global: false)
