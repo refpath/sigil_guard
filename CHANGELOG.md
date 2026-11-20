@@ -40,6 +40,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - Remove the resolved Cowlib cookie/header advisory exceptions. Retain only
   CVE-2026-43966 for the test-only structured-header encoder, which is absent
   from the production archive.
+- Update Cowboy to 2.21.0, Cowlib to 2.22.0, Plug to 1.20.4 and Telemetry to
+  1.4.3. The update clears three new advisories on the test-only HTTP stack
+  and resolves CVE-2026-43966, so the last advisory exception is removed.
 
 ## Unreleased Breaking Changes For 1.0.0
 

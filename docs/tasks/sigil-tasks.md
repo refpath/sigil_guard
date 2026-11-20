@@ -3096,11 +3096,8 @@ and needed no task; the tasks below cover the rest.
     then does; the complete application gate passes with coverage at or
     above 95%; no publish, push, or tag is performed.
 
-M13.08 stays open. On 2026-11-19 `./bin/check` passed every check except
-`mix hex.audit`, with 95.5% coverage. `mix hex.audit` reports the retained
-cowlib advisory and fails the same way on the commit before M13, so the
-exception in `mix.exs` needs a maintainer decision. Hosted CI and a real
-receiving boundary were not exercised by this milestone.
+Hosted CI and a real receiving boundary were not exercised by this
+milestone.
 
 ## Package verification maintenance
 
