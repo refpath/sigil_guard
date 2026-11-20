@@ -358,13 +358,11 @@ defmodule SigilGuard.Audit.ExportTest do
   end
 
   describe "canonical_bytes/1 and digest/1" do
-    test "produces stable canonical export digests" do
+    test "the digest is 64 hex digits and changes with any field" do
       events = build_signed_chain(2)
       {:ok, export} = signed_export(events)
 
-      assert Export.canonical_bytes(export) == Export.canonical_bytes(export)
-      assert Export.digest(export) == Export.digest(export)
-      assert byte_size(Export.digest(export)) == 64
+      assert Export.digest(export) =~ ~r/\A[0-9a-f]{64}\z/
 
       changed = put_in(export, ["anchor", "uri"], "s3://audit-lock/checkpoints/002.json")
       assert Export.digest(changed) != Export.digest(export)

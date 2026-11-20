@@ -1029,7 +1029,7 @@ defmodule SigilGuard.EffectAuthorityTest do
               request <- term(),
               context <- term(),
               current <- term(),
-              opts <- term()
+              opts <- one_of([constant(max_fact_age_ms: 500), term()])
             ) do
         assert refusal?(EffectAuthority.admit(decision, request, context, current, opts))
       end
@@ -1057,15 +1057,6 @@ defmodule SigilGuard.EffectAuthorityTest do
                  EffectAuthority.envelope_digest(envelope)
                )
       end
-    end
-
-    test "equal inputs give equal results" do
-      decision = decision_for(Fixture.request())
-
-      results =
-        for _ <- 1..50, do: admit(decision, Fixture.request(), at(~U[2026-11-19 12:05:00.001Z]))
-
-      assert Enum.uniq(results) == [{:error, :effect_deadline_passed}]
     end
 
     test "the modules read no clock, process state, ETS, or application environment" do

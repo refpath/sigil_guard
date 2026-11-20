@@ -104,11 +104,16 @@ defmodule SigilGuard.ThreatModel.TM09LethalTrifectaTest do
     end
 
     test "a boundary missing required digests fails closed", %{policy: policy} do
-      boundary =
-        trifecta(trust_level: :low)
-        |> Map.drop([:action_digest, :payload_digest, :context_digest])
+      allowed = trifecta(trust_level: :high, sink: :model)
+      assert BoundaryPolicy.evaluate(allowed, policy: policy).action == :allow
 
-      assert BoundaryPolicy.evaluate(boundary, policy: policy).action == :block
+      decision =
+        BoundaryPolicy.evaluate(
+          Map.drop(allowed, [:action_digest, :payload_digest, :context_digest]),
+          policy: policy
+        )
+
+      assert Enum.map(decision.matched_rules, & &1.rule_id) == ["boundary.invalid"]
     end
   end
 

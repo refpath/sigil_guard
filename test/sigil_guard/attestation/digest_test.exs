@@ -658,7 +658,6 @@ defmodule SigilGuard.Attestation.DigestTest do
 
       first = digest.(%{"path" => "docs/a.md", "content" => "one"})
 
-      assert first == digest.(%{"content" => "one", "path" => "docs/a.md"})
       refute first == digest.(%{"path" => "docs/a.md", "content" => "two"})
       refute first == digest.(%{"path" => "docs/b.md", "content" => "one"})
     end

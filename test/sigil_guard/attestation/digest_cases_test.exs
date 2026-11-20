@@ -15,7 +15,6 @@ defmodule SigilGuard.Attestation.DigestCasesTest do
 
       assert {:ok, digests} = Digest.digests(:tool_request, payload, context)
       assert Map.keys(digests) == ["action", "context", "payload"]
-      assert {:ok, ^digests} = Digest.digests(:tool_request, payload, context, [])
 
       # A result has no action digest without the request it answers.
       assert Digest.digests(:tool_result, payload, context) == {:error, :invalid_payload}

@@ -127,8 +127,8 @@ use documented synthetic credentials.
 | Offline trust bundles, cache and quarantine, pattern sets, identity, AES-256-GCM vault | Trust Bundles, Identity, And Vault |
 | Agent cards, peer capability binding, delegation, unknown-peer quarantine | Agent-To-Agent Trust |
 | HMAC chains, checkpoints, inclusion/consistency proofs, witnesses, anchors, exports, CloudEvents, OSCAL | Audit Export And Proofs |
-| Physical-effect binding records, admission against current facts, outcome classification | Physical-Effect Requests |
 | Transport contexts and framework interception | Hermes Integration Stub |
+| Physical-effect binding records, admission against current facts, outcome classification | Physical-Effect Requests |
 
 Host-owned concerns remain host-owned in the tutorials: transport negotiation,
 OAuth, complete JSON Schema validation, browser sandbox/CSP construction,

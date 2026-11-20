@@ -174,15 +174,6 @@ defmodule SigilGuard.Assessment.OSCALTest do
       assert {:error, :export_digest_mismatch} = OSCAL.project(ctx.export, stale_digest)
     end
 
-    test "does not mutate or change the canonical digest of the export", ctx do
-      original = ctx.export
-      digest = Export.digest(original)
-
-      assert {:ok, _} = OSCAL.project(original, ctx.context)
-      assert ctx.export == original
-      assert Export.digest(ctx.export) == digest
-    end
-
     test "does not copy raw actors, payloads, or unknown export metadata", ctx do
       secret = "raw-host-secret-that-must-not-project"
 

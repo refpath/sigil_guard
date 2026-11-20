@@ -21,12 +21,12 @@ defmodule SigilGuard.ConfirmationTest do
   end
 
   describe "action_digest/2" do
-    test "is deterministic for the same payload and context" do
+    test "pins the digest of a known payload and context" do
       payload = %{"tool" => "fetch_url", "text" => "review me"}
       context = [phase: :tool_result, sink: :model, trust_level: :high]
 
       assert Confirmation.action_digest(payload, context) ==
-               Confirmation.action_digest(payload, context)
+               "b90ec57c2245f8168a2cd5171a0af0548ea36b8bfa782e24b7fe779f63064018"
     end
 
     test "changes when the sink changes" do
@@ -45,12 +45,13 @@ defmodule SigilGuard.ConfirmationTest do
       assert model_digest != external_digest
     end
 
-    test "canonicalizes nested payload values deterministically" do
+    test "atom and integer keys and atom values digest like their string forms" do
       payload = %{1 => :atom_value, "nested" => [%{z: true, a: nil}]}
+      as_strings = %{"1" => "atom_value", "nested" => [%{"a" => nil, "z" => true}]}
       context = [phase: :tool_request, action: :tool_call, metadata: %{2 => "numeric-key"}]
 
       assert Confirmation.action_digest(payload, context) ==
-               Confirmation.action_digest(payload, context)
+               Confirmation.action_digest(as_strings, context)
     end
 
     test "fetch_action_digest/2 returns digest tuples for canonical payloads" do

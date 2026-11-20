@@ -745,12 +745,10 @@ defmodule SigilGuard.RepoPolicyTest do
   end
 
   describe "digest/1" do
-    test "produces stable canonical policy digests" do
+    test "the digest ignores compiled matchers and is 64 hex digits" do
       policy = compile!(rules: [rule("docs", :allow, ["docs/**"])])
 
-      assert RepoPolicy.canonical_bytes(policy) == RepoPolicy.canonical_bytes(policy)
-      assert RepoPolicy.digest(policy) == RepoPolicy.digest(policy)
-      assert byte_size(RepoPolicy.digest(policy)) == 64
+      assert RepoPolicy.digest(policy) =~ ~r/\A[0-9a-f]{64}\z/
 
       stripped = %{policy | rules: Enum.map(policy.rules, &Map.delete(&1, :path_matchers))}
 

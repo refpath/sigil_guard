@@ -158,10 +158,10 @@ defmodule SigilGuard.AgentCardTest do
   end
 
   describe "digest/1" do
-    test "is deterministic over the normalized card" do
+    test "is a 64-hex digest that changes with the card" do
       assert {:ok, digest} = AgentCard.digest(valid_card())
-      assert digest =~ ~r/^[0-9a-f]{64}$/
-      assert {:ok, ^digest} = AgentCard.digest(valid_card())
+      assert digest =~ ~r/\A[0-9a-f]{64}\z/
+      refute AgentCard.digest(Map.put(valid_card(), "name", "another agent")) == {:ok, digest}
     end
 
     test "rejects an invalid card" do

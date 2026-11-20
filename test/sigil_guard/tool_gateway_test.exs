@@ -2590,7 +2590,7 @@ defmodule SigilGuard.ToolGatewayTest do
                  request_action_digest: @request_action_digest
                )
 
-      assert is_map(response)
+      assert response["result"] == result()["result"]
       assert decision.verdict == :allowed
 
       assert {:error, error_response, denied_result} =
@@ -2604,11 +2604,13 @@ defmodule SigilGuard.ToolGatewayTest do
       stream = ToolGateway.stream_result(trust_level: :high)
       assert stream.context.phase == :tool_result
 
-      assert {%SigilGuard.Runtime.Stream{}, {:ok, _, %Decision{}}} =
+      assert {stream, {:ok, _, %Decision{}}} =
                ToolGateway.guarded_result_chunk(stream, "safe chunk")
 
-      assert {%SigilGuard.Runtime.Stream{}, {:ok, _, %Decision{}}} =
+      assert {_, {:ok, response, %Decision{action: :allow}}} =
                ToolGateway.finish_guarded_result_stream(stream)
+
+      assert response["result"]["content"] == [%{"type" => "text", "text" => "safe chunk"}]
     end
 
     test "shapes allowed guarded results without re-running the runtime gate" do

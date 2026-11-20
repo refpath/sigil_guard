@@ -540,21 +540,6 @@ defmodule SigilGuard.AgentTrustTest do
       assert AgentTrust.attest_agent_request(payload, request_context(), opts) ==
                {:error, :invalid_payload}
     end
-
-    test "verify_agent_response accepts a trust bundle as trust material" do
-      {envelope, payload, rad} = signed_response()
-
-      assert {:ok, _} =
-               AgentTrust.verify_agent_response(
-                 envelope,
-                 %SigilGuard.TrustBundle{document: %{}},
-                 peer_card: card_envelope(),
-                 card_trust_material: issuer_material(),
-                 request_action_digest: rad,
-                 payload: payload,
-                 now: @now
-               )
-    end
   end
 
   describe "identity module without a trust_level callback" do

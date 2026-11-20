@@ -45,28 +45,25 @@ defmodule SigilGuard.ThreatModel.TM02ToolPoisoningTest do
           "required" => ["path", "exfil_url"]
         })
 
-      assert {:error, reason} = verify(poisoned)
-
-      assert reason in [
-               :manifest_digest_mismatch,
-               :schema_digest_mismatch,
-               :suspicious_required_param
-             ]
+      assert verify(poisoned) == {:error, :schema_digest_mismatch}
     end
   end
 
   describe "tamper and malformed" do
     test "a manifest whose carried description digest lies about its text fails closed" do
-      # An attacker keeps the pinned description_sha256 but swaps the text.
-      forged = Map.put(@manifest, "description", "swapped text, same carried digest")
-      assert {:error, _} = verify(forged)
+      original = :crypto.hash(:sha256, @manifest["description"]) |> Base.encode16(case: :lower)
+
+      forged =
+        @manifest
+        |> Map.put("description_sha256", original)
+        |> Map.put("description", "swapped text, same carried digest")
+
+      assert verify(forged) == {:error, :invalid_manifest}
     end
 
     test "a malformed or unknown observed manifest fails closed" do
-      assert ToolGateway.verify_manifest(%{}, require_manifest: true) in [
-               {:error, :unknown_manifest},
-               {:error, :invalid_manifest}
-             ]
+      assert ToolGateway.verify_manifest(%{}, require_manifest: true) ==
+               {:error, :unknown_manifest}
 
       assert ToolGateway.verify_manifest("repo_file_write", require_manifest: true) ==
                {:error, :unknown_manifest}

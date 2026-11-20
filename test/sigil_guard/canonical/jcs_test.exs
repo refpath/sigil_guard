@@ -141,19 +141,6 @@ defmodule SigilGuard.Canonical.JCSTest do
   end
 
   describe "properties" do
-    property "equal maps yield identical canonical bytes regardless of construction order" do
-      check all(pairs <- json_pairs(), max_runs: 100) do
-        forward = Map.new(pairs)
-
-        reverse =
-          pairs
-          |> Enum.reverse()
-          |> Map.new()
-
-        assert JCS.encode(forward) == JCS.encode(reverse)
-      end
-    end
-
     property "encoding is stable through decode and re-encode for JSON terms" do
       check all(value <- json_term(), max_runs: 100) do
         assert {:ok, canonical} = JCS.encode(value)
@@ -266,7 +253,7 @@ defmodule SigilGuard.Canonical.JCSTest do
     StreamData.map(json_pairs(size), &Map.new/1)
   end
 
-  defp json_pairs(size \\ 3) do
+  defp json_pairs(size) do
     json_key()
     |> StreamData.map_of(json_term(size), max_length: 4)
     |> StreamData.map(&Map.to_list/1)

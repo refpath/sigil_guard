@@ -22,10 +22,20 @@ defmodule SigilGuard.HooksCasesTest do
   }
   @empty %{contributions: [], risk_level: nil, indicators: []}
 
-  test "a notification callback that returns :ok continues" do
+  test "a notification callback that returns :ok continues, and another return is invalid" do
+    ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :boundary, :hook]])
     boundary = Boundary.new(%{@fields | phase: :session_start})
 
-    assert Hooks.dispatch(boundary, hooks: [SigilGuard.CaseFixtures.NotifyOkHook]) == @empty
+    for {hook, result} <- [
+          {SigilGuard.CaseFixtures.NotifyOkHook, :continue},
+          {SigilGuard.CaseFixtures.BadIndicatorsHook, :invalid_hook_result}
+        ] do
+      assert Hooks.dispatch(boundary, hooks: [hook]) == @empty
+      module = inspect(hook)
+
+      assert_receive {[:sigil_guard, :boundary, :hook], ^ref, _,
+                      %{module: ^module, hook_result: ^result}}
+    end
   end
 
   test "a signal whose indicators are not a list fails closed on a blockable phase" do
