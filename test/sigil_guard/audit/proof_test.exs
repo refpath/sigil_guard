@@ -4,6 +4,8 @@ defmodule SigilGuard.Audit.ProofTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [flip_hex: 1]
+
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Proof
@@ -477,9 +479,4 @@ defmodule SigilGuard.Audit.ProofTest do
   defp rfc_split(p, _), do: p
 
   defp path(proofs, index), do: Enum.at(proofs, index)["audit_path"]
-
-  defp flip_hex(<<first::binary-size(1), rest::binary>>) do
-    flipped = if first == "0", do: "1", else: "0"
-    flipped <> rest
-  end
 end

@@ -5,6 +5,8 @@ defmodule SigilGuard.EffectAuthorityTest do
 
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Confirmation
   alias SigilGuard.Decision
   alias SigilGuard.EffectAuthority
@@ -264,13 +266,13 @@ defmodule SigilGuard.EffectAuthorityTest do
           ~s("policy_epoch":"epoch-1",) <>
           ~s("target":{"environment":"physical","id":"urn:example:cell-a:arm-1"}})
 
-      assert EffectAuthority.binding_digest(@minimal) == {:ok, sha256(jcs)}
+      assert EffectAuthority.binding_digest(@minimal) == {:ok, sha256_hex(jcs)}
     end
 
     test "the operation key is the SHA-256 of the operation and target identifiers" do
       jcs = ~s({"operation_id":"op-1","target_id":"urn:example:cell-a:arm-1"})
 
-      assert EffectAuthority.operation_key(@minimal) == {:ok, sha256(jcs)}
+      assert EffectAuthority.operation_key(@minimal) == {:ok, sha256_hex(jcs)}
     end
 
     test "every field changes the binding digest" do
@@ -707,7 +709,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     test "digests the JCS bytes of a valid document" do
       {:ok, bytes} = SigilGuard.Canonical.JCS.encode(Fixture.envelope())
 
-      assert EffectAuthority.envelope_digest(Fixture.envelope()) == {:ok, sha256(bytes)}
+      assert EffectAuthority.envelope_digest(Fixture.envelope()) == {:ok, sha256_hex(bytes)}
 
       assert {:ok, _} =
                EffectAuthority.envelope_digest(Map.delete(Fixture.envelope(), "frame_revision"))
@@ -1545,6 +1547,4 @@ defmodule SigilGuard.EffectAuthorityTest do
   defp refusal?(:ok), do: true
   defp refusal?({:error, reason}), do: is_atom(reason)
   defp refusal?(_), do: false
-
-  defp sha256(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 end

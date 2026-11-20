@@ -2672,19 +2672,8 @@ defmodule SigilGuard.ToolGatewayTest do
     end
 
     test "emits enriched MCP telemetry after protocol and result classification" do
-      parent = self()
-      handler = "tool-gateway-mcp-telemetry-#{System.unique_integer([:positive])}"
-
-      :telemetry.attach(
-        handler,
-        [:sigil_guard, :mcp, :request],
-        fn _, measurements, metadata, _ ->
-          send(parent, {:mcp_decision_event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :mcp, :request]])
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       modern_result = put_in(result(), ["result", "resultType"], "input_required")
 
@@ -2694,7 +2683,7 @@ defmodule SigilGuard.ToolGatewayTest do
                  request_action_digest: @request_action_digest
                )
 
-      assert_received {:mcp_decision_event, %{system_time: system_time},
+      assert_received {[:sigil_guard, :mcp, :request], ^ref, %{system_time: system_time},
                        %{
                          phase: :tool_result,
                          protocol_version: "2026-07-28",
@@ -2881,25 +2870,7 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   defmodule TrustedSigner do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "sigilguard-tool-gateway-attestation")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-tool-gateway-attestation")
   end
 
   test "a suspicious-parameter request whose arguments cannot be digested is blocked, not confirmed" do

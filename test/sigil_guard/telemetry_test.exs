@@ -3,18 +3,11 @@ defmodule SigilGuard.TelemetryTest do
 
   use ExUnit.Case, async: false
 
-  alias SigilGuard.Audit
-  alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Anchor.Store
   alias SigilGuard.Audit.Anchor.Store.LocalFile
-  alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.AuditProofFixture
   alias SigilGuard.Telemetry
-  alias SigilGuard.TestSigner
 
-  @secret_key :crypto.hash(:sha256, "audit anchor telemetry test key")
-  @generated_at "2026-01-01T00:00:00.000Z"
-  @anchored_at "2026-01-01T00:00:05.000Z"
-  @issuer "did:web:anchor-telemetry.example"
   @expected_events [
     [:sigil_guard, :scan, :start],
     [:sigil_guard, :scan, :stop],
@@ -170,22 +163,14 @@ defmodule SigilGuard.TelemetryTest do
     alias SigilGuard.ToolGateway
 
     defp capture(event, fun) do
-      handler = "telemetry-capture-#{System.unique_integer()}"
-      parent = self()
-
-      :telemetry.attach(
-        handler,
-        event,
-        fn _, _, metadata, _ -> send(parent, {:captured, metadata}) end,
-        nil
-      )
+      ref = :telemetry_test.attach_event_handlers(self(), [event])
 
       try do
         result = fun.()
-        assert_receive {:captured, metadata}
+        assert_receive {^event, ^ref, _, metadata}
         {result, metadata}
       after
-        :telemetry.detach(handler)
+        :telemetry.detach(ref)
       end
     end
 
@@ -669,24 +654,12 @@ defmodule SigilGuard.TelemetryTest do
 
   describe "scan telemetry" do
     test "includes scanner pipeline metadata" do
-      parent = self()
-      ref = make_ref()
-      handler_id = "sigil-scan-test-#{System.unique_integer()}"
-
-      :telemetry.attach(
-        handler_id,
-        [:sigil_guard, :scan, :stop],
-        fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler_id) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :scan, :stop]])
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       SigilGuard.scan("safe text")
 
-      assert_receive {^ref, [:sigil_guard, :scan, :stop], %{duration: _}, metadata}
+      assert_receive {[:sigil_guard, :scan, :stop], ^ref, %{duration: _}, metadata}
       assert metadata.pipeline == :staged
       assert metadata.scanner_validate
       assert metadata.patterns_checked > 0
@@ -696,24 +669,14 @@ defmodule SigilGuard.TelemetryTest do
 
   describe "anchor store telemetry" do
     test "emits audit-safe stop metadata for local anchor storage" do
-      parent = self()
-      ref = make_ref()
-      handler_id = "sigil-anchor-store-test-#{System.unique_integer()}"
-
-      :telemetry.attach_many(
-        handler_id,
-        [
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [
           [:sigil_guard, :audit, :anchor_store, :put, :stop],
           [:sigil_guard, :audit, :anchor_store, :fetch, :stop],
           [:sigil_guard, :audit, :anchor_store, :verify, :stop]
-        ],
-        fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
-        end,
-        nil
-      )
+        ])
 
-      on_exit(fn -> :telemetry.detach(handler_id) end)
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       {checkpoint, anchor} = anchor_fixture()
       path = tmp_path()
@@ -724,13 +687,13 @@ defmodule SigilGuard.TelemetryTest do
 
       assert verified.digest == receipt["anchor_digest"]
 
-      assert_receive {^ref, [:sigil_guard, :audit, :anchor_store, :put, :stop], %{duration: _},
+      assert_receive {[:sigil_guard, :audit, :anchor_store, :put, :stop], ^ref, %{duration: _},
                       put_metadata}
 
-      assert_receive {^ref, [:sigil_guard, :audit, :anchor_store, :fetch, :stop], %{duration: _},
+      assert_receive {[:sigil_guard, :audit, :anchor_store, :fetch, :stop], ^ref, %{duration: _},
                       fetch_metadata}
 
-      assert_receive {^ref, [:sigil_guard, :audit, :anchor_store, :verify, :stop], %{duration: _},
+      assert_receive {[:sigil_guard, :audit, :anchor_store, :verify, :stop], ^ref, %{duration: _},
                       verify_metadata}
 
       for metadata <- [put_metadata, fetch_metadata, verify_metadata] do
@@ -747,25 +710,17 @@ defmodule SigilGuard.TelemetryTest do
     end
 
     test "emits error metadata for invalid stores" do
-      parent = self()
-      ref = make_ref()
-      handler_id = "sigil-anchor-store-error-test-#{System.unique_integer()}"
+      ref =
+        :telemetry_test.attach_event_handlers(self(), [
+          [:sigil_guard, :audit, :anchor_store, :put, :stop]
+        ])
 
-      :telemetry.attach(
-        handler_id,
-        [:sigil_guard, :audit, :anchor_store, :put, :stop],
-        fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler_id) end)
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       assert {:error, :invalid_store} =
                Store.put(String, %{"kind" => "sigil_guard.audit.anchor"})
 
-      assert_receive {^ref, [:sigil_guard, :audit, :anchor_store, :put, :stop], %{duration: _},
+      assert_receive {[:sigil_guard, :audit, :anchor_store, :put, :stop], ^ref, %{duration: _},
                       metadata}
 
       assert metadata.anchor_store == "String"
@@ -777,7 +732,7 @@ defmodule SigilGuard.TelemetryTest do
       assert {:error, :worm_required} =
                Store.put(LocalFile, anchor, path: tmp_path(), require_worm: true)
 
-      assert_receive {^ref, [:sigil_guard, :audit, :anchor_store, :put, :stop], %{duration: _},
+      assert_receive {[:sigil_guard, :audit, :anchor_store, :put, :stop], ^ref, %{duration: _},
                       worm_metadata}
 
       assert worm_metadata.anchor_store == "SigilGuard.Audit.Anchor.Store.LocalFile"
@@ -786,30 +741,8 @@ defmodule SigilGuard.TelemetryTest do
     end
   end
 
-  defp anchor_fixture do
-    events =
-      1..3
-      |> Enum.map(&Audit.new_event("test", "alice", "anchor-telemetry-#{&1}", "ok"))
-      |> Audit.build_chain(@secret_key)
-
-    {:ok, checkpoint} =
-      Checkpoint.create(events,
-        chain_id: "chain-a",
-        generated_at: @generated_at
-      )
-
-    signed_checkpoint =
-      Checkpoint.sign(checkpoint, TestSigner, issuer: @issuer, issued_at: @generated_at)
-
-    anchor =
-      Anchor.create(signed_checkpoint,
-        anchored_at: @anchored_at,
-        storage: :local_file,
-        uri: "file://anchors.jsonl"
-      )
-
-    {signed_checkpoint, anchor}
-  end
+  defp anchor_fixture,
+    do: AuditProofFixture.anchor_fixture(storage: :local_file, uri: "file://anchors.jsonl")
 
   defp tmp_path do
     root =

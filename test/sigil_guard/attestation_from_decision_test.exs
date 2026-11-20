@@ -364,26 +364,9 @@ defmodule SigilGuard.AttestationFromDecisionTest do
     end
 
     test "a statement with the generated nonce can be replay-consumed once" do
-      defmodule NonceSigner do
-        @behaviour SigilGuard.Signer
-        @seed :crypto.hash(:sha256, "from-decision-nonce-signer")
-
-        @impl SigilGuard.Signer
-        def sign(message) do
-          {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-          :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-        end
-
-        @impl SigilGuard.Signer
-        def public_key do
-          {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-          public_key
-        end
-      end
-
       assert {:ok, statement} = build(decision())
-      assert {:ok, envelope} = Attestation.sign(statement, NonceSigner, keyid: "nonce")
-      trust = %{"nonce" => NonceSigner.public_key()}
+      assert {:ok, envelope} = Attestation.sign(statement, SigilGuard.TestSigner, keyid: "nonce")
+      trust = %{"nonce" => SigilGuard.TestSigner.public_key()}
       opts = [now: @now, consume: true]
 
       assert {:ok, _} = Attestation.verify(envelope, trust, opts)

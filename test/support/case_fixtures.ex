@@ -1,20 +1,30 @@
-defmodule SigilGuard.CaseFixtures.Signer do
+defmodule SigilGuard.CaseFixtures do
   @moduledoc false
 
-  @behaviour SigilGuard.Signer
-  @seed :crypto.hash(:sha256, "sigil_guard_case_signer")
+  # Byte helpers shared by tests that pin digests or tamper with signed values.
 
-  @impl SigilGuard.Signer
-  def sign(message) do
-    {_, private} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-    :crypto.sign(:eddsa, :none, message, [private, :ed25519])
+  @doc "Lowercase hex SHA-256 of the bytes."
+  @spec sha256_hex(iodata()) :: String.t()
+  def sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+
+  @doc "A hex string with its first digit changed, so it stays hex but no longer matches."
+  @spec flip_hex(String.t()) :: String.t()
+  def flip_hex(<<first::binary-size(1), rest::binary>>) do
+    flipped = if first == "0", do: "1", else: "0"
+    flipped <> rest
   end
 
-  @impl SigilGuard.Signer
-  def public_key do
-    {public, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-    public
+  @doc "A base64 string with its first character changed, so it still decodes but differs."
+  @spec flip_base64(String.t()) :: String.t()
+  def flip_base64(<<first::binary-size(1), rest::binary>>) do
+    flipped = if first == "A", do: "B", else: "A"
+    flipped <> rest
   end
+end
+
+defmodule SigilGuard.CaseFixtures.Signer do
+  @moduledoc false
+  use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigil_guard_case_signer")
 end
 
 defmodule SigilGuard.CaseFixtures.AdvisoryHook do

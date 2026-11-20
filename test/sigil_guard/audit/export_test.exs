@@ -3,16 +3,30 @@ defmodule SigilGuard.Audit.ExportTest do
 
   use ExUnit.Case, async: true
 
+  import SigilGuard.CaseFixtures, only: [flip_hex: 1]
+
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Export
+  alias SigilGuard.AuditProofFixture
   alias SigilGuard.TestSigner
 
   @secret_key :crypto.hash(:sha256, "audit export test key")
   @generated_at "2026-01-01T00:00:00.000Z"
   @anchored_at "2026-01-01T00:00:05.000Z"
   @issuer "did:web:export.example"
+
+  defmodule FailingSigner do
+    @moduledoc false
+    @behaviour SigilGuard.Signer
+
+    @impl SigilGuard.Signer
+    def sign(_), do: raise(KeyError, key: :key_handle, term: %{})
+
+    @impl SigilGuard.Signer
+    def public_key, do: <<0::256>>
+  end
 
   test "verifies every supplied evidence object and its complete checkpoint identity" do
     events = SigilGuard.AuditProofFixture.signed_events()
@@ -187,17 +201,6 @@ defmodule SigilGuard.Audit.ExportTest do
     end
 
     test "a failure inside the signer is not reported as a missing issuer" do
-      defmodule FailingSigner do
-        @moduledoc false
-        @behaviour SigilGuard.Signer
-
-        @impl SigilGuard.Signer
-        def sign(_), do: Map.fetch!(%{}, :key_handle)
-
-        @impl SigilGuard.Signer
-        def public_key, do: <<0::256>>
-      end
-
       assert_raise KeyError, fn ->
         Export.create(build_signed_chain(1),
           generated_at: @generated_at,
@@ -495,7 +498,7 @@ defmodule SigilGuard.Audit.ExportTest do
       {:ok, export} = evidence_export(events)
       [proof | rest] = export["inclusion_proofs"]
       [node | nodes] = proof["audit_path"]
-      tampered = Map.put(proof, "audit_path", [flip(node) | nodes])
+      tampered = Map.put(proof, "audit_path", [flip_hex(node) | nodes])
       broken = Map.put(export, "inclusion_proofs", [tampered | rest])
 
       assert Export.verify(broken, events, public_key_b64u: TestSigner.public_key_b64u()) ==
@@ -585,11 +588,6 @@ defmodule SigilGuard.Audit.ExportTest do
     )
   end
 
-  defp flip(<<first::binary-size(1), rest::binary>>) do
-    replacement = if first == "0", do: "1", else: "0"
-    replacement <> rest
-  end
-
   defp signed_export(events) do
     Export.create(events,
       chain_id: "chain-a",
@@ -606,9 +604,6 @@ defmodule SigilGuard.Audit.ExportTest do
     )
   end
 
-  defp build_signed_chain(count) do
-    1..count
-    |> Enum.map(&Audit.new_event("test", "alice", "export-action-#{&1}", "ok"))
-    |> Audit.build_chain(@secret_key)
-  end
+  defp build_signed_chain(count),
+    do: AuditProofFixture.build_signed_chain(count, @secret_key, "export-action-")
 end

@@ -3,30 +3,18 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFileCasesTest do
 
   use ExUnit.Case, async: true
 
-  alias SigilGuard.Audit
   alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Anchor.Store
   alias SigilGuard.Audit.Anchor.Store.LocalFile
-  alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.AuditProofFixture
 
-  defp anchor_fixture do
-    events =
-      1..3
-      |> Enum.map(&Audit.new_event("test", "alice", "anchor-store-#{&1}", "ok"))
-      |> Audit.build_chain(:crypto.hash(:sha256, "audit anchor store test key"))
-
-    {:ok, checkpoint} =
-      Checkpoint.create(events, chain_id: "chain-a", generated_at: "2026-01-01T00:00:00.000Z")
-
-    anchor =
-      Anchor.create(checkpoint,
-        anchored_at: "2026-01-01T00:00:05.000Z",
+  defp anchor_fixture,
+    do:
+      AuditProofFixture.anchor_fixture(
         storage: :local_file,
-        uri: "file://anchors.jsonl"
+        uri: "file://anchors.jsonl",
+        signed: false
       )
-
-    {checkpoint, anchor}
-  end
 
   defp tmp_path, do: Path.join(SigilGuard.CaseFixtures.Tmp.dir("local_file"), "anchors.jsonl")
 

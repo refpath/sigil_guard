@@ -3,10 +3,12 @@ defmodule SigilGuard.TrustBundleTest do
 
   use ExUnit.Case, async: false
 
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [key_descriptor: 1, sign_with: 2]
+
   alias __MODULE__.BundleSigner
   alias __MODULE__.RootSigner
   alias SigilGuard.Attestation.Envelope
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
 
@@ -21,7 +23,7 @@ defmodule SigilGuard.TrustBundleTest do
   end
 
   test "file byte limits preserve the last valid cached bundle" do
-    encoded = Jason.encode!(envelope(bundle_document()))
+    encoded = Jason.encode!(sign_with(bundle_document(), [BundleSigner]))
     path = Path.join(System.tmp_dir!(), "sigil-bounded-#{System.unique_integer()}.json")
     {rel, priv_path, priv_root} = priv_bundle_fixture_path("bounded")
 
@@ -144,7 +146,7 @@ defmodule SigilGuard.TrustBundleTest do
     end
 
     test "loads and verifies map, binary, file, and priv sources without opening ports" do
-      envelope = envelope(bundle_document())
+      envelope = sign_with(bundle_document(), [BundleSigner])
       encoded = Jason.encode!(envelope)
 
       file_path =
@@ -311,12 +313,6 @@ defmodule SigilGuard.TrustBundleTest do
     }
   end
 
-  defp envelope(document) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, [BundleSigner])
-    envelope
-  end
-
   test "load rejects a non-keyword option list without raising" do
     assert TrustBundle.load({:map, %{}}, [{:now}]) == {:error, :invalid_source}
   end
@@ -340,51 +336,14 @@ defmodule SigilGuard.TrustBundleTest do
     }
   end
 
-  defp key_descriptor(signer) do
-    %{
-      "alg" => "ed25519",
-      "public_key" => Base.url_encode64(signer.public_key(), padding: false)
-    }
-  end
-
   defp root_keyid, do: Envelope.keyid(RootSigner.public_key())
   defp bundle_keyid, do: Envelope.keyid(BundleSigner.public_key())
 
   defmodule RootSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "trust-bundle-load-root")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "trust-bundle-load-root")
   end
 
   defmodule BundleSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "trust-bundle-load-delegate")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "trust-bundle-load-delegate")
   end
 end

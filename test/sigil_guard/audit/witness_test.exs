@@ -3,6 +3,8 @@ defmodule SigilGuard.Audit.WitnessTest do
 
   use ExUnit.Case, async: true
 
+  import SigilGuard.CaseFixtures, only: [flip_base64: 1]
+
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Proof
@@ -11,41 +13,17 @@ defmodule SigilGuard.Audit.WitnessTest do
   alias SigilGuard.Canonical.JCS
 
   defmodule Witness1 do
-    @behaviour SigilGuard.Signer
-    @seed for b <- 0x41..0x60, into: <<>>, do: <<b>>
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
+    use SigilGuard.TestSigner, seed: for(b <- 0x41..0x60, into: <<>>, do: <<b>>)
   end
 
   defmodule Witness2 do
-    @behaviour SigilGuard.Signer
-    @seed for b <- 0x61..0x80, into: <<>>, do: <<b>>
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
+    use SigilGuard.TestSigner, seed: for(b <- 0x61..0x80, into: <<>>, do: <<b>>)
   end
 
   defmodule BadSigner do
+    @spec sign(binary()) :: binary()
     def sign(_), do: "too-short"
+    @spec public_key() :: binary()
     def public_key, do: "not-a-key"
   end
 
@@ -283,17 +261,12 @@ defmodule SigilGuard.Audit.WitnessTest do
     signatures =
       Enum.map(envelope["signatures"], fn entry ->
         if entry["keyid"] == keyid do
-          Map.put(entry, "sig", flip_first(entry["sig"]))
+          Map.put(entry, "sig", flip_base64(entry["sig"]))
         else
           entry
         end
       end)
 
     Map.put(envelope, "signatures", signatures)
-  end
-
-  defp flip_first(<<first::binary-size(1), rest::binary>>) do
-    replacement = if first == "A", do: "B", else: "A"
-    replacement <> rest
   end
 end

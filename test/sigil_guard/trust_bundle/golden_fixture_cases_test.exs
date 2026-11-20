@@ -4,12 +4,18 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureCasesTest do
   # The tests clear and fill the runtime's shared bundle cache.
   use ExUnit.Case, async: false
 
-  alias SigilGuard.Attestation.Envelope
-  alias SigilGuard.Canonical.JCS
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [
+      envelope_document: 1,
+      read_json: 1,
+      root_pin: 1,
+      rotation: 1,
+      sign_with: 2,
+      signed_successor: 1
+    ]
+
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
-  alias SigilGuard.TrustBundleFixtureGenerator
-  alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
   alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
   alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
 
@@ -18,44 +24,6 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureCasesTest do
   setup do
     Cache.clear()
     on_exit(fn -> Cache.clear() end)
-  end
-
-  defp read_json([dir, name]),
-    do: Jason.decode!(TrustBundleFixtureGenerator.generate()[dir][name])
-
-  defp envelope_document(envelope) do
-    envelope
-    |> Map.fetch!("payload")
-    |> Base.url_decode64!(padding: false)
-    |> Jason.decode!()
-  end
-
-  defp rotation(envelope),
-    do: List.first(Map.fetch!(envelope_document(envelope), "rotation_chain"))
-
-  defp sign_with(document, signers) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, signers)
-    envelope
-  end
-
-  defp signed_successor(document) do
-    {:ok, signed} = Envelope.add_signature(sign_with(document, [NewBundleSigner]), NewRootSigner)
-    signed
-  end
-
-  defp root_pin(document) do
-    root = get_in(document, ["roles", "root"])
-
-    %{
-      version: String.to_integer(root["version"]),
-      threshold: root["threshold"],
-      keyids: root["keyids"],
-      keys:
-        Map.new(document["keys"], fn {keyid, %{"public_key" => encoded}} ->
-          {keyid, Base.url_decode64!(encoded, padding: false)}
-        end)
-    }
   end
 
   test "a malformed :genesis_root is refused" do

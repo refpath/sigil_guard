@@ -3,6 +3,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
 
   use ExUnit.Case, async: true
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
   import ExUnit.CaptureIO
 
   alias Mix.Tasks.SigilGuard.ReleaseStatement
@@ -43,11 +44,11 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
                "artifacts" => [
                  %{
                    "name" => Path.basename(sbom),
-                   "sha256" => sha256(File.read!(sbom))
+                   "sha256" => sha256_hex(File.read!(sbom))
                  },
                  %{
                    "name" => Path.basename(tarball),
-                   "sha256" => sha256(File.read!(tarball))
+                   "sha256" => sha256_hex(File.read!(tarball))
                  }
                ]
              }
@@ -133,11 +134,5 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatementTest do
 
     on_exit(fn -> File.rm(path) end)
     path
-  end
-
-  defp sha256(bytes) do
-    :sha256
-    |> :crypto.hash(bytes)
-    |> Base.encode16(case: :lower)
   end
 end

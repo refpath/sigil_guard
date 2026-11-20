@@ -316,29 +316,18 @@ defmodule SigilGuard.ToolGatewayEffectTest do
 
   describe "telemetry" do
     setup do
-      parent = self()
-      handler = "tool-gateway-effect-#{System.unique_integer([:positive])}"
-
-      :telemetry.attach(
-        handler,
-        [:sigil_guard, :mcp, :request],
-        fn event, measurements, metadata, _ ->
-          send(parent, {:mcp_request, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
-      :ok
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :mcp, :request]])
+      on_exit(fn -> :telemetry.detach(ref) end)
+      %{telemetry: ref}
     end
 
-    test "the effect keys appear only with :required" do
+    test "the effect keys appear only with :required", %{telemetry: ref} do
       guard(Fixture.request(), effect_binding: :off)
-      assert_receive {:mcp_request, _, _, off}
+      assert_receive {_, ^ref, _, off}
       assert Map.take(off, @effect_keys) == %{}
 
       decision = guard(Fixture.request())
-      assert_receive {:mcp_request, event, measurements, required}
+      assert_receive {event, ^ref, measurements, required}
 
       assert Map.take(required, @effect_keys) ==
                Map.take(decision.audit_metadata, @effect_keys)

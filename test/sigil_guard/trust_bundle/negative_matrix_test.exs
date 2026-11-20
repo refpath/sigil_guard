@@ -3,17 +3,26 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
 
   use ExUnit.Case, async: false
 
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [
+      authorize_successor: 1,
+      envelope_document: 1,
+      key_descriptor: 1,
+      read_json: 1,
+      root_pin: 1,
+      rotation: 1,
+      sign_with: 2
+    ]
+
   alias __MODULE__.BundleBackupSigner
   alias __MODULE__.BundleSigner
   alias __MODULE__.RootSigner
-  alias __MODULE__.SuccessorSigner
   alias __MODULE__.WitnessSigner
   alias SigilGuard.Attestation.Envelope
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
+  alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
 
-  @fixtures SigilGuard.FixturePath.path("trust_bundle")
   @now ~U[2026-07-03 12:00:00.000Z]
   @issued_at "2026-07-03T11:00:00.000Z"
   @expires_at "2026-07-03T13:00:00.000Z"
@@ -70,21 +79,21 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
       {"invalid payload type", :invalid_payload_type,
        fn ->
          bundle_document()
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> Map.put("payloadType", "application/json")
          |> TrustBundle.verify(now: @now)
        end},
       {"invalid base64", :invalid_base64,
        fn ->
          bundle_document()
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> Map.put("payload", "*")
          |> TrustBundle.verify(now: @now)
        end},
       {"duplicate keyid", :duplicate_keyid,
        fn ->
          bundle_document()
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> Map.update!("signatures", fn [signature] -> [signature, signature] end)
          |> TrustBundle.verify(now: @now)
        end},
@@ -92,33 +101,33 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
        fn ->
          bundle_document()
          |> Map.delete("bundle_id")
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now)
        end},
       {"unsupported profile version", :unsupported_profile_version,
        fn ->
          bundle_document()
          |> Map.put("profile", "sigil_guard_trust_bundle/v2")
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now)
        end},
       {"unknown role", :unknown_role,
        fn ->
          bundle_document()
          |> put_in(["roles", "delegates", Access.at(0), "name"], "witness")
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now)
        end},
       {"unknown key id", :unknown_key_id,
        fn ->
          bundle_document()
-         |> envelope([WitnessSigner])
+         |> sign_with([WitnessSigner])
          |> TrustBundle.verify(now: @now)
        end},
       {"invalid signature", :invalid_signature,
        fn ->
          bundle_document()
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> put_in(
            ["signatures", Access.at(0), "sig"],
            Base.url_encode64(:binary.copy(<<0>>, 64), padding: false)
@@ -129,14 +138,14 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
        fn ->
          bundle_document()
          |> add_backup_bundle_signer()
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now, enforce_declared_threshold: true)
        end},
       {"bundle expired", :bundle_expired,
        fn ->
          bundle_document()
          |> Map.put("expires_at", "2026-07-03T11:30:00.000Z")
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now, max_skew_ms: 0)
        end},
       {"role expired", :role_expired,
@@ -146,7 +155,7 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
            ["roles", "delegates", Access.at(0), "expires_at"],
            "2026-07-03T11:30:00.000Z"
          )
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now, max_skew_ms: 0)
        end},
       {"revoked key", :revoked_key,
@@ -155,7 +164,7 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
          |> Map.put("revocations", [
            %{"kind" => "key", "id" => bundle_keyid(), "revoked_at" => @issued_at}
          ])
-         |> envelope([BundleSigner])
+         |> sign_with([BundleSigner])
          |> TrustBundle.verify(now: @now)
        end},
       {"sequence below floor", :sequence_below_floor, &sequence_below_floor/0},
@@ -183,7 +192,7 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
       rotation(successor),
       read_json(["rotation", "forked-2.json"])
     ])
-    |> signed_successor()
+    |> sign_with([NewBundleSigner])
     |> TrustBundle.verify(now: @now, genesis_root: genesis_root())
   end
 
@@ -196,7 +205,7 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
     |> put_in(["rotation_chain"], [
       put_in(rotation, ["signatures"], [old_root_signature(rotation)])
     ])
-    |> signed_successor()
+    |> sign_with([NewBundleSigner])
     |> TrustBundle.verify(now: @now, genesis_root: genesis_root())
   end
 
@@ -241,35 +250,6 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
     |> put_in(["keys", bundle_backup_keyid()], key_descriptor(BundleBackupSigner))
   end
 
-  defp read_json(path) when is_list(path) do
-    path
-    |> then(&Path.join([@fixtures | &1]))
-    |> File.read!()
-    |> Jason.decode!()
-  end
-
-  defp envelope(document, signers) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, signers)
-    envelope
-  end
-
-  defp signed_successor(document), do: envelope(document, [SuccessorSigner])
-
-  defp envelope_document(envelope) do
-    envelope
-    |> Map.fetch!("payload")
-    |> Base.url_decode64!(padding: false)
-    |> Jason.decode!()
-  end
-
-  defp rotation(envelope) do
-    envelope
-    |> envelope_document()
-    |> Map.fetch!("rotation_chain")
-    |> List.first()
-  end
-
   defp old_root_signature(rotation) do
     expected = read_json(["rotation", "expected.json"])
     old_root_keyid = expected["keyids"]["root"]
@@ -282,109 +262,24 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
     |> root_pin()
   end
 
-  defp root_pin(document) do
-    root = get_in(document, ["roles", "root"])
-
-    %{
-      version: String.to_integer(root["version"]),
-      threshold: root["threshold"],
-      keyids: root["keyids"],
-      keys: decoded_keys(document)
-    }
-  end
-
-  defp decoded_keys(document) do
-    Map.new(document["keys"], fn {keyid, %{"public_key" => encoded}} ->
-      {:ok, public_key} = Base.url_decode64(encoded, padding: false)
-      {keyid, public_key}
-    end)
-  end
-
-  defp key_descriptor(signer) do
-    %{
-      "alg" => "ed25519",
-      "public_key" => Base.url_encode64(signer.public_key(), padding: false)
-    }
-  end
-
   defp root_keyid, do: Envelope.keyid(RootSigner.public_key())
   defp bundle_keyid, do: Envelope.keyid(BundleSigner.public_key())
   defp bundle_backup_keyid, do: Envelope.keyid(BundleBackupSigner.public_key())
 
   defmodule RootSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "negative-matrix-root")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "negative-matrix-root")
   end
 
   defmodule BundleSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "negative-matrix-bundle")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "negative-matrix-bundle")
   end
 
   defmodule BundleBackupSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "negative-matrix-bundle-backup")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "negative-matrix-bundle-backup")
   end
 
   defmodule WitnessSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "negative-matrix-witness")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "negative-matrix-witness")
   end
 
   defmodule SuccessorSigner do
@@ -404,12 +299,5 @@ defmodule SigilGuard.TrustBundle.NegativeMatrixTest do
       {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
       private_key
     end
-  end
-
-  defp authorize_successor(envelope) do
-    {:ok, signed} =
-      Envelope.add_signature(envelope, SigilGuard.TrustBundleFixtureGenerator.NewRootSigner)
-
-    signed
   end
 end

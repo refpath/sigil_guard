@@ -7,6 +7,7 @@ defmodule SigilGuard.Audit.CheckpointTest do
 
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.AuditProofFixture
   alias SigilGuard.TestSigner
 
   @secret_key :crypto.hash(:sha256, "audit checkpoint test key")
@@ -508,9 +509,5 @@ defmodule SigilGuard.Audit.CheckpointTest do
     )
   end
 
-  defp build_signed_chain(count) do
-    1..count
-    |> Enum.map(&Audit.new_event("test", "alice", "action#{&1}", "ok"))
-    |> Audit.build_chain(@secret_key)
-  end
+  defp build_signed_chain(count), do: AuditProofFixture.build_signed_chain(count, @secret_key)
 end

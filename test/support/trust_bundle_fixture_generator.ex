@@ -1,35 +1,7 @@
-defmodule SigilGuard.TrustBundleFixtureGenerator.SeedSigner do
-  @moduledoc false
-
-  defmacro __using__(opts) do
-    seed = Keyword.fetch!(opts, :seed)
-
-    quote bind_quoted: [seed: seed] do
-      @moduledoc false
-      @behaviour SigilGuard.Signer
-      @seed seed
-
-      @impl SigilGuard.Signer
-      def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-      @impl SigilGuard.Signer
-      def public_key do
-        {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-        public_key
-      end
-
-      def seed, do: @seed
-
-      defp private_key do
-        {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-        private_key
-      end
-    end
-  end
-end
-
 defmodule SigilGuard.TrustBundleFixtureGenerator do
   @moduledoc false
+
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
 
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical.JCS
@@ -74,6 +46,72 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
       "rotation" => rotation_files()
     }
   end
+
+  @doc ~s(Read a committed trust-bundle fixture, such as `["rotation", "genesis.json"]`.)
+  @spec read_json([String.t()]) :: map()
+  def read_json(path) when is_list(path),
+    do: SigilGuard.FixturePath.read_json!(["trust_bundle" | path])
+
+  @doc "Decode the bundle document an envelope carries."
+  @spec envelope_document(map()) :: map()
+  def envelope_document(envelope) do
+    envelope
+    |> Map.fetch!("payload")
+    |> Base.url_decode64!(padding: false)
+    |> Jason.decode!()
+  end
+
+  @doc "The first rotation envelope in a bundle's rotation chain."
+  @spec rotation(map()) :: map()
+  def rotation(envelope) do
+    envelope
+    |> envelope_document()
+    |> Map.fetch!("rotation_chain")
+    |> List.first()
+  end
+
+  @doc "Sign a document's canonical bytes with every signer in the list."
+  @spec sign_with(map(), [module()]) :: map()
+  def sign_with(document, signers) do
+    {:ok, payload} = JCS.encode(document)
+    {:ok, envelope} = Envelope.sign_many(payload, signers)
+    envelope
+  end
+
+  @doc "Add the new root's signature, which the successor needs for its new delegates."
+  @spec authorize_successor(map()) :: map()
+  def authorize_successor(envelope) do
+    {:ok, signed} = Envelope.add_signature(envelope, NewRootSigner)
+    signed
+  end
+
+  @doc "Sign a successor document with the new bundle key and authorize it."
+  @spec signed_successor(map()) :: map()
+  def signed_successor(document) do
+    document
+    |> sign_with([NewBundleSigner])
+    |> authorize_successor()
+  end
+
+  @doc "The `:genesis_root` pin for a bundle document's root role."
+  @spec root_pin(map()) :: map()
+  def root_pin(document) do
+    root = get_in(document, ["roles", "root"])
+
+    %{
+      version: String.to_integer(root["version"]),
+      threshold: root["threshold"],
+      keyids: root["keyids"],
+      keys:
+        Map.new(document["keys"], fn {keyid, %{"public_key" => encoded}} ->
+          {keyid, Base.url_decode64!(encoded, padding: false)}
+        end)
+    }
+  end
+
+  @doc "A bundle key descriptor for a signer."
+  @spec key_descriptor(module()) :: map()
+  def key_descriptor(signer), do: %{"alg" => "ed25519", "public_key" => public_key(signer)}
 
   defp minimal_files do
     vector_files(
@@ -129,7 +167,7 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
         "keyids" =>
           keyids([RootSigner, BundleSigner, NewRootSigner, NewBundleSigner, ForkedRootSigner]),
         "bundle_digest" => %{
-          "genesis" => digest(genesis_bundle),
+          "genesis" => sha256_hex(genesis_bundle),
           "rotation-2" => document_digest(rotation),
           "successor" => document_digest(successor),
           "forked-2" => document_digest(forked)
@@ -172,8 +210,8 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
           "document" => document,
           "keyids" => keyids([RootSigner | signers]),
           "public_keys" => public_keys([RootSigner | signers]),
-          "bundle_digest" => digest(bundle_json),
-          "pae_sha256" => digest(Envelope.pae(Envelope.payload_type(), bundle_json)),
+          "bundle_digest" => sha256_hex(bundle_json),
+          "pae_sha256" => sha256_hex(Envelope.pae(Envelope.payload_type(), bundle_json)),
           "signatures" => signatures(envelope)
         },
         stringify(extra_expected)
@@ -289,18 +327,17 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
   defp pae_digest(document) do
     document
     |> pae()
-    |> digest()
+    |> sha256_hex()
   end
 
   defp document_digest(document) do
     document
     |> encode!()
-    |> digest()
+    |> sha256_hex()
   end
 
   defp pae(document), do: Envelope.pae(Envelope.payload_type(), encode!(document))
   defp encode!(document), do: elem(JCS.encode(document), 1)
-  defp digest(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
   defp keyid(signer), do: Envelope.keyid(signer.public_key())
   defp public_key(signer), do: Base.url_encode64(signer.public_key(), padding: false)
   defp seed_hex(signer), do: Base.encode16(signer.seed(), case: :lower)
@@ -319,36 +356,36 @@ defmodule SigilGuard.TrustBundleFixtureGenerator do
 
   defmodule RootSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0xAA>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0xAA>>, 32)
   end
 
   defmodule BundleSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0xBB>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0xBB>>, 32)
   end
 
   defmodule BundleBackupSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0xCC>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0xCC>>, 32)
   end
 
   defmodule BundleWitnessSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0xDD>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0xDD>>, 32)
   end
 
   defmodule NewRootSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0xEE>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0xEE>>, 32)
   end
 
   defmodule NewBundleSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0x99>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0x99>>, 32)
   end
 
   defmodule ForkedRootSigner do
     @moduledoc false
-    use SigilGuard.TrustBundleFixtureGenerator.SeedSigner, seed: :binary.copy(<<0x88>>, 32)
+    use SigilGuard.TestSigner, seed: :binary.copy(<<0x88>>, 32)
   end
 end

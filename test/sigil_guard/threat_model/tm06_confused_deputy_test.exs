@@ -234,22 +234,6 @@ defmodule SigilGuard.ThreatModel.TM06ConfusedDeputyTest do
   defp trust_material, do: %{"trusted" => TrustedSigner.public_key()}
 
   defmodule TrustedSigner do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "tm06-confused-deputy-signer")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair, do: :crypto.generate_key(:eddsa, :ed25519, @seed)
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "tm06-confused-deputy-signer")
   end
 end

@@ -1,9 +1,12 @@
 defmodule SigilGuard.AgentCardFixtureGenerator do
   @moduledoc false
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.AgentCard
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.TrustBundle
 
   @issuer_seed for b <- 0x21..0x40, into: <<>>, do: <<b>>
   @agent_seed for b <- 0x41..0x60, into: <<>>, do: <<b>>
@@ -37,7 +40,7 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
 
   defp research_peer_files do
     Code.ensure_loaded!(__MODULE__.IssuerSigner)
-    {:ok, card} = AgentCard.new(research_peer_card())
+    {:ok, card} = AgentCard.new(card())
     {:ok, card_json} = JCS.encode(card)
     {:ok, envelope} = Envelope.sign(card_json, __MODULE__.IssuerSigner)
     {:ok, envelope_json} = JCS.encode(envelope)
@@ -50,7 +53,9 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
     }
   end
 
-  defp research_peer_card do
+  @doc "The research-peer card the committed fixtures sign."
+  @spec card() :: map()
+  def card do
     %{
       "agent_id" => "spiffe://prod.example.org/agents/research-peer",
       "capabilities" => [
@@ -104,30 +109,37 @@ defmodule SigilGuard.AgentCardFixtureGenerator do
   @spec agent_public_key() :: binary()
   def agent_public_key, do: public_key(@agent_seed)
 
+  @doc false
+  @spec issuer_keyid() :: String.t()
+  def issuer_keyid, do: Envelope.keyid(issuer_public_key())
+
+  @doc false
+  @spec issuer_material() :: %{String.t() => binary()}
+  def issuer_material, do: %{issuer_keyid() => issuer_public_key()}
+
+  @doc "A trust bundle whose agent_card role lists `role_keyids` over `keys`."
+  @spec bundle_with_role([String.t()], keys: %{String.t() => binary()}) :: TrustBundle.t()
+  def bundle_with_role(role_keyids, keys: keys) do
+    document = %{
+      "keys" =>
+        Map.new(keys, fn {keyid, public_key} ->
+          {keyid,
+           %{"alg" => "ed25519", "public_key" => Base.url_encode64(public_key, padding: false)}}
+        end),
+      "roles" => %{"delegates" => [%{"name" => "agent_card", "keyids" => role_keyids}]}
+    }
+
+    %TrustBundle{document: document}
+  end
+
   defp public_key(seed) do
     case :crypto.generate_key(:eddsa, :ed25519, seed) do
       {public_key, _} when is_binary(public_key) -> public_key
     end
   end
 
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-
   defmodule IssuerSigner do
     @moduledoc false
-
-    @behaviour SigilGuard.Signer
-    @seed for b <- 0x21..0x40, into: <<>>, do: <<b>>
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
+    use SigilGuard.TestSigner, seed: for(b <- 0x21..0x40, into: <<>>, do: <<b>>)
   end
 end

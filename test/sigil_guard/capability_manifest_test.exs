@@ -3,6 +3,8 @@ defmodule SigilGuard.CapabilityManifestTest do
 
   use ExUnit.Case, async: false
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.CapabilityManifest
 
@@ -421,8 +423,6 @@ defmodule SigilGuard.CapabilityManifestTest do
   defp read_json(path) when is_list(path) do
     SigilGuard.FixturePath.read_json!(path)
   end
-
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   defp jcs_sha256(term) do
     {:ok, bytes} = JCS.encode(term)

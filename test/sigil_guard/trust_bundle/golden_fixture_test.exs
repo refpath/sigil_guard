@@ -3,14 +3,28 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
 
   use ExUnit.Case, async: false
 
-  alias __MODULE__.OldBundleSigner
-  alias __MODULE__.SuccessorSigner
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [
+      authorize_successor: 1,
+      envelope_document: 1,
+      key_descriptor: 1,
+      read_json: 1,
+      root_pin: 1,
+      rotation: 1,
+      sign_with: 2,
+      signed_successor: 1
+    ]
+
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
   alias SigilGuard.TrustBundle.Schema
   alias SigilGuard.TrustBundleFixtureGenerator
+  alias SigilGuard.TrustBundleFixtureGenerator.BundleSigner
+  alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
 
   @fixtures SigilGuard.FixturePath.path("trust_bundle")
   @now ~U[2026-07-03 12:00:00.000Z]
@@ -35,8 +49,11 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
       expected = read_json([name, "expected.json"])
 
       assert {:ok, ^bundle_json} = JCS.encode(read_json([name, "bundle.json"]))
-      assert digest(bundle_json) == expected["bundle_digest"]
-      assert digest(Envelope.pae(Envelope.payload_type(), bundle_json)) == expected["pae_sha256"]
+      assert sha256_hex(bundle_json) == expected["bundle_digest"]
+
+      assert sha256_hex(Envelope.pae(Envelope.payload_type(), bundle_json)) ==
+               expected["pae_sha256"]
+
       assert signatures(envelope) == expected["signatures"]
 
       assert {:ok, %TrustBundle{digest: digest}} = TrustBundle.verify(envelope, now: @now)
@@ -67,7 +84,7 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
       assert TrustBundle.verify(envelope, now: @now) == {:error, :invalid_bundle_format}
       assert document_digest(document) == expected["bundle_digest"][name]
 
-      assert digest(Envelope.pae(Envelope.payload_type(), envelope_payload(envelope))) ==
+      assert sha256_hex(Envelope.pae(Envelope.payload_type(), envelope_payload(envelope))) ==
                expected["pae_sha256"][name]
 
       assert signatures(envelope) == expected["signatures"][name]
@@ -195,14 +212,12 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
   end
 
   describe "rollback against the state accepted in this boot" do
-    alias SigilGuard.TrustBundleFixtureGenerator.BundleSigner
-
     defp next_minimal(sequence) do
       ["minimal", "envelope.json"]
       |> read_json()
       |> envelope_document()
       |> Map.put("sequence", Integer.to_string(sequence))
-      |> signed_document(BundleSigner)
+      |> sign_with([BundleSigner])
     end
 
     test "verify/2 and an uncached load refuse a bundle below the cached snapshot" do
@@ -253,22 +268,8 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
 
   describe "rotation rollback floors" do
     alias SigilGuard.TrustBundleFixtureGenerator.ForkedRootSigner
-    alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
     alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
     alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
-
-    defp key_descriptor(signer) do
-      %{
-        "alg" => "ed25519",
-        "public_key" => Base.url_encode64(signer.public_key(), padding: false)
-      }
-    end
-
-    defp sign_with(document, signers) do
-      {:ok, payload} = JCS.encode(document)
-      {:ok, envelope} = Envelope.sign_many(payload, signers)
-      envelope
-    end
 
     # The committed successor with its rotation document re-issued at `floor`.
     defp successor_with_rotation_floor(floor, sequence) do
@@ -355,19 +356,6 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
     end
   end
 
-  defp read_json(path) when is_list(path) do
-    path
-    |> then(&Path.join([@fixtures | &1]))
-    |> File.read!()
-    |> Jason.decode!()
-  end
-
-  defp envelope_document(envelope) do
-    envelope
-    |> envelope_payload()
-    |> Jason.decode!()
-  end
-
   defp envelope_payload(envelope) do
     envelope
     |> Map.fetch!("payload")
@@ -379,44 +367,7 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
     Base.url_encode64(bytes, padding: false)
   end
 
-  defp signed_successor(document) do
-    signed_document(document, SuccessorSigner) |> authorize_successor()
-  end
-
-  defp signed_old_bundle(document) do
-    signed_document(document, OldBundleSigner)
-  end
-
-  defp signed_document(document, signer) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, [signer])
-    envelope
-  end
-
-  defp rotation(envelope) do
-    envelope
-    |> envelope_document()
-    |> Map.fetch!("rotation_chain")
-    |> List.first()
-  end
-
-  defp root_pin(document) do
-    root = get_in(document, ["roles", "root"])
-
-    %{
-      version: String.to_integer(root["version"]),
-      threshold: root["threshold"],
-      keyids: root["keyids"],
-      keys: decoded_keys(document)
-    }
-  end
-
-  defp decoded_keys(document) do
-    Map.new(document["keys"], fn {keyid, %{"public_key" => encoded}} ->
-      {:ok, public_key} = Base.url_decode64(encoded, padding: false)
-      {keyid, public_key}
-    end)
-  end
+  defp signed_old_bundle(document), do: sign_with(document, [BundleSigner])
 
   defp old_bundle_role(keyid) do
     %{
@@ -443,65 +394,19 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
 
   defp document_digest(document) do
     {:ok, bytes} = JCS.encode(document)
-    digest(bytes)
+    sha256_hex(bytes)
   end
 
   defp signatures(envelope), do: Map.new(envelope["signatures"], &{&1["keyid"], &1["sig"]})
-  defp digest(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-
-  defmodule SuccessorSigner do
-    @behaviour SigilGuard.Signer
-    @seed :binary.copy(<<0x99>>, 32)
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
-  end
-
-  defmodule OldBundleSigner do
-    @behaviour SigilGuard.Signer
-    @seed :binary.copy(<<0xBB>>, 32)
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
-  end
-
-  defp authorize_successor(envelope) do
-    {:ok, signed} =
-      Envelope.add_signature(envelope, SigilGuard.TrustBundleFixtureGenerator.NewRootSigner)
-
-    signed
-  end
 
   test "a cached root cannot be replaced by a self-authorized signing key" do
     original = read_json(["minimal", "envelope.json"])
     assert {:ok, _} = TrustBundle.load({:map, original}, now: @now)
-    key = Envelope.keyid(SuccessorSigner.public_key())
+    key = Envelope.keyid(NewBundleSigner.public_key())
 
     descriptor = %{
       "alg" => "ed25519",
-      "public_key" => Base.url_encode64(SuccessorSigner.public_key(), padding: false)
+      "public_key" => Base.url_encode64(NewBundleSigner.public_key(), padding: false)
     }
 
     document =
@@ -512,7 +417,7 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
       |> put_in(["roles", "root", "keyids"], [key])
       |> put_in(["roles", "delegates", Access.at(0), "keyids"], [key])
 
-    malicious = signed_document(document, SuccessorSigner)
+    malicious = sign_with(document, [NewBundleSigner])
     assert TrustBundle.load({:map, malicious}, now: @now) == {:error, :invalid_bundle_format}
     assert Cache.floor("example-org-trust") == 1
   end

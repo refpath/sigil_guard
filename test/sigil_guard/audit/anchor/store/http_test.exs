@@ -3,17 +3,13 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
 
   use ExUnit.Case, async: false
 
-  alias SigilGuard.Audit
   alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Anchor.Receipt
   alias SigilGuard.Audit.Anchor.Store
   alias SigilGuard.Audit.Anchor.Store.HTTP
-  alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.AuditProofFixture
   alias SigilGuard.TestSigner
 
-  @secret_key :crypto.hash(:sha256, "audit http anchor store test key")
-  @generated_at "2026-01-01T00:00:00.000Z"
-  @anchored_at "2026-01-01T00:00:05.000Z"
   @issuer "did:web:http-anchor-store.example"
 
   defmodule AnchorRecordClient do
@@ -784,30 +780,12 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
     end
   end
 
-  defp anchor_fixture do
-    events =
-      1..3
-      |> Enum.map(&Audit.new_event("test", "alice", "http-anchor-store-#{&1}", "ok"))
-      |> Audit.build_chain(@secret_key)
-
-    {:ok, checkpoint} =
-      Checkpoint.create(events,
-        chain_id: "chain-a",
-        generated_at: @generated_at
-      )
-
-    signed_checkpoint =
-      Checkpoint.sign(checkpoint, TestSigner, issuer: @issuer, issued_at: @generated_at)
-
-    anchor =
-      Anchor.create(signed_checkpoint,
-        anchored_at: @anchored_at,
+  defp anchor_fixture,
+    do:
+      AuditProofFixture.anchor_fixture(
         storage: :http,
         uri: "https://anchors.example.test/audit/anchors/1"
       )
-
-    {signed_checkpoint, anchor}
-  end
 
   defp receipt_fixture(url, digest) do
     %{

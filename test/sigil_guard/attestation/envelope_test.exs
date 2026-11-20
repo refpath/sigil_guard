@@ -253,47 +253,11 @@ defmodule SigilGuard.Attestation.EnvelopeTest do
   end
 
   defmodule SignerA do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "sigilguard-dsse-signer-a")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-dsse-signer-a")
   end
 
   defmodule SignerB do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "sigilguard-dsse-signer-b")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-dsse-signer-b")
   end
 
   defmodule MissingSigner do

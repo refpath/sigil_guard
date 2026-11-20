@@ -13,6 +13,8 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
 
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [flip_base64: 1]
+
   alias SigilGuard.Attestation
   alias SigilGuard.BoundaryPolicy.File, as: PolicyFile
   alias SigilGuard.CapabilityManifest
@@ -612,7 +614,7 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
         )
       end
 
-      forged = update_in(envelope, ["signatures", Access.at(0), "sig"], &flip_first_character/1)
+      forged = update_in(envelope, ["signatures", Access.at(0), "sig"], &flip_base64/1)
 
       %{signed: authentication(envelope, verify), forged: authentication(forged, verify)}
     end
@@ -921,30 +923,16 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
     end
   end
 
-  defp flip_first_character(<<first, rest::binary>>) do
-    replacement = if first == ?A, do: ?B, else: ?A
-    <<replacement, rest::binary>>
-  end
-
   defp capture_mcp_events do
-    parent = self()
-    handler = "physical-effect-#{System.unique_integer([:positive])}"
+    ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :mcp, :request]])
+    on_exit(fn -> :telemetry.detach(ref) end)
 
-    :telemetry.attach(
-      handler,
-      [:sigil_guard, :mcp, :request],
-      fn _, _, metadata, _ -> send(parent, {:mcp_metadata, metadata}) end,
-      nil
-    )
-
-    on_exit(fn -> :telemetry.detach(handler) end)
-
-    fn -> drain_mcp_events([]) end
+    fn -> drain_mcp_events(ref, []) end
   end
 
-  defp drain_mcp_events(events) do
+  defp drain_mcp_events(ref, events) do
     receive do
-      {:mcp_metadata, metadata} -> drain_mcp_events([metadata | events])
+      {_, ^ref, _, metadata} -> drain_mcp_events(ref, [metadata | events])
     after
       0 -> events
     end

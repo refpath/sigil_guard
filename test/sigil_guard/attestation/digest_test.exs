@@ -5,6 +5,8 @@ defmodule SigilGuard.Attestation.DigestTest do
 
   doctest SigilGuard.Attestation.Digest
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Attestation.Digest
 
   @request_action_digest String.duplicate("a", 64)
@@ -40,7 +42,7 @@ defmodule SigilGuard.Attestation.DigestTest do
 
   describe "payload_digest/1" do
     test "hashes UTF-8 binary payload bytes directly" do
-      assert Digest.payload_digest("payload") == {:ok, sha256("payload")}
+      assert Digest.payload_digest("payload") == {:ok, sha256_hex("payload")}
     end
 
     test "hashes stripped normalized maps and lists" do
@@ -52,12 +54,12 @@ defmodule SigilGuard.Attestation.DigestTest do
       }
 
       stripped = ~s({"name":"repo_file_write","params":{"arguments":{"path":"README.md"}}})
-      assert Digest.payload_digest(payload) == {:ok, sha256(stripped)}
+      assert Digest.payload_digest(payload) == {:ok, sha256_hex(stripped)}
 
       list_payload = [payload, %{"_agent_confirmation" => "ignored", "value" => true}]
 
       assert Digest.payload_digest(list_payload) ==
-               {:ok, sha256("[" <> stripped <> ~s(,{"value":true}]))}
+               {:ok, sha256_hex("[" <> stripped <> ~s(,{"value":true}]))}
     end
 
     test "keeps digest-neutral behavior only for attestation metadata namespaces" do
@@ -498,12 +500,10 @@ defmodule SigilGuard.Attestation.DigestTest do
 
   describe "manifest_digest/1" do
     test "hashes manifest strings and rejects malformed manifest classes" do
-      assert Digest.manifest_digest("manifest") == {:ok, sha256("manifest")}
+      assert Digest.manifest_digest("manifest") == {:ok, sha256_hex("manifest")}
       assert Digest.manifest_digest(:bad) == {:error, :invalid_payload}
     end
   end
-
-  defp sha256(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   test "null-valued application fields cannot reuse an absent-field digest" do
     assert {:ok, _} = Digest.payload_digest(%{"arguments" => %{}})

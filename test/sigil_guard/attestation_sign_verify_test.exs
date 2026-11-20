@@ -499,47 +499,11 @@ defmodule SigilGuard.AttestationSignVerifyTest do
   end
 
   defmodule TrustedSigner do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "sigilguard-attestation-trusted")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-attestation-trusted")
   end
 
   defmodule WitnessSigner do
-    @behaviour SigilGuard.Signer
-
-    @seed :crypto.hash(:sha256, "sigilguard-attestation-witness")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "sigilguard-attestation-witness")
   end
 
   defmodule MissingSigner do

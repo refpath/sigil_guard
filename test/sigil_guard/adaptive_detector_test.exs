@@ -138,28 +138,23 @@ defmodule SigilGuard.AdaptiveDetectorTest do
 
   describe "telemetry" do
     setup do
-      handler = "adaptive-test-#{inspect(make_ref())}"
-      parent = self()
-
-      :telemetry.attach(
-        handler,
-        [:sigil_guard, :boundary, :adaptive],
-        fn _, _, metadata, _ -> send(parent, {:adaptive, metadata}) end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :boundary, :adaptive]])
+      on_exit(fn -> :telemetry.detach(ref) end)
       :ok
     end
 
     test "a successful run reports the indicator count and no error" do
       echo({:ok, [%{id: "a", severity: :low, confidence: 0.5}]})
-      assert_received {:adaptive, %{indicator_count: 1, error: nil}}
+
+      assert_received {[:sigil_guard, :boundary, :adaptive], _, _,
+                       %{indicator_count: 1, error: nil}}
     end
 
     test "a degraded run reports :adaptive_error" do
       echo({:error, :down})
-      assert_received {:adaptive, %{indicator_count: 0, error: :adaptive_error}}
+
+      assert_received {[:sigil_guard, :boundary, :adaptive], _, _,
+                       %{indicator_count: 0, error: :adaptive_error}}
     end
   end
 end

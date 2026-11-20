@@ -28,24 +28,19 @@ defmodule SigilGuard.TrustBundle.TelemetryCasesTest do
       SigilGuard.TrustBundleFixtureGenerator.generate()["minimal"]["bundle.json"]
       |> Jason.decode!()
 
-    parent = self()
-    handler = "trust-bundle-sequence-#{System.unique_integer([:positive])}"
+    ref =
+      :telemetry_test.attach_event_handlers(self(), [
+        [:sigil_guard, :trust_bundle, :verify, :stop]
+      ])
 
-    :telemetry.attach(
-      handler,
-      [:sigil_guard, :trust_bundle, :verify, :stop],
-      fn _, _, metadata, _ -> send(parent, {:verify_stop, metadata}) end,
-      nil
-    )
-
-    on_exit(fn -> :telemetry.detach(handler) end)
+    on_exit(fn -> :telemetry.detach(ref) end)
 
     for sequence <- ["0", "-3", "12abc", "1.5"] do
       {:ok, payload} = JCS.encode(Map.put(document, "sequence", sequence))
       {:ok, envelope} = Envelope.sign_many(payload, [BundleSigner])
 
       assert TrustBundle.verify(envelope, now: @now) == {:error, :invalid_bundle_format}
-      assert_receive {:verify_stop, metadata}
+      assert_receive {_, ^ref, _, metadata}
       assert metadata.bundle_id == "example-org-trust"
       assert metadata.sequence == nil
       assert metadata.root_version == 1

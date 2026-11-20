@@ -27,11 +27,8 @@ defmodule SigilGuard.AuditCasesTest do
     |> Audit.build_chain(@query_key)
   end
 
-  defp build_signed_chain(count) do
-    1..count
-    |> Enum.map(&Audit.new_event("test", "alice", "action#{&1}", "ok"))
-    |> Audit.build_chain(:crypto.hash(:sha256, "audit checkpoint test key"))
-  end
+  defp build_signed_chain(count),
+    do: Fixture.build_signed_chain(count, :crypto.hash(:sha256, "audit checkpoint test key"))
 
   test "query/1 returns the whole chain and a time window may be open at either end" do
     events = query_events()

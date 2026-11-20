@@ -6,6 +6,7 @@ defmodule SigilGuard.AuditProofFixture do
   # assert stability. See audit "Golden Vector: Five-Event Tree".
 
   alias SigilGuard.Audit
+  alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Export
   alias SigilGuard.Audit.Proof
@@ -16,26 +17,15 @@ defmodule SigilGuard.AuditProofFixture do
   @issuer "did:web:test.example.org"
   @generated_at "2026-07-02T12:00:05.000Z"
   @count 5
+  @anchor_key :crypto.hash(:sha256, "audit anchor fixture key")
+  @anchor_issuer "did:web:anchor-fixture.example"
+  @anchor_generated_at "2026-01-01T00:00:00.000Z"
+  @anchor_anchored_at "2026-01-01T00:00:05.000Z"
 
   defmodule SeedSigner do
     @moduledoc false
-
-    @behaviour SigilGuard.Signer
-    @seed Base.decode16!("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair, do: :crypto.generate_key(:eddsa, :ed25519, @seed)
+    use SigilGuard.TestSigner,
+      seed: Base.decode16!("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20")
   end
 
   @doc false
@@ -104,6 +94,44 @@ defmodule SigilGuard.AuditProofFixture do
       )
 
     export
+  end
+
+  @doc "A chain of `count` signed events whose actions are `action_prefix` and the index."
+  @spec build_signed_chain(pos_integer(), binary(), String.t()) :: [Audit.t()]
+  def build_signed_chain(count, key, action_prefix \\ "action") do
+    1..count
+    |> Enum.map(&Audit.new_event("test", "alice", "#{action_prefix}#{&1}", "ok"))
+    |> Audit.build_chain(key)
+  end
+
+  @doc """
+  A checkpoint over a three-event chain and the anchor recording it at `:storage` and
+  `:uri`. The checkpoint is signed by `SigilGuard.TestSigner` unless `signed: false`.
+  """
+  @spec anchor_fixture(keyword()) :: {map(), map()}
+  def anchor_fixture(opts) do
+    events = build_signed_chain(3, @anchor_key, "anchor-fixture-")
+
+    {:ok, checkpoint} =
+      Checkpoint.create(events, chain_id: "chain-a", generated_at: @anchor_generated_at)
+
+    checkpoint =
+      if Keyword.get(opts, :signed, true),
+        do:
+          Checkpoint.sign(checkpoint, SigilGuard.TestSigner,
+            issuer: @anchor_issuer,
+            issued_at: @anchor_generated_at
+          ),
+        else: checkpoint
+
+    anchor =
+      Anchor.create(checkpoint,
+        anchored_at: @anchor_anchored_at,
+        storage: Keyword.fetch!(opts, :storage),
+        uri: Keyword.fetch!(opts, :uri)
+      )
+
+    {checkpoint, anchor}
   end
 
   @doc false

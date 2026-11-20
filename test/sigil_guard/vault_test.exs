@@ -266,19 +266,9 @@ defmodule SigilGuard.VaultTest do
     @plaintext "vault-plaintext-7c1f9a"
 
     test "errors, telemetry and logs carry neither plaintext nor key material", ctx do
-      handler = "vault-leak-#{System.unique_integer()}"
+      ref = :telemetry_test.attach_event_handlers(self(), SigilGuard.Telemetry.events())
+      on_exit(fn -> :telemetry.detach(ref) end)
       parent = self()
-
-      :telemetry.attach_many(
-        handler,
-        SigilGuard.Telemetry.events(),
-        fn event, measurements, metadata, _ ->
-          send(parent, {:event, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
 
       log =
         ExUnit.CaptureLog.capture_log(fn ->
@@ -296,7 +286,7 @@ defmodule SigilGuard.VaultTest do
         end)
 
       assert_received {:failure, {:error, :decryption_failed}}
-      refute_received {:event, _, _, _}
+      refute_received {_, ^ref, _, _}
 
       key_b64 = Base.encode64(ctx.master_key)
 

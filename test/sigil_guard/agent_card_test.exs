@@ -3,6 +3,11 @@ defmodule SigilGuard.AgentCardTest do
 
   use ExUnit.Case, async: true
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
+  import SigilGuard.AgentCardFixtureGenerator,
+    only: [bundle_with_role: 2, issuer_keyid: 0, issuer_material: 0, issuer_public_key: 0]
+
   alias SigilGuard.AgentCard
   alias SigilGuard.AgentCardFixtureGenerator
   alias SigilGuard.AgentCardFixtureGenerator.IssuerSigner
@@ -18,44 +23,10 @@ defmodule SigilGuard.AgentCardTest do
     :ok
   end
 
-  defp issuer_public_key, do: AgentCardFixtureGenerator.issuer_public_key()
-  defp issuer_keyid, do: Envelope.keyid(issuer_public_key())
-  defp issuer_material, do: %{issuer_keyid() => issuer_public_key()}
-
-  defp valid_card do
-    agent_pub = AgentCardFixtureGenerator.agent_public_key()
-
-    %{
-      "kind" => "sigil_guard_agent_card",
-      "schema_version" => "1",
-      "agent_id" => "spiffe://prod.example.org/agents/research-peer",
-      "name" => "research-peer",
-      "version" => "2.1.0",
-      "provider" => "spiffe://prod.example.org/operators/platform-team",
-      "endpoints" => ["https://agents.example.org/research-peer/a2a"],
-      "capabilities" => [
-        %{"description" => "Summarize a document set", "name" => "summarize"},
-        %{"description" => "Web research with citations", "name" => "web_research"}
-      ],
-      "protocols" => ["a2a/1.0"],
-      "public_keys" => [
-        %{
-          "algorithm" => "ed25519",
-          "keyid" => Envelope.keyid(agent_pub),
-          "public_key" => Base.url_encode64(agent_pub, padding: false)
-        }
-      ],
-      "scopes" => ["research:read"],
-      "trust_zone" => "semi_trusted",
-      "issued_at" => "2026-07-02T12:00:00.000Z",
-      "expires_at" => "2026-08-01T12:00:00.000Z"
-    }
-  end
-
   defp currently_valid_card do
     now = DateTime.utc_now()
 
-    valid_card()
+    AgentCardFixtureGenerator.card()
     |> Map.put("issued_at", timestamp(DateTime.add(now, -1, :hour)))
     |> Map.put("expires_at", timestamp(DateTime.add(now, 1, :hour)))
   end
@@ -68,12 +39,13 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "new/1" do
     test "accepts a valid card unchanged" do
-      assert AgentCard.new(valid_card()) == {:ok, valid_card()}
+      assert AgentCard.new(AgentCardFixtureGenerator.card()) ==
+               {:ok, AgentCardFixtureGenerator.card()}
     end
 
     test "accepts empty endpoints and omitted optional fields" do
       card =
-        valid_card()
+        AgentCardFixtureGenerator.card()
         |> Map.put("endpoints", [])
         |> Map.delete("scopes")
 
@@ -86,29 +58,34 @@ defmodule SigilGuard.AgentCardTest do
       agent_pub = AgentCardFixtureGenerator.agent_public_key()
 
       cases = [
-        {"unknown field", Map.put(valid_card(), "extra", true)},
-        {"missing required field", Map.delete(valid_card(), "agent_id")},
-        {"wrong kind", Map.put(valid_card(), "kind", "other")},
-        {"wrong schema_version", Map.put(valid_card(), "schema_version", "2")},
-        {"bad trust_zone", Map.put(valid_card(), "trust_zone", "root")},
-        {"empty name", Map.put(valid_card(), "name", "")},
+        {"unknown field", Map.put(AgentCardFixtureGenerator.card(), "extra", true)},
+        {"missing required field", Map.delete(AgentCardFixtureGenerator.card(), "agent_id")},
+        {"wrong kind", Map.put(AgentCardFixtureGenerator.card(), "kind", "other")},
+        {"wrong schema_version",
+         Map.put(AgentCardFixtureGenerator.card(), "schema_version", "2")},
+        {"bad trust_zone", Map.put(AgentCardFixtureGenerator.card(), "trust_zone", "root")},
+        {"empty name", Map.put(AgentCardFixtureGenerator.card(), "name", "")},
         {"unsorted capabilities",
-         Map.put(valid_card(), "capabilities", [
+         Map.put(AgentCardFixtureGenerator.card(), "capabilities", [
            %{"name" => "web_research"},
            %{"name" => "summarize"}
          ])},
         {"duplicate capability names",
-         Map.put(valid_card(), "capabilities", [
+         Map.put(AgentCardFixtureGenerator.card(), "capabilities", [
            %{"name" => "summarize"},
            %{"name" => "summarize"}
          ])},
-        {"empty capabilities", Map.put(valid_card(), "capabilities", [])},
+        {"empty capabilities", Map.put(AgentCardFixtureGenerator.card(), "capabilities", [])},
         {"capability extra key",
-         Map.put(valid_card(), "capabilities", [%{"name" => "a", "role" => "x"}])},
-        {"unsorted protocols", Map.put(valid_card(), "protocols", ["b/1.0", "a/1.0"])},
-        {"non-absolute endpoint", Map.put(valid_card(), "endpoints", ["not-a-uri"])},
+         Map.put(AgentCardFixtureGenerator.card(), "capabilities", [
+           %{"name" => "a", "role" => "x"}
+         ])},
+        {"unsorted protocols",
+         Map.put(AgentCardFixtureGenerator.card(), "protocols", ["b/1.0", "a/1.0"])},
+        {"non-absolute endpoint",
+         Map.put(AgentCardFixtureGenerator.card(), "endpoints", ["not-a-uri"])},
         {"public key algorithm",
-         Map.put(valid_card(), "public_keys", [
+         Map.put(AgentCardFixtureGenerator.card(), "public_keys", [
            %{
              "algorithm" => "rsa",
              "keyid" => Envelope.keyid(agent_pub),
@@ -116,7 +93,7 @@ defmodule SigilGuard.AgentCardTest do
            }
          ])},
         {"keyid derivation mismatch",
-         Map.put(valid_card(), "public_keys", [
+         Map.put(AgentCardFixtureGenerator.card(), "public_keys", [
            %{
              "algorithm" => "ed25519",
              "keyid" => "sha256:" <> String.duplicate("0", 64),
@@ -124,7 +101,7 @@ defmodule SigilGuard.AgentCardTest do
            }
          ])},
         {"wrong-length public key",
-         Map.put(valid_card(), "public_keys", [
+         Map.put(AgentCardFixtureGenerator.card(), "public_keys", [
            %{
              "algorithm" => "ed25519",
              "keyid" => Envelope.keyid(agent_pub),
@@ -132,19 +109,29 @@ defmodule SigilGuard.AgentCardTest do
            }
          ])},
         {"expires before issued",
-         Map.put(valid_card(), "expires_at", "2026-07-01T12:00:00.000Z")},
-        {"bad timestamp format", Map.put(valid_card(), "issued_at", "2026-07-02 12:00:00Z")},
+         Map.put(AgentCardFixtureGenerator.card(), "expires_at", "2026-07-01T12:00:00.000Z")},
+        {"bad timestamp format",
+         Map.put(AgentCardFixtureGenerator.card(), "issued_at", "2026-07-02 12:00:00Z")},
         {"timestamp with trailing newline",
-         Map.put(valid_card(), "issued_at", valid_card()["issued_at"] <> "\n")},
-        {"capability not a map", Map.put(valid_card(), "capabilities", ["summarize"])},
-        {"public key not a map", Map.put(valid_card(), "public_keys", ["key"])},
-        {"non-binary endpoint", Map.put(valid_card(), "endpoints", [123])},
-        {"empty description", Map.put(valid_card(), "description", "")},
-        {"endpoints not a list", Map.put(valid_card(), "endpoints", "one")},
-        {"protocols not a list", Map.put(valid_card(), "protocols", "a2a/1.0")},
-        {"public_keys not a list", Map.put(valid_card(), "public_keys", "key")},
-        {"scopes not a list", Map.put(valid_card(), "scopes", "research:read")},
-        {"unsorted scopes", Map.put(valid_card(), "scopes", ["b", "a"])}
+         Map.put(
+           AgentCardFixtureGenerator.card(),
+           "issued_at",
+           AgentCardFixtureGenerator.card()["issued_at"] <> "\n"
+         )},
+        {"capability not a map",
+         Map.put(AgentCardFixtureGenerator.card(), "capabilities", ["summarize"])},
+        {"public key not a map",
+         Map.put(AgentCardFixtureGenerator.card(), "public_keys", ["key"])},
+        {"non-binary endpoint", Map.put(AgentCardFixtureGenerator.card(), "endpoints", [123])},
+        {"empty description", Map.put(AgentCardFixtureGenerator.card(), "description", "")},
+        {"endpoints not a list", Map.put(AgentCardFixtureGenerator.card(), "endpoints", "one")},
+        {"protocols not a list",
+         Map.put(AgentCardFixtureGenerator.card(), "protocols", "a2a/1.0")},
+        {"public_keys not a list",
+         Map.put(AgentCardFixtureGenerator.card(), "public_keys", "key")},
+        {"scopes not a list",
+         Map.put(AgentCardFixtureGenerator.card(), "scopes", "research:read")},
+        {"unsorted scopes", Map.put(AgentCardFixtureGenerator.card(), "scopes", ["b", "a"])}
       ]
 
       for {label, card} <- cases do
@@ -159,26 +146,28 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "digest/1" do
     test "is a 64-hex digest that changes with the card" do
-      assert {:ok, digest} = AgentCard.digest(valid_card())
+      assert {:ok, digest} = AgentCard.digest(AgentCardFixtureGenerator.card())
       assert digest =~ ~r/\A[0-9a-f]{64}\z/
-      refute AgentCard.digest(Map.put(valid_card(), "name", "another agent")) == {:ok, digest}
+
+      refute AgentCard.digest(Map.put(AgentCardFixtureGenerator.card(), "name", "another agent")) ==
+               {:ok, digest}
     end
 
     test "rejects an invalid card" do
-      assert AgentCard.digest(Map.delete(valid_card(), "agent_id")) ==
+      assert AgentCard.digest(Map.delete(AgentCardFixtureGenerator.card(), "agent_id")) ==
                {:error, :invalid_agent_card}
     end
   end
 
   describe "sign/verify round trip" do
     test "signs and verifies against the issuer key map" do
-      assert {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      assert {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       assert {:ok, card} = AgentCard.verify(envelope, issuer_material(), now: @now)
       assert card["agent_id"] == "spiffe://prod.example.org/agents/research-peer"
     end
 
     test "verify without trust material fails :missing_trust_bundle" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       assert AgentCard.verify(envelope, %{}, now: @now) == {:error, :missing_trust_bundle}
     end
 
@@ -233,7 +222,7 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "tamper" do
     test "flipped payload byte fails :invalid_signature" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       tampered = Map.put(envelope, "payload", flip_first_byte(envelope["payload"]))
 
       assert AgentCard.verify(tampered, issuer_material(), now: @now) ==
@@ -241,7 +230,7 @@ defmodule SigilGuard.AgentCardTest do
     end
 
     test "non-canonical payload bytes fail :invalid_agent_card" do
-      {:ok, card} = AgentCard.new(valid_card())
+      {:ok, card} = AgentCard.new(AgentCardFixtureGenerator.card())
       {:ok, canonical} = JCS.encode(card)
       noncanonical = "  " <> canonical
       {:ok, envelope} = Envelope.sign(noncanonical, IssuerSigner)
@@ -253,7 +242,7 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "freshness" do
     setup do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       %{envelope: envelope}
     end
 
@@ -279,7 +268,7 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "trust-bundle issuer resolution" do
     setup do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       %{envelope: envelope}
     end
 
@@ -339,13 +328,13 @@ defmodule SigilGuard.AgentCardTest do
 
   describe "issuer key map" do
     test "an unknown keyid fails :unknown_key_id" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       material = %{("sha256:" <> String.duplicate("0", 64)) => issuer_public_key()}
       assert AgentCard.verify(envelope, material, now: @now) == {:error, :unknown_key_id}
     end
 
     test "a bundle without an agent_card role fails :untrusted_issuer" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
 
       document = %{
         "keys" => %{
@@ -362,12 +351,12 @@ defmodule SigilGuard.AgentCardTest do
     end
 
     test "non-map trust material fails :missing_trust_bundle" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
       assert AgentCard.verify(envelope, :nope, now: @now) == {:error, :missing_trust_bundle}
     end
 
     test "a bundle key descriptor without a public key is ignored" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
 
       document = %{
         "keys" => %{issuer_keyid() => %{"alg" => "ed25519"}},
@@ -379,7 +368,7 @@ defmodule SigilGuard.AgentCardTest do
     end
 
     test "an agent_card role with non-list keyids resolves to no issuers" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
 
       document = %{
         "keys" => %{
@@ -407,7 +396,9 @@ defmodule SigilGuard.AgentCardTest do
     test "digest and sign reject non-map and bad signers" do
       assert AgentCard.digest("card") == {:error, :invalid_agent_card}
       assert AgentCard.sign("card", IssuerSigner) == {:error, :invalid_agent_card}
-      assert AgentCard.sign(valid_card(), "signer") == {:error, :invalid_agent_card}
+
+      assert AgentCard.sign(AgentCardFixtureGenerator.card(), "signer") ==
+               {:error, :invalid_agent_card}
     end
 
     test "verify rejects a non-envelope and non-list opts" do
@@ -416,7 +407,7 @@ defmodule SigilGuard.AgentCardTest do
     end
 
     test "verify rejects an invalid :now and :max_skew_ms" do
-      {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+      {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
 
       assert AgentCard.verify(envelope, issuer_material(), now: :bad) ==
                {:error, :invalid_agent_card}
@@ -426,14 +417,18 @@ defmodule SigilGuard.AgentCardTest do
     end
 
     test "rejects a capability with an empty description" do
-      card = Map.put(valid_card(), "capabilities", [%{"name" => "a", "description" => ""}])
+      card =
+        Map.put(AgentCardFixtureGenerator.card(), "capabilities", [
+          %{"name" => "a", "description" => ""}
+        ])
+
       assert AgentCard.new(card) == {:error, :invalid_agent_card}
     end
   end
 
   describe "sign/2 signature" do
     test "the DSSE signature is Ed25519 over the PAE of the card's JCS bytes" do
-      {:ok, card} = AgentCard.new(valid_card())
+      {:ok, card} = AgentCard.new(AgentCardFixtureGenerator.card())
       {:ok, card_json} = JCS.encode(card)
 
       {:ok, dsse} = AgentCard.sign(card, IssuerSigner)
@@ -447,21 +442,6 @@ defmodule SigilGuard.AgentCardTest do
     end
   end
 
-  defp bundle_with_role(role_keyids, keys: keys) do
-    document = %{
-      "keys" =>
-        Map.new(keys, fn {keyid, public_key} ->
-          {keyid,
-           %{"alg" => "ed25519", "public_key" => Base.url_encode64(public_key, padding: false)}}
-        end),
-      "roles" => %{
-        "delegates" => [%{"name" => "agent_card", "keyids" => role_keyids}]
-      }
-    }
-
-    %TrustBundle{document: document}
-  end
-
   defp read_fixture(name), do: File.read!(Path.join(@fixture_root, name))
   defp read_json(name), do: Jason.decode!(read_fixture(name))
 
@@ -470,10 +450,8 @@ defmodule SigilGuard.AgentCardTest do
     Base.url_encode64(<<Bitwise.bxor(first, 1), rest::binary>>, padding: false)
   end
 
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-
   test "revoked card issuers, expired roles and unmet role quorums fail closed" do
-    {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+    {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
     base = bundle_with_role([issuer_keyid()], keys: issuer_material())
     revoked = put_in(base.document["revocations"], [%{"kind" => "key", "id" => issuer_keyid()}])
     assert AgentCard.verify(envelope, revoked, now: @now) == {:error, :untrusted_issuer}
@@ -520,7 +498,7 @@ defmodule SigilGuard.AgentCardTest do
     keys = Map.put(issuer_material(), other_id, other.public_key())
     bundle = bundle_with_role([issuer_keyid(), other_id], keys: keys)
     revoked = put_in(bundle.document["revocations"], [%{"kind" => "key", "id" => issuer_keyid()}])
-    {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+    {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
     {:ok, envelope} = Envelope.add_signature(envelope, other)
     assert AgentCard.verify(envelope, revoked, now: @now) == {:error, :untrusted_issuer}
   end
@@ -532,7 +510,7 @@ defmodule SigilGuard.AgentCardTest do
     on_exit(fn -> :ets.delete(:sigil_guard_trust_bundle, id) end)
     base = bundle_with_role([issuer_keyid()], keys: issuer_material())
     base = %{base | bundle_id: id, sequence: 1, root_version: 1, digest: "first", envelope: %{}}
-    {:ok, envelope} = AgentCard.sign(valid_card(), IssuerSigner)
+    {:ok, envelope} = AgentCard.sign(AgentCardFixtureGenerator.card(), IssuerSigner)
     assert {:ok, _} = AgentCard.verify(envelope, base, now: @now)
     assert {:ok, _} = Cache.put(base)
     assert {:ok, _} = AgentCard.verify(envelope, base, now: @now)

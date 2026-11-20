@@ -252,55 +252,28 @@ defmodule SigilGuard.HooksTest do
     end
 
     test "notify failures emit the boundary hook telemetry event" do
-      ref = make_ref()
-      parent = self()
-      handler = "hooks-test-#{inspect(ref)}"
-
-      :telemetry.attach(
-        handler,
-        [:sigil_guard, :boundary, :hook],
-        fn _, measurements, metadata, _ ->
-          send(parent, {:hook_event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :boundary, :hook]])
+      on_exit(fn -> :telemetry.detach(ref) end)
+      module = inspect(NotifyCrashHook)
 
       dispatch([NotifyCrashHook], :session_start)
 
-      assert_received {:hook_event, %{duration: duration},
-                       %{hook_result: :hook_crash, phase: :session_start}}
+      assert_received {[:sigil_guard, :boundary, :hook], ^ref, %{duration: duration},
+                       %{module: ^module, hook_result: :hook_crash, phase: :session_start}}
 
       assert is_integer(duration) and duration >= 0
     end
 
     test "successful hooks emit their normalized outcome and duration" do
-      ref = make_ref()
-      parent = self()
-      handler = "hooks-success-test-#{inspect(ref)}"
-
-      :telemetry.attach(
-        handler,
-        [:sigil_guard, :boundary, :hook],
-        fn _, measurements, metadata, _ ->
-          send(parent, {:hook_success_event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :boundary, :hook]])
+      on_exit(fn -> :telemetry.detach(ref) end)
+      module = inspect(ContinueHook)
 
       dispatch([ContinueHook], :tool_request)
 
-      assert_received {:hook_success_event, %{duration: duration},
-                       %{
-                         module: module,
-                         phase: :tool_request,
-                         hook_result: :continue
-                       }}
+      assert_received {[:sigil_guard, :boundary, :hook], ^ref, %{duration: duration},
+                       %{module: ^module, phase: :tool_request, hook_result: :continue}}
 
-      assert module == inspect(ContinueHook)
       assert is_integer(duration) and duration >= 0
     end
   end

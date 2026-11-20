@@ -628,7 +628,7 @@ defmodule SigilGuard.MCP.GatewayTest do
 
       assert decision.verdict == :blocked
 
-      assert_receive {^ref, [:sigil_guard, :mcp, :request], %{system_time: _}, metadata}
+      assert_receive {[:sigil_guard, :mcp, :request], ^ref, %{system_time: _}, metadata}
 
       assert metadata.envelope_status == :invalid
       assert metadata.envelope_reason == :legacy_envelope_removed
@@ -652,7 +652,7 @@ defmodule SigilGuard.MCP.GatewayTest do
 
       assert decision.verdict == :blocked
 
-      assert_receive {^ref, [:sigil_guard, :mcp, :request], %{system_time: _}, metadata}
+      assert_receive {[:sigil_guard, :mcp, :request], ^ref, %{system_time: _}, metadata}
 
       assert metadata.envelope_status == :invalid
       assert metadata.envelope_reason == :missing_envelope
@@ -771,7 +771,7 @@ defmodule SigilGuard.MCP.GatewayTest do
 
       assert decision.verdict == :blocked
 
-      assert_receive {^ref, [:sigil_guard, :mcp, :request], %{system_time: _}, metadata}
+      assert_receive {[:sigil_guard, :mcp, :request], ^ref, %{system_time: _}, metadata}
 
       assert metadata.envelope_status == :invalid
       assert metadata.envelope_reason == :legacy_envelope_removed
@@ -1577,20 +1577,8 @@ defmodule SigilGuard.MCP.GatewayTest do
   end
 
   defp attach_mcp_telemetry do
-    parent = self()
-    ref = make_ref()
-    handler_id = "mcp-gateway-test-#{System.unique_integer()}"
-
-    :telemetry.attach(
-      handler_id,
-      [:sigil_guard, :mcp, :request],
-      fn event, measurements, metadata, _ ->
-        send(parent, {ref, event, measurements, metadata})
-      end,
-      nil
-    )
-
-    on_exit(fn -> :telemetry.detach(handler_id) end)
+    ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :mcp, :request]])
+    on_exit(fn -> :telemetry.detach(ref) end)
     ref
   end
 end

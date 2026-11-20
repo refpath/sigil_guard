@@ -1,6 +1,8 @@
 defmodule SigilGuard.AgentTrustFixtureGenerator do
   @moduledoc false
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Attestation.AgentPredicate
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Attestation.Envelope
@@ -354,11 +356,11 @@ defmodule SigilGuard.AgentTrustFixtureGenerator do
         }
       },
       "keyid" => Envelope.keyid(__MODULE__.SeedSigner.public_key()),
-      "pae_sha256" => sha256_bytes(pae),
+      "pae_sha256" => sha256_hex(pae),
       "payload_digest" => vector.digests["payload"],
       "public_key_hex" => Base.encode16(__MODULE__.SeedSigner.public_key(), case: :lower),
       "signature" => signature["sig"],
-      "statement_sha256" => sha256_bytes(statement_json)
+      "statement_sha256" => sha256_hex(statement_json)
     }
 
     expected
@@ -373,31 +375,12 @@ defmodule SigilGuard.AgentTrustFixtureGenerator do
   defp stringify_value(value) when is_atom(value), do: Atom.to_string(value)
   defp stringify_value(value), do: value
 
-  defp sha256_bytes(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
-
   defp maybe_put(map, _, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defmodule SeedSigner do
     @moduledoc false
-
-    @behaviour SigilGuard.Signer
-    @seed Base.decode16!("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20")
-
-    @impl SigilGuard.Signer
-    def sign(message) do
-      {_, private_key} = keypair()
-      :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
-    end
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = keypair()
-      public_key
-    end
-
-    defp keypair do
-      :crypto.generate_key(:eddsa, :ed25519, @seed)
-    end
+    use SigilGuard.TestSigner,
+      seed: Base.decode16!("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20")
   end
 end

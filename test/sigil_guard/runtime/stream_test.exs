@@ -7,6 +7,8 @@ defmodule SigilGuard.Runtime.StreamTest do
 
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Context
   alias SigilGuard.Decision
   alias SigilGuard.Patterns
@@ -134,8 +136,6 @@ defmodule SigilGuard.Runtime.StreamTest do
   describe "stream evidence" do
     @context [phase: :outbound_model, origin: :model, sink: :user, trust_level: :high]
 
-    defp sha256(text), do: Base.encode16(:crypto.hash(:sha256, text), case: :lower)
-
     defp run(chunks, opts \\ []) do
       {stream, emitted} =
         Enum.reduce(chunks, {Stream.new(@context, opts), []}, fn chunk, {stream, emitted} ->
@@ -155,9 +155,9 @@ defmodule SigilGuard.Runtime.StreamTest do
 
       assert released == input
       assert decision.audit_metadata.stream_input_bytes == byte_size(input)
-      assert decision.audit_metadata.stream_input_sha256 == sha256(input)
+      assert decision.audit_metadata.stream_input_sha256 == sha256_hex(input)
       assert decision.audit_metadata.stream_emitted_bytes == byte_size(released)
-      assert decision.audit_metadata.stream_emitted_sha256 == sha256(released)
+      assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex(released)
     end
 
     test "a redacted stream has different input and released digests" do
@@ -165,8 +165,8 @@ defmodule SigilGuard.Runtime.StreamTest do
       {_, decision, released} = run(chunks)
 
       refute released == Enum.join(chunks)
-      assert decision.audit_metadata.stream_input_sha256 == sha256(Enum.join(chunks))
-      assert decision.audit_metadata.stream_emitted_sha256 == sha256(released)
+      assert decision.audit_metadata.stream_input_sha256 == sha256_hex(Enum.join(chunks))
+      assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex(released)
 
       refute decision.audit_metadata.stream_emitted_sha256 ==
                decision.audit_metadata.stream_input_sha256
@@ -177,8 +177,8 @@ defmodule SigilGuard.Runtime.StreamTest do
 
       assert released == ""
       assert decision.audit_metadata.stream_input_bytes == 0
-      assert decision.audit_metadata.stream_input_sha256 == sha256("")
-      assert decision.audit_metadata.stream_emitted_sha256 == sha256("")
+      assert decision.audit_metadata.stream_input_sha256 == sha256_hex("")
+      assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex("")
     end
 
     test "an overflow halts with a typed reason and what was released before it" do
@@ -194,7 +194,7 @@ defmodule SigilGuard.Runtime.StreamTest do
       assert decision.audit_metadata.deny_reason == :stream_holdback_overflow
       assert decision.audit_metadata.stream_input_bytes == 800
       assert decision.audit_metadata.stream_emitted_bytes == byte_size(released)
-      assert decision.audit_metadata.stream_emitted_sha256 == sha256(released)
+      assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex(released)
 
       # A halted stream keeps answering with the same decision.
       assert {_, ^decision, ""} = Stream.push(stream, "more")
@@ -224,7 +224,7 @@ defmodule SigilGuard.Runtime.StreamTest do
       assert stream.halted?
       refute Decision.allowed?(decision)
       assert released != ""
-      assert decision.audit_metadata.stream_emitted_sha256 == sha256(released)
+      assert decision.audit_metadata.stream_emitted_sha256 == sha256_hex(released)
       refute Map.has_key?(decision.audit_metadata, :deny_reason)
     end
   end

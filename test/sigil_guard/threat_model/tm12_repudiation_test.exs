@@ -4,6 +4,8 @@ defmodule SigilGuard.ThreatModel.TM12RepudiationTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [flip_hex: 1]
+
   alias SigilGuard.Attestation
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Anchor
@@ -249,10 +251,5 @@ defmodule SigilGuard.ThreatModel.TM12RepudiationTest do
     statement["subject"]
     |> Enum.find(&(&1["name"] == name))
     |> get_in(["digest", "sha256"])
-  end
-
-  defp flip_hex(<<first::binary-size(1), rest::binary>>) do
-    flipped = if first == "0", do: "1", else: "0"
-    flipped <> rest
   end
 end

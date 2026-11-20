@@ -3,9 +3,11 @@ defmodule SigilGuard.TrustBundle.BootTest do
 
   use ExUnit.Case, async: false
 
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [sign_with: 2]
+
   alias __MODULE__.BundleSigner
   alias SigilGuard.Attestation.Envelope
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.ConfigError
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
@@ -30,7 +32,7 @@ defmodule SigilGuard.TrustBundle.BootTest do
     end
 
     test "loads configured trust bundle source and caches the verified snapshot" do
-      envelope = envelope(bundle_document(sequence: 1))
+      envelope = sign_with(bundle_document(sequence: 1), [BundleSigner])
 
       assert TrustBundle.load_configured!(trust_bundle: {:map, envelope}) == :ok
       assert {:ok, %TrustBundle{bundle_id: "boot-trust", sequence: 1}} = Cache.fetch("boot-trust")
@@ -75,7 +77,7 @@ defmodule SigilGuard.TrustBundle.BootTest do
       error =
         assert_raise ConfigError, fn ->
           TrustBundle.load_configured!(
-            trust_bundle: {:map, envelope(bundle_document(sequence: 1))}
+            trust_bundle: {:map, sign_with(bundle_document(sequence: 1), [BundleSigner])}
           )
         end
 
@@ -120,30 +122,9 @@ defmodule SigilGuard.TrustBundle.BootTest do
     }
   end
 
-  defp envelope(document) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, [BundleSigner])
-    envelope
-  end
-
   defp bundle_keyid, do: Envelope.keyid(BundleSigner.public_key())
 
   defmodule BundleSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "trust-bundle-boot")
-
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "trust-bundle-boot")
   end
 end

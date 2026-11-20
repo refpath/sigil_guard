@@ -23,18 +23,16 @@ defmodule SigilGuard.TrustBundle.TelemetryTest do
   end
 
   test "diagnostics reject over-budget envelopes before decoding their payloads" do
-    {handler_id, ref} = attach_events()
-    on_exit(fn -> :telemetry.detach(handler_id) end)
+    ref = attach_events()
     document = %{"bundle_id" => "oversized", "padding" => String.duplicate("x", 1_048_576)}
     envelope = %{"payload" => Base.url_encode64(Jason.encode!(document), padding: false)}
     assert {:error, :invalid_envelope} = TrustBundle.verify(envelope, quarantine: false)
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :start], _, metadata}
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :start], ^ref, _, metadata}
     assert metadata.bundle_id == nil
   end
 
   test "load and verify spans emit redacted success metadata without legacy registry events" do
-    {handler_id, ref} = attach_events()
-    on_exit(fn -> :telemetry.detach(handler_id) end)
+    ref = attach_events()
 
     envelope = read_json(["minimal", "envelope.json"])
 
@@ -43,16 +41,16 @@ defmodule SigilGuard.TrustBundle.TelemetryTest do
 
     assert bundle.bundle_id == "example-org-trust"
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :load, :start], %{system_time: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :load, :start], ^ref, %{system_time: _},
                     load_start}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :start], %{system_time: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :start], ^ref, %{system_time: _},
                     verify_start}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :stop], %{duration: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :stop], ^ref, %{duration: _},
                     verify_stop}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :load, :stop], %{duration: _}, load_stop}
+    assert_receive {[:sigil_guard, :trust_bundle, :load, :stop], ^ref, %{duration: _}, load_stop}
 
     assert span_metadata(load_start) == %{
              source: :map,
@@ -80,23 +78,22 @@ defmodule SigilGuard.TrustBundle.TelemetryTest do
       refute_sensitive_metadata(metadata)
     end
 
-    refute_receive {^ref, [:sigil_guard, :registry, _, _], _, _}
+    refute_receive {[:sigil_guard, :registry, _, _], ^ref, _, _}
   end
 
   test "verify failures emit error metadata and quarantine event without sensitive fields" do
-    {handler_id, ref} = attach_events()
-    on_exit(fn -> :telemetry.detach(handler_id) end)
+    ref = attach_events()
 
     envelope = %{"payload" => "encoded"}
 
     assert TrustBundle.verify(envelope, now: @now) == {:error, :invalid_envelope}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :start], %{system_time: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :start], ^ref, %{system_time: _},
                     verify_start}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :quarantine], %{count: 1}, quarantine}
+    assert_receive {[:sigil_guard, :trust_bundle, :quarantine], ^ref, %{count: 1}, quarantine}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :stop], %{duration: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :stop], ^ref, %{duration: _},
                     verify_stop}
 
     assert span_metadata(verify_start) == %{
@@ -119,21 +116,20 @@ defmodule SigilGuard.TrustBundle.TelemetryTest do
   end
 
   test "dev bundle load span carries dev metadata" do
-    {handler_id, ref} = attach_events()
-    on_exit(fn -> :telemetry.detach(handler_id) end)
+    ref = attach_events()
 
     seed = :binary.copy(<<0x44>>, 32)
 
     assert {:ok, %TrustBundle{dev?: true}} =
              TrustBundle.dev_bundle(seed: seed, now: @now, cache: false)
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :load, :start], %{system_time: _}, _}
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :start], %{system_time: _}, _}
+    assert_receive {[:sigil_guard, :trust_bundle, :load, :start], ^ref, %{system_time: _}, _}
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :start], ^ref, %{system_time: _}, _}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :verify, :stop], %{duration: _},
+    assert_receive {[:sigil_guard, :trust_bundle, :verify, :stop], ^ref, %{duration: _},
                     verify_stop}
 
-    assert_receive {^ref, [:sigil_guard, :trust_bundle, :load, :stop], %{duration: _}, load_stop}
+    assert_receive {[:sigil_guard, :trust_bundle, :load, :stop], ^ref, %{duration: _}, load_stop}
 
     assert verify_stop.result == :ok
     assert load_stop.dev == true
@@ -150,20 +146,9 @@ defmodule SigilGuard.TrustBundle.TelemetryTest do
   end
 
   defp attach_events do
-    parent = self()
-    ref = make_ref()
-    handler_id = "sigil-trust-bundle-telemetry-test-#{System.unique_integer()}"
-
-    :telemetry.attach_many(
-      handler_id,
-      SigilGuard.Telemetry.events(),
-      fn event, measurements, metadata, _ ->
-        send(parent, {ref, event, measurements, metadata})
-      end,
-      nil
-    )
-
-    {handler_id, ref}
+    ref = :telemetry_test.attach_event_handlers(self(), SigilGuard.Telemetry.events())
+    on_exit(fn -> :telemetry.detach(ref) end)
+    ref
   end
 
   defp read_json(path) do

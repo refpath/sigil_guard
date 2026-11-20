@@ -3,10 +3,12 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
 
   use ExUnit.Case, async: false
 
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [key_descriptor: 1, sign_with: 2]
+
   alias __MODULE__.{BundleSigner, RootSigner}
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Audit
-  alias SigilGuard.Canonical.JCS
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
@@ -35,7 +37,7 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
   describe "a redistributed bundle failing signature or revocation is quarantined (rows 14/15, detects drift)" do
     test "a genuine signed bundle verifies (no false positive)" do
       assert {:ok, bundle} =
-               TrustBundle.verify(envelope(bundle_document(), [BundleSigner]), now: @now)
+               TrustBundle.verify(sign_with(bundle_document(), [BundleSigner]), now: @now)
 
       assert bundle.bundle_id == "example-org-trust"
     end
@@ -43,7 +45,7 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
     test "a tampered bundle fails signature verification and is quarantined with evidence" do
       tampered =
         bundle_document()
-        |> envelope([BundleSigner])
+        |> sign_with([BundleSigner])
         |> put_in(
           ["signatures", Access.at(0), "sig"],
           Base.url_encode64(:binary.copy(<<0>>, 64), padding: false)
@@ -61,7 +63,7 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
         |> Map.put("revocations", [
           %{"kind" => "key", "id" => bundle_keyid(), "revoked_at" => @issued_at}
         ])
-        |> envelope([BundleSigner])
+        |> sign_with([BundleSigner])
 
       assert TrustBundle.verify(revoked, now: @now) == {:error, :revoked_key}
     end
@@ -69,8 +71,8 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
 
   describe "a rolled-back bundle is rejected below the accepted floor (row 14, replay)" do
     test "replaying an older bundle after a newer one fails :sequence_below_floor" do
-      newer = envelope(Map.put(bundle_document(), "sequence", "2"), [BundleSigner])
-      older = envelope(bundle_document(), [BundleSigner])
+      newer = sign_with(Map.put(bundle_document(), "sequence", "2"), [BundleSigner])
+      older = sign_with(bundle_document(), [BundleSigner])
 
       assert {:ok, _} = TrustBundle.load({:map, newer}, now: @now)
       assert TrustBundle.load({:map, older}, now: @now) == {:error, :sequence_below_floor}
@@ -138,16 +140,6 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
     }
   end
 
-  defp envelope(document, signers) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, signers)
-    envelope
-  end
-
-  defp key_descriptor(signer) do
-    %{"alg" => "ed25519", "public_key" => Base.url_encode64(signer.public_key(), padding: false)}
-  end
-
   defp root_keyid, do: Envelope.keyid(RootSigner.public_key())
   defp bundle_keyid, do: Envelope.keyid(BundleSigner.public_key())
 
@@ -164,36 +156,10 @@ defmodule SigilGuard.ThreatModel.TM11SupplyChainTest do
   end
 
   defmodule RootSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "trust-bundle-root")
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "trust-bundle-root")
   end
 
   defmodule BundleSigner do
-    @behaviour SigilGuard.Signer
-    @seed :crypto.hash(:sha256, "trust-bundle-delegate")
-    @impl SigilGuard.Signer
-    def sign(message), do: :crypto.sign(:eddsa, :none, message, [private_key(), :ed25519])
-    @impl SigilGuard.Signer
-    def public_key do
-      {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      public_key
-    end
-
-    defp private_key do
-      {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
-      private_key
-    end
+    use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "trust-bundle-delegate")
   end
 end

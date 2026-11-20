@@ -3,12 +3,11 @@ defmodule SigilGuard.TrustBundle.RotationChainInputTest do
 
   use ExUnit.Case, async: false
 
-  alias SigilGuard.Attestation.Envelope
-  alias SigilGuard.Canonical.JCS
+  import SigilGuard.TrustBundleFixtureGenerator,
+    only: [envelope_document: 1, read_json: 1, root_pin: 1, sign_with: 2, signed_successor: 1]
+
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
-  alias SigilGuard.TrustBundleFixtureGenerator
-  alias SigilGuard.TrustBundleFixtureGenerator.NewBundleSigner
   alias SigilGuard.TrustBundleFixtureGenerator.NewRootSigner
   alias SigilGuard.TrustBundleFixtureGenerator.RootSigner
 
@@ -19,49 +18,15 @@ defmodule SigilGuard.TrustBundle.RotationChainInputTest do
     on_exit(fn -> Cache.clear() end)
   end
 
-  defp read_json(dir, name), do: Jason.decode!(TrustBundleFixtureGenerator.generate()[dir][name])
-
-  defp document(envelope) do
-    envelope
-    |> Map.fetch!("payload")
-    |> Base.url_decode64!(padding: false)
-    |> Jason.decode!()
-  end
-
-  defp sign_with(document, signers) do
-    {:ok, payload} = JCS.encode(document)
-    {:ok, envelope} = Envelope.sign_many(payload, signers)
-    envelope
-  end
-
-  defp signed_successor(document) do
-    {:ok, signed} = Envelope.add_signature(sign_with(document, [NewBundleSigner]), NewRootSigner)
-    signed
-  end
-
-  defp root_pin(document) do
-    root = get_in(document, ["roles", "root"])
-
-    %{
-      version: String.to_integer(root["version"]),
-      threshold: root["threshold"],
-      keyids: root["keyids"],
-      keys:
-        Map.new(document["keys"], fn {keyid, %{"public_key" => encoded}} ->
-          {keyid, Base.url_decode64!(encoded, padding: false)}
-        end)
-    }
-  end
-
   test "a rotation chain entry that is not a rotation envelope is refused" do
-    genesis = read_json("rotation", "genesis.json")
-    successor = read_json("rotation", "successor.json")
-    pin = root_pin(document(genesis))
-    [rotation] = document(successor)["rotation_chain"]
+    genesis = read_json(["rotation", "genesis.json"])
+    successor = read_json(["rotation", "successor.json"])
+    pin = root_pin(envelope_document(genesis))
+    [rotation] = envelope_document(successor)["rotation_chain"]
 
     future_profile =
       rotation
-      |> document()
+      |> envelope_document()
       |> Map.put("profile", "sigil_guard_root_rotation/v9")
       |> sign_with([RootSigner, NewRootSigner])
 
@@ -76,7 +41,7 @@ defmodule SigilGuard.TrustBundle.RotationChainInputTest do
         ] do
       bundle =
         successor
-        |> document()
+        |> envelope_document()
         |> Map.put("rotation_chain", [entry])
         |> signed_successor()
 
@@ -85,9 +50,9 @@ defmodule SigilGuard.TrustBundle.RotationChainInputTest do
   end
 
   test "a genesis root that lists a key id without its key is refused" do
-    genesis = read_json("rotation", "genesis.json")
-    successor = signed_successor(document(read_json("rotation", "successor.json")))
-    pin = root_pin(document(genesis))
+    genesis = read_json(["rotation", "genesis.json"])
+    successor = signed_successor(envelope_document(read_json(["rotation", "successor.json"])))
+    pin = root_pin(envelope_document(genesis))
 
     assert {:ok, _} = TrustBundle.verify(successor, now: @now, genesis_root: pin)
 

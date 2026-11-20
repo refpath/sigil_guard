@@ -3,14 +3,9 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPClientContractTest do
 
   use ExUnit.Case, async: false
 
-  alias SigilGuard.Audit
-  alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Anchor.Store
   alias SigilGuard.Audit.Anchor.Store.HTTP
-  alias SigilGuard.Audit.Checkpoint
-
-  @secret_key :crypto.hash(:sha256, "http client contract test key")
-  @generated_at "2026-01-01T00:00:00.000Z"
+  alias SigilGuard.AuditProofFixture
 
   defmodule ErrorClient do
     @behaviour SigilGuard.HTTPClient
@@ -130,12 +125,9 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPClientContractTest do
   end
 
   defp anchor do
-    events =
-      1..2
-      |> Enum.map(&Audit.new_event("test", "actor", "act#{&1}", "ok"))
-      |> Audit.build_chain(@secret_key)
+    {_, anchor} =
+      AuditProofFixture.anchor_fixture(storage: :http, uri: "https://x/1", signed: false)
 
-    {:ok, checkpoint} = Checkpoint.create(events, generated_at: @generated_at)
-    Anchor.create(checkpoint, anchored_at: @generated_at, storage: :http, uri: "https://x/1")
+    anchor
   end
 end

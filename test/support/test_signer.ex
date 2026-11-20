@@ -11,11 +11,43 @@ defmodule SigilGuard.TestSigner do
       SigilGuard.TestSigner.sign("payload")
       SigilGuard.TestSigner.public_key_b64u()
 
+  A test that needs another key defines its own signer from a 32-byte seed:
+
+      defmodule RootSigner do
+        use SigilGuard.TestSigner, seed: :crypto.hash(:sha256, "root")
+      end
+
   """
 
   @behaviour SigilGuard.Signer
 
   @seed :crypto.hash(:sha256, "sigil_guard_test_seed_v1")
+
+  @doc false
+  defmacro __using__(opts) do
+    seed = Keyword.fetch!(opts, :seed)
+
+    quote bind_quoted: [seed: seed] do
+      @behaviour SigilGuard.Signer
+      @seed seed
+
+      @doc false
+      @spec seed() :: binary()
+      def seed, do: @seed
+
+      @impl SigilGuard.Signer
+      def sign(message) do
+        {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
+        :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
+      end
+
+      @impl SigilGuard.Signer
+      def public_key do
+        {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
+        public_key
+      end
+    end
+  end
 
   @doc false
   @spec keypair() :: {binary(), binary()}

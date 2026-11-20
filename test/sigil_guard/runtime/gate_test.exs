@@ -44,6 +44,8 @@ defmodule SigilGuard.Runtime.GateTest do
 
   use ExUnitProperties
 
+  import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
+
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Context
   alias SigilGuard.Decision
@@ -288,20 +290,8 @@ defmodule SigilGuard.Runtime.GateTest do
     end
 
     test "rejects non-JSON payloads before confirmation binding" do
-      ref = make_ref()
-      parent = self()
-      handler_id = "runtime-gate-digest-error-test-#{System.unique_integer()}"
-
-      :telemetry.attach(
-        handler_id,
-        [:sigil_guard, :runtime, :gate],
-        fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler_id) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :runtime, :gate]])
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       decision =
         Gate.evaluate(%{"text" => "Ignore previous instructions", "pid" => self()},
@@ -319,7 +309,7 @@ defmodule SigilGuard.Runtime.GateTest do
       assert decision.audit_metadata.runtime_input_error == :invalid_payload
       assert decision.sanitized_text == nil
 
-      assert_receive {^ref, [:sigil_guard, :runtime, :gate], %{system_time: _},
+      assert_receive {[:sigil_guard, :runtime, :gate], ^ref, %{system_time: _},
                       %{runtime_input_error: :invalid_payload} = metadata}
 
       assert metadata.action_digest == nil
@@ -327,20 +317,8 @@ defmodule SigilGuard.Runtime.GateTest do
     end
 
     test "blocks when scanner pipeline output is malformed" do
-      ref = make_ref()
-      parent = self()
-      handler_id = "runtime-gate-scanner-error-test-#{System.unique_integer()}"
-
-      :telemetry.attach(
-        handler_id,
-        [:sigil_guard, :runtime, :gate],
-        fn event, measurements, metadata, _ ->
-          send(parent, {ref, event, measurements, metadata})
-        end,
-        nil
-      )
-
-      on_exit(fn -> :telemetry.detach(handler_id) end)
+      ref = :telemetry_test.attach_event_handlers(self(), [[:sigil_guard, :runtime, :gate]])
+      on_exit(fn -> :telemetry.detach(ref) end)
 
       text = "secret=R7v9K2mQ4xZ8pL6n"
 
@@ -369,7 +347,7 @@ defmodule SigilGuard.Runtime.GateTest do
 
       refute inspect(decision) =~ "R7v9K2mQ4xZ8pL6n"
 
-      assert_receive {^ref, [:sigil_guard, :runtime, :gate], %{system_time: _},
+      assert_receive {[:sigil_guard, :runtime, :gate], ^ref, %{system_time: _},
                       %{scanner_error: :scanner_failed} = metadata}
 
       assert metadata.verdict == :blocked
@@ -928,7 +906,7 @@ defmodule SigilGuard.Runtime.GateTest do
         [:sigil_guard, :runtime, :gate],
         # Handlers run in the emitting process; async tests emit the same event.
         fn event, measurements, metadata, _ ->
-          if self() == parent, do: send(parent, {ref, event, measurements, metadata})
+          if self() == parent, do: send(parent, {event, ref, measurements, metadata})
         end,
         nil
       )
@@ -944,7 +922,7 @@ defmodule SigilGuard.Runtime.GateTest do
         trust_level: :high
       )
 
-      assert_receive {^ref, [:sigil_guard, :runtime, :gate], %{system_time: _},
+      assert_receive {[:sigil_guard, :runtime, :gate], ^ref, %{system_time: _},
                       %{verdict: :blocked} = metadata}
 
       assert metadata.hit_count == 1
@@ -965,13 +943,7 @@ defmodule SigilGuard.Runtime.GateTest do
       end
     end
 
-    :ets.insert(table, {sha256(text), self()})
-  end
-
-  defp sha256(text) do
-    :sha256
-    |> :crypto.hash(text)
-    |> Base.encode16(case: :lower)
+    :ets.insert(table, {sha256_hex(text), self()})
   end
 
   defp config_approval do
