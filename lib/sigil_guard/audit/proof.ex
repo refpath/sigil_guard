@@ -132,7 +132,7 @@ defmodule SigilGuard.Audit.Proof do
       when is_list(events) and is_integer(first_size) and first_size >= 1 do
     with {:ok, leaves} <- Checkpoint.leaf_hashes(events),
          second_size = length(leaves),
-         true <- first_size <= second_size do
+         :ok <- require_prefix(first_size, second_size) do
       nodes = subproof(first_size, leaves, true)
 
       {:ok,
@@ -143,13 +143,13 @@ defmodule SigilGuard.Audit.Proof do
          "second_size" => second_size,
          "proof_nodes" => Enum.map(nodes, &Base.encode16(&1, case: :lower))
        }}
-    else
-      false -> {:error, :out_of_range}
-      {:error, reason} -> {:error, reason}
     end
   end
 
   def consistency(_, _), do: {:error, :out_of_range}
+
+  defp require_prefix(first_size, second_size) when first_size <= second_size, do: :ok
+  defp require_prefix(_, _), do: {:error, :out_of_range}
 
   @doc """
   Verify a consistency `proof` between two trusted checkpoint roots.

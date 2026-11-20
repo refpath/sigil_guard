@@ -120,16 +120,18 @@ defmodule SigilGuard.Attestation do
     statement = apply_sign_options(statement, opts)
 
     with {:ok, statement} <- TrustProfile.validate(statement),
-         {:ok, payload} <- JCS.encode(statement),
-         {:ok, envelope} <- Envelope.sign(payload, signer, keyid: Keyword.get(opts, :keyid)) do
-      {:ok, envelope}
-    else
-      {:error, :invalid_map} -> {:error, :invalid_payload}
-      {:error, reason} -> {:error, reason}
-    end
+         {:ok, payload} <- statement_bytes(statement),
+         do: Envelope.sign(payload, signer, keyid: Keyword.get(opts, :keyid))
   end
 
   def sign(_, _, _), do: {:error, :invalid_payload}
+
+  defp statement_bytes(statement) do
+    case JCS.encode(statement) do
+      {:error, :invalid_map} -> {:error, :invalid_payload}
+      result -> result
+    end
+  end
 
   @doc """
   Build a SigilGuard Statement from a runtime decision, context, and payload.
