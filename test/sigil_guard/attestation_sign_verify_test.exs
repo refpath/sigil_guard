@@ -210,12 +210,42 @@ defmodule SigilGuard.AttestationSignVerifyTest do
                  "expires_at" => "2026-07-03T12:05:00.000Z"
                })
 
-      assert {:ok, inverted_envelope} =
-               Attestation.sign(inverted_statement, TrustedSigner, keyid: "trusted")
+      # sign/3 refuses to produce it, and verify/3 refuses one produced
+      # without sign/3.
+      assert Attestation.sign(inverted_statement, TrustedSigner, keyid: "trusted") ==
+               {:error, :invalid_payload}
+
+      {:ok, inverted_payload} = JCS.encode(inverted_statement)
+      inverted_envelope = signed_payload!(inverted_payload)
 
       assert Attestation.verify(inverted_envelope, %{"trusted" => TrustedSigner.public_key()},
                now: @now
              ) == {:error, :invalid_payload}
+    end
+
+    test "sign/3 gives a statement without an expiry the configured lifetime" do
+      assert {:ok, open_ended} = valid_statement()
+      open_ended = Map.update!(open_ended, "predicate", &Map.delete(&1, "expires_at"))
+      trust = %{"trusted" => TrustedSigner.public_key()}
+
+      expiry = fn opts ->
+        {:ok, envelope} =
+          Attestation.sign(open_ended, TrustedSigner, [{:keyid, "trusted"} | opts])
+
+        {:ok, statement} = Attestation.verify(envelope, trust, now: @now)
+        get_in(statement, ["predicate", "expires_at"])
+      end
+
+      assert expiry.(ttl_ms: 60_000) == "2026-07-03T12:01:00.000Z"
+      assert expiry.([]) == "2026-07-03T12:05:00.000Z"
+
+      # An expiry the statement already states is kept.
+      assert {:ok, stated} = valid_statement()
+      {:ok, envelope} = Attestation.sign(stated, TrustedSigner, keyid: "trusted", ttl_ms: 1)
+      assert {:ok, ^stated} = Attestation.verify(envelope, trust, now: @now)
+
+      # An unusable lifetime leaves the statement without one, and it is refused.
+      assert Attestation.sign(open_ended, TrustedSigner, ttl_ms: 0) == {:error, :invalid_payload}
     end
 
     test "can consume attestation nonces for replay protection" do
@@ -238,8 +268,11 @@ defmodule SigilGuard.AttestationSignVerifyTest do
                  "nonce" => "missing-actor"
                })
 
-      assert {:ok, missing_actor_envelope} =
-               Attestation.sign(missing_actor_statement, TrustedSigner, keyid: "trusted")
+      assert Attestation.sign(missing_actor_statement, TrustedSigner, keyid: "trusted") ==
+               {:error, :invalid_payload}
+
+      {:ok, missing_actor_payload} = JCS.encode(missing_actor_statement)
+      missing_actor_envelope = signed_payload!(missing_actor_payload)
 
       assert Attestation.verify(
                missing_actor_envelope,

@@ -57,6 +57,32 @@ defmodule SigilGuard.TrustProfileTest do
       end
     end
 
+    test "requires an actor, a verdict and a lifetime that starts before it ends" do
+      assert {:ok, statement} = valid_statement(:tool_request)
+
+      invalid = [
+        &Map.delete(&1, "actor"),
+        &Map.put(&1, "actor", %{"trust_level" => "medium"}),
+        &Map.put(&1, "actor", %{"id" => ""}),
+        &Map.put(&1, "actor", "spiffe://example.org/agent"),
+        &Map.delete(&1, "verdict"),
+        &Map.put(&1, "verdict", ""),
+        &Map.put(&1, "verdict", :allow),
+        &Map.delete(&1, "issued_at"),
+        &Map.delete(&1, "expires_at"),
+        &Map.put(&1, "issued_at", "yesterday"),
+        &Map.put(&1, "expires_at", 1_783_000_000),
+        &Map.put(&1, "expires_at", &1["issued_at"]),
+        &Map.put(&1, "expires_at", "2026-07-03T11:59:59.999Z")
+      ]
+
+      for change <- invalid do
+        assert statement
+               |> Map.update!("predicate", change)
+               |> TrustProfile.validate() == {:error, :invalid_payload}
+      end
+    end
+
     test "rejects malformed statement shape as invalid profile" do
       assert {:ok, statement} = valid_statement(:tool_request)
 
@@ -148,7 +174,10 @@ defmodule SigilGuard.TrustProfileTest do
     %{
       "profile" => TrustProfile.profile_id(),
       "statement_type" => Atom.to_string(statement_type),
-      "verdict" => "quarantine"
+      "actor" => %{"id" => "spiffe://example.org/agent", "trust_level" => "medium"},
+      "verdict" => "quarantine",
+      "issued_at" => "2026-07-03T12:00:00.000Z",
+      "expires_at" => "2026-07-03T12:05:00.000Z"
     }
   end
 

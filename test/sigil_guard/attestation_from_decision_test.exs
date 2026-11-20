@@ -333,6 +333,146 @@ defmodule SigilGuard.AttestationFromDecisionTest do
     end
   end
 
+  describe "from_decision/3 statement content" do
+    defp build(decision, extra \\ []) do
+      Attestation.from_decision(
+        decision,
+        @context,
+        Keyword.merge([payload: @payload, now: @now], extra)
+      )
+    end
+
+    test "generates a nonce unless the caller supplies one or opts out" do
+      assert {:ok, first} = build(decision())
+      assert {:ok, second} = build(decision())
+
+      assert get_in(first, ["predicate", "nonce"]) =~ ~r/\A[0-9a-f]{32}\z/
+      refute get_in(first, ["predicate", "nonce"]) == get_in(second, ["predicate", "nonce"])
+
+      assert {:ok, explicit} = build(decision(), nonce: "nonce-1")
+      assert get_in(explicit, ["predicate", "nonce"]) == "nonce-1"
+
+      for off <- [false, nil] do
+        assert {:ok, without} = build(decision(), nonce: off)
+        refute Map.has_key?(without["predicate"], "nonce")
+      end
+    end
+
+    test "a statement with the generated nonce can be replay-consumed once" do
+      defmodule NonceSigner do
+        @behaviour SigilGuard.Signer
+        @seed :crypto.hash(:sha256, "from-decision-nonce-signer")
+
+        @impl SigilGuard.Signer
+        def sign(message) do
+          {_, private_key} = :crypto.generate_key(:eddsa, :ed25519, @seed)
+          :crypto.sign(:eddsa, :none, message, [private_key, :ed25519])
+        end
+
+        @impl SigilGuard.Signer
+        def public_key do
+          {public_key, _} = :crypto.generate_key(:eddsa, :ed25519, @seed)
+          public_key
+        end
+      end
+
+      assert {:ok, statement} = build(decision())
+      assert {:ok, envelope} = Attestation.sign(statement, NonceSigner, keyid: "nonce")
+      trust = %{"nonce" => NonceSigner.public_key()}
+      opts = [now: @now, consume: true]
+
+      assert {:ok, _} = Attestation.verify(envelope, trust, opts)
+      assert Attestation.verify(envelope, trust, opts) == {:error, :replay_detected}
+    end
+
+    test "timestamps have millisecond precision whatever the clock gives" do
+      assert {:ok, precise} =
+               build(decision(), now: ~U[2026-07-03 12:00:00.123456Z], ttl_ms: 1_500)
+
+      assert get_in(precise, ["predicate", "issued_at"]) == "2026-07-03T12:00:00.123Z"
+      assert get_in(precise, ["predicate", "expires_at"]) == "2026-07-03T12:00:01.623Z"
+
+      assert {:ok, default_clock} =
+               Attestation.from_decision(decision(), @context, payload: @payload)
+
+      for field <- ~w(issued_at expires_at) do
+        assert get_in(default_clock, ["predicate", field]) =~ ~r/T\d\d:\d\d:\d\d\.\d{3}Z\z/
+      end
+    end
+
+    test "matched rules and evidence references follow the decision" do
+      rules = [
+        %{rule_id: "boundary.secret.external_sink", explanation: "secret headed out"},
+        %{rule_id: "line_3", explanation: nil}
+      ]
+
+      evidence = [%{"kind" => "checkpoint", "ref" => String.duplicate("a", 64)}]
+
+      assert {:ok, statement} = build(decision(matched_rules: rules, evidence_refs: evidence))
+
+      assert statement["predicate"]["matched_rules"] == [
+               %{"id" => "boundary.secret.external_sink", "explanation" => "secret headed out"},
+               %{"id" => "line_3", "explanation" => ""}
+             ]
+
+      assert statement["predicate"]["evidence"] == evidence
+      assert TrustProfile.validate(statement) == {:ok, statement}
+
+      assert {:ok, plain} = build(decision())
+      refute Map.has_key?(plain["predicate"], "matched_rules")
+      refute Map.has_key?(plain["predicate"], "evidence")
+
+      # The option wins over the decision's own references.
+      other = [%{"kind" => "export", "ref" => String.duplicate("b", 64)}]
+
+      assert {:ok, overridden} =
+               build(decision(evidence_refs: evidence), evidence: other)
+
+      assert overridden["predicate"]["evidence"] == other
+    end
+
+    test "a confirmed release of a quarantined result attests released_sanitized" do
+      context = %{@context | phase: :tool_result, origin: :tool, sink: :model}
+      digest = String.duplicate("a", 64)
+
+      attest = fn metadata ->
+        {:ok, statement} =
+          Attestation.from_decision(
+            decision(action: :redact, phase: :tool_result, audit_metadata: metadata),
+            context,
+            payload: @payload,
+            now: @now,
+            request_action_digest: digest
+          )
+
+        get_in(statement, ["predicate", "quarantine", "status"])
+      end
+
+      assert attest.(%{quarantine_status: :quarantined}) == "quarantined"
+
+      assert attest.(%{quarantine_status: :quarantined, release_status: :confirmed_sanitized}) ==
+               "released_sanitized"
+
+      assert attest.(%{}) == "none"
+    end
+
+    test "a text or list payload is accepted where the statement type needs no map" do
+      egress = %{@context | phase: :outbound_model, origin: :model, sink: :user}
+      decision = decision(phase: :outbound_model)
+
+      for payload <- ["model output text", ["part one", "part two"]] do
+        assert {:ok, statement} =
+                 Attestation.from_decision(decision, egress, payload: payload, now: @now)
+
+        assert statement["predicate"]["statement_type"] == "model_egress"
+      end
+
+      # A tool request is defined over the request map.
+      assert build(decision(), payload: "tools/call") == {:error, :invalid_payload}
+      assert build(decision(), payload: 42) == {:error, :invalid_payload}
+    end
+  end
+
   defp decision(overrides \\ []) do
     attrs =
       Keyword.merge(

@@ -5,6 +5,23 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- **Behaviour change.** The `action` subject of a `tool_request` or
+  `tool_result` attestation built by `SigilGuard.ToolGateway` binds the
+  request method and arguments. The gateway digests a wrapped payload, and the
+  action preimage read only the tool name from it, so every call to one tool
+  had the same action digest and a result's `request_action_digest` did not
+  identify the call. Both sides of a gateway must run this version: an
+  attestation signed before the upgrade fails verification after it.
+- `SigilGuard.Attestation.from_decision/3` generates a 16-byte hex nonce
+  unless `:nonce` is given (`nonce: false` omits it), writes timestamps with
+  millisecond precision, copies the decision's matched rules and evidence
+  references into the predicate, attests a confirmed release of a quarantined
+  result as `released_sanitized`, and accepts a binary or list payload for
+  statement types that need no map.
+- `SigilGuard.Attestation.sign/3` and `SigilGuard.TrustProfile.validate/1`
+  refuse a statement without an actor id, a verdict, or a lifetime that
+  starts before it ends (`:invalid_payload`). `sign/3` gives a statement
+  with `issued_at` and no `expires_at` the lifetime from `:ttl_ms`.
 - `SigilGuard.Attestation.verify/3` accepts a verified
   `%SigilGuard.TrustBundle{}` as trust material. The signing keys are those of
   the bundle's delegate role named `"attestation"`, less revoked keys, under

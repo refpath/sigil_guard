@@ -610,4 +610,79 @@ defmodule SigilGuard.Attestation.DigestTest do
       end
     end
   end
+
+  describe "action preimage of a gateway payload" do
+    alias SigilGuard.MCP.SecurityPayload
+
+    @context %{phase: :tool_request, origin: :model, sink: :tool, tool: "repo_file_write"}
+
+    defp call(arguments) do
+      %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => "repo_file_write", "arguments" => arguments}
+      }
+    end
+
+    test "binds the method and arguments of the wrapped request" do
+      request = call(%{"path" => "docs/a.md", "content" => "one"})
+
+      assert {:ok, wrapped} =
+               Digest.action_preimage(
+                 :tool_request,
+                 SecurityPayload.for_gate(request, :request),
+                 @context
+               )
+
+      assert {:ok, raw} = Digest.action_preimage(:tool_request, request, @context)
+
+      assert wrapped == raw
+      assert wrapped["method"] == "tools/call"
+      assert wrapped["arguments"] == %{"path" => "docs/a.md", "content" => "one"}
+    end
+
+    test "two calls to one tool with different arguments have different action digests" do
+      digest = fn arguments ->
+        {:ok, digest} =
+          Digest.action_digest(
+            :tool_request,
+            SecurityPayload.for_gate(call(arguments), :request),
+            @context
+          )
+
+        digest
+      end
+
+      first = digest.(%{"path" => "docs/a.md", "content" => "one"})
+
+      assert first == digest.(%{"content" => "one", "path" => "docs/a.md"})
+      refute first == digest.(%{"path" => "docs/a.md", "content" => "two"})
+      refute first == digest.(%{"path" => "docs/b.md", "content" => "one"})
+    end
+
+    test "a result preimage reads through the wrapper and a look-alike map is left alone" do
+      result = %{"jsonrpc" => "2.0", "id" => 1, "result" => %{"content" => []}}
+      context = %{phase: :tool_result, origin: :tool, sink: :model, tool: "repo_file_write"}
+      opts = [request_action_digest: String.duplicate("a", 64)]
+
+      assert {:ok, %{"statement_type" => "tool_result", "tool" => "repo_file_write"}} =
+               Digest.action_preimage(
+                 :tool_result,
+                 SecurityPayload.for_gate(result, :result),
+                 context,
+                 opts
+               )
+
+      # Extra keys make it application data, not the gate wrapper.
+      look_alike = %{
+        "binding" => %{"kind" => "request", "payload" => call(%{"path" => "x"})},
+        "extra" => true
+      }
+
+      assert {:ok, preimage} = Digest.action_preimage(:tool_request, look_alike, @context)
+      refute Map.has_key?(preimage, "method")
+      refute Map.has_key?(preimage, "arguments")
+    end
+  end
 end

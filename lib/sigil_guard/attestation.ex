@@ -326,7 +326,26 @@ defmodule SigilGuard.Attestation do
     statement
     |> maybe_put_predicate("issued_at", issued_at_option(opts))
     |> maybe_put_predicate("nonce", Keyword.get(opts, :nonce))
+    |> put_missing_expiry(opts)
   end
+
+  # A statement that states when it was issued and not when it expires gets
+  # the configured lifetime.
+  defp put_missing_expiry(
+         %{"predicate" => %{"issued_at" => issued_at} = predicate} = statement,
+         opts
+       )
+       when is_binary(issued_at) and not is_map_key(predicate, "expires_at") do
+    with {:ok, ttl_ms} <- attestation_ttl_ms(opts),
+         {:ok, issued, _} <- DateTime.from_iso8601(issued_at) do
+      expires_at = DateTime.to_iso8601(DateTime.add(issued, ttl_ms, :millisecond))
+      maybe_put_predicate(statement, "expires_at", expires_at)
+    else
+      _ -> statement
+    end
+  end
+
+  defp put_missing_expiry(statement, _), do: statement
 
   defp issued_at_option(opts) do
     case Keyword.fetch(opts, :now) do
@@ -346,9 +365,14 @@ defmodule SigilGuard.Attestation do
 
   defp required_payload(opts) do
     case Keyword.fetch(opts, :payload) do
-      {:ok, payload} when is_map(payload) -> {:ok, payload}
-      {:ok, _} -> {:error, :invalid_payload}
-      :error -> {:error, :invalid_payload}
+      {:ok, payload} when is_map(payload) or is_binary(payload) or is_list(payload) ->
+        {:ok, payload}
+
+      {:ok, _} ->
+        {:error, :invalid_payload}
+
+      :error ->
+        {:error, :invalid_payload}
     end
   end
 
@@ -400,8 +424,34 @@ defmodule SigilGuard.Attestation do
 
   defp attestation_now(opts) do
     case Keyword.get_lazy(opts, :now, &DateTime.utc_now/0) do
-      %DateTime{} = now -> {:ok, now}
+      %DateTime{} = now -> {:ok, DateTime.truncate(now, :millisecond)}
       _ -> {:error, :invalid_payload}
+    end
+  end
+
+  # A statement gets a fresh nonce unless the caller supplies one or passes
+  # `nonce: false`. Without a nonce a statement cannot be replay-consumed.
+  defp predicate_nonce(opts) do
+    case Keyword.fetch(opts, :nonce) do
+      :error -> Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
+      {:ok, nonce} when is_binary(nonce) -> nonce
+      {:ok, _} -> nil
+    end
+  end
+
+  defp predicate_matched_rules(%{matched_rules: [_ | _] = rules}) do
+    for %{rule_id: id, explanation: explanation} <- rules, is_binary(id) do
+      %{"id" => id, "explanation" => to_string(explanation || "")}
+    end
+  end
+
+  defp predicate_matched_rules(_), do: nil
+
+  defp predicate_evidence(opts, decision) do
+    case {Keyword.fetch(opts, :evidence), decision.evidence_refs} do
+      {{:ok, evidence}, _} -> evidence
+      {:error, [_ | _] = refs} -> refs
+      {:error, _} -> nil
     end
   end
 
@@ -435,8 +485,9 @@ defmodule SigilGuard.Attestation do
           DateTime.add(source.now, source.ttl_ms, :millisecond) |> DateTime.to_iso8601()
       }
       |> maybe_put("reason", source.decision.reason)
-      |> maybe_put("nonce", Keyword.get(source.opts, :nonce))
-      |> maybe_put("evidence", Keyword.get(source.opts, :evidence))
+      |> maybe_put("nonce", predicate_nonce(source.opts))
+      |> maybe_put("matched_rules", predicate_matched_rules(source.decision))
+      |> maybe_put("evidence", predicate_evidence(source.opts, source.decision))
 
     with {:ok, extension} <- predicate_extension(source, predicate) do
       {:ok, Map.merge(predicate, extension)}
@@ -561,7 +612,7 @@ defmodule SigilGuard.Attestation do
   defp quarantine_predicate(source) do
     status =
       source.opts
-      |> Keyword.get(:quarantine_status, source.decision.audit_metadata[:quarantine_status])
+      |> Keyword.get(:quarantine_status, decision_quarantine_status(source.decision))
       |> quarantine_status()
 
     indicator_ids =
@@ -574,6 +625,12 @@ defmodule SigilGuard.Attestation do
 
     {:ok, %{"status" => status, "indicator_ids" => indicator_ids}}
   end
+
+  # A quarantined result that a confirmation released is attested as released.
+  defp decision_quarantine_status(%{audit_metadata: %{release_status: :confirmed_sanitized}}),
+    do: :released_sanitized
+
+  defp decision_quarantine_status(decision), do: decision.audit_metadata[:quarantine_status]
 
   defp quarantine_status(:quarantined), do: "quarantined"
   defp quarantine_status(:released_sanitized), do: "released_sanitized"

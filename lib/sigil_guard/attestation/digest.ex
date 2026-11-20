@@ -146,6 +146,7 @@ defmodule SigilGuard.Attestation.Digest do
 
   def action_preimage(:tool_request, payload, context, _) do
     with {:ok, payload} <- normalized_payload_map(payload),
+         payload = gate_message(payload),
          {:ok, tool} <- tool_request_tool(payload, context) do
       %{"statement_type" => "tool_request", "tool" => tool}
       |> maybe_put("method", Map.get(payload, "method"))
@@ -156,6 +157,7 @@ defmodule SigilGuard.Attestation.Digest do
 
   def action_preimage(:tool_result, payload, context, opts) do
     with {:ok, payload} <- normalized_payload_map(payload),
+         payload = gate_message(payload),
          {:ok, tool} <- required_context_field(context, "tool"),
          {:ok, request_action_digest} <- request_action_digest(opts) do
       %{
@@ -275,6 +277,28 @@ defmodule SigilGuard.Attestation.Digest do
   def manifest_digest(manifest) when is_binary(manifest), do: payload_digest(manifest)
   def manifest_digest(manifest) when is_map(manifest), do: normalized_jcs_digest(manifest)
   def manifest_digest(_), do: {:error, :invalid_payload}
+
+  # A gateway digests its gate payload, which wraps the MCP message in a
+  # projection. The action is the message's method and arguments, so the
+  # preimage reads through the wrapper.
+  @gate_payload_keys ~w(action binding text tool)
+
+  defp gate_message(
+         %{"binding" => %{"kind" => kind, "payload" => %{} = message} = binding} = payload
+       )
+       when kind in ["request", "result"] do
+    if Map.keys(payload) -- @gate_payload_keys == [],
+      do: put_method(message, Map.get(binding, "method")),
+      else: payload
+  end
+
+  defp gate_message(payload), do: payload
+
+  # The projection keeps the JSON-RPC method beside the params it carries.
+  defp put_method(message, method) when is_binary(method),
+    do: Map.put_new(message, "method", method)
+
+  defp put_method(message, _), do: message
 
   defp normalized_payload_map(payload) when is_map(payload) do
     result =

@@ -1553,6 +1553,42 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "attest_request/3 and attest_result/3" do
+    test "the action subject binds the arguments, so a result cannot be re-bound to another call" do
+      context = attestation_request_context()
+
+      action_digest = fn arguments ->
+        request = put_in(request(), ["params", "arguments"], arguments)
+        decision = ToolGateway.guard_request(request, context, [])
+
+        {:ok, envelope} =
+          ToolGateway.attest_request(decision, context,
+            payload: request,
+            signer: TrustedSigner,
+            keyid: "trusted",
+            now: @now
+          )
+
+        statement = Jason.decode!(Base.url_decode64!(envelope["payload"], padding: false))
+
+        # The gateway accepts its own attestation for the same request.
+        verified =
+          ToolGateway.guard_request(Map.put(request, "_agent_trust", envelope), context,
+            attestation: :required,
+            trust_material: %{"trusted" => TrustedSigner.public_key()},
+            now: @now
+          )
+
+        assert verified.audit_metadata[:deny_reason] != :invalid_attestation
+
+        Enum.find_value(statement["subject"], &(&1["name"] == "action" && &1["digest"]["sha256"]))
+      end
+
+      first = action_digest.(%{"path" => "docs/a.md", "content" => "one"})
+
+      assert first =~ ~r/\A[0-9a-f]{64}\z/
+      refute first == action_digest.(%{"path" => "docs/a.md", "content" => "two"})
+    end
+
     test "refuse a non-decision, a missing payload, and a signer that is not a module" do
       context = attestation_request_context()
       decision = ToolGateway.guard_request(request(), context, [])

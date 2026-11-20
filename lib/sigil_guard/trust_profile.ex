@@ -79,6 +79,7 @@ defmodule SigilGuard.TrustProfile do
          {:ok, statement_type, type_string} <- registry_entry(statement["predicateType"]),
          :ok <- validate_profile(statement["predicate"]["profile"]),
          :ok <- validate_statement_type_field(statement["predicate"], type_string),
+         :ok <- validate_core_fields(statement["predicate"]),
          :ok <- validate_statement_predicate(statement_type, statement["predicate"]) do
       {:ok, statement}
     else
@@ -115,6 +116,29 @@ defmodule SigilGuard.TrustProfile do
       :error -> {:error, :invalid_payload}
     end
   end
+
+  # Every statement names its actor and verdict and has a lifetime that
+  # starts before it ends.
+  defp validate_core_fields(%{
+         "actor" => %{"id" => actor_id},
+         "verdict" => verdict,
+         "issued_at" => issued_at,
+         "expires_at" => expires_at
+       })
+       when is_binary(actor_id) and actor_id != "" and is_binary(verdict) and verdict != "" do
+    with {:ok, issued, _} <- timestamp(issued_at),
+         {:ok, expires, _} <- timestamp(expires_at),
+         :lt <- DateTime.compare(issued, expires) do
+      :ok
+    else
+      _ -> {:error, :invalid_payload}
+    end
+  end
+
+  defp validate_core_fields(_), do: {:error, :invalid_payload}
+
+  defp timestamp(value) when is_binary(value), do: DateTime.from_iso8601(value)
+  defp timestamp(_), do: :error
 
   defp validate_statement_predicate(:agent_request, predicate) do
     AgentPredicate.validate(:agent_request, predicate)
