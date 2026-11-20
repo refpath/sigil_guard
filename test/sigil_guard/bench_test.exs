@@ -140,12 +140,11 @@ defmodule SigilGuard.BenchTest do
 
     test "a scenario faster than the target runs in batches and reports per call" do
       assert Bench.batch_size(fn -> :ok end, true) == 1
-      assert Bench.batch_size(fn -> Process.sleep(1) end, false) == 1
-
-      # A call of about 0.5 us needs about 20 calls to fill a 10 us sample.
-      fast = Bench.batch_size(fn -> :crypto.hash(:sha256, "x") end, false)
-      assert fast in 5..200
-      assert Bench.batch_size(fn -> nil end, false) in 1_000..10_000
+      assert Bench.batch_size(10_000) == 1
+      assert Bench.batch_size(25_000) == 1
+      assert Bench.batch_size(500) == 20
+      assert Bench.batch_size(3_333) == 4
+      assert Bench.batch_size(0) == 10_000
 
       counter = :counters.new(1, [])
       Bench.batched(fn -> :counters.add(counter, 1, 1) end, 7).()
@@ -169,7 +168,7 @@ defmodule SigilGuard.BenchTest do
       assert Bench.per_call(%{scenarios: [scenario]}, %{}) == %{scenarios: [scenario]}
     end
 
-    test "CI=true selects the smoke budgets" do
+    test "CI=true selects smoke budgets and CI=false allows measurements" do
       previous = System.get_env("CI")
 
       on_exit(fn ->
@@ -181,6 +180,9 @@ defmodule SigilGuard.BenchTest do
 
       System.put_env("CI", "true")
       assert Bench.smoke?([])
+
+      System.put_env("CI", "false")
+      refute Bench.smoke?([])
     end
 
     test "a suite file loaded by another file does not run" do
@@ -247,7 +249,7 @@ defmodule SigilGuard.BenchTest do
       assert page =~ ~r/- Hardware: .+, \d+ cores, (\d+ GB|unknown) RAM/
       assert page =~ "## Scanner Benchmarks"
       assert page =~ "[Scanner Benchmarks](scanner.md)"
-      assert page =~ "| BM.01 scan clean 1k | 13.000 | 24.000 | 4448 |"
+      assert String.ends_with?(page, "| BM.01 scan clean 1k | 13.000 | 24.000 | 4448 |\n")
       refute page =~ "## Derived figures"
     end
 

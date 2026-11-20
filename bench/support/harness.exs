@@ -191,12 +191,14 @@ defmodule SigilGuard.Bench do
   def batch_size(fun, false) do
     fun.()
     {calls, elapsed_ns} = time_calls(fun, 1, 0)
-    per_call = max(div(elapsed_ns, calls), 1)
+    batch_size(div(elapsed_ns, calls))
+  end
 
-    # One nanosecond per call is the floor, so a batch never exceeds 10,000.
-    if per_call >= @batch_target_ns,
-      do: 1,
-      else: div(@batch_target_ns + per_call - 1, per_call)
+  @doc "Calculate the calls per sample for a measured per-call time in nanoseconds."
+  @spec batch_size(non_neg_integer()) :: pos_integer()
+  def batch_size(per_call_ns) when is_integer(per_call_ns) and per_call_ns >= 0 do
+    per_call = max(per_call_ns, 1)
+    div(@batch_target_ns + per_call - 1, per_call)
   end
 
   defp time_calls(fun, calls, elapsed_ns) when elapsed_ns < 2_000_000 and calls < 1_000_000 do
@@ -311,7 +313,7 @@ defmodule SigilGuard.Bench do
     Each suite has its own page with the full Benchee statistics.
 
     #{page_header(smoke?, derived)}
-    #{sections}
+    #{String.trim_trailing(sections, "\n")}
     """
   end
 

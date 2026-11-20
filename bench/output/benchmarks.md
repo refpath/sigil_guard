@@ -236,4 +236,3 @@ Full statistics: [Primitive Benchmarks](primitives.md).
 | BM.30 vault exists | 0.796 | 1.038 | 285 |
 | BM.31 telemetry otel attributes | 2.781 | 3.792 | 5772 |
 | BM.31 telemetry otel attributes high cardinality | 2.740 | 6.667 | 5006 |
-
