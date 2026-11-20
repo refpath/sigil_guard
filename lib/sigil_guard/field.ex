@@ -23,4 +23,9 @@ defmodule SigilGuard.Field do
       :error -> nil
     end
   end
+
+  @doc false
+  @spec put_present(map(), term(), term()) :: map()
+  def put_present(map, _, nil), do: map
+  def put_present(map, key, value), do: Map.put(map, key, value)
 end

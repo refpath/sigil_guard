@@ -10,6 +10,7 @@ defmodule SigilGuard.Audit.Anchor.Store do
 
   alias SigilGuard.Audit.Anchor
   alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.Field
   alias SigilGuard.Telemetry
 
   @atom_fields %{
@@ -165,17 +166,14 @@ defmodule SigilGuard.Audit.Anchor.Store do
 
   defp storage_metadata(%{} = map) do
     %{}
-    |> maybe_put(:anchor_storage, field(map, "storage"))
-    |> maybe_put(:anchor_uri_scheme, uri_scheme(field(map, "uri")))
+    |> Field.put_present(:anchor_storage, field(map, "storage"))
+    |> Field.put_present(:anchor_uri_scheme, uri_scheme(field(map, "uri")))
   end
 
   defp uri_scheme(uri) when is_binary(uri), do: URI.parse(uri).scheme
   defp uri_scheme(_), do: nil
 
-  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
-
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+  defp field(map, key) when is_map(map), do: Field.get(map, key, @atom_fields)
 
   defp store?(store) do
     Code.ensure_loaded?(store) and function_exported?(store, :put, 2) and

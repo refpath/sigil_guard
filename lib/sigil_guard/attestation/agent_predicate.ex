@@ -10,6 +10,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
 
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
+  alias SigilGuard.Field
 
   @atom_fields %{
     "arguments" => :arguments,
@@ -55,7 +56,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
           "peer_trust" => peer_trust,
           "capability" => capability
         }
-        |> maybe_put("delegation_chain", delegation_chain)
+        |> Field.put_present("delegation_chain", delegation_chain)
 
       {:ok, extension}
     end
@@ -141,7 +142,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
           "peer_agent" => peer_agent,
           "capability" => capability
         }
-        |> maybe_put("arguments", optional_field(payload, "arguments"))
+        |> Field.put_present("arguments", optional_field(payload, "arguments"))
 
       {:ok, preimage}
     end
@@ -233,7 +234,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
     with true <- keys in [["actor"], ["actor", "evidence"]],
          {:ok, actor} <- validate_non_empty_string(field(hop, "actor")),
          {:ok, evidence} <- optional_evidence(hop) do
-      {:ok, maybe_put(%{"actor" => actor}, "evidence", evidence)}
+      {:ok, Field.put_present(%{"actor" => actor}, "evidence", evidence)}
     else
       _ -> {:error, :invalid_payload}
     end
@@ -267,10 +268,10 @@ defmodule SigilGuard.Attestation.AgentPredicate do
          {:ok, card_digest} <- optional_card_digest(peer_agent),
          :ok <-
            validate_unknown_peer_verdict(
-             %{"id" => id} |> maybe_put("card_digest", card_digest),
+             %{"id" => id} |> Field.put_present("card_digest", card_digest),
              predicate
            ) do
-      {:ok, maybe_put(%{"id" => id}, "card_digest", card_digest)}
+      {:ok, Field.put_present(%{"id" => id}, "card_digest", card_digest)}
     end
   end
 
@@ -365,9 +366,9 @@ defmodule SigilGuard.Attestation.AgentPredicate do
     end
   end
 
-  defp field(map, key), do: SigilGuard.Field.get(map, key, @atom_fields)
+  defp field(map, key), do: Field.get(map, key, @atom_fields)
 
-  defp fetch_field(map, key), do: SigilGuard.Field.fetch(map, key, @atom_fields)
+  defp fetch_field(map, key), do: Field.fetch(map, key, @atom_fields)
 
   defp fetch_option(opts, key) do
     case Keyword.fetch(opts, key) do
@@ -395,7 +396,4 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   defp normalize_key(key) when is_atom(key), do: Atom.to_string(key)
   defp normalize_key(key) when is_binary(key), do: key
   defp normalize_key(_), do: :invalid
-
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

@@ -11,6 +11,7 @@ defmodule SigilGuard.Attestation.Digest do
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Context
   alias SigilGuard.Crypto
+  alias SigilGuard.Field
 
   @statement_types ~w(
     tool_request
@@ -145,14 +146,14 @@ defmodule SigilGuard.Attestation.Digest do
       "trust_zone" => context_map.trust_zone,
       "intended_audience" => context_map.intended_audience
     }
-    |> maybe_put("actor", context_map.actor)
-    |> maybe_put("identity", context_map.identity)
-    |> maybe_put("source", context_map.source)
-    |> maybe_put("mcp_server", context_map.mcp_server)
-    |> maybe_put("tool", context_map.tool)
-    |> maybe_put("resource_uri", context_map.resource_uri)
-    |> maybe_put("sandbox_id", context_extra(context, "sandbox_id"))
-    |> maybe_put("isolation_level", context_extra(context, "isolation_level"))
+    |> Field.put_present("actor", context_map.actor)
+    |> Field.put_present("identity", context_map.identity)
+    |> Field.put_present("source", context_map.source)
+    |> Field.put_present("mcp_server", context_map.mcp_server)
+    |> Field.put_present("tool", context_map.tool)
+    |> Field.put_present("resource_uri", context_map.resource_uri)
+    |> Field.put_present("sandbox_id", context_extra(context, "sandbox_id"))
+    |> Field.put_present("isolation_level", context_extra(context, "isolation_level"))
   end
 
   @doc """
@@ -178,8 +179,8 @@ defmodule SigilGuard.Attestation.Digest do
          payload = gate_message(payload),
          {:ok, tool} <- tool_request_tool(payload, context) do
       %{"statement_type" => "tool_request", "tool" => tool}
-      |> maybe_put("method", Map.get(payload, "method"))
-      |> maybe_put("arguments", tool_request_arguments(payload))
+      |> Field.put_present("method", Map.get(payload, "method"))
+      |> Field.put_present("arguments", tool_request_arguments(payload))
       |> ok()
     end
   end
@@ -194,7 +195,7 @@ defmodule SigilGuard.Attestation.Digest do
         "tool" => tool,
         "request_action_digest" => request_action_digest
       }
-      |> maybe_put("method", Map.get(payload, "method"))
+      |> Field.put_present("method", Map.get(payload, "method"))
       |> ok()
     end
   end
@@ -202,8 +203,8 @@ defmodule SigilGuard.Attestation.Digest do
   def action_preimage(:model_ingress, _, context, _) do
     with {:ok, origin} <- required_context_field(context, "origin") do
       %{"statement_type" => "model_ingress", "origin" => origin}
-      |> maybe_put("source", context_extra_or_known(context, "source"))
-      |> maybe_put("resource_uri", context_extra_or_known(context, "resource_uri"))
+      |> Field.put_present("source", context_extra_or_known(context, "source"))
+      |> Field.put_present("resource_uri", context_extra_or_known(context, "resource_uri"))
       |> ok()
     end
   end
@@ -216,7 +217,7 @@ defmodule SigilGuard.Attestation.Digest do
         "sink" => sink,
         "intended_audience" => intended_audience
       }
-      |> maybe_put("resource_uri", context_extra_or_known(context, "resource_uri"))
+      |> Field.put_present("resource_uri", context_extra_or_known(context, "resource_uri"))
       |> ok()
     end
   end
@@ -232,7 +233,7 @@ defmodule SigilGuard.Attestation.Digest do
         "operation" => operation,
         "paths" => paths
       }
-      |> maybe_put("ref", Map.get(payload, "ref"))
+      |> Field.put_present("ref", Map.get(payload, "ref"))
       |> ok()
     end
   end
@@ -261,7 +262,7 @@ defmodule SigilGuard.Attestation.Digest do
         "peer_agent" => peer_agent,
         "capability" => capability
       }
-      |> maybe_put("arguments", Map.get(payload, "arguments"))
+      |> Field.put_present("arguments", Map.get(payload, "arguments"))
       |> ok()
     end
   end
@@ -294,7 +295,7 @@ defmodule SigilGuard.Attestation.Digest do
          {:ok, context_digest} <- context_digest(statement_type, context),
          {:ok, manifest} <- maybe_manifest_digest(statement_type, opts) do
       %{"action" => action, "payload" => payload_digest, "context" => context_digest}
-      |> maybe_put("manifest", manifest)
+      |> Field.put_present("manifest", manifest)
       |> ok()
     end
   end
@@ -689,9 +690,6 @@ defmodule SigilGuard.Attestation.Digest do
       :error -> Map.fetch(map, atom_key(key))
     end
   end
-
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp ok(value), do: {:ok, value}
 

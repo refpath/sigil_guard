@@ -31,6 +31,7 @@ defmodule SigilGuard.CapabilityManifest do
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
+  alias SigilGuard.Field
 
   @manifest_format "sigil_guard_capability_manifest/v2"
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
@@ -689,11 +690,11 @@ defmodule SigilGuard.CapabilityManifest do
     |> Map.take(@preimage_fields)
     |> Map.put("description_sha256", Map.fetch!(computed, "description_sha256"))
     |> Map.put("input_schema_sha256", Map.fetch!(computed, "input_schema_sha256"))
-    |> maybe_put("annotations_sha256", Map.fetch!(computed, "annotations_sha256"))
-    |> maybe_put("output_schema_sha256", Map.fetch!(computed, "output_schema_sha256"))
-    |> maybe_put("title_sha256", Map.fetch!(computed, "title_sha256"))
-    |> maybe_put("icons_sha256", Map.fetch!(computed, "icons_sha256"))
-    |> maybe_put("ui_sha256", Map.fetch!(computed, "ui_sha256"))
+    |> Field.put_present("annotations_sha256", Map.fetch!(computed, "annotations_sha256"))
+    |> Field.put_present("output_schema_sha256", Map.fetch!(computed, "output_schema_sha256"))
+    |> Field.put_present("title_sha256", Map.fetch!(computed, "title_sha256"))
+    |> Field.put_present("icons_sha256", Map.fetch!(computed, "icons_sha256"))
+    |> Field.put_present("ui_sha256", Map.fetch!(computed, "ui_sha256"))
   end
 
   defp struct_fields(manifest, computed, preimage, digest) do
@@ -893,7 +894,4 @@ defmodule SigilGuard.CapabilityManifest do
       _ -> {:error, :invalid_manifest}
     end
   end
-
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

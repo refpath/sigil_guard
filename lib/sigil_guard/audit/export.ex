@@ -14,6 +14,7 @@ defmodule SigilGuard.Audit.Export do
   alias SigilGuard.Audit.Proof
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Crypto
+  alias SigilGuard.Field
 
   @kind "sigil_guard.audit.export"
   @version 1
@@ -203,13 +204,10 @@ defmodule SigilGuard.Audit.Export do
   # byte-identical to 0.2.x exports.
   defp put_evidence(base, statement, inclusion, consistency) do
     base
-    |> maybe_put("checkpoint_statement", statement)
-    |> maybe_put("inclusion_proofs", inclusion)
-    |> maybe_put("consistency_proof", consistency)
+    |> Field.put_present("checkpoint_statement", statement)
+    |> Field.put_present("inclusion_proofs", inclusion)
+    |> Field.put_present("consistency_proof", consistency)
   end
-
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp maybe_statement(checkpoint, opts) do
     if Keyword.get(opts, :checkpoint_statement, false) do
@@ -405,7 +403,7 @@ defmodule SigilGuard.Audit.Export do
     end
   end
 
-  defp field(map, key) when is_map(map), do: SigilGuard.Field.get(map, key, @atom_fields)
+  defp field(map, key) when is_map(map), do: Field.get(map, key, @atom_fields)
 
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode!(value)
 end

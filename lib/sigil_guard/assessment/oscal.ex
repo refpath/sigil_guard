@@ -22,6 +22,7 @@ defmodule SigilGuard.Assessment.OSCAL do
 
   alias SigilGuard.Audit.Export
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Field
 
   @oscal_version "1.2.3"
   @property_namespace "https://sigilguard.dev/ns/oscal"
@@ -460,7 +461,7 @@ defmodule SigilGuard.Assessment.OSCAL do
       "reviewed-controls" => reviewed_controls(result.reviewed_controls),
       "observations" => observations
     }
-    |> maybe_put("end", result.end)
+    |> Field.put_present("end", result.end)
   end
 
   defp reviewed_controls(controls) do
@@ -494,8 +495,8 @@ defmodule SigilGuard.Assessment.OSCAL do
         ],
         "collected" => observation.collected
       }
-      |> maybe_put("title", observation.title)
-      |> maybe_put("expires", observation.expires)
+      |> Field.put_present("title", observation.title)
+      |> Field.put_present("expires", observation.expires)
 
     canonical = canonical_identity(projected)
     uuid = uuid5(context.assessment_results_uuid, "observation:#{index}:" <> canonical)
@@ -533,7 +534,7 @@ defmodule SigilGuard.Assessment.OSCAL do
       "subject-uuid" => subject.uuid,
       "type" => Map.fetch!(@subject_type_values, subject.type)
     }
-    |> maybe_put("title", subject.title)
+    |> Field.put_present("title", subject.title)
   end
 
   defp projection_properties do
@@ -793,8 +794,5 @@ defmodule SigilGuard.Assessment.OSCAL do
   defp reverse_validated({:ok, values}), do: {:ok, Enum.reverse(values)}
   defp reverse_validated(error), do: error
 
-  defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp field(map, key), do: SigilGuard.Field.get(map, key, @export_atom_fields)
+  defp field(map, key), do: Field.get(map, key, @export_atom_fields)
 end
