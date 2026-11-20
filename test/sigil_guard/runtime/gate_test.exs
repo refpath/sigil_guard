@@ -14,6 +14,29 @@ defmodule SigilGuard.Runtime.ThrowingScannerPipelineTestStub do
   end
 end
 
+defmodule SigilGuard.Runtime.AdvisoryHookTestStub do
+  @moduledoc false
+
+  @spec on_tool_request(term(), keyword()) :: term()
+  def on_tool_request(_, _) do
+    {:ok, :continue, %{risk_level: :high, indicators: [%{"category" => "suspicious"}]}}
+  end
+
+  @spec on_tool_result(term(), keyword()) :: term()
+  def on_tool_result(_, _), do: {:ok, :continue, %{risk_level: :low}}
+end
+
+defmodule SigilGuard.Runtime.AdvisoryDetectorTestStub do
+  @moduledoc false
+
+  @spec analyze(String.t(), term(), keyword()) :: term()
+  def analyze("crash" <> _, _, _), do: raise("detector down")
+
+  def analyze(_, _, _) do
+    {:ok, [%{id: "novel-phrasing", category: :injection, severity: :high, confidence: 0.9}]}
+  end
+end
+
 defmodule SigilGuard.Runtime.GateTest do
   use ExUnit.Case, async: true
 
@@ -1094,6 +1117,93 @@ defmodule SigilGuard.Runtime.GateTest do
       assert "line_3" in Enum.map(decision.matched_rules, & &1.rule_id)
     end
 
+    test "a hook signal raises the risk, re-runs the trust ladder, and adds its indicator" do
+      context = [phase: :tool_request, sink: :tool, action: "read_file", trust_level: :medium]
+      hooks = [hooks: [SigilGuard.Runtime.AdvisoryHookTestStub]]
+
+      plain = Gate.evaluate("clean", context, [])
+      signalled = Gate.evaluate("clean", context, hooks)
+
+      assert plain.risk_level == :low
+      assert plain.verdict == :allowed
+      assert plain.indicators == []
+
+      assert signalled.risk_level == :high
+      assert signalled.audit_metadata.risk_level == :high
+      assert signalled.indicators == [%{"category" => "suspicious", "source" => :hook}]
+      assert signalled.audit_metadata.advisory_indicator_count == 1
+      assert signalled.audit_metadata.indicator_count == 0
+
+      ladder = SigilGuard.Policy.evaluate("read_file", :medium, risk_level: :high)
+
+      refute ladder == :allowed
+      assert audit_shape(signalled.verdict) == audit_shape(ladder)
+
+      # A lower advisory risk never lowers the gate's own.
+      result_context = [phase: :tool_result, sink: :model, trust_level: :high]
+      secret = "secret=R7v9K2mQ4xZ8pL6n"
+
+      assert Gate.evaluate(secret, result_context, hooks).risk_level ==
+               Gate.evaluate(secret, result_context, []).risk_level
+    end
+
+    test "adaptive indicators and a degraded detector reach the decision" do
+      context = [phase: :tool_result, sink: :model, trust_level: :high]
+      opts = [adaptive_detector: SigilGuard.Runtime.AdvisoryDetectorTestStub]
+
+      found = Gate.evaluate("build completed", context, opts)
+
+      assert [%{id: "novel-phrasing", source: :adaptive}] = found.indicators
+      assert found.risk_level == :high
+      assert found.audit_metadata.advisory_indicator_count == 1
+      refute Map.has_key?(found.audit_metadata, :adaptive_error)
+
+      degraded = Gate.evaluate("crash the detector", context, opts)
+
+      assert degraded.audit_metadata.adaptive_error == :adaptive_error
+
+      # A gateway response built from such a decision reads ids where present.
+      response =
+        SigilGuard.ToolGateway.response_for_decision(
+          %{found | verdict: :blocked, action: :block},
+          1,
+          []
+        )
+
+      assert response["error"]["data"]["indicator_ids"] == ["novel-phrasing"]
+
+      hook_only = %{found | indicators: [%{"category" => "suspicious", "source" => :hook}]}
+
+      assert SigilGuard.ToolGateway.response_for_decision(
+               %{hook_only | verdict: :blocked, action: :block},
+               1,
+               []
+             )["error"]["data"]["indicator_ids"] == []
+    end
+
+    test "a sensitivity rule matches what the host states in context metadata" do
+      {:ok, policy} =
+        SigilGuard.BoundaryPolicy.File.parse("version 3\n[rules]\nblock sensitivity:private\n")
+
+      evaluate = fn metadata ->
+        Gate.evaluate(
+          "clean",
+          [phase: :outbound_model, sink: :external, trust_level: :high, metadata: metadata],
+          boundary_policy: policy
+        )
+      end
+
+      rule_hit? = &("line_3" in Enum.map(&1.matched_rules, fn rule -> rule.rule_id end))
+
+      assert rule_hit?.(evaluate.(%{source_sensitivity: :private}))
+      assert rule_hit?.(evaluate.(%{"source_sensitivity" => "private"}))
+      refute rule_hit?.(evaluate.(%{source_sensitivity: :public}))
+      refute rule_hit?.(evaluate.(%{}))
+
+      # A value outside the vocabulary is an invalid boundary, which blocks.
+      assert evaluate.(%{source_sensitivity: :secret}).action == :block
+    end
+
     test "manifest facts reach effect rules and the sandbox matrix" do
       {:ok, policy} =
         SigilGuard.BoundaryPolicy.File.parse("version 3\n[rules]\nblock effect:write\n")
@@ -1153,6 +1263,9 @@ defmodule SigilGuard.Runtime.GateTest do
       assert {:block, ids} = rule_ids.("build completed", "block indicator:none\n")
       assert "line_3" in ids
     end
+
+    defp audit_shape({:confirm, _}), do: :confirm
+    defp audit_shape(verdict), do: verdict
 
     defp consistent_verdict?(:allowed, action), do: action in [:allow, :redact]
     defp consistent_verdict?(:blocked, action), do: action == :block

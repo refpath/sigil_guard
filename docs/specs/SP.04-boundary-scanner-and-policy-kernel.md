@@ -149,11 +149,16 @@ downgrade), and the D17 risk×trust ladder - by the same strongest-wins rule.
 See SP.07 *Gate ↔ Kernel Delegation*. `BoundaryPolicy.evaluate/2` used directly
 by a host applies only the kernel contributions above.
 
-The gate takes the kernel's verdict, reason, and matched rules. It does not
-copy the kernel decision's risk level, its hook and adaptive indicators, or
-`adaptive_error` into the gate decision, and it builds the boundary without
-`source_sensitivity`, `repo_changes`, `hook_results`, or
-`policy_file_digest`.
+The gate takes the kernel's verdict, reason, and matched rules, and its
+advisory signals. Hook and adaptive indicators are appended to the gate
+decision's `indicators` after the quarantine indicators, and counted in
+`audit_metadata.advisory_indicator_count`. A risk that a hook or the adaptive
+detector raises above the gate's own becomes the decision's `risk_level` and
+goes back through the risk×trust ladder; a lower one changes nothing.
+`adaptive_error` is copied into the audit metadata. The gate sets
+`source_sensitivity` from `context.metadata` (key `source_sensitivity`, atom
+or string) and otherwise leaves the default `:internal`. It builds the
+boundary without `repo_changes`, `hook_results`, or `policy_file_digest`.
 
 The physical-effect checks of
 [SP.19](SP.19-physical-effect-authority.md) contribute `block` only. They
@@ -198,7 +203,7 @@ The last two arrows are the host's own call. No library code calls
 | `source` | atom/string | yes | Source boundary. |
 | `sink` | atom/string | yes | Destination boundary. |
 | `origin` | atom/string | no | Content origin; the value the `origin:` rule key matches. |
-| `source_sensitivity` | atom | no | `:public \| :internal \| :private`; defaults `:internal`. Evaluation fact only, never part of the SP.01 context digest; hosts needing it bound into evidence put it in the payload. `Runtime.Gate` does not set it, so a boundary built by the gate is always `:internal`. |
+| `source_sensitivity` | atom | no | `:public \| :internal \| :private`; defaults `:internal`. Evaluation fact only, never part of the SP.01 context digest; hosts needing it bound into evidence put it in the payload. `Runtime.Gate` reads it from `context.metadata` (`source_sensitivity`, atom or string key); `Context` has no field for it because every `Context` field enters the confirmation digest. A value outside the enum is an invalid boundary and blocks. |
 | `actor` | map | no | Actor identity and trust claims. |
 | `tool` | map | no | `name`, `manifest_digest`, `side_effects`. A non-empty `manifest_digest` is the host's statement that it verified the SP.03 manifest; the kernel does not verify it. With it the matrix uses the classes of `side_effects`; without it the matrix class is `execute`. |
 | `resource` | map | no | Audience/resource/scope context. |
@@ -697,9 +702,10 @@ notification-only phase, a non-binary reason, a signal that is not a map, a
 not a list of maps, and any other term. A signal's `note` is accepted and not
 recorded.
 
-Signals reach the decision that `BoundaryPolicy.evaluate/2` returns.
-`Runtime.Gate` takes only the kernel's verdict, reason, and matched rules, so
-a hook's `risk_level` and `indicators` do not appear on a gate decision.
+Signals reach the decision that `BoundaryPolicy.evaluate/2` returns, whose
+audit metadata also carries `advisory_risk_level`, the strongest risk a hook
+or the adaptive detector asked for. `Runtime.Gate` copies the indicators onto
+its decision and raises its risk by that level (see Decision Combination).
 
 ### Timeouts And Fail-Closed Matrix
 
@@ -1000,8 +1006,8 @@ SP.01's profile-wide taxonomy applies by reference (`:invalid_context`,
   backstop on allowed flows only where the host calls `Contract.enforce/4`;
   the library does not apply them.
 - Output headed toward a model or external sink must carry source and sink;
-  the trifecta rules depend on honest boundary labels, and on a
-  `source_sensitivity` label that the runtime gate does not supply.
+  the trifecta rules depend on honest boundary labels, including the
+  `source_sensitivity` the host states in context metadata.
 - The kernel trusts the `manifest_digest` and `side_effects` on a boundary.
   Verifying the manifest is the caller's job (`ToolGateway` or the host).
 - Policy is deterministic and explainable; every verdict other than an

@@ -1388,7 +1388,7 @@ defmodule SigilGuard.ToolGateway do
       |> Map.put(:scanner_summary, %{
         hit_count: length(decision.hits),
         indicator_count: length(decision.indicators),
-        indicator_ids: Enum.map(decision.indicators, & &1.id)
+        indicator_ids: GatewayBase.indicator_ids(decision.indicators)
       })
       |> Map.put(:quarantine_status, quarantine_status(decision))
 

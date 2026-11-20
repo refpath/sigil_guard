@@ -139,6 +139,7 @@ defmodule SigilGuard.Runtime.Gate do
     decide(%{
       payload: payload,
       text: text,
+      action: action,
       context: context,
       hits: hits,
       scanner_error: scanner_error,
@@ -263,7 +264,7 @@ defmodule SigilGuard.Runtime.Gate do
 
     case signals do
       [] -> Policy.classify_risk(state.action, state.opts)
-      [_ | _] -> Enum.max_by(signals, &Enum.find_index(@risk_levels, fn level -> level == &1 end))
+      [_ | _] -> Enum.max_by(signals, &risk_rank/1)
     end
   end
 
@@ -417,13 +418,12 @@ defmodule SigilGuard.Runtime.Gate do
   defp first_present_value(_, _), do: :not_found
 
   defp decide(state) do
-    source_sink = source_sink_verdict(state)
-
-    {gate_verdict, gate_action, gate_reason} =
-      strongest_verdict(state.policy_verdict, source_sink)
-
     action_digest = Confirmation.fetch_action_digest(state.payload, state.context)
     boundary_decision = evaluate_boundary(state, action_digest)
+    state = apply_advisory_signals(state, boundary_decision)
+
+    {gate_verdict, gate_action, gate_reason} =
+      strongest_verdict(state.policy_verdict, source_sink_verdict(state))
 
     {verdict, raw_action, reason} =
       combine_with_boundary({gate_verdict, gate_action, gate_reason}, boundary_decision)
@@ -448,7 +448,7 @@ defmodule SigilGuard.Runtime.Gate do
       risk_level: state.risk,
       trust_level: state.context.trust_level,
       hits: state.hits,
-      indicators: state.quarantine.indicators,
+      indicators: state.quarantine.indicators ++ state.advisory_indicators,
       matched_rules: matched_rules(gate_reason) ++ boundary_matched_rules(boundary_decision),
       evidence_refs: [],
       source: state.context.origin,
@@ -461,6 +461,41 @@ defmodule SigilGuard.Runtime.Gate do
       audit_metadata: audit_metadata(state, verdict, action, action_digest, action_digest_error)
     }
   end
+
+  # Hooks and the adaptive detector run inside the kernel. Their indicators
+  # join the decision, and a risk they raise goes back through the risk and
+  # trust ladder. Neither can lower the risk the gate computed.
+  defp apply_advisory_signals(state, %Decision{} = boundary_decision) do
+    advisory_indicators =
+      Enum.drop(boundary_decision.indicators, length(state.quarantine.indicators))
+
+    state
+    |> Map.put(:advisory_indicators, advisory_indicators)
+    |> Map.put(:adaptive_error, boundary_decision.audit_metadata[:adaptive_error])
+    |> raise_risk(boundary_decision.audit_metadata[:advisory_risk_level])
+  end
+
+  defp raise_risk(state, advisory) when advisory in @risk_levels do
+    if risk_rank(advisory) > risk_rank(state.risk) do
+      %{state | risk: advisory, policy_verdict: raised_policy_verdict(state, advisory)}
+    else
+      state
+    end
+  end
+
+  defp raise_risk(state, _), do: state
+
+  defp raised_policy_verdict(%{policy_verdict: :blocked}, _), do: :blocked
+
+  defp raised_policy_verdict(state, risk) do
+    Policy.evaluate(
+      state.action,
+      state.context.trust_level,
+      Keyword.put(state.opts, :risk_level, risk)
+    )
+  end
+
+  defp risk_rank(risk), do: Enum.find_index(@risk_levels, &(&1 == risk))
 
   # Evaluate the boundary policy kernel over a normalized `Boundary` and fold
   # its verdict into the gate's combination. The
@@ -496,6 +531,7 @@ defmodule SigilGuard.Runtime.Gate do
       tool: boundary_tool(context.tool, Keyword.get(state.opts, :manifest_facts)),
       resource: boundary_fact("uri", context.resource_uri),
       indicators: state.quarantine.indicators,
+      source_sensitivity: source_sensitivity(context),
       action_digest: action_digest,
       payload_digest: payload_digest,
       context_digest: boundary_context_digest(context),
@@ -512,6 +548,12 @@ defmodule SigilGuard.Runtime.Gate do
        do: %{"name" => name, "manifest_digest" => digest, "side_effects" => effects}
 
   defp boundary_tool(name, _), do: %{"name" => name}
+
+  # `Context` has no sensitivity field, and adding one would change every
+  # confirmation digest. The host states it in context metadata instead.
+  defp source_sensitivity(%Context{metadata: %{source_sensitivity: value}}), do: value
+  defp source_sensitivity(%Context{metadata: %{"source_sensitivity" => value}}), do: value
+  defp source_sensitivity(%Context{}), do: :internal
 
   defp boundary_fact(_, nil), do: nil
   defp boundary_fact(key, value), do: %{key => value}
@@ -779,7 +821,20 @@ defmodule SigilGuard.Runtime.Gate do
     |> put_action_digest_error(action_digest_error)
     |> put_repo_policy_metadata(state.repo_policy)
     |> put_repo_facts_metadata(state.repo_facts)
+    |> put_advisory_metadata(state)
   end
+
+  defp put_advisory_metadata(metadata, state) do
+    metadata
+    |> put_present(:advisory_indicator_count, advisory_count(state.advisory_indicators))
+    |> put_present(:adaptive_error, state.adaptive_error)
+  end
+
+  defp advisory_count([]), do: nil
+  defp advisory_count(indicators), do: length(indicators)
+
+  defp put_present(metadata, _, nil), do: metadata
+  defp put_present(metadata, key, value), do: Map.put(metadata, key, value)
 
   defp put_action_digest_error(metadata, nil), do: metadata
 

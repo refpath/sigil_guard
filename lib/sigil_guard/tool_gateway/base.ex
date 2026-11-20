@@ -808,7 +808,7 @@ defmodule SigilGuard.ToolGateway.Base do
         "risk_level" => error_value(decision.risk_level),
         "trust_level" => error_value(decision.trust_level),
         "hit_count" => length(decision.hits),
-        "indicator_ids" => Enum.map(decision.indicators, &error_value(&1.id)),
+        "indicator_ids" => Enum.map(indicator_ids(decision.indicators), &error_value/1),
         "content_hash" => decision.content_hash,
         "action_digest" => metadata[:action_digest],
         "evidence" => evidence_data(metadata[:evidence]),
@@ -939,6 +939,20 @@ defmodule SigilGuard.ToolGateway.Base do
     data
     |> Enum.reject(fn {_, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  # Quarantine indicators carry an id. Advisory indicators from a hook or the
+  # adaptive detector need not.
+  @doc false
+  @spec indicator_ids([term()]) :: [term()]
+  def indicator_ids(indicators) do
+    indicators
+    |> Enum.map(fn
+      %{id: id} -> id
+      %{"id" => id} -> id
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
   end
 
   defp error_value(nil), do: nil

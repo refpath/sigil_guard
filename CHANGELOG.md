@@ -5,6 +5,15 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Advisory signals from `:hooks` and `:adaptive_detector` reach the decision
+  `SigilGuard.Runtime.Gate` returns. Their indicators follow the quarantine
+  indicators in `decision.indicators`, a risk they raise above the gate's own
+  becomes `decision.risk_level` and goes back through the risk and trust
+  ladder, and `audit_metadata` gains `advisory_indicator_count` and
+  `adaptive_error`. The gate dropped all of these.
+- A boundary policy `sensitivity:` rule matches through the gate: the host
+  states `source_sensitivity` (`:public`, `:internal` or `:private`) in
+  `context.metadata`.
 - At a repo change `SigilGuard.Runtime.Gate` passes the repo policy facts to
   the policy kernel, so a decision lists the repo rules that produced it as
   `repo.<rule_id>` and its audit metadata carries `repo_policy_digest` and

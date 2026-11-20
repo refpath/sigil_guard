@@ -125,6 +125,8 @@ defmodule SigilGuard.BoundaryPolicy do
   # Unmapped and `none` values contribute no class; the strictest remaining
   # cell decides. To fail closed, `delete` folds into `write` and
   # `privileged` into `execute`.
+  @advisory_metadata_keys [:adaptive_error, :advisory_risk_level]
+
   @typedoc "A compiled policy: `%{default: verdict | nil, rules: list}` or nil."
   @type policy :: %{optional(atom()) => term()} | nil
 
@@ -208,9 +210,17 @@ defmodule SigilGuard.BoundaryPolicy do
     build_decision(boundary, verdict, matched,
       risk_level: raise_risk(base_risk, adaptive.risk_level),
       indicators: boundary.indicators ++ hook.indicators ++ adaptive.indicators,
-      adaptive_error: adaptive.error
+      adaptive_error: adaptive.error,
+      advisory_risk_level: advisory_risk(hook.risk_level, adaptive.risk_level)
     )
   end
+
+  # The risk hooks and the adaptive detector asked for, apart from the risk
+  # the verdict implies. A caller that keeps its own risk raises it by this.
+  defp advisory_risk(nil, nil), do: nil
+  defp advisory_risk(hook_risk, nil), do: hook_risk
+  defp advisory_risk(nil, adaptive_risk), do: adaptive_risk
+  defp advisory_risk(hook_risk, adaptive_risk), do: raise_risk(hook_risk, adaptive_risk)
 
   defp raise_risk(base, nil), do: base
 
@@ -448,7 +458,7 @@ defmodule SigilGuard.BoundaryPolicy do
       sink: boundary.sink,
       trust_zone: boundary.trust_zone,
       audit_metadata:
-        audit_metadata(boundary, verdict, matched, Keyword.get(extra, :adaptive_error))
+        audit_metadata(boundary, verdict, matched, Keyword.take(extra, @advisory_metadata_keys))
     }
   end
 
@@ -475,7 +485,7 @@ defmodule SigilGuard.BoundaryPolicy do
   defp normalize_trust(level) when level in [:low, :medium, :high], do: level
   defp normalize_trust(_), do: :low
 
-  defp audit_metadata(boundary, verdict, matched, adaptive_error) do
+  defp audit_metadata(boundary, verdict, matched, advisory) do
     base = %{
       verdict: verdict,
       phase: boundary.phase,
@@ -485,7 +495,9 @@ defmodule SigilGuard.BoundaryPolicy do
       matched_rules: matched
     }
 
-    if adaptive_error, do: Map.put(base, :adaptive_error, adaptive_error), else: base
+    advisory
+    |> Enum.reject(fn {_, value} -> is_nil(value) end)
+    |> Enum.into(base)
   end
 
   defp rule(id, explanation), do: %{"id" => id, "explanation" => explanation}

@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 299 / 312 tasks done (95.8%).** Milestones: 16 complete, 1 open.
+**Overall: 300 / 312 tasks done (96.2%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 4 | 17 | 24% | Open |
-| — | **Total** | **299** | **312** | **95.8%** | 16 done |
+| M14 | Spec conformance backlog | 5 | 17 | 29% | Open |
+| — | **Total** | **300** | **312** | **96.2%** | 16 done |
 
 ### Release Handoff
 
@@ -3146,11 +3146,19 @@ needs its design confirmed against the consumer contracts before work begins.
     `:secret` mapping, or the spec's kernel invariant names the string
     categories it accepts; the required hit keys for a custom pipeline match
     what `Scanner.scan/2` enforces.
-- [ ] M14.04 Hook and adaptive signals on gate decisions (`SP.04`, `SP.07`).
+- [x] M14.04 Hook and adaptive signals on gate decisions (`SP.04`, `SP.07`).
   - AC: hook signals, adaptive indicators, raised risk, and `adaptive_error`
     appear on the decision the gate returns; a notify-form return on a
     blockable phase is `:invalid_hook_result`; `sensitivity:` rules have a
     `Context` field to match.
+  - Resolved: the gate appends hook and adaptive indicators to its decision,
+    raises its risk by the advisory level and re-runs the risk and trust
+    ladder, and records `adaptive_error` and `advisory_indicator_count`.
+    `sensitivity:` rules read `context.metadata` `source_sensitivity`;
+    `Context` gets no new field because every field enters the confirmation
+    digest. Both continue forms stay accepted on every hook phase: a
+    continue return cannot weaken a decision. Tests: `Runtime.GateTest`.
+
 - [ ] M14.05 Sandbox matrix defaults (`SP.04`, `SP.07`, `SP.03`).
   - AC: the `absent` column is reachable through the gate for a tool phase
     with no declared isolation level, or the spec drops it; `guard_result/3`
