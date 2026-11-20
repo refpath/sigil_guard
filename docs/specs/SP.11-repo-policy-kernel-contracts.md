@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.11"
   title: "Repo Policy Kernel Contracts"
   domain: security
-  status: implemented/partial
+  status: implemented
   priority: high
   created: "2026-07-01"
   updated: "2026-11-20"

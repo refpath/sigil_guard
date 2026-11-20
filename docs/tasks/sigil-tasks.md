@@ -2981,6 +2981,8 @@ fresh research or a spec update before work starts.
 - [ ] SCITT receipt adapter over the anchor path (D4).
 - [ ] Tier-2 integration guides: ex_mcp, Vancouver, mcp_sse, and anubis
       variants beyond the compile check (promotion criteria in SP.14).
+- [ ] Bundle-carried repo-policy rules and their composition with file
+      rules (the design candidate in SP.11).
 
 ## M11 - Security Audit Remediation (SP.18)
 
