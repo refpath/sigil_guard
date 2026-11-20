@@ -3,7 +3,7 @@ sigil_guard:
   id: "SP.15"
   title: "Benchmark Methodology And Baselines"
   domain: quality
-  status: implemented/partial
+  status: implemented
   priority: medium
   created: "2026-07-02"
   updated: "2026-11-20"
@@ -44,9 +44,9 @@ extra) plus a machine-readable `bench/output/benchmarks.json` written by the
 harness from Benchee suite statistics with `Jason.encode!/2`. Corpora are
 committed fixtures generated once from fixed seeds. The deterministic
 `SigilGuard.BenchSigner` (fixed Ed25519 seed) signs the BM.05 statement, the
-only scenario that signs. A `--smoke` flag runs every scenario with minimal
-budgets so CI can verify the harness itself without paying full measurement
-time.
+only scenario that signs during a run. A `--smoke` flag runs every scenario
+with minimal budgets so CI can verify the harness itself without paying full
+measurement time.
 
 ### Data Flow
 
@@ -90,14 +90,28 @@ Corpus rules:
   expected hit count MUST be asserted before timing starts. The generator
   writes one secret at the start of each complete 4 KiB block, so
   `hits_64k.txt` holds 16 and `hits_1m.txt` holds 256. `hits_1k.txt` is
-  smaller than one block and holds none. The harness asserts
-  `div(size, 4096)` occurrences, which is 0 for that file. A 1 KiB corpus
-  that contains a hit is not implemented.
-- Signed-artifact scenarios MUST use `SigilGuard.BenchSigner` and fixed
-  timestamps/nonces so inputs are byte-identical across runs. BM.05 does.
-  BM.06 verifies a committed envelope at a fixed `now`. The BM.07 chain is
-  rebuilt on every run with `Audit.new_event/4`, which draws a random event
-  id and reads the clock, so its bytes differ between runs.
+  shorter than one block; the generator writes one secret over its first
+  bytes without drawing from the random generator, so the files generated
+  after it keep their bytes. The harness asserts
+  `max(div(size, 4096), 1)` occurrences.
+- `stream_split_64k.txt` is `hits_64k.txt` with one more secret written at
+  byte 1526, ten bytes before the 512-byte boundary at 1536 and ten after
+  it. The harness asserts 17 occurrences, exactly one of them across a
+  chunk boundary, and none across a boundary in the `hits_*` files.
+- `trust_bundle_delegations.json` is a signed bundle envelope with one root
+  key, the delegate roles `bundle` and `attestation`, and ten `patterns`
+  entries. Its keys come from fixed seeds and its timestamps are constants.
+- Signed-artifact scenarios MUST use fixed keys, timestamps, and nonces so
+  inputs are byte-identical across runs. BM.05 signs with
+  `SigilGuard.BenchSigner`. BM.06 verifies the committed envelope at a fixed
+  `now`. The BM.07 chain takes each event id and timestamp from the event's
+  index, so it has the same bytes on every run.
+- A scenario is named for a path through the code. Before timing starts the
+  harness evaluates each fixture once and aborts when it takes another
+  path: each BM.03 fixture MUST reach its named action, the BM.04 stream
+  MUST run to `finish/1` without halting and release no secret, the BM.06
+  bundle MUST have two delegations and ten patterns that resolve, and the
+  BM.07 chain MUST verify.
 
 Measurement rules: every scenario runs under Benchee with `warmup: 2`,
 `time: 5`, and `memory_time: 2` (the existing harness configuration) and
@@ -108,25 +122,27 @@ set.
 | ID | Scenario | Fixture / corpus | Reported |
 |----|----------|------------------|----------|
 | BM.01 | `SigilGuard.scan/1` clean text at 1 KiB / 64 KiB / 1 MiB | `bench/corpus/clean_{1k,64k,1m}.txt`; zero hits asserted | median, p99, memory |
-| BM.02 | `SigilGuard.scan/1` with hits at 1 KiB / 64 KiB / 1 MiB | `bench/corpus/hits_{1k,64k,1m}.txt`; 0, 16, and 256 synthetic secrets | median, p99, memory |
-| BM.03 | `Runtime.Gate.evaluate/2`, four verdict paths (allow, block, redact, quarantine) | allow: `clean_1k.txt` (1 KiB); block, redact, quarantine: one fixed short string each; four fixed boundary contexts | median (p50), p99 per path |
-| BM.04 | `Runtime.Stream` push of 128 chunks plus `finish/1` | `hits_64k.txt` pushed as 512 B chunks with `stream_window_bytes: 512`; every secret lies inside one chunk | median, p99, memory for the whole stream |
+| BM.02 | `SigilGuard.scan/1` with hits at 1 KiB / 64 KiB / 1 MiB | `bench/corpus/hits_{1k,64k,1m}.txt`; 1, 16, and 256 synthetic secrets | median, p99, memory |
+| BM.03 | `Runtime.Gate.evaluate/2`, four verdict paths (allow, block, redact, quarantine) | allow: `clean_1k.txt` (1 KiB); block, redact, quarantine: one fixed short string each; four fixed boundary contexts. The quarantine path is a `confirm` verdict whose `effect` is `:quarantine`, reached at medium trust; at low trust the same content is blocked | median (p50), p99 per path |
+| BM.04 | `Runtime.Stream` push of 128 chunks plus `finish/1`, and `Runtime.Gate.evaluate/2` once over the same bytes | `stream_split_64k.txt` pushed as 512 B chunks with `stream_window_bytes: 512` at high trust, so secrets are redacted and every chunk is evaluated; one secret lies across a chunk boundary | median, p99, memory for the whole stream and for the single pass; derived: median per chunk, and stream overhead over the single pass in microseconds and percent |
 | BM.05 | `Attestation.sign/2` and `Attestation.verify/3` | `tool_request` statement built with `from_decision/3` at a fixed `now` and nonce | ips (ops/s), median, memory |
-| BM.06 | `TrustBundle.verify/2` cold and `TrustBundle.Cache.get/1` warm hit | `bench/corpus/trust_bundle_minimal.json`, a copy of the minimal golden envelope: 1 root key, 1 delegate role, no pattern section | median, p99 for cold and warm separately |
-| BM.07 | Audit append (one event onto a 10k chain), checkpoint create (10k), inclusion-proof verify (10k tree) | 10,000-event chain built in the harness at start-up | median, memory per operation |
-| BM.08 | `ToolGateway.guard_request/3` with `require_manifest: false` and a no-op baseline | fixed `tools/call` request map; no policy file; no-op control function in the same run | median, p99, memory for each of the two scenarios |
+| BM.06 | `TrustBundle.verify/2` cold and `TrustBundle.Cache.get/1` warm hit | `bench/corpus/trust_bundle_delegations.json`: 1 root key, 2 delegate roles, 10 patterns | median, p99 for cold and warm separately |
+| BM.07 | Audit append (one event onto a 10k chain), checkpoint create (10k), inclusion-proof verify (10k tree) | 10,000-event chain built in the harness at start-up, with ids and timestamps taken from the event index | median, memory per operation |
+| BM.08 | `ToolGateway.guard_request/3` with `require_manifest: false` and a no-op baseline | fixed `tools/call` request map; no policy file; no-op control function in the same run | median, p99, memory for each of the two scenarios; derived: gateway median minus no-op median in microseconds |
 
-The matrix above records what `bench/run.exs` measures. Six properties this
-spec first required of it are not implemented:
+Derived figures are computed by the harness from the medians of one run and
+written to the `derived` map of `benchmarks.json` and to a "Derived figures"
+table in `benchmarks.md`. BM.08 has no percentage: the no-op control
+measures a few nanoseconds, and a ratio against it says nothing about the
+gateway.
 
-| ID | Required | Harness today |
-|----|----------|---------------|
-| BM.02 | a hit in the 1 KiB corpus | `hits_1k.txt` has no secret, so the 1 KiB row scans clean text |
-| BM.04 | one secret split across a chunk boundary | each secret starts a 4 KiB block and 4 KiB is eight chunks, so no secret is split |
-| BM.04 | per-chunk median and overhead versus a single pass over the same bytes | one figure for the whole stream; no overhead figure is computed |
-| BM.06 | a bundle with 2 delegations and 10 patterns | the minimal bundle: 1 delegate role and no patterns |
-| BM.07 | a seeded chain fixture | a chain with random event ids and wall-clock timestamps |
-| BM.08 | the overhead delta in microseconds and percent | two separate scenarios; the delta in Success Metrics is subtracted by hand |
+Two fixtures measured another path before 1.1.0, and numbers published from
+those runs are not comparable with later ones. The BM.04 stream ran at low
+trust, where the first secret asks for confirmation and halts the stream, so
+the scenario timed one evaluation and 127 pushes that returned at once. The
+BM.03 quarantine fixture ran at low trust and was blocked. The fixture
+preconditions above exist so that a scenario cannot be published under a
+name it does not measure.
 
 ## Environment Disclosure Format
 
@@ -151,8 +167,9 @@ published file can never omit it. It reads the CPU model from
 `:erlang.system_info(:cpu_topology)`), the core count from
 `System.schedulers_online/0`, and the rest from `:os.type/0`,
 `System.version/0`, `System.otp_release/0`, the application version, and the
-short Git commit. It does not render the `<RAM>` field (not implemented).
-Hostnames and user paths MUST NOT appear.
+short Git commit. `<RAM>` is the installed memory in whole gigabytes, from
+`sysctl -n hw.memsize` on macOS and `MemTotal` in `/proc/meminfo` on Linux,
+and `unknown RAM` elsewhere. Hostnames and user paths MUST NOT appear.
 
 ## CI Regression Thresholds
 
@@ -171,8 +188,9 @@ Hostnames and user paths MUST NOT appear.
 - **Baseline refresh procedure:** a dedicated PR updates `baseline.json` and
   its environment block; it MUST show three consecutive runs within +/-5%
   median on the same runner, and the commit message MUST state the reason
-  (accepted performance change, runner change, or Elixir/OTP bump). Silent
-  baseline edits are treated as masking a regression.
+  (accepted performance change, fixture change, runner change, or
+  Elixir/OTP bump). Silent baseline edits are treated as masking a
+  regression.
 
 ## Cross-Ecosystem Comparison Rules
 
@@ -226,6 +244,7 @@ Shape of `bench/baseline.json` (also the per-run `benchmarks.json`):
 | `recorded_at` | string | yes | ISO 8601 date of capture. |
 | `mode` | string | no | `measured` or `smoke`. The harness writes it; the committed baseline omits it. |
 | `scenarios` | map | yes | Scenario name to `median_ns`, `p99_ns`, `memory_bytes`. |
+| `derived` | map | no | Figure name to `median_ns` and, for the BM.04 overhead, `percent`. The harness writes it; `bench/compare.exs` does not read it. |
 
 ## Module Map
 
@@ -283,8 +302,11 @@ The harness is tooling, not a runtime surface; N/A rows are intentional.
 | Test | Module | What It Verifies |
 |------|--------|------------------|
 | harness smoke | CI step `mix bench --smoke` | every scenario constructs and executes with minimal budgets. |
-| corpus determinism | corpus test | regenerating from the fixed seed reproduces committed bytes. |
-| hit-count assertion | harness precondition | hit corpora contain exactly the expected synthetic secrets. |
+| corpus determinism | `BenchTest` | two generations are byte-identical, and the committed corpus is what the generator writes. |
+| hit-count assertion | harness precondition, `BenchTest` | hit corpora contain exactly the expected synthetic secrets; one secret of the stream corpus lies across a chunk boundary. |
+| path preconditions | harness precondition, `BenchTest` | each fixture takes the path its scenario is named for. |
+| seeded chain | `BenchTest` | two builds of the audit chain are equal. |
+| derived figures | `BenchTest` | per-chunk median, stream overhead, and gateway overhead follow from the scenario medians. |
 | compare gate | `bench/compare.exs` fixture test | a synthetic 25% regression fails; 15% passes; missing scenario fails. |
 | json shape | baseline test | `baseline.json` and `benchmarks.json` validate against the data model. |
 
@@ -292,9 +314,9 @@ The harness is tooling, not a runtime surface; N/A rows are intentional.
 
 - [x] All eight BM scenarios run under the shared Benchee configuration and
       appear in `benchmarks.md` and `benchmarks.json`.
-- [ ] Each BM row uses the fixture and reports the statistics this spec
-      first required (not implemented for BM.02 at 1 KiB, BM.04, BM.06,
-      BM.07, and BM.08; see the second table under Scenario Matrix).
+- [x] Each BM row uses the fixture and reports the statistics in the
+      Scenario Matrix, and the harness refuses to time a fixture that takes
+      another path.
 - [x] Corpus files are committed, seed-reproducible, and hit-count asserted.
 - [x] The environment block is auto-rendered into every published result.
 - [x] `bench/compare.exs` enforces the 20% median gate and the

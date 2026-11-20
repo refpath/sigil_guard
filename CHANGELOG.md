@@ -5,6 +5,17 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- The benchmark harness checks each fixture before timing it and stops when
+  a fixture takes another path than its scenario names. Two did: the BM.04
+  stream halted at its first secret and timed one evaluation, and the BM.03
+  quarantine fixture was blocked. Both now measure what they are named for,
+  and numbers from earlier runs are not comparable for those rows.
+- Benchmark fixtures the methodology names: a hit in the 1 KiB corpus, a
+  secret split across a chunk boundary, a bundle with two delegations and
+  ten patterns, and an audit chain with fixed ids and timestamps. The report
+  adds the stream's per-chunk median and its overhead over a single pass,
+  the gateway overhead over the no-op control, and the memory size of the
+  machine.
 - `SigilGuard.Runtime.Gate.evaluate/3` takes `:decision_id`, a correlation id
   the host chooses. It reaches `audit_metadata`, the gate event and the
   opt-in attribute `sigilguard.decision.id`. The gate generates none.

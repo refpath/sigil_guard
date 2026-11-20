@@ -25,5 +25,13 @@ within +/-5% across the three runs. Then copy the accepted
 `bench/output/benchmarks.json` to `bench/baseline.json`.
 
 The commit message must state why the baseline changed: accepted performance
-change, runner change, or Elixir/OTP bump. Silent baseline edits are treated
-as masking a regression.
+change, fixture change, runner change, or Elixir/OTP bump. Silent baseline
+edits are treated as masking a regression.
+
+## Fixture Preconditions
+
+A scenario is named for a path through the code. Before timing starts the
+harness runs each fixture once and stops when it takes another path: a gate
+fixture that reaches a different action, a stream that halts before
+`finish/1`, a corpus with the wrong number of secrets. Change a fixture and
+its precondition together.

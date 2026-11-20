@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 305 / 312 tasks done (97.8%).** Milestones: 16 complete, 1 open.
+**Overall: 306 / 312 tasks done (98.1%).** Milestones: 16 complete, 1 open.
 **Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -83,8 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| M14 | Spec conformance backlog | 10 | 17 | 59% | Open |
-| — | **Total** | **305** | **312** | **97.8%** | 16 done |
+| M14 | Spec conformance backlog | 11 | 17 | 65% | Open |
+| — | **Total** | **306** | **312** | **98.1%** | 16 done |
 
 ### Release Handoff
 
@@ -3279,11 +3279,22 @@ needs its design confirmed against the consumer contracts before work begins.
     and raises the same `SigilGuard.ConfigError` when the key is set. Tests:
     `BackendTest`.
 
-- [ ] M14.16 Benchmark fixtures (`SP.15`).
+- [x] M14.16 Benchmark fixtures (`SP.15`).
   - AC: BM.02 has a 1 KiB corpus that contains a hit; BM.04 splits a secret
     across a chunk boundary; BM.06 uses a bundle with two delegations and ten
     patterns; BM.07 and BM.08 report what the spec names; the environment
     block records RAM.
+  - Resolved: The corpus has a hit in `hits_1k.txt`, a secret across a chunk
+    boundary in `stream_split_64k.txt`, and a bundle with two delegations
+    and ten patterns. The BM.07 chain takes ids and timestamps from the
+    event index. The report carries the per-chunk median, the stream
+    overhead over a single pass, the gateway overhead in microseconds, and
+    the RAM size. BM.08 has no percentage, because a ratio against a no-op
+    of a few nanoseconds says nothing. The harness now refuses to time a
+    fixture that takes another path: the BM.04 stream used to halt at its
+    first secret and the BM.03 quarantine fixture was blocked.
+    `bench/baseline.json` needs a refresh for the changed rows.
+
 - [ ] M14.17 Release evidence and examples (`SP.05`, `SP.14`).
   - AC: the publish workflow checks the SBOM digest against a value it did
     not compute from the same file; a consumer can run the SBOM structural
