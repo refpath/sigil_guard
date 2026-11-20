@@ -14,6 +14,7 @@ defmodule SigilGuard.Audit.Anchor do
   """
 
   alias SigilGuard.Audit.Checkpoint
+  alias SigilGuard.Crypto
 
   @kind "sigil_guard.audit.anchor"
   @version 1
@@ -120,8 +121,7 @@ defmodule SigilGuard.Audit.Anchor do
   def digest(record) when is_map(record) do
     record
     |> canonical_bytes()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
+    |> Crypto.sha256_hex()
   end
 
   defp verify_static_fields(record) do
@@ -145,7 +145,7 @@ defmodule SigilGuard.Audit.Anchor do
   end
 
   defp verify_checkpoint_digest(record, checkpoint_digest) do
-    if secure_compare(field(record, "checkpoint_digest"), checkpoint_digest) do
+    if Crypto.secure_compare(field(record, "checkpoint_digest"), checkpoint_digest) do
       :ok
     else
       {:error, :anchor_mismatch}
@@ -207,12 +207,6 @@ defmodule SigilGuard.Audit.Anchor do
 
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value), do: value
-
-  defp secure_compare(left, right) when is_binary(left) and is_binary(right) do
-    byte_size(left) === byte_size(right) and :crypto.hash_equals(left, right)
-  end
-
-  defp secure_compare(_, _), do: false
 
   defp timestamp do
     DateTime.utc_now(:millisecond)

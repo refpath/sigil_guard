@@ -48,6 +48,7 @@ defmodule SigilGuard.Audit do
 
   """
 
+  alias SigilGuard.Crypto
   alias SigilGuard.Telemetry
 
   @type event_type :: String.t()
@@ -554,7 +555,7 @@ defmodule SigilGuard.Audit do
 
     # Contiguity uses plain == — prev_hmac values are public chain
     # data, not secrets; only the HMAC comparison needs constant time.
-    if event.prev_hmac == expected_prev and secure_compare(expected_hmac, event.hmac) do
+    if event.prev_hmac == expected_prev and Crypto.secure_compare(expected_hmac, event.hmac) do
       {:cont, {:ok, event.hmac}}
     else
       {:halt, {:broken, index}}
@@ -583,9 +584,4 @@ defmodule SigilGuard.Audit do
   # Constant-time comparison to prevent timing attacks on HMAC
   # verification. Regular == short-circuits on the first differing
   # byte, leaking information about matching prefix length.
-  defp secure_compare(a, b) when is_binary(a) and is_binary(b) do
-    byte_size(a) == byte_size(b) and :crypto.hash_equals(a, b)
-  end
-
-  defp secure_compare(_, _), do: false
 end

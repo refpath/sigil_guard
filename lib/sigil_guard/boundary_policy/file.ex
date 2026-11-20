@@ -17,6 +17,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   """
 
   alias SigilGuard.BoundaryPolicy.Contract
+  alias SigilGuard.Crypto
   alias SigilGuard.RepoPolicy
   alias SigilGuard.Verdict
 
@@ -117,7 +118,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   """
   @spec digest(binary()) :: String.t()
   def digest(bytes) when is_binary(bytes) do
-    Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+    Crypto.sha256_hex(bytes)
   end
 
   @doc """

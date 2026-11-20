@@ -8,6 +8,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   `SigilGuard.TrustBundle` structs.
   """
 
+  alias SigilGuard.Crypto
   alias SigilGuard.TrustBundle
 
   @table :sigil_guard_trust_bundle
@@ -255,7 +256,7 @@ defmodule SigilGuard.TrustBundle.Cache do
 
   defp document_digest!(document) do
     {:ok, bytes} = SigilGuard.Canonical.JCS.encode(document)
-    Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+    Crypto.sha256_hex(bytes)
   end
 
   defp decoded_keys(%{"keys" => keys}) do

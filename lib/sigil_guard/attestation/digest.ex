@@ -10,6 +10,7 @@ defmodule SigilGuard.Attestation.Digest do
   alias SigilGuard.Attestation
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Context
+  alias SigilGuard.Crypto
 
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @statement_types ~w(
@@ -57,7 +58,7 @@ defmodule SigilGuard.Attestation.Digest do
   @spec payload_digest(term()) :: {:ok, String.t()} | {:error, error_reason()}
   def payload_digest(payload) when is_binary(payload) do
     if String.valid?(payload) do
-      {:ok, sha256_hex(payload)}
+      {:ok, Crypto.sha256_hex(payload)}
     else
       {:error, :invalid_payload}
     end
@@ -348,7 +349,7 @@ defmodule SigilGuard.Attestation.Digest do
   defp normalized_jcs_digest(value) do
     with {:ok, normalized} <- normalize(value),
          {:ok, canonical} <- JCS.encode(normalized) do
-      {:ok, sha256_hex(canonical)}
+      {:ok, Crypto.sha256_hex(canonical)}
     else
       {:error, :invalid_map} -> {:error, :invalid_payload}
       {:error, reason} -> {:error, reason}
@@ -612,8 +613,6 @@ defmodule SigilGuard.Attestation.Digest do
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp ok(value), do: {:ok, value}
-
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   defp atom_key("actor"), do: :actor
   defp atom_key("identity"), do: :identity

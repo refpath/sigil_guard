@@ -10,6 +10,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   """
 
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Crypto
 
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
   @trust_levels ~w(low medium high)
@@ -153,7 +154,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   def action_digest(statement_type, payload, opts \\ []) do
     with {:ok, preimage} <- action_preimage(statement_type, payload, opts),
          {:ok, canonical} <- JCS.encode(preimage) do
-      {:ok, sha256_hex(canonical)}
+      {:ok, Crypto.sha256_hex(canonical)}
     else
       {:error, :invalid_map} -> {:error, :invalid_payload}
       {:error, reason} -> {:error, reason}
@@ -168,7 +169,7 @@ defmodule SigilGuard.Attestation.AgentPredicate do
   def delegation_chain_digest(payload) when is_map(payload) do
     with {:ok, chain} <- request_delegation_chain(payload),
          {:ok, canonical} <- JCS.encode(chain) do
-      {:ok, sha256_hex(canonical)}
+      {:ok, Crypto.sha256_hex(canonical)}
     else
       {:error, :invalid_map} -> {:error, :invalid_payload}
       {:error, reason} -> {:error, reason}
@@ -396,8 +397,6 @@ defmodule SigilGuard.Attestation.AgentPredicate do
 
   defp maybe_put(map, _, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   defp atom_key("arguments"), do: :arguments
   defp atom_key("actor"), do: :actor

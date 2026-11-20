@@ -43,8 +43,7 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   def digest(receipt) when is_map(receipt) do
     receipt
     |> canonical_bytes()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
+    |> SigilGuard.Crypto.sha256_hex()
   end
 
   @doc """
@@ -158,9 +157,9 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   end
 
   defp validate_signature_digest(canonical, claimed_digest) do
-    digest = Base.encode16(:crypto.hash(:sha256, canonical), case: :lower)
+    digest = SigilGuard.Crypto.sha256_hex(canonical)
 
-    if secure_compare(digest, claimed_digest) do
+    if SigilGuard.Crypto.secure_compare(digest, claimed_digest) do
       :ok
     else
       {:error, :digest_mismatch}
@@ -262,16 +261,4 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
       :error -> Map.get(map, Map.fetch!(@atom_fields, key))
     end
   end
-
-  defp secure_compare(a, b) when is_binary(a) and is_binary(b) and byte_size(a) == byte_size(b) do
-    secure_compare(a, b, 0)
-  end
-
-  defp secure_compare(_, _), do: false
-
-  defp secure_compare(<<a, rest_a::binary>>, <<b, rest_b::binary>>, diff) do
-    secure_compare(rest_a, rest_b, Bitwise.bor(diff, Bitwise.bxor(a, b)))
-  end
-
-  defp secure_compare(<<>>, <<>>, diff), do: diff == 0
 end

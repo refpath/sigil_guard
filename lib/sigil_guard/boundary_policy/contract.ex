@@ -140,7 +140,7 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
   """
   @spec hash(binary()) :: String.t()
   def hash(span) when is_binary(span) do
-    "sha256:" <> Base.encode16(:crypto.hash(:sha256, span), case: :lower)
+    "sha256:" <> SigilGuard.Crypto.sha256_hex(span)
   end
 
   @doc """

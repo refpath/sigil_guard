@@ -78,7 +78,7 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   def verify_file(_, _), do: {:error, :invalid_path}
 
   defp verify_sbom_digest(body, expected_sha256) do
-    if sha256_hex(body) == String.downcase(expected_sha256) do
+    if SigilGuard.Crypto.sha256_hex(body) == String.downcase(expected_sha256) do
       :ok
     else
       {:error, :sbom_digest_mismatch}
@@ -651,7 +651,7 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
   defp document_namespace(project, git_revision, created_at) do
     hash =
       "#{project[:app]}:#{project[:version]}:#{git_revision}:#{created_at}"
-      |> sha256_hex()
+      |> SigilGuard.Crypto.sha256_hex()
 
     document_namespace_prefix(project) <> hash
   end
@@ -688,6 +688,4 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
     DateTime.utc_now(:second)
     |> DateTime.to_iso8601()
   end
-
-  defp sha256_hex(data), do: Base.encode16(:crypto.hash(:sha256, data), case: :lower)
 end

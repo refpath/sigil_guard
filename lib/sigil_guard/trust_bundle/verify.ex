@@ -9,6 +9,7 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Crypto
   alias SigilGuard.TrustBundle
   alias SigilGuard.TrustBundle.Cache
   alias SigilGuard.TrustBundle.Schema
@@ -441,7 +442,7 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   defp document_digest(document) do
     {:ok, bytes} = JCS.encode(document)
-    Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
+    Crypto.sha256_hex(bytes)
   end
 
   defp revoked_keyids(document) do
@@ -619,7 +620,7 @@ defmodule SigilGuard.TrustBundle.Verify do
       bundle_id: Map.fetch!(document, "bundle_id"),
       sequence: sequence,
       root_version: root_version,
-      digest: Base.encode16(:crypto.hash(:sha256, payload), case: :lower),
+      digest: Crypto.sha256_hex(payload),
       document: document,
       envelope: envelope,
       dev?: dev?(document),

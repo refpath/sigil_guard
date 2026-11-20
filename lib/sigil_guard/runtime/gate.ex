@@ -22,6 +22,7 @@ defmodule SigilGuard.Runtime.Gate do
   alias SigilGuard.BoundaryPolicy
   alias SigilGuard.Confirmation
   alias SigilGuard.Context
+  alias SigilGuard.Crypto
   alias SigilGuard.Decision
   alias SigilGuard.Lifecycle
   alias SigilGuard.Policy
@@ -524,7 +525,7 @@ defmodule SigilGuard.Runtime.Gate do
   end
 
   defp derived_digest(seed) do
-    Base.encode16(:crypto.hash(:sha256, seed), case: :lower)
+    Crypto.sha256_hex(seed)
   end
 
   defp boundary_matched_rules(%Decision{matched_rules: rules}), do: rules

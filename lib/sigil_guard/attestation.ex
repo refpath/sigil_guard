@@ -26,6 +26,7 @@ defmodule SigilGuard.Attestation do
   alias SigilGuard.Audit.Evidence
   alias SigilGuard.Canonical.JCS
   alias SigilGuard.Context
+  alias SigilGuard.Crypto
   alias SigilGuard.ReplayStore
   alias SigilGuard.TrustProfile
 
@@ -687,7 +688,7 @@ defmodule SigilGuard.Attestation do
   defp expected_payload_sha256(payload, opts) do
     case Keyword.fetch(opts, :expected_payload_sha256) do
       {:ok, expected} when is_binary(expected) ->
-        actual = Base.encode16(:crypto.hash(:sha256, payload), case: :lower)
+        actual = Crypto.sha256_hex(payload)
 
         if actual == expected, do: :ok, else: {:error, :pae_mismatch}
 

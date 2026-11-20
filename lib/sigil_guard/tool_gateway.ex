@@ -54,6 +54,7 @@ defmodule SigilGuard.ToolGateway do
   alias SigilGuard.CapabilityManifest
   alias SigilGuard.Confirmation
   alias SigilGuard.Context
+  alias SigilGuard.Crypto
   alias SigilGuard.Decision
   alias SigilGuard.MCP.Protocol
   alias SigilGuard.MCP.SecurityPayload
@@ -1217,7 +1218,7 @@ defmodule SigilGuard.ToolGateway do
         action: :allow,
         confirmation_status: :accepted,
         confirmation_actor: claims["actor"],
-        confirmation_nonce_hash: hash_text(claims["nonce"]),
+        confirmation_nonce_hash: Crypto.sha256_hex(claims["nonce"]),
         confirmation_issued_at: claims["issued_at"],
         confirmation_expires_at: claims["expires_at"]
       })
@@ -1276,7 +1277,7 @@ defmodule SigilGuard.ToolGateway do
 
   defp deny(denial, payload, context) do
     {reason, denial_metadata} = denial_metadata(denial)
-    content_hash = hash_text(payload.text)
+    content_hash = Crypto.sha256_hex(payload.text)
 
     %Decision{
       verdict: :blocked,
@@ -1385,5 +1386,4 @@ defmodule SigilGuard.ToolGateway do
   defp result_payload(result, opts), do: SecurityPayload.for_gate(result, :result, opts)
 
   defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
-  defp hash_text(text), do: Base.encode16(:crypto.hash(:sha256, text), case: :lower)
 end

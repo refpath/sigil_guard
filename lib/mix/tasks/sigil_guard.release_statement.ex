@@ -128,7 +128,7 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatement do
   defp artifact(path) do
     case File.read(path) do
       {:ok, bytes} ->
-        {:ok, %{"name" => Path.basename(path), "sha256" => sha256_hex(bytes)}}
+        {:ok, %{"name" => Path.basename(path), "sha256" => SigilGuard.Crypto.sha256_hex(bytes)}}
 
       {:error, reason} ->
         {:error, {reason, path}}
@@ -171,5 +171,4 @@ defmodule Mix.Tasks.SigilGuard.ReleaseStatement do
 
   defp project_app, do: to_string(Mix.Project.config()[:app])
   defp project_version, do: Mix.Project.config()[:version]
-  defp sha256_hex(data), do: Base.encode16(:crypto.hash(:sha256, data), case: :lower)
 end

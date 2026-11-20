@@ -31,6 +31,7 @@ defmodule SigilGuard.RepoPolicy do
   preflight boundary that makes repo modification authority explicit.
   """
 
+  alias SigilGuard.Crypto
   alias SigilGuard.RepoPolicy.Decision
 
   @version 1
@@ -280,7 +281,7 @@ defmodule SigilGuard.RepoPolicy do
   def digest(%__MODULE__{} = policy) do
     policy
     |> canonical_bytes()
-    |> sha256_hex()
+    |> Crypto.sha256_hex()
   end
 
   @doc """
@@ -1041,7 +1042,7 @@ defmodule SigilGuard.RepoPolicy do
     }
     |> canonical_iodata()
     |> IO.iodata_to_binary()
-    |> sha256_hex()
+    |> Crypto.sha256_hex()
   end
 
   defp canonical_map(%__MODULE__{} = policy) do
@@ -1064,6 +1065,4 @@ defmodule SigilGuard.RepoPolicy do
   end
 
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
-
-  defp sha256_hex(data), do: Base.encode16(:crypto.hash(:sha256, data), case: :lower)
 end

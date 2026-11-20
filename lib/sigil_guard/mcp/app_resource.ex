@@ -130,7 +130,7 @@ defmodule SigilGuard.MCP.AppResource do
          true <- mime_type == @mime_type,
          {:ok, content} <- resource_content(resource),
          :ok <- validate_content(content, opts),
-         sha256 <- sha256_hex(content),
+         sha256 <- SigilGuard.Crypto.sha256_hex(content),
          :ok <- validate_digest(sha256, opts),
          {:ok, csp, permissions, domain, prefers_border} <- ui_security_metadata(resource),
          :ok <- validate_csp(csp, opts),
@@ -223,7 +223,9 @@ defmodule SigilGuard.MCP.AppResource do
   defp validate_digest(actual, opts) do
     case Keyword.get(opts, :expected_sha256) do
       expected when is_binary(expected) ->
-        if secure_compare(actual, expected), do: :ok, else: {:error, :resource_digest_mismatch}
+        if SigilGuard.Crypto.secure_compare(actual, expected),
+          do: :ok,
+          else: {:error, :resource_digest_mismatch}
 
       nil ->
         if Keyword.get(opts, :require_digest, true),
@@ -445,8 +447,4 @@ defmodule SigilGuard.MCP.AppResource do
   defp valid_app_domain_allowlist?(domains) do
     string_list?(domains) and Enum.all?(domains, &valid_app_domain?/1)
   end
-
-  defp sha256_hex(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
-
-  defp secure_compare(left, right), do: :crypto.hash_equals(left, right)
 end

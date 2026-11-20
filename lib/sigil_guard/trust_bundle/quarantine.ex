@@ -154,7 +154,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
 
   defp bundle_digest(_), do: nil
 
-  defp digest(payload), do: Base.encode16(:crypto.hash(:sha256, payload), case: :lower)
+  defp digest(payload), do: SigilGuard.Crypto.sha256_hex(payload)
 
   defp sequence(%{sequence: sequence}) when is_integer(sequence) and sequence > 0, do: sequence
   defp sequence(%{document: %{"sequence" => sequence}}), do: positive_integer(sequence)

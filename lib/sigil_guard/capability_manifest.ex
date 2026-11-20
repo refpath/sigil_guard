@@ -30,6 +30,7 @@ defmodule SigilGuard.CapabilityManifest do
 
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Crypto
 
   @manifest_format "sigil_guard_capability_manifest/v2"
   @sha256_regex ~r/\A[0-9a-f]{64}\z/
@@ -715,7 +716,7 @@ defmodule SigilGuard.CapabilityManifest do
 
   defp digest_preimage(preimage) do
     case JCS.encode(preimage) do
-      {:ok, canonical} -> {:ok, sha256_hex(canonical)}
+      {:ok, canonical} -> {:ok, Crypto.sha256_hex(canonical)}
       {:error, :unsupported_number_range} -> {:error, :unsupported_number_range}
       {:error, _} -> {:error, :invalid_manifest}
     end
@@ -737,19 +738,19 @@ defmodule SigilGuard.CapabilityManifest do
 
   defp sha256_jcs(value) do
     case JCS.encode(value) do
-      {:ok, canonical} -> {:ok, sha256_hex(canonical)}
+      {:ok, canonical} -> {:ok, Crypto.sha256_hex(canonical)}
       {:error, :unsupported_number_range} -> {:error, :unsupported_number_range}
       {:error, _} -> {:error, :invalid_manifest}
     end
   end
 
   defp sha256_bytes(value) when is_binary(value) do
-    if String.valid?(value), do: {:ok, sha256_hex(value)}, else: {:error, :invalid_manifest}
+    if String.valid?(value),
+      do: {:ok, Crypto.sha256_hex(value)},
+      else: {:error, :invalid_manifest}
   end
 
   defp sha256_bytes(_), do: {:error, :invalid_manifest}
-
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 
   defp suspicious_params(schema) do
     schema

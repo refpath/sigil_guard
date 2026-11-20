@@ -34,6 +34,7 @@ defmodule SigilGuard.Confirmation do
 
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Context
+  alias SigilGuard.Crypto
   alias SigilGuard.Decision
   alias SigilGuard.ReplayStore
 
@@ -75,8 +76,7 @@ defmodule SigilGuard.Confirmation do
       digest =
         %{"context" => Map.from_struct(context), "payload" => payload}
         |> canonical_bytes()
-        |> then(&:crypto.hash(:sha256, &1))
-        |> Base.encode16(case: :lower)
+        |> Crypto.sha256_hex()
 
       {:ok, digest}
     end
@@ -224,7 +224,7 @@ defmodule SigilGuard.Confirmation do
   # `body` is the canonical encoding of the claims: `decode_token/1` refuses
   # any other bytes.
   defp verify_signature(body, signature, key) do
-    if secure_compare(sign_bytes(body, key), signature) do
+    if Crypto.secure_compare(sign_bytes(body, key), signature) do
       :ok
     else
       {:error, :invalid_signature}
@@ -232,7 +232,9 @@ defmodule SigilGuard.Confirmation do
   end
 
   defp validate_canonical_body(body, claims) do
-    if secure_compare(body, canonical_bytes(claims)), do: :ok, else: {:error, :invalid_token}
+    if Crypto.secure_compare(body, canonical_bytes(claims)),
+      do: :ok,
+      else: {:error, :invalid_token}
   end
 
   defp sign_bytes(bytes, key), do: :crypto.mac(:hmac, :sha256, key, bytes)
@@ -463,10 +465,4 @@ defmodule SigilGuard.Confirmation do
   end
 
   defp canonical_iodata(value), do: SigilGuard.Canonical.LegacyJSON.encode(value)
-
-  defp secure_compare(a, b) when is_binary(a) and is_binary(b) do
-    byte_size(a) == byte_size(b) and :crypto.hash_equals(a, b)
-  end
-
-  defp secure_compare(_, _), do: false
 end

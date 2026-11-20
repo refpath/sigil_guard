@@ -13,6 +13,7 @@ defmodule SigilGuard.Audit.Export do
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Proof
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Crypto
 
   @kind "sigil_guard.audit.export"
   @version 1
@@ -137,8 +138,7 @@ defmodule SigilGuard.Audit.Export do
   def digest(export) when is_map(export) do
     export
     |> canonical_bytes()
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
+    |> Crypto.sha256_hex()
   end
 
   defp put_checkpoint_anchor(checkpoint_opts, opts) do

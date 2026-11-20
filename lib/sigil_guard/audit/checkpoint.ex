@@ -22,6 +22,7 @@ defmodule SigilGuard.Audit.Checkpoint do
 
   alias SigilGuard.Attestation.Statement
   alias SigilGuard.Audit
+  alias SigilGuard.Crypto
 
   @kind "sigil_guard.audit.checkpoint"
   @version 1
@@ -514,7 +515,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp validate_signature_digest(digest, claimed_digest) do
-    if secure_compare(digest, claimed_digest) do
+    if Crypto.secure_compare(digest, claimed_digest) do
       :ok
     else
       {:error, :digest_mismatch}
@@ -669,8 +670,7 @@ defmodule SigilGuard.Audit.Checkpoint do
 
   defp digest_canonical_bytes(canonical) do
     canonical
-    |> then(&:crypto.hash(:sha256, &1))
-    |> Base.encode16(case: :lower)
+    |> Crypto.sha256_hex()
   end
 
   defp field(map, key) when is_map(map) do
@@ -684,10 +684,4 @@ defmodule SigilGuard.Audit.Checkpoint do
     DateTime.utc_now(:millisecond)
     |> DateTime.to_iso8601()
   end
-
-  defp secure_compare(a, b) when is_binary(a) and is_binary(b) do
-    byte_size(a) === byte_size(b) and :crypto.hash_equals(a, b)
-  end
-
-  defp secure_compare(_, _), do: false
 end

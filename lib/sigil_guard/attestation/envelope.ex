@@ -179,7 +179,7 @@ defmodule SigilGuard.Attestation.Envelope do
   @spec keyid(binary()) :: String.t()
   def keyid(public_key)
       when is_binary(public_key) and byte_size(public_key) == @ed25519_public_key_bytes do
-    "sha256:" <> Base.encode16(:crypto.hash(:sha256, public_key), case: :lower)
+    "sha256:" <> SigilGuard.Crypto.sha256_hex(public_key)
   end
 
   defp sign_all([], _, signatures), do: {:ok, Enum.reverse(signatures)}

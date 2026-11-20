@@ -52,6 +52,7 @@ defmodule SigilGuard.AgentCard do
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Attestation.Envelope
   alias SigilGuard.Canonical.JCS
+  alias SigilGuard.Crypto
   alias SigilGuard.Telemetry
   alias SigilGuard.TrustBundle
 
@@ -142,7 +143,7 @@ defmodule SigilGuard.AgentCard do
   def digest(card) when is_map(card) do
     with {:ok, card} <- new(card),
          {:ok, canonical} <- encode_card(card) do
-      {:ok, sha256_hex(canonical)}
+      {:ok, Crypto.sha256_hex(canonical)}
     end
   end
 
@@ -626,6 +627,4 @@ defmodule SigilGuard.AgentCard do
   end
 
   defp parse_timestamp(_), do: {:error, :invalid_agent_card}
-
-  defp sha256_hex(bytes), do: Base.encode16(:crypto.hash(:sha256, bytes), case: :lower)
 end
