@@ -8,11 +8,8 @@ defmodule SigilGuard.Canonical.JCS do
   must be carried as JSON strings by callers.
   """
 
-  import Bitwise
-
   @max_safe_integer 9_007_199_254_740_991
   @min_safe_integer -@max_safe_integer
-  @nonfinite_exponent 0x7FF
 
   @type error_reason :: :unsupported_number_range | :invalid_map
 
@@ -56,13 +53,8 @@ defmodule SigilGuard.Canonical.JCS do
     end
   end
 
-  defp encode_value(value) when is_float(value) do
-    if finite_float?(value) do
-      {:ok, encode_float(value)}
-    else
-      {:error, :unsupported_number_range}
-    end
-  end
+  # A BEAM float is always finite, so every float has an ECMAScript form.
+  defp encode_value(value) when is_float(value), do: {:ok, encode_float(value)}
 
   defp encode_value(value) when is_list(value) do
     encode_list(value, [])
@@ -179,12 +171,6 @@ defmodule SigilGuard.Canonical.JCS do
 
   defp encode_codepoint(codepoint), do: <<codepoint::utf8>>
 
-  defp finite_float?(value) do
-    <<bits::64>> = <<value::float-64>>
-    exponent = bits >>> 52 &&& 0x7FF
-    exponent != @nonfinite_exponent
-  end
-
   defp encode_float(value) do
     if value == 0.0 do
       "0"
@@ -195,6 +181,9 @@ defmodule SigilGuard.Canonical.JCS do
     end
   end
 
+  # Handles every shape `float_to_binary/2` can print, not only the ones the
+  # current OTP release chooses: where it switches to exponent notation is not
+  # part of its contract.
   defp ecmascript_float_string("-" <> raw), do: ["-", ecmascript_float_string(raw)]
 
   defp ecmascript_float_string(raw) do

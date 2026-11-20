@@ -119,17 +119,15 @@ defmodule SigilGuard.Config do
     with :ok <- reject_removed_keys(opts),
          :ok <- reject_unknown_keys(opts),
          :ok <- reject_legacy_values(opts),
-         {:ok, validated} <- NimbleOptions.validate(opts, @schema),
-         normalized <- normalize_validated_options(validated),
-         :ok <- validate_cross_options(normalized) do
-      normalized
+         {:ok, validated} when is_list(validated) <- NimbleOptions.validate(opts, @schema),
+         :ok <- validate_cross_options(validated) do
+      validated
     else
       {:error, %SigilGuard.ConfigError{} = error} ->
         raise error
 
       {:error, %NimbleOptions.ValidationError{} = error} ->
-        key = validation_key(error)
-        raise SigilGuard.ConfigError.new(key, validation_reason(error), error.message)
+        raise SigilGuard.ConfigError.new(validation_key(error), :invalid_config, error.message)
     end
   end
 
@@ -258,14 +256,5 @@ defmodule SigilGuard.Config do
     end
   end
 
-  defp normalize_validated_options(validated) when is_map(validated), do: Map.to_list(validated)
-  defp normalize_validated_options(validated), do: validated
-
   defp validation_key(%NimbleOptions.ValidationError{key: key}) when is_atom(key), do: key
-
-  defp validation_reason(%NimbleOptions.ValidationError{keys_path: [key | _]}) do
-    if key in @schema_keys, do: :invalid_config, else: :unknown_config_key
-  end
-
-  defp validation_reason(_), do: :invalid_config
 end

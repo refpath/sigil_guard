@@ -81,6 +81,26 @@ defmodule SigilGuard.Audit.WitnessTest do
                {:ok, %{verified_keyids: sorted(ctx.keys)}}
     end
 
+    test "malformed threshold arguments are refused, not raised", ctx do
+      {:ok, cosigned} = Witness.cosign(ctx.envelope, Witness1)
+
+      for envelope <- ["envelope", nil, 0, [cosigned]] do
+        assert Witness.verify_threshold(envelope, ctx.keys, 1) == {:error, :invalid_envelope}
+      end
+
+      for keys <- [nil, [], "keys", ~U[2026-11-19 12:00:00Z]] do
+        assert Witness.verify_threshold(cosigned, keys, 1) ==
+                 {:error, :witness_threshold_not_met}
+      end
+
+      for threshold <- [0, -1, 1.0, "1", nil] do
+        assert Witness.verify_threshold(cosigned, ctx.keys, threshold) ==
+                 {:error, :witness_threshold_not_met}
+      end
+
+      assert {:ok, %{verified_keyids: [_]}} = Witness.verify_threshold(cosigned, ctx.keys, 1)
+    end
+
     test "a key id already present fails :duplicate_keyid", ctx do
       {:ok, cosigned} = Witness.cosign(ctx.envelope, Witness1)
       assert Witness.cosign(cosigned, Witness1) == {:error, :duplicate_keyid}

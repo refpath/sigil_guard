@@ -15,9 +15,13 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   alias SigilGuard.Attestation
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Attestation.Envelope
+  alias SigilGuard.Audit.Anchor
+  alias SigilGuard.Audit.Anchor.Receipt
   alias SigilGuard.Audit.Checkpoint
   alias SigilGuard.Audit.Export
   alias SigilGuard.Audit.Proof
+  alias SigilGuard.Audit.Witness
+  alias SigilGuard.AuditProofFixture
   alias SigilGuard.Boundary
   alias SigilGuard.BoundaryPolicy
   alias SigilGuard.BoundaryPolicy.File, as: PolicyFile
@@ -32,6 +36,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
   alias SigilGuard.ReplayStore
   alias SigilGuard.Runtime.Gate
   alias SigilGuard.TestMutation, as: Mutation
+  alias SigilGuard.TestSigner
   alias SigilGuard.ToolGateway
   alias SigilGuard.TrustBundle
 
@@ -327,6 +332,45 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
         assert outcome?(Export.verify(mutated_export, [], []))
         assert outcome?(Proof.verify_inclusion(mutated_inclusion, "aa", @digest))
         assert outcome?(Proof.verify_consistency(mutated_consistency, @digest, @digest))
+      end
+    end
+
+    property "a mutated anchor record, receipt, or witness envelope verifies or is refused" do
+      checkpoint = FixturePath.read_json!("audit_proofs/checkpoint_5.json")
+
+      anchor =
+        Anchor.create(checkpoint,
+          anchored_at: "2026-11-19T12:00:00.000Z",
+          uri: "s3://example-bucket/checkpoint-5"
+        )
+
+      receipt =
+        Receipt.sign(%{"anchor_digest" => @digest, "version" => 1}, TestSigner,
+          issuer: "did:web:receipts.example"
+        )
+
+      receipt_opts = [public_key_b64u: TestSigner.public_key_b64u()]
+      signer = AuditProofFixture.signer()
+      {:ok, payload} = JCS.encode(AuditProofFixture.statement())
+      {:ok, envelope} = Envelope.sign(payload, signer)
+      keys = %{Envelope.keyid(signer.public_key()) => signer.public_key()}
+
+      assert {:ok, _} = Anchor.verify(anchor, checkpoint)
+      assert Receipt.verify(receipt, receipt_opts) == :ok
+
+      check all(
+              mutated_anchor <- one_of([Mutation.mutant(anchor), Mutation.term()]),
+              mutated_checkpoint <- Mutation.mutant(checkpoint),
+              mutated_receipt <- one_of([Mutation.mutant(receipt), Mutation.term()]),
+              mutated_envelope <- one_of([Mutation.mutant(envelope), Mutation.term()]),
+              mutated_keys <- one_of([Mutation.mutant(keys), Mutation.term()])
+            ) do
+        assert outcome?(Anchor.verify(mutated_anchor, checkpoint))
+        assert outcome?(Anchor.verify(anchor, mutated_checkpoint))
+        assert outcome?(Receipt.verify(mutated_receipt, receipt_opts))
+        assert outcome?(Receipt.verify(receipt, public_keys: mutated_keys))
+        assert outcome?(Witness.verify_threshold(mutated_envelope, keys, 1))
+        assert outcome?(Witness.verify_threshold(envelope, mutated_keys, 1))
       end
     end
   end

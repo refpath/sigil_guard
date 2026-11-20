@@ -421,8 +421,6 @@ defmodule SigilGuard.RepoPolicy do
     end
   end
 
-  defp parse_line(_, error), do: {:halt, error}
-
   defp parse_default(line, policy) do
     [_, decision | _] = String.split(line)
 

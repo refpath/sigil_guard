@@ -79,8 +79,12 @@ defmodule SigilGuard.Audit.Witness do
   witness signatures are ignored. Fewer than `threshold` verified key ids
   produces `:witness_threshold_not_met`; a structurally invalid envelope
   surfaces the DSSE error. Returns the sorted verified key ids on success.
+
+  An envelope that is not a map is `:invalid_envelope`. A `witness_keys` value
+  that is not a map, or a threshold that is not a positive integer, can meet no
+  threshold and returns `:witness_threshold_not_met`.
   """
-  @spec verify_threshold(map(), %{optional(String.t()) => binary()}, pos_integer()) ::
+  @spec verify_threshold(term(), term(), term()) ::
           {:ok, %{verified_keyids: [String.t()]}}
           | {:error,
              :witness_threshold_not_met
@@ -89,7 +93,8 @@ defmodule SigilGuard.Audit.Witness do
              | :invalid_base64
              | :duplicate_keyid}
   def verify_threshold(envelope, witness_keys, threshold)
-      when is_map(envelope) and is_map(witness_keys) and is_integer(threshold) and threshold >= 1 do
+      when is_map(envelope) and is_map(witness_keys) and not is_struct(witness_keys) and
+             is_integer(threshold) and threshold >= 1 do
     case structural_check(Envelope.verify(envelope, witness_keys)) do
       :ok ->
         verified = verified_keyids(envelope, witness_keys)
@@ -104,6 +109,11 @@ defmodule SigilGuard.Audit.Witness do
         {:error, reason}
     end
   end
+
+  def verify_threshold(envelope, _, _) when is_map(envelope),
+    do: {:error, :witness_threshold_not_met}
+
+  def verify_threshold(_, _, _), do: {:error, :invalid_envelope}
 
   defp verify_previous(_, nil), do: :ok
 

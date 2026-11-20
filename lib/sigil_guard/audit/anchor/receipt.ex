@@ -179,20 +179,11 @@ defmodule SigilGuard.Audit.Anchor.Receipt do
   end
 
   defp public_key_source(public_keys, issuer, opts) do
-    case fetch_issuer_public_key(public_keys, issuer) do
+    case Map.fetch(public_keys, issuer) do
       {:ok, value} when is_binary(value) -> {:ok, value}
       {:ok, _} -> {:error, :invalid_key}
       :error -> fallback_public_key(opts)
     end
-  end
-
-  defp fetch_issuer_public_key(public_keys, issuer) do
-    Enum.reduce_while([issuer, to_string(issuer)], :error, fn key, :error ->
-      case Map.fetch(public_keys, key) do
-        {:ok, value} -> {:halt, {:ok, value}}
-        :error -> {:cont, :error}
-      end
-    end)
   end
 
   defp fallback_public_key(opts) do
