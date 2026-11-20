@@ -177,6 +177,8 @@ defmodule SigilGuard.BoundaryPolicy.MatchTest do
       assert matches?.("effect:write", ["delete"])
       assert matches?.("effect:execute", ["privileged"])
       assert matches?.("effect:execute", ["format_disk"])
+      assert matches?.("effect:execute", [123])
+      assert matches?.("effect:network", "network")
       assert matches?.("effect:read", [:read])
 
       refute matches?.("effect:write", ["read"])

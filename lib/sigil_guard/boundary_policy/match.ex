@@ -26,15 +26,13 @@ defmodule SigilGuard.BoundaryPolicy.Match do
   }
 
   @doc false
-  @spec effect_classes(term()) :: [:read | :write | :execute | :network]
+  @spec effect_classes([term()]) :: [:read | :write | :execute | :network]
   def effect_classes(effects) when is_list(effects) do
     effects
     |> Enum.map(&class_of/1)
     |> Enum.reject(&is_nil/1)
     |> Enum.uniq()
   end
-
-  def effect_classes(_), do: []
 
   defp class_of(effect) when is_binary(effect), do: Map.get(@class_of, effect, :execute)
   defp class_of(effect) when is_atom(effect), do: class_of(Atom.to_string(effect))
