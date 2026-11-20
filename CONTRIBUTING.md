@@ -1,6 +1,6 @@
-# Contributing to SigilGuard
+# Contributing To SigilGuard
 
-## Getting Started
+## Setup
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/sigil_guard.git`
@@ -20,15 +20,16 @@ mix bench          # Run benchmarks
 
 ## Code Quality
 
-Before submitting a PR, run `./bin/check`. It bootstraps the locked dependency
-graph and enforces every required check, including the production package build.
-The focused commands below remain useful while iterating:
+Before you open a pull request, run `./bin/check`. It bootstraps the locked
+dependency graph and enforces every required check, including the production
+package build. The focused commands below are faster while iterating:
 
-- [ ] All tests pass: `mix test`
+- [ ] Tests cover new behavior and pass: `mix test`
 - [ ] Code is formatted: `mix format`
 - [ ] Credo passes: `mix credo --strict`
 - [ ] Dialyzer passes: `mix dialyzer`
 - [ ] Documentation is updated
+- [ ] The pull request description says what changed and why
 
 ## Commit Messages
 
@@ -61,13 +62,6 @@ the Hex registry download byte for byte. Before any release, administrators
 must complete the tag-ruleset, `hex-publish` protection, environment-secret,
 and `main` protection checklist in `guides/release-and-anchoring.md`; release
 verification rejects an unprotected tag.
-
-## Pull Request Process
-
-1. Ensure your code follows the project style
-2. Update documentation as needed
-3. Add tests for new functionality
-4. Submit a PR with a clear description
 
 ## Questions
 

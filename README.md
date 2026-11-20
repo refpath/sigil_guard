@@ -33,7 +33,7 @@ probabilistic. SigilGuard is the deterministic layer underneath: signed trust
 material, capability manifests pinned by digest, source-to-sink policy, and
 human-in-the-loop confirmation bound to the exact action.
 
-## Why embedded
+## Why Embedded
 
 MCP security is often a proxy, a gateway, or a cloud scanner in the request
 path: a separate service with its own latency, operations, and trust boundary.
@@ -273,7 +273,7 @@ confirmed =
 context, and the manifest digest, and it is consumed on first use: a second
 request with the same token is blocked.
 
-### Physical-effect requests
+### Physical-Effect Requests
 
 Guard a request that moves a robot or drives a machine with
 `effect_binding: :required`. The request carries a closed binding record that
@@ -281,9 +281,9 @@ names its operation, target, artifacts, and dispatch window, and
 `SigilGuard.EffectAuthority.admit/5` compares that record with facts the host
 reads immediately before dispatch. The host owns the durable effect ledger and
 the target protocol. See the
-[Physical-effect requests](guides/physical-effects.md) guide.
+[Physical-Effect Requests](guides/physical-effects.md) guide.
 
-### MCP v2 (`2026-07-28`) and MCP Apps
+### MCP v2 (`2026-07-28`) And MCP Apps
 
 SigilGuard does not negotiate MCP or own a transport. A host adapter selects
 MCP v2 response behavior with `protocol_version: "2026-07-28"` or supplies the
@@ -438,7 +438,8 @@ The full gate fetches the locked dependency graph, checks the production build
 and Hex package, and then enforces coverage at or above 95% plus the
 repository's security, documentation, type, and migration checks. Threat-model
 tests for every mitigation and detection claim live in
-`test/sigil_guard/threat_model/`.
+`test/sigil_guard/threat_model/`. Contribution rules are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Architecture
 
@@ -451,10 +452,6 @@ module topology, and the runtime, MCP, and audit-evidence flows, with diagrams.
 - [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 - [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 - [Historical upstream SIGIL repository](https://github.com/sigil-eu/sigil)
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
