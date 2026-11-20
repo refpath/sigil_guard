@@ -19,7 +19,14 @@ defmodule SigilGuard.Quarantine do
           sanitized_text: String.t() | nil
         }
 
-  @prefilter_pattern ~r/(instruction|exfiltrate|send|upload|post|system|developer|reveal|dump|print|repeat|extract|ask|prompt|request|collect|when|before|after|<!--|display|visibility|<script)/i
+  # A built-in indicator can only match text that contains one of these words.
+  # They are searched one at a time in an ASCII-lowercased copy, which is what a
+  # case-insensitive regular expression without the `u` flag matches. A regex
+  # alternation of the same words took four times as long on 1 KiB, and one
+  # compiled multi-word pattern would have to be cached in global state.
+  @prefilter_words ~w(instruction exfiltrate send upload post system developer reveal dump
+                      print repeat extract ask prompt request collect when before after <!--
+                      display visibility <script)
 
   # The built-in `poisoning` set is explicit; all other indicators are injection.
   @poisoning_indicator_ids [:tool_poisoning_directive]
@@ -100,10 +107,19 @@ defmodule SigilGuard.Quarantine do
   defp sanitized_text(text, _, []), do: text
   defp sanitized_text(text, active_indicators, _), do: sanitize(active_indicators, text)
 
+  defp prefilter_match?(text) do
+    lowercase = ascii_lowercase(text)
+    Enum.any?(@prefilter_words, &(:binary.match(lowercase, &1) != :nomatch))
+  end
+
+  defp ascii_lowercase(text) do
+    for <<byte <- text>>, into: <<>>, do: <<if(byte in ?A..?Z, do: byte + 32, else: byte)>>
+  end
+
   defp indicators_for(text, opts) do
     {active, custom?} = active_indicators(opts)
 
-    if custom? or Regex.match?(@prefilter_pattern, text) do
+    if custom? or prefilter_match?(text) do
       lowercase = String.downcase(text)
       Enum.filter(active, &prefilter_active?(&1, lowercase))
     else
