@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 322 / 324 tasks done (99.4%).** Milestones: 17 complete.
+**Overall: 324 / 325 tasks done (99.7%).** Milestones: 17 complete.
 **Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -84,8 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 10 | 12 | 83% | In progress |
-| — | **Total** | **322** | **324** | **99.4%** | 17 done |
+| M15 | Benchmarks and library conformance | 12 | 13 | 92% | In progress |
+| — | **Total** | **324** | **325** | **99.7%** | 17 done |
 
 ### Release Handoff
 
@@ -119,8 +119,8 @@ M14 records the requirements that a spec-to-code review on 2026-11-20 found
 unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
-library guidelines and anti-pattern guides. Two of its tasks need a quiet
-benchmark runner or a decision.
+library guidelines and anti-pattern guides. The baseline refresh needs a
+quiet benchmark runner.
 
 The table counts every milestone task (F through M15, including M7A) exactly
 once. The
@@ -3445,9 +3445,10 @@ traced every line no test executed.
   - Resolved: marketing language, filler and decorative formatting removed
     from the README, guides, notebooks and configuration comments.
 - [x] M15.09 Quarantine prefilter cost.
-  - Resolved: the prefilter searches words in an ASCII-lowercased copy
-    instead of running a regex alternation; `Quarantine.inspect/3` on 1 KiB
-    went from about 98 to 23 microseconds.
+  - Resolved: the prefilter searches its words in an ASCII-lowercased copy
+    with one compiled pattern kept in `:persistent_term`, instead of a regex
+    alternation; `Quarantine.inspect/3` on 1 KiB went from about 98 to 6.5
+    microseconds.
 - [ ] M15.10 Benchmark baseline refresh (`SP.15`).
   - AC: three full runs on one quiet runner with every scenario median
     within +/-5%; `bench/baseline.json` replaced in its own commit.
@@ -3460,15 +3461,29 @@ traced every line no test executed.
     `Protocol.UndefinedError`; a struct is now no manifest map and the
     request is blocked with `:unknown_manifest`. Test:
     `ToolGatewayCasesTest`.
-- [ ] M15.12 Remaining design-audit items.
-  - Open, each needing a decision: one boolean-option helper for every
-    switch (some read truthiness, some only `true`); a tagged-tuple
-    `LegacyJSON.encode/1` with `encode!/1` on top; a non-raising scan
-    variant for the gate and output contracts; the `Mix.Tasks.Sigil.*`
-    namespace; `@doc` and `@spec` beside `@impl` on behaviour
-    implementations; `TrustBundle.Cache.fetch/1`; passing hooks a projection
-    of the options; a behaviour for the scanner pipeline; and the 33-field
-    `CapabilityManifest` struct, which is a consumer contract.
+- [x] M15.12 Remaining design-audit items.
+  - Resolved in code: one switch reader, `SigilGuard.Options.flag/4`, strict
+    for non-booleans (S2); `LegacyJSON.encode/1` returns a result and
+    `encode!/1` raises on top, with no rescue in its callers (S4);
+    `Scanner.scan_result/2` for the gate and output contracts (S5); the
+    `mix sigil_guard.*` task names (S7); docs and specs on behaviour
+    implementations (S9); `TrustBundle.Cache.fetch/1` (S12); configuration
+    fetched by key (S14); the `SigilGuard.Scanner` pipeline callback (S15);
+    no `@doc false` public functions outside Mix tasks (S16); examples on
+    the entry points (S17); a typedoc on every type (S18); S19 to S23; one
+    home for the table names and the hook timeout (S25); shape checks
+    instead of rescues (S3).
+  - Decided, and recorded in the owning spec: the 33-field
+    `CapabilityManifest` struct stays until a major version (SP.03); hooks
+    keep receiving the option list unchanged (SP.04); `EffectAuthority.admit/5`
+    keeps its signature and the required `:max_fact_age_ms` (SP.19 PE.33);
+    `tool:*` matches no boundary without a tool name (SP.04); an empty
+    `:server` string counts as no server (SP.03).
+- [x] M15.13 Redacted results released in their original shape.
+  - AC: a result the gateway releases with `action: :redact` keeps its
+    content items and `structuredContent` with each string redacted.
+  - Resolved: it was released as the gate's scan projection. Tests:
+    `ToolGatewayCasesTest`, consumer assertions.
 
 ## Package verification maintenance
 

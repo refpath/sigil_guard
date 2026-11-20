@@ -4,7 +4,8 @@ defmodule SigilGuard.BoundaryPolicy.Match do
 
   A rule matches when every matcher key matches (AND); a matcher key matches
   when the input field equals one of the rule's values (OR). An absent matcher
-  key matches anything. `source`, `tool`, and `actor` accept `*`; `hits` and
+  key matches anything. `source`, `tool`, and `actor` accept `*`, which matches
+  any present value and never a missing one; `hits` and
   `indicator` use `none`/`any` over the categories present; `effect` intersects
   the tool's side-effect classes; `isolation` uses `absent` for a nil level.
 

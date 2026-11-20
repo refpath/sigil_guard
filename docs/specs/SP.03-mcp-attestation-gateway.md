@@ -93,6 +93,13 @@ sequenceDiagram
 This section is this spec's data model and the normative owner of the
 `manifest_digest` referenced by SP.01's Digest Computation section.
 
+`%SigilGuard.CapabilityManifest{}` has 33 fields, one more than the 32 at
+which the BEAM stores a map as a hash map instead of a flat map. The struct
+is a v3 consumer contract (`manifest.title_sha256` and its siblings are
+read by hosts), so the fields stay; nesting the seven `*_sha256` fields is a
+candidate for the next major version. The wire form, the preimage and the
+digest do not depend on the struct layout.
+
 ### Digest Field List (Normative)
 
 The preimage field list is exact and closed. Table order is canonical
@@ -641,7 +648,10 @@ never used for the lookup: it is the tool's own output, and taking the
 manifest from it would let a result choose its sandbox class. That name
 still enters the result context as before when the host context has no
 `tool` key. The lookup uses `:manifests`, `:trust_bundle`, and `:server` as
-for a request. A host context without a tool, no pinned manifest, an
+for a request. An empty `:server` string counts as no server everywhere:
+`guard_request/3` and `guard_result/3` then resolve a bundle manifest by tool
+name alone, and `verify_manifest/2`, which needs a server, returns
+`{:error, :unknown_manifest}`. A host context without a tool, no pinned manifest, an
 expired manifest, an invalid manifest, and a `{pinned, observed}` pair that
 fails verification all mean no manifest. None of them blocks the result,
 and `:require_manifest` has no effect.

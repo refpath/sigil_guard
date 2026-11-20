@@ -380,7 +380,12 @@ Each section appears at most once. Unknown sections, unknown matcher keys,
 unknown enum values, a duplicated matcher key within one rule, a duplicated
 `default`, or a missing/unknown version line fail with
 `{:error, :invalid_policy_file}`. Matcher values within one key OR together;
-matchers within one rule AND together; an absent key matches anything.
+matchers within one rule AND together; an absent key matches anything. The
+`*` of `source:`, `tool:` and `actor:` matches any value that is present: a
+boundary without a tool name matches no `tool:` matcher, `tool:*` included.
+`Runtime.Gate` always names a tool, so this matters only for a boundary a
+host passes to `BoundaryPolicy.evaluate/2` directly; a rule meant for every
+boundary leaves the key out.
 
 In `[rules]`, rule ids are `line_<n>`, where `n` is the 1-based file line
 number of the first physical line of the logical line. In `[repo]`, the repo
