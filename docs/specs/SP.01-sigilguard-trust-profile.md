@@ -442,10 +442,13 @@ no fallback default action name in v3.
 For `tool_request` and `tool_result` the preimage reads through the gate
 payload that the SP.03 gateways digest. That payload wraps the MCP message:
 its keys are `action`, `tool`, `text`, and `binding`, and `binding` is the
-projection `{"kind", "method", "protocol_version", "payload"}`. A map with
-exactly those four keys, whose `binding` has `kind` `request` or `result`, a
-`payload`, and no key outside the projection, is replaced by the message it
-stands for, in JSON-RPC shape. For a request that is
+projection `{"kind", "method", "protocol_version", "payload"}`. The gateway
+writes `null` for a `tool`, `action`, `method`, or `protocol_version` it
+does not have, and normalization drops null members, so the payload is
+recognized after normalization: a map that has `text` and `binding`, has no
+key outside the four, and whose `binding` has `kind` `request` or `result`,
+a `payload`, and no key outside the projection. Such a map is replaced by
+the message it stands for, in JSON-RPC shape. For a request that is
 `{"method": binding.method, "params": binding.payload}`; for a result it is
 an empty map, because the result preimage reads nothing from the message.
 The fields in the table are then read from that message. A gateway-built
@@ -1080,7 +1083,7 @@ atoms instead of inventing artifact-specific ones.
 | statement validation | `TrustProfileTest` | Unknown types, wrong profile/version, subject order violations fail with named atoms. A missing or empty `actor.id` or `verdict`, a missing or unparseable timestamp, and `issued_at >= expires_at` fail with `:invalid_payload`. |
 | statement content | `AttestationFromDecisionTest` | `from_decision/3` generates a nonce that can be consumed once, writes timestamps with three fractional digits for any clock precision, copies matched rules and checked evidence references from the decision, writes `released_sanitized` after a confirmed release, and accepts a text or list payload for `model_egress`. |
 | sign-time lifetime | `AttestationSignVerifyTest` | `sign/3` derives a missing `expires_at` from the TTL, keeps a stated one, refuses an inverted lifetime and a statement without an actor, writes a `DateTime` `:now` with millisecond precision, and writes `:nonce` only when it is a string. |
-| gateway action preimage | `Attestation.DigestTest`, `ToolGatewayTest` | The `tool_request` and `tool_result` preimages of a gate payload equal those of the raw message; different arguments give different action digests; a params member named `params` or `method` and a result member named `method` do not change the preimage; a map that is not exactly the wrapper is read as given. |
+| gateway action preimage | `Attestation.DigestTest`, `ToolGatewayTest` | The `tool_request` and `tool_result` preimages of a gate payload equal those of the raw message, also when the payload's `tool` is null; different arguments give different action digests; a params member named `params` or `method` and a result member named `method` do not change the preimage; a map outside the gate payload shape is read as given. |
 | legacy removal | `ConfigTest` + migration tests | Removed keys/APIs raise `SigilGuard.ConfigError`/`:legacy_contract_removed` naming `MIGRATING-1.0.md`. |
 
 ## Acceptance Criteria

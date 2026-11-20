@@ -742,7 +742,37 @@ defmodule SigilGuard.Attestation.DigestTest do
       assert preimage.(%{"content" => [], "method" => "tools/call"}) == plain
     end
 
-    test "only the exact gate payload shape is read as a projection" do
+    test "a gate payload whose tool or action is null is still read as a projection" do
+      # A request the message names no tool for; the host context does.
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"arguments" => %{"path" => "docs/a.md"}}
+      }
+
+      wrapper = SecurityPayload.for_gate(request, :request)
+
+      assert wrapper.tool == nil
+
+      assert {:ok, wrapped} = Digest.action_preimage(:tool_request, wrapper, @context)
+      assert {:ok, raw} = Digest.action_preimage(:tool_request, request, @context)
+
+      assert wrapped == raw
+      assert wrapped["arguments"] == %{"path" => "docs/a.md"}
+      assert wrapped["method"] == "tools/call"
+
+      other = put_in(request, ["params", "arguments", "path"], "docs/b.md")
+
+      refute Digest.action_digest(
+               :tool_request,
+               SecurityPayload.for_gate(other, :request),
+               @context
+             ) ==
+               Digest.action_digest(:tool_request, wrapper, @context)
+    end
+
+    test "only the gate payload shape is read as a projection" do
       projected = SecurityPayload.for_gate(call(%{"path" => "x"}), :request)
 
       # Outside the exact shape a null is application data and may be

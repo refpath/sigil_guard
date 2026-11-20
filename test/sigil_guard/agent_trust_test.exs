@@ -952,6 +952,21 @@ defmodule SigilGuard.AgentTrustTest do
       assert verify_response(envelope, rad, context: :not_a_context) == {:error, :digest_mismatch}
     end
 
+    test "a statement of another type is not a response" do
+      {:ok, request} =
+        AgentTrust.attest_agent_request(request_payload(), request_context(),
+          signer: Agent,
+          decision: decision(),
+          peer_card: card_envelope(),
+          trust_material: issuer_material(),
+          now: @now,
+          resolve: fn _ -> :medium end
+        )
+
+      assert verify_response(request, request_action_digest(request_payload()), []) ==
+               {:error, :invalid_payload}
+    end
+
     test "a payload that is not a map is refused, not skipped" do
       {envelope, _, rad} = signed_response()
 

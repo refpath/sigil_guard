@@ -36,7 +36,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   shape. Reading the params object in place let a member of that object
   named `params` or `method` be taken for the message's own, so a request
   could carry decoy arguments into the action digest. A result object's
-  `method` member no longer enters it either.
+  `method` member no longer enters it either. A gate payload whose tool or
+  action is null is read the same way.
 - `SigilGuard.Attestation.from_decision/3` and `sign/3` write timestamps
   with three fractional digits whatever the precision of `:now`. `sign/3`
   writes its `:nonce` option only when it is a string, so `nonce: false`

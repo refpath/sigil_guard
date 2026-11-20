@@ -844,8 +844,8 @@ defmodule SigilGuard.ToolGateway do
 
   # A result names no tool of its own. When the host's context does and a
   # current manifest is pinned for it, that manifest gives the sandbox matrix
-  # its classes and lets a result token bind it. Anything else is no manifest,
-  # as before: a result is never blocked for lacking one.
+  # its classes and lets a result token bind it. Anything else is no
+  # manifest: a result is never blocked for lacking one.
   defp result_capability(%Context{tool: tool}, opts) when is_binary(tool) do
     with {:ok, %CapabilityManifest{} = capability} <- resolve_manifest(tool, opts),
          :ok <- manifest_freshness(capability, opts) do

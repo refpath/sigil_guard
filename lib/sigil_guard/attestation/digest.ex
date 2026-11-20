@@ -286,6 +286,10 @@ defmodule SigilGuard.Attestation.Digest do
   # The message is rebuilt in its JSON-RPC shape instead of read in place. A
   # params object may hold members of any name, and one called `params` or
   # `method` would otherwise be taken for the message's own.
+  #
+  # Normalization has dropped the null members by now, so a gate payload is
+  # recognized by `binding` and `text`, which are never null, and by having
+  # no member outside the four.
   @gate_payload_keys ~w(action binding text tool)
   @binding_keys ~w(kind method payload protocol_version)
 
@@ -299,7 +303,7 @@ defmodule SigilGuard.Attestation.Digest do
   defp gate_message(payload), do: payload
 
   defp gate_payload?(payload, binding) do
-    Enum.sort(Map.keys(payload)) == @gate_payload_keys and
+    Map.has_key?(payload, "text") and Map.keys(payload) -- @gate_payload_keys == [] and
       Map.has_key?(binding, "payload") and Map.keys(binding) -- @binding_keys == []
   end
 

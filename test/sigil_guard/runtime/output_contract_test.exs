@@ -11,6 +11,18 @@ defmodule SigilGuard.Runtime.OutputContractTest do
 
   @secret "R7v9K2mQ4xZ8pL6n"
 
+  defmodule ThrowingPipeline do
+    @moduledoc false
+    @spec scan(term(), term(), term()) :: no_return()
+    def scan(_, _, _), do: throw(:pipeline_failed)
+  end
+
+  defmodule ExitingPipeline do
+    @moduledoc false
+    @spec scan(term(), term(), term()) :: no_return()
+    def scan(_, _, _), do: exit(:pipeline_failed)
+  end
+
   defp policy(contract_fields) do
     {:ok, file} =
       PolicyFile.parse("""
@@ -86,6 +98,11 @@ defmodule SigilGuard.Runtime.OutputContractTest do
 
       assert egress(%{"text" => "report"}, boundary_policy: policy("classes:structured")).action ==
                :allow
+
+      text = egress("report", boundary_policy: policy("classes:structured"))
+
+      assert text.verdict == :blocked
+      assert "contract.external.class" in Enum.map(text.matched_rules, & &1.rule_id)
     end
 
     test "a structured payload that passes the class check crosses unchanged" do
@@ -171,6 +188,11 @@ defmodule SigilGuard.Runtime.OutputContractTest do
 
       assert OutputContract.apply(contract, :external, text, text, patterns: :not_patterns) ==
                {:block, "contract.external.scan"}
+
+      for pipeline <- [__MODULE__.ThrowingPipeline, __MODULE__.ExitingPipeline] do
+        assert OutputContract.apply(contract, :external, text, text, pipeline: pipeline) ==
+                 {:block, "contract.external.scan"}
+      end
     end
 
     test "is silent without a policy file, a contract for the sink, or released text" do
