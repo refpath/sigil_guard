@@ -62,7 +62,7 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 325 / 326 tasks done (99.7%).** Milestones: 17 complete.
+**Overall: 325 / 327 tasks done (99.4%).** Milestones: 17 complete.
 **Current milestone: M15.**
 
 | # | Milestone | Done | Total | % | Status |
@@ -84,8 +84,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 13 | 14 | 93% | In progress |
-| — | **Total** | **325** | **326** | **99.7%** | 17 done |
+| M15 | Benchmarks and library conformance | 13 | 15 | 87% | In progress |
+| — | **Total** | **325** | **327** | **99.4%** | 17 done |
 
 ### Release Handoff
 
@@ -120,7 +120,8 @@ unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
 library guidelines and anti-pattern guides. The baseline refresh needs a
-quiet benchmark runner.
+quiet benchmark runner, and helper consolidation from the authorship audit
+remains (M15.15).
 
 The table counts every milestone task (F through M15, including M7A) exactly
 once. The
@@ -3490,6 +3491,28 @@ traced every line no test executed.
     accepted decision's action is `:quarantine`, so the release condition is
     the same. A refused token now records `deny_reason: :confirmation_failed`
     through `Base` too.
+- [ ] M15.15 Remaining authorship-audit consolidation.
+  - AC: each helper group below has one home, and the listed tests assert a
+    value instead of a shape.
+  - Done from the three audits of 2026-11-20: the security and correctness
+    defects (IPv6-embedded receipt hosts, a malformed `:policy`,
+    backslash traversal in repo patterns, improper rule lists, five
+    malformed-input paths), every factual drift in the published docs, the
+    prose rewrites, the vacuous and wrong-reason tests, the case-file
+    traces, renaming wrappers, contradicting module docs, the signature
+    metadata disagreement and the SHA-256 hex check.
+  - Open, code shape only, no behaviour change expected: the string-or-atom
+    field lookup (about 25 private copies), `maybe_put/3`, the canonical
+    encode-then-digest pairs, lenient base64 and Ed25519 key decoding, the
+    checkpoint and receipt signature-metadata functions, `timestamp/0`
+    (seven copies), the `:now` option reader (six copies with different
+    precision), strict UTC timestamp parsing, the low/medium/high scale
+    helpers, the policy-file path lookup in three modules, ETS
+    ensure-table, the ok-list traversal (about 20 hand-written
+    `reduce_while` loops), about 70 identity pass-through clauses, and the
+    duplicated test fixtures (signers, agent-trust and trust-bundle
+    helpers, audit chains). About 100 weaker test assertions the test audit
+    listed with a stronger form are not yet rewritten.
 - [x] M15.13 Redacted results released in their original shape.
   - AC: a result the gateway releases with `action: :redact` keeps its
     content items and `structuredContent` with each string redacted.
