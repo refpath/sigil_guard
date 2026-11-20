@@ -8,6 +8,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
 
   @typep canonical :: binary() | nonempty_list(list() | ?[ | ?] | ?{ | ?})
 
+  @doc false
   @spec encode(term()) :: {:ok, canonical()} | :error
   def encode(value) when is_map(value) and not is_struct(value) do
     with {:ok, pairs} <- canonical_pairs(value),
@@ -31,6 +32,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
 
   def encode(_), do: :error
 
+  @doc false
   @spec encode!(term()) :: canonical()
   def encode!(value) do
     case encode(value) do
@@ -39,6 +41,7 @@ defmodule SigilGuard.Canonical.LegacyJSON do
     end
   end
 
+  @doc false
   @spec valid?(term()) :: boolean()
   def valid?(value), do: encode(value) != :error
 

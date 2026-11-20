@@ -286,7 +286,9 @@ defmodule SigilGuard.ScannerTest do
             {"text", [pipeline: String], :invalid_pipeline},
             {"text", [pipeline: WrongHitsPipeline], :invalid_pipeline_result},
             {"text", [pipeline: RaisingPipeline], :pipeline_failed},
-            {"text", [patterns: [%{name: "no regex"}]], :pipeline_failed}
+            {"text", [patterns: [%{name: "no regex"}]], :pipeline_failed},
+            {"text", [patterns: [1 | 2]], :pipeline_failed},
+            {"text", [patterns: :not_a_list], :pipeline_failed}
           ] do
         assert Scanner.scan_result(text, opts) == {:error, reason}
       end

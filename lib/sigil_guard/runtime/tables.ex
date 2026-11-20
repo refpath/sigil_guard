@@ -5,18 +5,23 @@ defmodule SigilGuard.Runtime.Tables do
   # module reads its name here, and the runtime checks ownership of all of
   # them, so a name is written once.
 
+  @doc false
   @spec rates() :: :sigil_guard_rates
   def rates, do: :sigil_guard_rates
 
+  @doc false
   @spec replay() :: :sigil_guard_replay
   def replay, do: :sigil_guard_replay
 
+  @doc false
   @spec trust_bundle() :: :sigil_guard_trust_bundle
   def trust_bundle, do: :sigil_guard_trust_bundle
 
+  @doc false
   @spec trust_bundle_quarantine() :: :sigil_guard_trust_bundle_quarantine
   def trust_bundle_quarantine, do: :sigil_guard_trust_bundle_quarantine
 
+  @doc false
   @spec all() :: [
           :sigil_guard_rates
           | :sigil_guard_replay

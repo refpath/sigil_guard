@@ -5,6 +5,7 @@ defmodule SigilGuard.Config.Validators do
   # configuration and process start options. NimbleOptions calls them by name,
   # so they are public, and they live here to stay out of the documented API.
 
+  @doc false
   @spec trust_bundle_source(term()) :: {:ok, term()} | {:error, String.t()}
   def trust_bundle_source(:none), do: {:ok, :none}
   def trust_bundle_source({:file, path} = source) when is_binary(path), do: {:ok, source}
@@ -24,6 +25,7 @@ defmodule SigilGuard.Config.Validators do
     {:error, "expected :none, {:file, path}, {:priv, app, path}, {:map, map}, or {:binary, bin}"}
   end
 
+  @doc false
   @spec trust_mappings(term()) :: {:ok, term()} | {:error, String.t()}
   def trust_mappings(mappings) when is_list(mappings) do
     if Enum.all?(mappings, &valid_trust_mapping?/1) do
@@ -54,6 +56,7 @@ defmodule SigilGuard.Config.Validators do
 
   defp valid_mapping_pattern?(_), do: false
 
+  @doc false
   @spec ed25519_private_key(term()) :: {:ok, binary()} | {:error, String.t()}
   def ed25519_private_key(private_key) when is_binary(private_key), do: {:ok, private_key}
   def ed25519_private_key(_), do: {:error, "expected a binary Ed25519 seed"}

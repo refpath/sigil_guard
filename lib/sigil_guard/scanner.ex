@@ -229,7 +229,7 @@ defmodule SigilGuard.Scanner do
   end
 
   defp checked_hits({:ok, hits}, text) when is_list(hits) do
-    if Enum.all?(hits, &valid_hit?(&1, text)),
+    if not List.improper?(hits) and Enum.all?(hits, &valid_hit?(&1, text)),
       do: {:ok, hits},
       else: {:error, :invalid_pipeline_result, "scanner pipeline must return valid scan hits"}
   end
@@ -246,6 +246,11 @@ defmodule SigilGuard.Scanner do
 
   defp hit_count({:hit, hits}), do: length(hits)
   defp hit_count(_), do: 0
+
+  defp pattern_count(patterns) when is_list(patterns),
+    do: if(List.improper?(patterns), do: 0, else: length(patterns))
+
+  defp pattern_count(_), do: 0
 
   defp valid_hit?(
          %{
@@ -274,7 +279,7 @@ defmodule SigilGuard.Scanner do
 
   defp telemetry_metadata(patterns, opts) do
     %{
-      patterns_checked: if(is_list(patterns), do: length(patterns), else: 0),
+      patterns_checked: pattern_count(patterns),
       pipeline: pipeline_name(Keyword.get(opts, :pipeline, :staged)),
       scanner_validate: SigilGuard.Options.flag(opts, :validate, true, true)
     }
