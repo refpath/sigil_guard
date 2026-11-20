@@ -184,11 +184,10 @@ defmodule SigilGuard.Attestation do
 
   def verify(envelope, trust_material, opts)
       when is_map(trust_material) and map_size(trust_material) > 0 do
-    with {:ok, payload} <- unsigned_payload(envelope),
+    with {:ok, %{payload: payload}} <- Envelope.decode(envelope),
          :ok <- expected_payload_sha256(payload, opts),
          {:ok, authorized, resolver} <- Issuers.resolve(trust_material, @issuer_role, opts),
          {:ok, verified_payload} <- Issuers.verify_envelope(envelope, authorized, resolver),
-         :ok <- require_same_payload(payload, verified_payload),
          {:ok, statement} <- decode_statement(verified_payload),
          {:ok, statement} <- TrustProfile.validate(statement),
          :ok <- required_manifest(statement, opts),
@@ -746,81 +745,6 @@ defmodule SigilGuard.Attestation do
   defp maybe_put(map, _, value) when is_map(value) and map_size(value) == 0, do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  defp unsigned_payload(envelope) do
-    with {:ok, fields} <- envelope_fields(envelope),
-         :ok <- require_payload_type(fields.payload_type),
-         {:ok, signatures} <- signature_fields(fields.signatures),
-         :ok <- reject_duplicate_keyids(signatures) do
-      decode_base64(fields.payload)
-    end
-  end
-
-  defp envelope_fields(%{} = envelope) do
-    payload = field(envelope, "payload")
-    payload_type = field(envelope, "payloadType")
-    signatures = field(envelope, "signatures")
-
-    if is_binary(payload) and is_binary(payload_type) and is_list(signatures) and
-         signatures != [] do
-      {:ok, %{payload: payload, payload_type: payload_type, signatures: signatures}}
-    else
-      {:error, :invalid_envelope}
-    end
-  end
-
-  defp envelope_fields(_), do: {:error, :invalid_envelope}
-
-  defp field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, atom_key(key))
-    end
-  end
-
-  defp atom_key("keyid"), do: :keyid
-  defp atom_key("payload"), do: :payload
-  defp atom_key("payloadType"), do: :payloadType
-  defp atom_key("sig"), do: :sig
-  defp atom_key("signatures"), do: :signatures
-
-  defp require_payload_type(type) do
-    if type == Envelope.payload_type(), do: :ok, else: {:error, :invalid_payload_type}
-  end
-
-  defp signature_fields(signatures) do
-    result =
-      Enum.reduce_while(signatures, {:ok, []}, fn signature, {:ok, parsed} ->
-        case signature_field(signature) do
-          {:ok, fields} -> {:cont, {:ok, [fields | parsed]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp signature_field(%{} = signature) do
-    keyid = field(signature, "keyid")
-    sig = field(signature, "sig")
-
-    if is_binary(keyid) and keyid != "" and is_binary(sig) do
-      {:ok, %{keyid: keyid, sig: sig}}
-    else
-      {:error, :invalid_envelope}
-    end
-  end
-
-  defp signature_field(_), do: {:error, :invalid_envelope}
-
-  defp reject_duplicate_keyids(signatures) do
-    keyids = Enum.map(signatures, & &1.keyid)
-
-    if Enum.uniq(keyids) == keyids, do: :ok, else: {:error, :duplicate_keyid}
-  end
-
   defp expected_payload_sha256(payload, opts) do
     case Keyword.fetch(opts, :expected_payload_sha256) do
       {:ok, expected} when is_binary(expected) ->
@@ -835,9 +759,6 @@ defmodule SigilGuard.Attestation do
         :ok
     end
   end
-
-  defp require_same_payload(payload, payload), do: :ok
-  defp require_same_payload(_, _), do: {:error, :pae_mismatch}
 
   defp decode_statement(payload) do
     case SigilGuard.Canonical.JSON.decode(payload) do
@@ -1057,15 +978,6 @@ defmodule SigilGuard.Attestation do
       {:ok, value}
     else
       {:error, :invalid_payload}
-    end
-  end
-
-  defp decode_base64(value) when is_binary(value) do
-    with :error <- Base.url_decode64(value, padding: false),
-         :error <- Base.url_decode64(value, padding: true),
-         :error <- Base.decode64(value, padding: false),
-         :error <- Base.decode64(value, padding: true) do
-      {:error, :invalid_base64}
     end
   end
 end
