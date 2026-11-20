@@ -174,6 +174,9 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
   defp validate_receipt_url_host(host, opts) do
     cond do
+      not String.valid?(host) ->
+        {:error, :unsafe_receipt_url}
+
       Keyword.get(opts, :allow_private_receipt_url, false) == true ->
         :ok
 
@@ -205,8 +208,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
   defp literal_ip?(host) do
     match?({:ok, _}, :inet.parse_address(String.to_charlist(host)))
-  rescue
-    ArgumentError -> false
   end
 
   defp private_receipt_host?(host) do
@@ -223,8 +224,6 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
       {:ok, address} -> private_ip_tuple?(address)
       {:error, _} -> false
     end
-  rescue
-    ArgumentError -> false
   end
 
   defp private_ip_tuple?({0, _, _, _}), do: true

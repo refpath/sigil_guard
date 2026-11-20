@@ -5,6 +5,21 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Confirmation.issue/5` and `verify/5` work at the `:inbound_user`
+  and `:outbound_model` phases. The gate returns confirm verdicts there, and
+  no token could be issued for them. Tokens at the other phases are unchanged.
+- A pattern that can match the empty string (`z*`) no longer makes the gate,
+  the stream and `scan_and_redact/2` raise. A match of no bytes is not a hit.
+- `SigilGuard.TrustBundle.verify/2` and `load/2` return an error for a
+  rotation chain entry that is not a map and for a `:genesis_root` that lists
+  a key id without a key. Both raised.
+- The HTTP anchor store refuses a receipt URL whose host is not valid UTF-8
+  with `:unsafe_receipt_url`. It raised.
+- A context or payload value of the shape `{:error, reason}` is refused by
+  the attestation digests like any other tuple. It was left out of the
+  digest, so a failed sandbox lookup was attested as no sandbox.
+- A suspicious-parameter confirmation over a request whose action digest
+  cannot be computed is a block, as on the gate's own confirm path.
 - The replay, rate and bundle tables are created by `SigilGuard.Runtime`
   only. A stateful call used to create a missing table in the calling
   process, where it vanished with that process: without a running runtime

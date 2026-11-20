@@ -62,14 +62,6 @@ defmodule SigilGuard.Attestation do
     "agent_response" => :agent_response
   }
 
-  @phase_statement_types %{
-    inbound_user: :model_ingress,
-    tool_request: :tool_request,
-    tool_result: :tool_result,
-    outbound_model: :model_egress,
-    repo_change: :repo_change
-  }
-
   @type payload :: map()
   @type envelope :: map()
   @type sign_error ::
@@ -405,7 +397,7 @@ defmodule SigilGuard.Attestation do
   defp decision_statement_type(context, opts) do
     case Keyword.fetch(opts, :statement_type) do
       {:ok, statement_type} -> normalize_statement_type(statement_type)
-      :error -> Map.fetch(@phase_statement_types, context.phase)
+      :error -> Digest.phase_statement_type(context.phase)
     end
   end
 

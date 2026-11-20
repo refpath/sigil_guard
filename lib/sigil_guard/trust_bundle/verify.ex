@@ -85,6 +85,10 @@ defmodule SigilGuard.TrustBundle.Verify do
     end
   end
 
+  # A rotation chain entry comes from the bundle document and may be any JSON
+  # value.
+  defp envelope_fields(_), do: {:error, :invalid_envelope}
+
   defp field(map, key) do
     case Map.fetch(map, key) do
       {:ok, value} -> value
@@ -287,7 +291,9 @@ defmodule SigilGuard.TrustBundle.Verify do
        })
        when is_integer(version) and version > 0 and is_integer(threshold) and threshold > 0 and
               is_list(keyids) and is_map(keys) do
-    {:ok, %{version: version, threshold: threshold, keyids: keyids, keys: keys}}
+    if Enum.all?(keyids, &is_binary(Map.get(keys, &1))),
+      do: {:ok, %{version: version, threshold: threshold, keyids: keyids, keys: keys}},
+      else: {:error, :invalid_bundle_format}
   end
 
   defp normalize_genesis_root(_), do: {:error, :invalid_bundle_format}

@@ -1216,30 +1216,43 @@ defmodule SigilGuard.ToolGateway do
   defp maybe_force_suspicious_confirmation(%Decision{} = decision, _, _, _, _), do: decision
 
   defp suspicious_confirmation(%Decision{} = decision, payload, context, capability) do
-    action_digest =
-      case Confirmation.fetch_action_digest(payload, context) do
-        {:ok, digest} -> digest
-        {:error, _} -> nil
-      end
-
     metadata =
       Map.merge(decision.audit_metadata, %{
-        verdict: :confirm,
-        action: :confirm,
         deny_reason: :suspicious_required_param,
         manifest_digest: capability.digest,
         manifest_name: capability.name,
-        suspicious_params: capability.suspicious_params,
-        action_digest: action_digest
+        suspicious_params: capability.suspicious_params
       })
 
-    %{
-      decision
-      | verdict: {:confirm, "suspicious_required_param"},
-        action: :confirm,
-        reason: "Capability manifest discloses suspicious required parameters",
-        audit_metadata: metadata
-    }
+    case Confirmation.fetch_action_digest(payload, context) do
+      {:ok, digest} ->
+        %{
+          decision
+          | verdict: {:confirm, "suspicious_required_param"},
+            action: :confirm,
+            reason: "Capability manifest discloses suspicious required parameters",
+            audit_metadata:
+              Map.merge(metadata, %{verdict: :confirm, action: :confirm, action_digest: digest})
+        }
+
+      # A token binds the action digest. Without one no token can answer the
+      # confirmation, so the request is blocked, as the gate does.
+      {:error, reason} ->
+        %{
+          decision
+          | verdict: :blocked,
+            action: :block,
+            effect: nil,
+            sanitized_text: nil,
+            reason: "Confirmation action digest could not be computed: #{reason}",
+            audit_metadata:
+              Map.merge(metadata, %{
+                verdict: :blocked,
+                action: :block,
+                action_digest_error: reason
+              })
+        }
+    end
   end
 
   defp maybe_apply_confirmation(

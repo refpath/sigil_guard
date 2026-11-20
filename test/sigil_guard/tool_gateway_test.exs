@@ -2872,4 +2872,20 @@ defmodule SigilGuard.ToolGatewayTest do
       :crypto.generate_key(:eddsa, :ed25519, @seed)
     end
   end
+
+  test "a suspicious-parameter confirmation over a request with no action digest is a block" do
+    request = put_in(request(), ["params", "arguments", "apiKey"], <<255, 254>>)
+
+    opts = [
+      manifests: %{"repo_file_write" => suspicious_manifest()},
+      require_manifest: true,
+      now: @now
+    ]
+
+    decision = ToolGateway.guard_request(request, sandbox_context(), opts)
+
+    assert decision.verdict == :blocked
+    assert decision.audit_metadata.deny_reason == :suspicious_required_param
+    assert decision.audit_metadata.action_digest_error == :invalid_payload
+  end
 end

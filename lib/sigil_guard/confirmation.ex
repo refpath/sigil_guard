@@ -399,7 +399,7 @@ defmodule SigilGuard.Confirmation do
 
   defp confirmation_digests(payload, context) do
     with {:ok, context} <- cast_context(context),
-         statement_type = context.phase,
+         {:ok, statement_type} <- statement_type(context.phase),
          {:ok, action_digest} <- fetch_action_digest(payload, context),
          {:ok, payload_digest} <- Digest.payload_digest(payload),
          {:ok, context_digest} <- Digest.context_digest(statement_type, context) do
@@ -411,9 +411,14 @@ defmodule SigilGuard.Confirmation do
        }}
     else
       {:error, :unsupported_number_range} -> {:error, :invalid_payload}
-      {:error, :unknown_statement_type} -> {:error, :invalid_payload}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  # The gate asks for confirmation at the model phases too, so a token binds
+  # the context under the statement type that phase is attested with.
+  defp statement_type(phase) do
+    with :error <- Digest.phase_statement_type(phase), do: {:error, :invalid_payload}
   end
 
   defp issue_manifest_digest(opts) do

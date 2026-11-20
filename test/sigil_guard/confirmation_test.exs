@@ -857,4 +857,25 @@ defmodule SigilGuard.ConfirmationTest do
   defp canonical_key(key) when is_atom(key), do: Atom.to_string(key)
   defp canonical_key(key) when is_binary(key), do: key
   defp canonical_key(key), do: to_string(key)
+
+  test "a confirm decision at a model phase gets a token bound to that phase" do
+    key = :crypto.hash(:sha256, "model-phase-key")
+
+    for phase <- [:inbound_user, :outbound_model] do
+      context = [phase: phase, trust_level: :low, actor: "agent-a"]
+      decision = SigilGuard.Runtime.Gate.evaluate("some text", context, risk_level: :medium)
+      other = Keyword.put(context, :phase, :tool_request)
+
+      assert {:confirm, _} = decision.verdict
+      assert {:ok, token} = SigilGuard.Confirmation.issue("some text", context, decision, key)
+
+      assert {:ok, _} =
+               SigilGuard.Confirmation.verify(token, "some text", context, key, consume: false)
+
+      refute match?(
+               {:ok, _},
+               SigilGuard.Confirmation.verify(token, "some text", other, key, consume: false)
+             )
+    end
+  end
 end

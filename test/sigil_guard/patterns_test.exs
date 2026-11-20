@@ -358,4 +358,20 @@ defmodule SigilGuard.PatternsTest do
       assert length(merged) == 1
     end
   end
+
+  test "a pattern that can match nothing produces no hit and no raise" do
+    empty = %{
+      name: "maybe_empty",
+      category: :secret,
+      regex: ~r/z*/,
+      severity: :low,
+      replacement_hint: "[Z]"
+    }
+
+    context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+
+    assert SigilGuard.scan("ab", patterns: [empty]) == {:ok, "ab"}
+    assert {:hit, [%{offset: 1, length: 2}]} = SigilGuard.scan("azzb", patterns: [empty])
+    assert SigilGuard.Runtime.Gate.evaluate("ab", context, patterns: [empty]).verdict == :allowed
+  end
 end

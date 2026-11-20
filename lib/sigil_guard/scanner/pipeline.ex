@@ -81,22 +81,22 @@ defmodule SigilGuard.Scanner.Pipeline do
   """
   @spec regex_candidates(String.t(), [Patterns.compiled_pattern()]) :: [candidate()]
   def regex_candidates(text, patterns) when is_binary(text) and is_list(patterns) do
-    Enum.flat_map(patterns, fn pattern ->
-      pattern.regex
-      |> Regex.scan(text, return: :index)
-      |> Enum.map(fn [{offset, length} | _] ->
-        {previous_byte, next_byte} = boundary_bytes(text, offset, length)
+    for pattern <- patterns,
+        [{offset, length} | _] <- Regex.scan(pattern.regex, text, return: :index),
+        # An expression that can match nothing (`z*`) matches at every
+        # position. A match of no bytes exposes no bytes and is not a hit.
+        length > 0 do
+      {previous_byte, next_byte} = boundary_bytes(text, offset, length)
 
-        %{
-          pattern: pattern,
-          match: binary_part(text, offset, length),
-          offset: offset,
-          length: length,
-          previous_byte: previous_byte,
-          next_byte: next_byte
-        }
-      end)
-    end)
+      %{
+        pattern: pattern,
+        match: binary_part(text, offset, length),
+        offset: offset,
+        length: length,
+        previous_byte: previous_byte,
+        next_byte: next_byte
+      }
+    end
   end
 
   defp valid_candidate?(candidate, opts) do

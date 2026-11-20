@@ -3,6 +3,8 @@ defmodule SigilGuard.Attestation.DigestTest do
 
   use ExUnit.Case, async: true
 
+  doctest SigilGuard.Attestation.Digest
+
   alias SigilGuard.Attestation
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Canonical.JCS
@@ -794,5 +796,12 @@ defmodule SigilGuard.Attestation.DigestTest do
         refute Map.has_key?(preimage, "arguments")
       end
     end
+  end
+
+  test "a context value that is an error tuple is refused, not left out" do
+    context = [phase: :tool_request, actor: "agent-a", sandbox_id: {:error, :down}]
+
+    assert SigilGuard.Attestation.Digest.context_digest(:tool_request, context) ==
+             {:error, :invalid_payload}
   end
 end

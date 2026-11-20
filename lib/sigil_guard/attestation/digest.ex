@@ -79,6 +79,34 @@ defmodule SigilGuard.Attestation.Digest do
   def payload_digest(_), do: {:error, :invalid_payload}
 
   @doc """
+  Return the statement type a `SigilGuard.Context` phase is digested under.
+
+  The two model phases have their own statement types; the other phases keep
+  their name.
+
+      iex> SigilGuard.Attestation.Digest.phase_statement_type(:inbound_user)
+      {:ok, :model_ingress}
+
+      iex> SigilGuard.Attestation.Digest.phase_statement_type(:tool_result)
+      {:ok, :tool_result}
+
+      iex> SigilGuard.Attestation.Digest.phase_statement_type(:session_start)
+      :error
+
+  """
+  @doc since: "1.1.0"
+  @spec phase_statement_type(term()) ::
+          {:ok, :model_ingress | :model_egress | :tool_request | :tool_result | :repo_change}
+          | :error
+  def phase_statement_type(:inbound_user), do: {:ok, :model_ingress}
+  def phase_statement_type(:outbound_model), do: {:ok, :model_egress}
+
+  def phase_statement_type(phase) when phase in [:tool_request, :tool_result, :repo_change],
+    do: {:ok, phase}
+
+  def phase_statement_type(_), do: :error
+
+  @doc """
   Compute the shared attestation context digest for a statement type.
   """
   @spec context_digest(statement_type(), Context.t() | map() | keyword()) ::
@@ -652,7 +680,6 @@ defmodule SigilGuard.Attestation.Digest do
   end
 
   defp maybe_put(map, _, nil), do: map
-  defp maybe_put(map, _, {:error, _}), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp ok(value), do: {:ok, value}

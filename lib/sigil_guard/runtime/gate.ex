@@ -664,7 +664,7 @@ defmodule SigilGuard.Runtime.Gate do
   defp boundary_fact(key, value), do: %{key => value}
 
   defp boundary_context_digest(context) do
-    statement_type = boundary_statement_type(context.phase)
+    {:ok, statement_type} = Digest.phase_statement_type(context.phase)
 
     evidence_digest(Digest.context_digest(statement_type, context), "context_digest_error:")
   end
@@ -673,11 +673,6 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp evidence_digest({:error, reason}, label),
     do: derived_digest(label <> Atom.to_string(reason))
-
-  defp boundary_statement_type(:inbound_user), do: :model_ingress
-  defp boundary_statement_type(:outbound_model), do: :model_egress
-  defp boundary_statement_type(:repo_change), do: :repo_change
-  defp boundary_statement_type(phase), do: phase
 
   defp boundary_opts(state) do
     [
