@@ -5,6 +5,12 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Quarantine indicators carry a `:category` (`:injection` or `:poisoning`, the
+  set that supplied them). A boundary policy `indicator:` matcher compares that
+  value, so it never matched an indicator the library produced: through
+  `SigilGuard.Runtime.Gate`, `indicator:injection`, `indicator:poisoning` and
+  `indicator:any` rules were dead and `indicator:none` always matched. They
+  now behave as SP.04 describes.
 - **Security.** The token-passthrough check (`:token_passthrough_denied`, an
   `:audience` that names `:self_resource`) ran only when a capability manifest
   resolved. `SigilGuard.ToolGateway.guard_request/3` now applies it to every

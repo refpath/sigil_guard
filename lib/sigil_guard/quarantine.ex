@@ -90,7 +90,7 @@ defmodule SigilGuard.Quarantine do
   defp find_indicators(text, active_indicators) do
     Enum.flat_map(active_indicators, fn indicator ->
       if Regex.match?(indicator.pattern, text) do
-        [Map.take(indicator, [:id, :severity])]
+        [Map.take(indicator, [:id, :severity, :category])]
       else
         []
       end
@@ -117,15 +117,19 @@ defmodule SigilGuard.Quarantine do
   defp active_indicators(opts) do
     case Keyword.get(opts, :indicator_sets) do
       %{} = sets ->
-        active =
-          Map.get(sets, :injection, built_in_indicators(:injection)) ++
-            Map.get(sets, :poisoning, built_in_indicators(:poisoning))
-
-        {active, true}
+        {categorized(sets, :injection) ++ categorized(sets, :poisoning), true}
 
       _ ->
         {indicators(), false}
     end
+  end
+
+  # The set an indicator comes from is its category, the value a boundary
+  # policy `indicator:` matcher compares.
+  defp categorized(sets, set) do
+    sets
+    |> Map.get(set, built_in_indicators(set))
+    |> Enum.map(&Map.put(&1, :category, set))
   end
 
   # Regexes nested inside collections cannot be injected from module
@@ -135,13 +139,18 @@ defmodule SigilGuard.Quarantine do
   defp indicators do
     case :persistent_term.get({__MODULE__, :indicators}, :undefined) do
       :undefined ->
-        indicators = built_in_indicator_list()
+        indicators = Enum.map(built_in_indicator_list(), &put_built_in_category/1)
         :persistent_term.put({__MODULE__, :indicators}, indicators)
         indicators
 
       indicators ->
         indicators
     end
+  end
+
+  defp put_built_in_category(%{id: id} = indicator) do
+    category = if id in @poisoning_indicator_ids, do: :poisoning, else: :injection
+    Map.put(indicator, :category, category)
   end
 
   defp built_in_indicator_list do
