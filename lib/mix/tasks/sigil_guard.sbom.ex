@@ -400,7 +400,11 @@ defmodule Mix.Tasks.SigilGuard.Sbom do
          {:ok, licenses} <- metadata_licenses(metadata) do
       {:ok, Enum.join(licenses, " OR ")}
     else
-      _ -> {:error, {:invalid_runtime_dependency_metadata, package}}
+      {:error, reason} when is_atom(reason) ->
+        {:error, {:unreadable_runtime_dependency_metadata, package, reason}}
+
+      _ ->
+        {:error, {:invalid_runtime_dependency_metadata, package}}
     end
   end
 

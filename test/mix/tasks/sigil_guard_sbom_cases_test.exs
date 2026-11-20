@@ -180,8 +180,21 @@ defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
     end
 
     test "rejects fetched package metadata that is absent, differs from the lock, or names no licence" do
+      lock =
+        write_lock(
+          ~s(%{\n  "jason": {:hex, :jason, "1.4.5", "aa", [:mix], [], "hexpm", "bb"},\n}\n)
+        )
+
+      with_config(
+        [{:jason, "~> 1.4"}],
+        [lockfile: lock, deps_path: deps_with_metadata(nil)],
+        fn ->
+          assert Sbom.verify_document(%{}) ==
+                   {:error, {:unreadable_runtime_dependency_metadata, :jason, :enoent}}
+        end
+      )
+
       for metadata <- [
-            nil,
             ~s({<<"version">>,<<"9.9.9">>}.\n{<<"licenses">>,[<<"Apache-2.0">>]}.\n),
             ~s({<<"licenses">>,[<<"Apache-2.0">>]}.\n),
             ~s({<<"version">>,145}.\n{<<"licenses">>,[<<"Apache-2.0">>]}.\n),

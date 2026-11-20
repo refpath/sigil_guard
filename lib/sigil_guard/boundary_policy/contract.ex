@@ -301,23 +301,14 @@ defmodule SigilGuard.BoundaryPolicy.Contract do
         {:ok, nil}
 
       {:ok, value} ->
-        with {:ok, parts} <- non_empty_csv(value),
-             classes when is_list(classes) <- map_classes(parts) do
-          {:ok, classes}
-        else
-          _ -> {:error, :invalid_output_contract}
-        end
+        with {:ok, parts} <- non_empty_csv(value), do: map_classes(parts)
     end
   end
 
   defp map_classes(parts) do
-    if Enum.all?(parts, &Map.has_key?(@content_classes, &1)) do
-      parts
-      |> Enum.map(&Map.fetch!(@content_classes, &1))
-      |> Enum.uniq()
-    else
-      :error
-    end
+    if Enum.all?(parts, &Map.has_key?(@content_classes, &1)),
+      do: {:ok, Enum.uniq(Enum.map(parts, &Map.fetch!(@content_classes, &1)))},
+      else: {:error, :invalid_output_contract}
   end
 
   defp build_transform(raw) do

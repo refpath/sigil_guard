@@ -17,8 +17,10 @@ mix deps.get
 mix sigil_guard.sbom --output dist/sigil_guard.spdx.json
 ```
 
-A runtime dependency whose `hex_metadata.config` is missing, names another
-version, or lists no license fails generation with
+A runtime dependency whose `hex_metadata.config` cannot be read fails
+generation with `{:unreadable_runtime_dependency_metadata, package, reason}`,
+where `reason` is the file error such as `:enoent`. One that names another
+version or lists no license fails with
 `{:invalid_runtime_dependency_metadata, package}`.
 
 Verification has two levels. **Structural** verification compares the
