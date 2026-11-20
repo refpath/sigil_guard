@@ -407,8 +407,6 @@ defmodule SigilGuard.MCP.SecurityPayload do
     end
   end
 
-  defp fetch_path(_, _), do: :error
-
   defp action_field(action, tool) do
     if invalid_payload_field?(action) or invalid_payload_field?(tool),
       do: @invalid_payload_field,

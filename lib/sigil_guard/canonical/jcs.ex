@@ -210,7 +210,6 @@ defmodule SigilGuard.Canonical.JCS do
     end
   end
 
-  defp strip_negative_zero("-0"), do: "0"
   defp strip_negative_zero(value), do: value
 
   defp decimal_components(coefficient, exponent) do

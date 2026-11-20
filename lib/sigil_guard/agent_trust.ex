@@ -482,7 +482,6 @@ defmodule SigilGuard.AgentTrust do
   defp normalize_level(level) when level in [:low, :medium, :high], do: level
   defp normalize_level(_), do: :low
 
-  defp min_trust([]), do: :low
   defp min_trust(levels), do: Enum.reduce(levels, &min_level/2)
 
   defp min_level(level, acc) do
@@ -742,7 +741,6 @@ defmodule SigilGuard.AgentTrust do
   defp atom_fetch(map, "capability"), do: Map.fetch(map, :capability)
   defp atom_fetch(map, "delegation_chain"), do: Map.fetch(map, :delegation_chain)
   defp atom_fetch(map, "peer_agent"), do: Map.fetch(map, :peer_agent)
-  defp atom_fetch(_, _), do: :error
 
   defp bundle?(%TrustBundle{}), do: true
   defp bundle?(_), do: false

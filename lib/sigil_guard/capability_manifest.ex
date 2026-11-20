@@ -787,8 +787,6 @@ defmodule SigilGuard.CapabilityManifest do
       else: {:error, :invalid_manifest}
   end
 
-  defp sha256_bytes(_), do: {:error, :invalid_manifest}
-
   defp suspicious_params(schema) do
     schema
     |> required_names([])

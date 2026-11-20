@@ -161,8 +161,6 @@ defmodule SigilGuard.Audit.Anchor.Store do
     end
   end
 
-  defp digest_metadata(_), do: %{}
-
   defp storage_metadata(%{record: record}) when is_map(record), do: storage_metadata(record)
 
   defp storage_metadata(%{} = map) do
@@ -170,8 +168,6 @@ defmodule SigilGuard.Audit.Anchor.Store do
     |> maybe_put(:anchor_storage, field(map, "storage"))
     |> maybe_put(:anchor_uri_scheme, uri_scheme(field(map, "uri")))
   end
-
-  defp storage_metadata(_), do: %{}
 
   defp uri_scheme(uri) when is_binary(uri), do: URI.parse(uri).scheme
   defp uri_scheme(_), do: nil

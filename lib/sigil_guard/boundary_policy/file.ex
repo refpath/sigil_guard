@@ -391,7 +391,6 @@ defmodule SigilGuard.BoundaryPolicy.File do
     end
   end
 
-  defp valid_values?(_, []), do: false
   defp valid_values?(_, values) when values == [""], do: false
 
   defp valid_values?(key, values) do

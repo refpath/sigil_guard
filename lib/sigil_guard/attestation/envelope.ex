@@ -393,6 +393,4 @@ defmodule SigilGuard.Attestation.Envelope do
       {:error, :invalid_base64}
     end
   end
-
-  defp decode_base64(_), do: {:error, :invalid_base64}
 end

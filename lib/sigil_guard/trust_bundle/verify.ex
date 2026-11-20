@@ -158,8 +158,6 @@ defmodule SigilGuard.TrustBundle.Verify do
     end
   end
 
-  defp decode_base64(_), do: {:error, :invalid_base64}
-
   defp decode_document(payload) do
     case Canonical.JSON.decode(payload) do
       {:ok, %{} = document} ->
@@ -274,7 +272,7 @@ defmodule SigilGuard.TrustBundle.Verify do
          %{} = root <- get_in(document, ["roles", "root"]) do
       {:ok,
        %{
-         version: positive_integer!(Map.fetch!(root, "version")),
+         version: String.to_integer(Map.fetch!(root, "version")),
          threshold: Map.fetch!(root, "threshold"),
          keyids: Map.fetch!(root, "keyids"),
          keys: keys,
@@ -300,7 +298,7 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   defp walk_rotation_chain(document, genesis) do
     current_root = get_in(document, ["roles", "root"])
-    current_version = positive_integer!(Map.fetch!(current_root, "version"))
+    current_version = String.to_integer(Map.fetch!(current_root, "version"))
     chain = Map.get(document, "rotation_chain", [])
 
     cond do
@@ -353,7 +351,7 @@ defmodule SigilGuard.TrustBundle.Verify do
          {:ok, payload} <- decode_base64(fields.payload),
          {:ok, document} <- decode_document(payload),
          {:ok, :rotation, document} <- Schema.validate(document) do
-      {:ok, positive_integer!(Map.fetch!(document, "root_version")), document_digest(document)}
+      {:ok, String.to_integer(Map.fetch!(document, "root_version")), document_digest(document)}
     else
       {:ok, :bundle, _} -> {:error, :invalid_bundle_format}
       {:error, reason} -> {:error, reason}
@@ -403,7 +401,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp check_next_root_version(document, previous) do
-    root_version = positive_integer!(Map.fetch!(document, "root_version"))
+    root_version = String.to_integer(Map.fetch!(document, "root_version"))
 
     if root_version == previous.version + 1 do
       :ok
@@ -417,14 +415,14 @@ defmodule SigilGuard.TrustBundle.Verify do
          %{} = root <- get_in(document, ["roles", "root"]) do
       {:ok,
        %{
-         version: positive_integer!(Map.fetch!(root, "version")),
+         version: String.to_integer(Map.fetch!(root, "version")),
          threshold: Map.fetch!(root, "threshold"),
          keyids: Map.fetch!(root, "keyids"),
          keys: keys,
          bundle_id: document["bundle_id"],
          descriptor: root,
          digest: document_digest(document),
-         rollback_floor: positive_integer!(Map.fetch!(document, "rollback_floor"))
+         rollback_floor: String.to_integer(Map.fetch!(document, "rollback_floor"))
        }}
     end
   end
@@ -440,7 +438,7 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   # A bundle may not sit below the floor its own root rotation set.
   defp check_sequence_at_rotation_floor(document, %{rollback_floor: floor}) do
-    if positive_integer!(Map.fetch!(document, "sequence")) >= floor,
+    if String.to_integer(Map.fetch!(document, "sequence")) >= floor,
       do: :ok,
       else: {:error, :sequence_below_floor}
   end
@@ -640,8 +638,8 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp trust_bundle(envelope, document, payload, source) do
-    sequence = positive_integer!(Map.fetch!(document, "sequence"))
-    root_version = positive_integer!(get_in(document, ["roles", "root", "version"]))
+    sequence = String.to_integer(Map.fetch!(document, "sequence"))
+    root_version = String.to_integer(get_in(document, ["roles", "root", "version"]))
 
     %TrustBundle{
       bundle_id: Map.fetch!(document, "bundle_id"),
@@ -653,17 +651,6 @@ defmodule SigilGuard.TrustBundle.Verify do
       dev?: dev?(document),
       source: source
     }
-  end
-
-  @spec positive_integer!(String.t()) :: pos_integer()
-  defp positive_integer!(value) do
-    integer = String.to_integer(value)
-
-    if integer > 0 do
-      integer
-    else
-      raise ArgumentError, "expected a positive integer string"
-    end
   end
 
   defp dev?(document) do

@@ -413,8 +413,6 @@ defmodule SigilGuard.AgentCard do
     Enum.all?(list, &is_binary/1) and list == Enum.sort(list) and list == Enum.uniq(list)
   end
 
-  defp sorted_unique?(_), do: false
-
   defp non_empty_string?(value), do: is_binary(value) and value != ""
 
   defp optional_non_empty_string?(map, key) do
@@ -472,6 +470,4 @@ defmodule SigilGuard.AgentCard do
       {:error, _} -> {:error, :invalid_agent_card}
     end
   end
-
-  defp parse_timestamp(_), do: {:error, :invalid_agent_card}
 end

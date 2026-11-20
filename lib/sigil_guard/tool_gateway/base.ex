@@ -932,7 +932,6 @@ defmodule SigilGuard.ToolGateway.Base do
   defp drifted_fields(%{deny_reason: :sensitive_header_param}), do: ["input_schema"]
   defp drifted_fields(%{deny_reason: :suspicious_required_param}), do: ["suspicious_params"]
   defp drifted_fields(%{deny_reason: :manifest_digest_mismatch}), do: ["manifest"]
-  defp drifted_fields(_), do: nil
 
   defp manifest_status(%{deny_reason: :manifest_expired}), do: "expired"
   defp manifest_status(_), do: "unknown"

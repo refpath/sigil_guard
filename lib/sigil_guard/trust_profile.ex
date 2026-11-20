@@ -94,8 +94,6 @@ defmodule SigilGuard.TrustProfile do
     end
   end
 
-  defp registry_entry(_), do: {:error, :unknown_statement_type}
-
   defp validate_profile(@profile_id), do: :ok
 
   defp validate_profile(profile) when is_binary(profile) do
