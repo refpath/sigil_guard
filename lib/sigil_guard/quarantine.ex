@@ -20,10 +20,10 @@ defmodule SigilGuard.Quarantine do
         }
 
   # A built-in indicator can only match text that contains one of these words.
-  # They are searched one at a time in an ASCII-lowercased copy, which is what a
-  # case-insensitive regular expression without the `u` flag matches. A regex
-  # alternation of the same words took four times as long on 1 KiB, and one
-  # compiled multi-word pattern would have to be cached in global state.
+  # They are searched in an ASCII-lowercased copy, which is what a
+  # case-insensitive regular expression without the `u` flag matches, with one
+  # compiled multi-word pattern. A regex alternation of the same words took
+  # about 18 times as long on 1 KiB.
   @prefilter_words ~w(instruction exfiltrate send upload post system developer reveal dump
                       print repeat extract ask prompt request collect when before after <!--
                       display visibility <script)
@@ -107,9 +107,21 @@ defmodule SigilGuard.Quarantine do
   defp sanitized_text(text, _, []), do: text
   defp sanitized_text(text, active_indicators, _), do: sanitize(active_indicators, text)
 
-  defp prefilter_match?(text) do
-    lowercase = ascii_lowercase(text)
-    Enum.any?(@prefilter_words, &(:binary.match(lowercase, &1) != :nomatch))
+  defp prefilter_match?(text), do: :binary.match(ascii_lowercase(text), prefilter()) != :nomatch
+
+  # A compiled binary pattern cannot be a module attribute, and compiling it
+  # costs more than the search, so it is built once and kept in
+  # `:persistent_term`, like the indicator list below.
+  defp prefilter do
+    case :persistent_term.get({__MODULE__, :prefilter}, :undefined) do
+      :undefined ->
+        pattern = :binary.compile_pattern(@prefilter_words)
+        :persistent_term.put({__MODULE__, :prefilter}, pattern)
+        pattern
+
+      pattern ->
+        pattern
+    end
   end
 
   defp ascii_lowercase(text) do
