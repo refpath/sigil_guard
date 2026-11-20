@@ -3,10 +3,10 @@ sigil_guard:
   id: "SP.11"
   title: "Repo Policy Kernel Contracts"
   domain: security
-  status: implemented
+  status: implemented/partial
   priority: high
   created: "2026-07-01"
-  updated: "2026-07-07"
+  updated: "2026-11-20"
   tags: ["repo-policy", "deterministic-policy", "paths", "governance"]
   depends_on: ["SP.02", "SP.04"]
 ---
@@ -18,8 +18,9 @@ sigil_guard:
 This spec documents the implemented deterministic repo policy kernel. The kernel
 evaluates actor/action/path facts against ordered path rules and returns
 `allow`, `require_approval`, or `block` with rule ids, unmatched paths, and a
-canonical digest. In v3, repo policy becomes one source of facts for
-`BoundaryPolicy`.
+canonical digest. In v3, repo policy is one source of facts for
+`BoundaryPolicy` when the host passes the `RepoPolicy.policy_facts/2` map as
+the `:repo_facts` option; no library code makes that call.
 
 ## Business Value
 
@@ -60,15 +61,24 @@ sequenceDiagram
     participant Loader as RepoPolicy.load/2
     participant Kernel as RepoPolicy.evaluate/2
     participant Runtime as Runtime.Gate
-    participant Audit
 
-    Host->>Loader: repo root or policy text
+    Host->>Loader: repo root
     Loader-->>Host: compiled policy
     Host->>Kernel: agent/action/changed paths
     Kernel-->>Host: repo policy decision
-    Host->>Runtime: optional runtime context
-    Runtime->>Audit: matched rules and digest
+    Host->>Runtime: payload, repo_change context, repo_policy option
+    Runtime->>Kernel: compile/1, then agent/action/changed paths
+    Kernel-->>Runtime: repo policy decision
+    Runtime-->>Host: decision with repo audit metadata
 ```
+
+The two paths are independent. A host can call `evaluate/2` itself, or pass a
+policy to the gate as `:repo_policy`. The gate evaluates that option only at
+the `:repo_change` context phase and ignores it at every other phase. Its
+audit metadata carries `repo_policy_verdict`, `repo_policy_rules` (matched
+rule ids), and `repo_unmatched_paths`, plus `repo_policy_error` when the
+policy does not compile. It carries neither the decision digest nor the
+policy digest.
 
 ## Implemented Contracts
 
@@ -79,17 +89,18 @@ sequenceDiagram
 | File loader | `load/2`, `find_file/2`, `load_file/2` | Safe candidates and max size. |
 | Evaluator | `evaluate/2` | Agent/action/path context. |
 | Decision struct | `SigilGuard.RepoPolicy.Decision` | Verdict, reason, paths, rules, digest. |
-| Runtime integration | `SigilGuard.Runtime.Gate` | Repo policy can raise runtime risk. |
+| Policy facts | `policy_facts/2` | Builds the five-key map below from a compiled policy and a decision. No library code calls it. |
+| Runtime integration | `SigilGuard.Runtime.Gate` | At the `:repo_change` phase with a `:repo_policy` option: `block` blocks, `require_approval` confirms, and either raises runtime risk. |
 
 ## V3 Rewire
 
 | Current Surface | V3 Action |
 |-----------------|-----------|
-| Repo policy decision | Feed into `BoundaryPolicy` as the policy-facts map below. |
-| `require_approval` | Map to Agent Trust `confirm` verdict. |
-| Policy file digest | Include in boundary decisions and audit evidence. |
+| Repo policy decision | `policy_facts/2` builds the policy-facts map below and `BoundaryPolicy.evaluate/2` accepts it as `:repo_facts`. The host connects the two; neither the gate nor the kernel does. |
+| `require_approval` | Maps to the Agent Trust `confirm` verdict, in the gate and in the kernel's `:repo_facts` contribution. |
+| Policy file digest | `policy_facts/2` returns it as `policy_file_digest`. Including it in boundary decisions and audit evidence is not implemented: neither the kernel nor the gate copies it into a decision or its audit metadata. The host records it. |
 | Old policy filenames | Replaced per V3 Policy Filenames (D13); legacy names fail with `:legacy_policy_filename`. |
-| Repo path facts | Include in action/context digests for attestations. |
+| Repo path facts | The `repo_change` action digest binds the payload's `repository`, `operation`, sorted `paths`, and optional `ref` (SP.01). The context digest carries no path facts, and no digest reads a `RepoPolicy.Decision`. |
 
 ## V3 Policy Filenames (D13)
 
@@ -126,6 +137,8 @@ Legacy filename handling is fail-closed:
   filesystem indirection; they do not protect against hostile writers replacing
   paths between inspection and reading. Hosts own filesystem permissions and
   must prevent concurrent untrusted replacement.
+- `load_file/2` takes an explicit path and applies no filename or candidate
+  check. A host that passes it a legacy path gets that file parsed.
 
 Migration table (reproduced 1:1 in `MIGRATING-1.0.md`):
 
@@ -137,6 +150,10 @@ Migration table (reproduced 1:1 in `MIGRATING-1.0.md`):
 | `.github/sigil-policy` | `.github/sigilguard-policy` |
 
 ### Bundle-Carried Repo Policy Rules
+
+This subsection is a design candidate. None of it is implemented in 1.0.0
+(see Deferred): no code reads a `repo_policy` bundle section, prefixes rule
+ids with `bundle:`, or composes bundle rules with file rules.
 
 Trust bundles (SP.02) MAY embed repo-policy rules under a `repo_policy`
 section. Rule semantics are identical to the file grammar: agent, action,
@@ -195,8 +212,14 @@ need non-overridable organization mandates MUST enforce them at the
 
 ## Policy Facts For Boundary Decisions
 
-In v3 the repo policy kernel contributes exactly this map to
-`BoundaryPolicy` (SP.04). Field names are grounded on
+`RepoPolicy.policy_facts/2` takes a compiled policy and a decision and returns
+exactly this map. `BoundaryPolicy.evaluate/2` (SP.04) reads it from the
+`:repo_facts` option: `block` contributes `block`, `require_approval`
+contributes `confirm`, and `allow` contributes nothing. When that
+contribution carries the final verdict, its rules appear in the decision as
+`repo.<rule_id>`, or as `repo.default` when no rule matched. The host makes
+both calls. `policy_facts/2` has no caller in `lib/`, and `Runtime.Gate`
+passes no `:repo_facts` to the kernel. Field names are grounded on
 `SigilGuard.RepoPolicy.Decision`.
 
 ```elixir
@@ -212,7 +235,7 @@ In v3 the repo policy kernel contributes exactly this map to
 | Field | Source | Description |
 |-------|--------|-------------|
 | `verdict` | `Decision.verdict` | Kernel verdict; `require_approval` maps to the profile `confirm` verdict downstream (SP.07). |
-| `matched_rules` | `Decision.matched_rule_ids` plus rule messages | One entry per matched rule id, in rule order. `rule_id` is the stable id: `"rule_<index>"` from `compile/1`, `"line_<n>"` from the line parser, `bundle:`-prefixed for bundle rules, or the explicit `:id`. `explanation` is the rule `message`, else the decision `reason`. Feeds `predicate.matched_rules[].id`/`.explanation` in `repo_change` attestations (SP.01). |
+| `matched_rules` | `Decision.matched_rule_ids` plus rule messages | One entry per matched rule id, in rule order. `rule_id` is the stable id: `"rule_<index>"` (0-based) from `compile/1`, `"line_<n>"` from the line parser, or the explicit `:id`. `n` is the 1-based line number within the text given to `parse/1`; for the `[repo]` section of a v3 policy file that text starts after the section header, so `n` is not a file line number (SP.04). The `bundle:` prefix belongs to the deferred bundle design. `explanation` is the rule `message`, else the decision `reason`. Feeding `predicate.matched_rules` in `repo_change` attestations is not implemented: `Attestation.from_decision/3` writes no `matched_rules` field. |
 | `unmatched_paths` | `Decision.unmatched_paths` | Paths governed by the default, verbatim. |
 | `policy_file_digest` | `RepoPolicy.digest/1` | Lowercase-hex SHA-256 of canonical compiled-policy bytes. Distinct from `Decision.digest`, which digests the decision itself; both are audit evidence. |
 | `default_decision` | Compiled policy `default` | The default that applied, or would apply, to unmatched paths. |
@@ -256,22 +279,41 @@ In v3 the repo policy kernel contributes exactly this map to
 
 ## Error Handling
 
+Return tuples are `{:error, reason}`. `index` is the 0-based position of the
+rule in the policy, from `compile/1` and from `parse/1` alike.
+
 | Error | Type | Recovery | User Impact |
 |-------|------|----------|-------------|
-| `:invalid_policy` | return tuple | fix policy shape | policy not loaded. |
-| `:invalid_rule` | return tuple | fix rule | policy not loaded. |
-| `:invalid_path` | block decision or return tuple | use safe relative path | change blocked. |
-| `:policy_too_large` | return tuple | reduce file size | policy load fails. |
-| `:not_found` | return tuple | provide policy | caller can use defaults. |
-| `:invalid_options` | return tuple | pass a keyword list containing only documented loader options | policy load fails closed before filesystem access. |
-| `{:legacy_policy_filename, legacy, replacement}` | return tuple | rename the file to the named v3 filename | policy load fails closed. |
+| `:invalid_policy` | return tuple from `compile/1` | pass a map, keyword list, or `%RepoPolicy{}` | policy not loaded. |
+| `:invalid_rules` | return tuple from `compile/1` | make `rules` a list | policy not loaded. |
+| `{:invalid_rule, index}`, `{:invalid_rule_id, index}` | return tuple from `compile/1` | make the rule a map or keyword list; make `id` a non-empty string or an atom | policy not loaded. |
+| `{:invalid_decision, index}`, `{:invalid_matchers, index}` | return tuple from `compile/1` and `parse/1` | fix the rule's decision, agents, or actions | policy not loaded. |
+| `:invalid_decision` | return tuple from `compile/1` and `parse/1` | fix the `default` value | policy not loaded. |
+| `{:absolute_path_pattern, index}`, `{:path_traversal_pattern, index}`, `{:missing_paths, index}` | return tuple from `compile/1` and `parse/1` | give the rule at least one safe relative path glob | policy not loaded. |
+| `{:invalid_path_pattern, index}` | return tuple from `compile/1` | make each path a non-empty string | policy not loaded. |
+| `:invalid_path` | not produced | none | No code returns this atom. Unsafe rule paths return the path-pattern tuples above; unsafe changed paths produce the block decision below. |
+| invalid changed path | `:block` decision from `evaluate/2` | pass a safe relative UTF-8 path or a list of them | change blocked. The reason is the string `"Repo policy blocked invalid changed path: <name>"`, where `<name>` is `invalid_changed_paths`, `invalid_changed_path`, `absolute_changed_path`, or `path_traversal`. |
+| invalid context | `:block` decision from `evaluate/2` | pass a string or atom agent and action | change blocked. The reason is `"Repo policy blocked invalid context: invalid_agent"` or the same with `invalid_action`. |
+| `:policy_too_large` | return tuple from `load/2` and `load_file/2` | reduce file size | policy load fails. |
+| `:not_found` | return tuple from `load/2` and `find_file/2` | provide policy | caller can use defaults. |
+| `:invalid_options` | return tuple from `load/2`, `find_file/2`, and `load_file/2` | pass a binary path and a keyword list containing only `:candidates` and `:max_bytes` | policy load fails closed before filesystem access. |
+| `:invalid_policy_paths`, `:missing_policy_paths`, `:invalid_policy_path`, `:absolute_policy_path`, `:policy_path_traversal` | return tuple from `load/2` and `find_file/2` | pass a non-empty list of safe repo-relative candidate strings | policy load fails after the legacy-filename probe and before candidate lookup. |
+| `:invalid_max_bytes` | return tuple from `load/2` and `load_file/2` | pass a non-negative integer | policy load fails before the file is read. `load/2` checks it only after a candidate is found, so it returns `:not_found` first when none exists. |
+| `{:invalid_policy_file, type}` | return tuple from `load_file/2` | point at a regular file | policy load fails; `type` is the file type found, such as `:directory`. |
+| POSIX reason such as `:enoent` | return tuple from `load_file/2` | fix the path or its permissions | policy load fails. |
+| `{:legacy_policy_filename, legacy, replacement}` | return tuple from `load/2` and `find_file/2` | rename the file to the named v3 filename | policy load fails closed. It is returned ahead of any candidate or byte-limit error. |
 
 ## Security Considerations
 
 - Absolute paths and traversal are rejected before rule matching.
 - Loader option containers and keys are validated before filesystem access;
-  malformed options return `{:error, :invalid_options}`, and invalid byte
-  limits cannot bypass the file-size bound through Erlang term ordering.
+  a non-keyword container or an unknown key returns
+  `{:error, :invalid_options}`. Option values are checked later and return
+  their own atoms: candidate values after the legacy-filename probe
+  (`:invalid_policy_paths` and the related atoms in Error Handling), and
+  `:max_bytes` in `load_file/2`, once a candidate has been found and before
+  the file is read (`:invalid_max_bytes`). An invalid byte limit cannot
+  bypass the file-size bound through Erlang term ordering.
 - Rules match exact agent/action strings or `*`; no dynamic atom creation from
   external policy input is required.
 - `:block` always outranks weaker decisions.
@@ -310,14 +352,21 @@ In v3 the repo policy kernel contributes exactly this map to
 - [x] Decision digest implemented.
 - [x] Runtime integration implemented.
 - [x] Implement the D13 filename candidates and the `:legacy_policy_filename` error.
-- [x] Emit the policy-facts map to `BoundaryPolicy` and audit metadata.
+- [x] Build the policy-facts map with `RepoPolicy.policy_facts/2` and accept
+      it in `BoundaryPolicy.evaluate/2` as `:repo_facts`.
+- [ ] Emit the policy-facts map to `BoundaryPolicy` and audit metadata (not
+      implemented: `policy_facts/2` has no caller in `lib/`, the gate passes
+      no `:repo_facts`, and gate audit metadata holds
+      `repo_policy_verdict`, `repo_policy_rules`, `repo_unmatched_paths`,
+      and on a compile failure `repo_policy_error`, not the facts map).
 
 ## Deferred
 
 Bundle-carried repo-policy rules and file/bundle composition are not part of
 the 1.0.0 implementation. The schema above remains the post-1.0.0 design
 candidate; the implemented contract is the deterministic file policy plus
-`RepoPolicy.policy_facts/2` contribution into `BoundaryPolicy`.
+`RepoPolicy.policy_facts/2`, whose result a host passes to
+`BoundaryPolicy.evaluate/2` as `:repo_facts`.
 
 ## Success Metrics
 

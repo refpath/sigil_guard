@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: critical
   created: "2026-09-06"
-  updated: "2026-10-09"
+  updated: "2026-11-20"
   tags: [security, audit, remediation]
   depends_on: ["SP.01", "SP.02", "SP.07"]
 ---
@@ -127,11 +127,13 @@ checks and advisory exceptions without treating them as passing evidence.
 
 ## Mutation Tool Equivalence Accounting
 
-Muex 0.9.1 reports three survivors in the unchanged verdict implementation
-that are equivalent over its closed five-atom input domain: map-entry order,
-swapping `strongest/2` parameters, and using `>` instead of `>=` when both
-branches return the same atom for equal ranks. Ranks themselves remain public
-integers 0..4; new tests must kill endpoint mutations.
+The verdict gate runs the Muex version locked in `mix.lock`, 0.11.3
+(`mix.exs` requires `~> 0.11.3`). `bin/mutation_report.exs` accounts for three
+survivors in the unchanged verdict implementation that are equivalent over
+its closed five-atom input domain: map-entry order, swapping `strongest/2`
+parameters, and using `>` instead of `>=` when both branches return the same
+atom for equal ranks. Ranks themselves remain public integers 0..4; new tests
+must kill endpoint mutations.
 
 The verdict gate reports these three as equivalent, never as killed. An exact
 SHA-256 of the complete source plus exact original/mutated fragments binds the

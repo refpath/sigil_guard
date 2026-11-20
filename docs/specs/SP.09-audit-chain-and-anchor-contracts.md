@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: high
   created: "2026-07-01"
-  updated: "2026-07-07"
+  updated: "2026-11-20"
   tags: ["audit", "hmac", "merkle", "anchor", "export"]
   depends_on: ["R.04", "SP.05"]
 ---
@@ -151,8 +151,8 @@ extension below is specified by
 | Privacy classification | Per-field `clear \| hashed \| redacted \| omitted` tables over the signed audit event, plus the GDPR digest-first stance. | Privacy Classification. |
 | Read/query API | `Audit.tip/1` and `Audit.query/2`; reads MUST never mutate the chain. | Audit Read And Query API. |
 | Anchor-store HTTP conversion | `Store.HTTP` consumes a host-provided client instead of finch (D9). | `SigilGuard.HTTPClient` Behaviour. |
-| Signed audit events | Canonical `Audit.Event` decision records with an exact `event_hash` field list. | Signed Audit Events. |
-| Telemetry correlation | OTel decision attributes, trace/span correlation, cardinality and sampling guidance (D16). | Telemetry And OTel Guidance. |
+| Signed audit events | The `%SigilGuard.Audit{}` event with reserved metadata keys and the exact, ordered event-hash field list. No `Audit.Event` module exists. | Signed Audit Event; Event Hash Field List. |
+| Telemetry correlation | OTel decision attributes, trace/span correlation, cardinality and sampling guidance (D16). The per-decision id is not implemented. | Telemetry And OTel. |
 
 The v3 event-type vocabulary (`SigilGuard.Audit.EventType`) renames the legacy
 `SigilInterception` type to the neutral `ScannerInterception`, retiring the
@@ -209,11 +209,23 @@ signed under the old string verify unchanged - names are data, not structure.
 | Error | Type | Recovery | User Impact |
 |-------|------|----------|-------------|
 | `{:broken, index}` | return tuple | inspect chain at index | chain rejected. |
-| `:invalid_events` | return tuple | pass signed chain | checkpoint/export fails. |
-| `:missing_signature` | return tuple | sign or disable requirement | verification fails. |
+| `:invalid_events` | return tuple | pass a list of `%SigilGuard.Audit{}` events | checkpoint/export fails. |
+| `:broken_chain` | return tuple | pass a signed, correctly linked segment | checkpoint/export fails. |
+| `:unsigned_checkpoint` | return tuple | sign the checkpoint or drop `require_signature: true` | verification fails. |
+| `:missing_signature` | return tuple | restore the `signature` value in the checkpoint's signature map | verification fails. |
+| `:missing_anchor` | return tuple | attach an anchor or drop `require_anchor: true` | export verification fails. |
 | `:invalid_anchor` | return tuple | fix anchor shape | export verification fails. |
 | `:anchor_mismatch` | return tuple | inspect external record | external proof rejected. |
 | request/receipt errors | return tuple | retry or fail closed | anchor write/read fails. |
+
+`Checkpoint.verify/3` returns `:unsigned_checkpoint` when
+`require_signature: true` is passed and the checkpoint has no `signature`
+field. It returns `:missing_signature` when the checkpoint has a `signature`
+map whose own `signature` value is absent or not a string. `:invalid_events`
+means the event argument is not a list of audit events; an unsigned or
+mislinked event in the list returns `:broken_chain`. `Export.verify/3`
+returns `:missing_anchor` when `require_anchor: true` is passed and the
+package has no anchor.
 
 ## Security Considerations
 

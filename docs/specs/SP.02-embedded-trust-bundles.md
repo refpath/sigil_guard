@@ -3,10 +3,10 @@ sigil_guard:
   id: "SP.02"
   title: "Embedded Trust Bundles"
   domain: security
-  status: implemented
+  status: implemented/partial
   priority: critical
   created: "2026-07-01"
-  updated: "2026-07-07"
+  updated: "2026-11-20"
   tags: ["trust-bundles", "tuf", "roles", "rotation", "dsse", "quarantine", "v3"]
   depends_on: ["R.01", "R.02", "R.03", "R.07", "SP.01"]
 ---
@@ -64,24 +64,36 @@ sequenceDiagram
 
     Host->>Loader: source (file/priv/map/binary or boot config)
     Loader->>Verify: DSSE envelope
-    Verify->>Cache: read pin, floor, rotation digests, revocations
+    Verify->>Cache: read pin, snapshot, rotation digests, revocations
     Verify->>Verify: envelope + schema + chain + threshold + expiry
-    alt verified
-        Loader->>Cache: put snapshot, raise floor, extend pin
+    alt verified and accepted by the cache
+        Loader->>Cache: put snapshot (sequence and floor check), raise floor
         Loader-->>Host: {:ok, bundle}
-    else failed
+    else verification or put failed
         Loader->>Quarantine: reason + digest + timestamp + evidence
         Loader-->>Host: {:error, reason}
     end
 ```
 
-Verification order is normative; the first failure wins: (1) SP.01 envelope
-checks (`:invalid_envelope`, `:invalid_payload_type`, `:invalid_base64`,
-`:duplicate_keyid`); (2) strict JSON parse of the decoded payload, then
-document schema validation; (3) rotation chain walk from the pinned genesis
-root; (4) signing-role resolution; (5) revocation strike, Ed25519-over-PAE
-verification, threshold count; (6) role and document expiry; (7) sequence
-and floor comparison.
+Verification order is normative; the first failure wins. `verify/2` runs
+steps 1 to 6: (1) SP.01 envelope checks (`:invalid_envelope`,
+`:invalid_payload_type`, then `:duplicate_keyid` before
+`:invalid_base64`); (2) strict JSON parse of the decoded payload, then
+document schema validation, which includes the `"bundle"` delegate check
+(`:unknown_role`); (3) rotation chain walk from the pinned genesis root,
+then the revocation check on the envelope signatures (`:revoked_key`) and
+the authority comparison (Authority changes, below); (4) signing-role
+resolution (`:unknown_key_id` when no signature keyid belongs to the
+`"bundle"` role); (5) Ed25519-over-PAE verification and threshold count;
+(6) document expiry, then root-role expiry, then `"bundle"`-role expiry.
+
+Step (7), sequence and floor comparison, is not part of `verify/2`.
+`TrustBundle.Cache.put/1` performs it, so it runs in `load/1,2` and
+`dev_bundle/1` unless `cache: false` is passed. A bundle with a lower
+sequence than the cached snapshot and the same `roles` and `keys` passes
+`verify/2`, and passes `load/2` with `cache: false`. A host that calls
+`verify/2` directly, or loads with `cache: false`, gets no sequence or floor
+check and has to enforce one itself.
 
 ### Architectural Patterns
 
@@ -101,8 +113,24 @@ threshold can alter `roles` or `keys`, and only via rotation documents.
 Delegated signer roles sign content. Every bundle document MUST declare a
 delegate role named `"bundle"`; only that role's keys authorize bundle
 documents, and root keys count toward its threshold only when also listed
-in its `keyids`. A document without a `"bundle"` delegate fails with
-`{:error, :unknown_role}`, as does a rotation document without a root role.
+in its `keyids`. A bundle document without a `"bundle"` delegate fails
+schema validation with `{:error, :unknown_role}`. A rotation document whose
+`roles` is not exactly one `root` descriptor fails with
+`{:error, :invalid_bundle_format}`.
+
+**Authority changes.** `verify/2` compares the bundle's `roles` and `keys`
+with the trusted authority: the cached snapshot for the `bundle_id` when one
+exists, else the bundle's own `roles` and `keys`. An explicit
+`:genesis_root` without a cached snapshot supplies no authority to compare.
+An equal authority needs only the `"bundle"`-role signatures. A different
+authority at the same root version fails with
+`{:error, :invalid_bundle_format}`. A lower root version fails with
+`{:error, :sequence_below_floor}`. In the remaining cases, a higher root
+version or `:genesis_root` without a cached snapshot, the bundle envelope
+MUST also carry the current root's declared threshold of valid signatures
+by root keyids, else `{:error, :threshold_not_met}`. A cross-signed
+rotation document alone does not authorize the delegate keys of the
+successor bundle.
 
 **Thresholds.** Every role declares `keyids` (n = list length) and an
 integer `threshold` m, `1 <= m <= n`. The schema ALWAYS carries m and n.
@@ -121,9 +149,12 @@ enforce the full declared thresholds of both root generations (below).
 **Per-role expiry.** Every role carries `expires_at`. A bundle signed by an
 expired `"bundle"` role, or whose current root role is expired, fails with
 `{:error, :role_expired}`. Document `expires_at`, and future-dated
-`issued_at` beyond skew, fail with `{:error, :bundle_expired}`; freshness
-uses `:now` and `:max_skew_ms` exactly as SP.01 defines them. Root expiry
-is long because ceremonies are expensive; delegate expiry is shorter.
+`issued_at` beyond skew, fail with `{:error, :bundle_expired}`. Freshness
+uses the per-call `:now` and `:max_skew_ms` options. `:max_skew_ms` defaults
+to the fixed value `60_000`; unlike `Attestation.verify/3` (SP.01), bundle
+verification does not read the application `:max_skew_ms` key, so a host
+that configures another skew passes it on each call. Root expiry is long
+because ceremonies are expensive; delegate expiry is shorter.
 
 **Monotonic sequence and rollback floor.** `sequence` and `rollback_floor`
 are wire strings matching `^[1-9][0-9]*$`, per SP.01's JCS rule that
@@ -133,7 +164,9 @@ accepts only a sequence strictly greater than the cached one (re-putting
 the byte-identical bundle is an idempotent no-op) and not below the floor;
 on acceptance the floor becomes `max(floor, rollback_floor, sequence)`.
 Violations fail with `{:error, :sequence_below_floor}` (renamed from the
-v2 draft's `:rollback_detected`; see Error Handling).
+v2 draft's `:rollback_detected`; see Error Handling). The comparison lives
+in `TrustBundle.Cache.put/1` and nowhere else: `verify/2` does not consult
+the sequence or the floor (Verification Pipeline, step 7).
 
 **Revocation by list and by omission.** Both are required. An explicit
 `revocations` entry of kind `"key"` kills a keyid immediately, mid-cycle,
@@ -162,10 +195,16 @@ runbooks:
    least the old declared threshold of signatures valid under version N's
    keys and at least the new declared threshold valid under its own keys.
    Missing either quorum fails with `{:error, :rotation_below_threshold}`,
-   even under v1's threshold-1 bundle enforcement.
+   even under v1's threshold-1 bundle enforcement. The successor bundle's
+   own envelope also needs the new root's declared threshold of signatures
+   (Authority changes, above), else `{:error, :threshold_not_met}`.
 4. The new `rollback_floor` is bumped strictly above the previous floor so
    every prior bundle is invalidated, including bundles carrying unexpired
-   signatures from the compromised keys.
+   signatures from the compromised keys. The issuer owns this step. The
+   verifier checks the rotation document's `rollback_floor` for format only
+   and never compares it with a previous value; the floor the cache applies
+   comes from the successor bundle document's `rollback_floor` and
+   `sequence`.
 5. Distribution happens through the host's normal release channel. There is
    no emergency side channel; adding one would recreate the live serving
    path this model rejects.
@@ -176,18 +215,32 @@ runbooks:
 **Chain walk.** Verifiers walk the rotation chain from their pinned genesis
 root: pin, then each cross-signed successor in `rotation_chain` in strictly
 ascending order (each `root_version` exactly previous + 1), ending at a
-root descriptor identical to the bundle's `roles.root`. Any gap, duplicate
-version, or terminal mismatch is equivocation. Signature checks on
+root descriptor identical to the bundle's `roles.root`. A gap, a repeated
+entry, a missing chain, an entry for another `bundle_id`, or a terminal
+mismatch fails with `{:error, :invalid_bundle_format}`. Two distinct
+documents for one version fail with `{:error, :forked_root_chain}` (Forks,
+below). A bundle at the pin's own root version must carry no chain and the
+pin's root keyids, threshold, and keys, else
+`{:error, :invalid_bundle_format}`; a bundle below the pin's root version
+fails with `{:error, :sequence_below_floor}`. Signature checks on
 historical entries ignore expiry (the TUF root-update rule); only the
 current bundle and its declared roles are freshness-checked.
 
 **Pinning.** An explicit `:genesis_root` option (`%{version:
 pos_integer(), threshold: pos_integer(), keyids: [String.t()], keys:
-%{String.t() => binary()}}`) always wins; otherwise the cached pin is used.
-When neither exists, the first successfully verified bundle establishes the
-pin at its own root - embedding the artifact in the release IS the pinning
-act (R.01 local-first) - and its chain entries' digests are recorded per
-version so later forks are detectable.
+%{String.t() => binary()}}`) always wins for the chain walk; otherwise the
+cached pin is used. When neither exists, `verify/2` walks from the bundle's
+own root, which requires an empty `rotation_chain`: a bundle that carries a
+chain fails with `{:error, :invalid_bundle_format}` until a pin is cached or
+`:genesis_root` is passed. `Cache.put/1` stores the pin from the first
+bundle it accepts for a `bundle_id` - embedding the artifact in the release
+IS the pinning act (R.01 local-first) - and keeps that pin for the rest of
+the boot. It records the digests of every accepted bundle's chain entries
+per version so later forks are detectable. `verify/2` alone stores nothing.
+With `:genesis_root` and no cached snapshot, the bundle envelope must also
+carry the root threshold signatures of Authority changes: the `minimal`
+fixture, signed by its `"bundle"` key only, then fails with
+`{:error, :threshold_not_met}`.
 
 **Forks.** Two distinct children of one root version MUST be rejected with
 `{:error, :forked_root_chain}` - whether both appear in one chain or an
@@ -195,10 +248,11 @@ incoming rotation for version N differs from the digest already accepted
 for N. A fork is evidence of key compromise or issuer equivocation; a
 verifier never picks a branch.
 
-**Rotation replay.** Step 4 raises the floor above every sequence issued
-under the old root, so any replayed pre-rotation bundle fails with
-`{:error, :sequence_below_floor}`; a root version below the accepted one
-fails the same way as a backstop.
+**Rotation replay.** Once the successor bundle is cached, a replayed
+pre-rotation bundle fails with `{:error, :sequence_below_floor}`: `verify/2`
+rejects a root version below the cached snapshot's, and `Cache.put/1`
+rejects a sequence at or below the cached one. Neither check reads the
+rotation document's `rollback_floor`, and both depend on the per-boot cache.
 
 ## Data Model
 
@@ -224,7 +278,7 @@ top-level fields fail with `{:error, :invalid_bundle_format}`.
 | `tools` | list | no | Capability manifests or `{"name": string, "manifest_digest": string}` refs; entry shape owned by SP.03. |
 | `policies` | list | no | Boundary and repo policy rules; shapes owned by SP.04 and SP.11. |
 | `patterns` | list | no | Scanner pattern sets; shape owned by SP.04. |
-| `identity_issuers` | list | no | Trusted actor/issuer id strings for per-actor trust-level resolution (R.05, SP.10); distinct from the `"agent_card"` card-signing role above. |
+| `identity_issuers` | list | no | Trusted actor/issuer id strings for per-actor trust-level resolution (R.05, SP.10); distinct from the `"agent_card"` card-signing role above. The schema checks only that the value is a list, and no library code reads it beyond the `identity_issuers/1` accessor; the host applies it. |
 | `revocations` | list | no | Entries `{"kind": "key" \| "bundle" \| "manifest" \| "actor", "id": string, "revoked_at": string}`; closed `kind` set. |
 | `rollback_floor` | string | yes | `^[1-9][0-9]*$`; MUST be `<= sequence`. |
 | `rotation_chain` | list | no | DSSE envelopes of root rotation documents, ascending `root_version`. |
@@ -248,7 +302,7 @@ outgoing keys AND the incoming root's declared threshold under its own
 | `root_version` | string | yes | `^[1-9][0-9]*$`; exactly the previous root version + 1. |
 | `roles.root` | map | yes | New root descriptor; its `version` MUST equal `root_version`. |
 | `keys` | map | yes | The new root keys only; same shape and keyid rule as above. |
-| `rollback_floor` | string | yes | MUST be strictly greater than the previous root document's floor. |
+| `rollback_floor` | string | yes | `^[1-9][0-9]*$`. Issuers MUST set it strictly greater than the previous root document's floor. The verifier checks the format only: it never compares this value with a previous floor and never applies it to the cache floor. |
 | `issued_at` | string | yes | ISO 8601 UTC ms; historical entries are not freshness-checked. |
 
 ## Signing And Canonical Form
@@ -332,18 +386,36 @@ test/fixtures/trust_bundle/
   rotation/expected.json
 ```
 
+`rotation/successor.json` carries the v2 `"bundle"`-key signature only. As
+committed it fails `verify/2` with `{:error, :threshold_not_met}` against
+the genesis pin (Authority changes); the tests append the v2 root signature
+with `Attestation.Envelope.add_signature/3` before they verify it.
+`rotation-2.json` and `forked-2.json` are rotation documents, which
+`verify/2` rejects with `{:error, :invalid_bundle_format}` when passed as a
+bundle; they verify only as `rotation_chain` entries.
+
 ### Bundle-State Statement (Optional Evidence)
 
 Hosts MAY record bundle lifecycle facts as in-toto-style Statements with
-predicateType `https://sigilguard.dev/trust-bundle-state/v1` (registered in
-SP.01, owned here). They bypass `TrustProfile.validate/1`'s eight-type
-subject rule; this spec fixes their shape: exactly one subject named
+predicateType `https://sigilguard.dev/trust-bundle-state/v1` (reserved in
+SP.01, owned here). This spec fixes their shape: exactly one subject named
 `"bundle"` whose digest is the `bundle_digest`; predicate fields `profile`
 (`sigil_guard_agent_trust/v1`), `bundle_id`, `sequence`, `root_version`,
 `observed_at` (ISO 8601 UTC ms), `issuer_class` (`"release"` or `"dev"`),
 and `event` from the closed set `"loaded" | "quarantined" | "rotated" |
 "floor_bumped"`; `"quarantined"` adds `reason` (the error atom as a
-string). Signing and verification go through `SigilGuard.Attestation`.
+string).
+
+This Statement is not implemented. No library function builds, signs, or
+verifies it, and `SigilGuard.Attestation` cannot carry it:
+`TrustProfile.validate/1` runs inside `Attestation.sign/3` and
+`Attestation.verify/3` and rejects the single `"bundle"` subject with
+`{:error, :invalid_profile}`; the predicateType is also outside its
+registry (`{:error, :unknown_statement_type}`). A host that wants this
+evidence builds the Statement itself and signs its JCS bytes with
+`SigilGuard.Attestation.Envelope.sign/3`, the path the SP.05
+checkpoint-state Statement uses. The lifecycle facts the library records
+today are the Quarantine records and the telemetry events below.
 
 ## Loading Sources
 
@@ -398,8 +470,9 @@ marker in production audit streams.
 **Recognizability in evidence:** the generated document carries
 `provenance: {"builder": "SigilGuard.TrustBundle.dev_bundle/1",
 "issuer_class": "dev"}`; the loaded struct sets `dev?: true` and
-`source: :dev`; telemetry metadata carries `dev: true`; every bundle-state
-Statement for it carries `issuer_class: "dev"`.
+`source: :dev`; the load span's stop metadata carries `dev: true`. A
+bundle-state Statement for it MUST carry `issuer_class: "dev"`; the library
+emits no such Statement, so the host that builds one sets the field.
 
 ## Public API Sketch
 
@@ -435,15 +508,20 @@ defmodule SigilGuard.TrustBundle do
 
   @spec load(source()) :: {:ok, t()} | {:error, load_error()}
   @spec load(source(), keyword()) :: {:ok, t()} | {:error, load_error()}
-  # Reads the source, runs verify/2 with the same opts, then Cache.put/1.
+  # Reads the source, runs verify/2 with the same opts, then Cache.put/1
+  # unless cache: false. Cache.put/1 is the only sequence and floor check.
   # Failures write a Quarantine record. opts: :genesis_root, :now,
-  # :max_skew_ms, :enforce_declared_threshold (default false),
-  # :cache (default true), :quarantine (default true).
+  # :max_skew_ms (default 60_000; the application key is not read),
+  # :enforce_declared_threshold (default false), :cache (default true),
+  # :quarantine (default true).
 
   @spec verify(envelope :: map(), opts :: keyword()) ::
           {:ok, t()} | {:error, verify_error()}
-  # Runs the normative verification order. Reads the Cache (pin, floor,
-  # rotation digests, revocation union) but never writes it.
+  # Runs steps 1 to 6 of the verification order. Reads the Cache (pin,
+  # snapshot, rotation digests, revocation union) but never writes it, and
+  # does not consult the sequence or the floor: a lower-sequence bundle
+  # with the cached roles and keys verifies. On failure it writes a
+  # Quarantine record unless quarantine: false.
 
   @spec dev_bundle(keyword()) :: {:ok, t()} | {:error, load_error()}
 
@@ -460,11 +538,15 @@ defmodule SigilGuard.TrustBundle.Cache do
 
   @spec put(SigilGuard.TrustBundle.t()) ::
           {:ok, SigilGuard.TrustBundle.t()}
-          | {:error, :sequence_below_floor | :forked_root_chain}
+          | {:error, :sequence_below_floor | :forked_root_chain | :revoked_key}
   # Accepts only sequence > cached and >= floor; re-putting the
-  # byte-identical bundle is an accepted no-op. On accept: floor :=
-  # max(floor, rollback_floor, sequence); the root pin, per-version
-  # rotation digests, and revocation union are extended.
+  # byte-identical bundle is an accepted no-op. A lower root version fails
+  # :sequence_below_floor, an envelope signature by a cached revoked keyid
+  # fails :revoked_key, and changed roles or keys at the cached root
+  # version, or a different rotation digest for a version, fails
+  # :forked_root_chain. On accept: floor := max(floor, rollback_floor,
+  # sequence); the per-version rotation digests and the revocation union
+  # are extended; the root pin set by the first accepted bundle is kept.
 
   @spec floor(bundle_id :: String.t()) :: non_neg_integer()
   # Highest of accepted sequences and signed rollback floors this boot;
@@ -522,11 +604,11 @@ for removed `registry_*` config keys are owned by SP.01.
 | System | Integration | Direction | Protocol |
 |--------|-------------|-----------|----------|
 | Host app | `load/1,2`, `verify/2`, `dev_bundle/1`, accessors | inbound | Elixir API |
-| Attestation (SP.01) | `Attestation.verify/3` accepts `t()` as trust material; keyids resolve against `keys` minus revocations | internal | Elixir API |
+| Attestation (SP.01) | Not implemented in code. `Attestation.verify/3` takes a keyid-to-public-key map; a `t()` passed as trust material resolves no key and returns `:unknown_key_id`. The host builds the map from the verified document's `keys` and leaves out revoked keyids | inbound | Elixir API |
 | Gateway (SP.03) | verified capability manifests from `tools` | internal | Elixir API |
 | Scanner/policy (SP.04, SP.11) | `patterns` and `policies` sections | internal | Elixir API |
-| Identity (SP.10) | `identity_issuers` trust input | internal | Elixir API |
-| Audit (SP.05) | bundle-state Statements; quarantine evidence refs | internal | Elixir API |
+| Identity (SP.10) | `identity_issuers/1` returns the section; no identity resolver reads it, so the host applies it | inbound | Elixir API |
+| Audit (SP.05) | quarantine evidence refs; bundle-state Statements are not implemented | internal | Elixir API |
 
 ## Telemetry And Observability
 
@@ -556,17 +638,17 @@ reused by reference, never redefined.
 | Error | Trigger | Recovery | User Impact |
 |-------|---------|----------|-------------|
 | `:invalid_source` | missing file/priv resource; non-JSON binary; `:none`, unrecognized constructor, or non-keyword options passed to `load` | fix the path or configuration | bundle not loaded |
-| `:invalid_bundle_format` | payload not strict JSON; required field missing/mistyped; unknown top-level field; sequence/floor/version regex violation; `rollback_floor > sequence`; threshold outside `1..n`; duplicate role keyids; role keyid absent from `keys`; keyid not the SHA-256 of its key; `alg` not `"ed25519"`; key not 32 bytes | fix and re-sign the document | bundle quarantined |
+| `:invalid_bundle_format` | payload not strict JSON; required field missing/mistyped; unknown top-level field; sequence/floor/version regex violation; `rollback_floor > sequence`; threshold outside `1..n`; duplicate role keyids; role keyid absent from `keys`; keyid not the SHA-256 of its key; `alg` not `"ed25519"`; key not 32 bytes; rotation document whose `roles` is not exactly one `root` descriptor; rotation document passed to `verify/2` as a bundle; rotation chain gap, repeated entry, missing chain, entry for another `bundle_id`, or terminal root mismatch; chain present on a bundle at the pin's root version; `roles` or `keys` changed without a root version bump | fix and re-sign the document | bundle quarantined |
 | `:unsupported_profile_version` | profile stem matches, version segment is not `v1` | upgrade SigilGuard or re-issue at `v1` | bundle quarantined |
-| `:unknown_role` | no `"bundle"` delegate declared; rotation document without a root role | declare the required role and re-sign | bundle quarantined |
+| `:unknown_role` | bundle document declares no `"bundle"` delegate | declare the required role and re-sign | bundle quarantined |
 | `:unknown_key_id` | no envelope signature keyid resolves to an authorized key of the signing role | sign with an authorized key; update the bundle | bundle quarantined |
 | `:invalid_signature` | a resolved keyid's Ed25519 signature fails over the PAE bytes | re-sign; investigate tamper | bundle quarantined |
-| `:threshold_not_met` | fewer distinct valid authorized signatures than the enforced threshold (v1 default 1; declared m under `enforce_declared_threshold: true`) | collect the remaining quorum signatures | bundle quarantined |
+| `:threshold_not_met` | fewer distinct valid authorized signatures than the enforced threshold (v1 default 1; declared m under `enforce_declared_threshold: true`); or the bundle envelope lacks the current root's declared threshold of signatures when the root version is above the cached one, or when `:genesis_root` is passed with no cached snapshot | collect the remaining quorum signatures | bundle quarantined |
 | `:bundle_expired` | `now > expires_at + skew`, or `issued_at > now + skew` | issue a fresh bundle | bundle quarantined |
 | `:role_expired` | the `"bundle"` role or current root role is past its `expires_at` | rotate or re-declare the role | bundle quarantined |
 | `:revoked_key` | an envelope signature keyid is in the document's or the cached revocation union | rotate keys; re-sign with unrevoked keys | bundle quarantined |
-| `:sequence_below_floor` | sequence below the floor; sequence not above the cached sequence with a different digest; root version below the accepted root version | ship a bundle with a higher sequence | stale bundle rejected; last verified snapshot kept |
-| `:forked_root_chain` | two distinct rotation documents for one root version, in-chain or against the cached accepted digest; chain gap or terminal root mismatch | treat as compromise; run the rotation ceremony | bundle quarantined; incident response |
+| `:sequence_below_floor` | From `Cache.put/1`, and so from `load/2` unless `cache: false`: sequence below the floor, or sequence not above the cached sequence with a different digest. From `verify/2` and `Cache.put/1`: root version below the pinned or cached root version | ship a bundle with a higher sequence | stale bundle rejected; last verified snapshot kept |
+| `:forked_root_chain` | two distinct rotation documents for one root version, in-chain or against the cached accepted digest. `Cache.put/1` also returns it for changed `roles` or `keys` at the cached root version. A chain gap or terminal root mismatch is `:invalid_bundle_format` | treat as compromise; run the rotation ceremony | bundle quarantined; incident response |
 | `:rotation_below_threshold` | a rotation document missing the full declared old-root or new-root quorum | complete the ceremony with quorum | rotation rejected |
 
 ## Security Considerations
@@ -578,12 +660,15 @@ reused by reference, never redefined.
   into the trust anchor (R.03).
 - Rotation always enforces full declared thresholds, even while v1 bundle
   verification enforces threshold 1.
-- The floor, pinned root, and per-version rotation digests make validly
+- Within one boot, and for bundles that go through `load/2` with caching,
+  the floor, pinned root, and per-version rotation digests make validly
   signed history unreplayable; forks are compromise evidence, not a choice.
+  `verify/2` alone, and `load/2` with `cache: false`, apply no sequence or
+  floor check.
 - Quarantine records and telemetry expose reasons and digests only - never
   key material, patterns, or policy bodies.
-- Dev bundles are marked in provenance, struct, telemetry, and evidence;
-  their one-hour default expiry bounds accidental production use.
+- Dev bundles are marked in provenance, struct, and load telemetry; their
+  one-hour default expiry bounds accidental production use.
 - Verifiers never re-canonicalize (SP.01): a JCS bug can break vector
   stability but cannot make a forged bundle verify.
 
@@ -606,14 +691,19 @@ reused by reference, never redefined.
 
 ## Acceptance Criteria
 
-- [x] Golden vectors under `test/fixtures/trust_bundle/` verify and
-      regenerate byte-identically (`minimal`, `multisig`, `rotation`).
+- [x] Golden vectors under `test/fixtures/trust_bundle/` regenerate
+      byte-identically (`minimal`, `multisig`, `rotation`). `minimal`,
+      `multisig`, and `rotation/genesis.json` verify as committed;
+      `rotation/successor.json` verifies after the v2 root signature is
+      appended.
 - [x] Every role in every fixture carries `threshold` and `keyids`; v1
       verification accepts one valid authorized signature by default, and
       `enforce_declared_threshold: true` makes a 2-of-3 bundle with one
       signature fail `:threshold_not_met`.
 - [x] Valid rotation: the successor bundle verifies from the pinned genesis
-      root through its cross-signed `rotation_chain`.
+      root through its cross-signed `rotation_chain` once its own envelope
+      carries the v2 root's declared threshold of signatures; with the
+      `"bundle"`-key signature alone it fails `:threshold_not_met`.
 - [x] Below-threshold rotation: a rotation missing either the old-root or
       new-root declared quorum fails `:rotation_below_threshold`, including
       under v1 default enforcement.
@@ -630,9 +720,12 @@ reused by reference, never redefined.
 - [x] No-network: `Port.list()` is unchanged across `load` and `verify` for
       all four source classes and `dev_bundle/1`; the trust-bundle code
       path references no HTTP or socket module.
-- [x] `dev_bundle/1` output carries `issuer_class: "dev"` in provenance and
-      bundle-state Statements, `dev?: true` in the struct, and `dev: true`
-      in telemetry; no production doc or config example references it.
+- [x] `dev_bundle/1` output carries `issuer_class: "dev"` in provenance,
+      `dev?: true` in the struct, and `dev: true` in load telemetry; no
+      production doc or config example references it.
+- [ ] Bundle-state Statements carry `issuer_class: "dev"` for a dev bundle
+      (not implemented: no library code builds, signs, or verifies a
+      bundle-state Statement; the host does).
 - [x] Boot with an invalid configured `:trust_bundle` raises
       `SigilGuard.ConfigError` naming the verify error atom.
 - [x] Every error atom in this spec's taxonomy is produced by at least one

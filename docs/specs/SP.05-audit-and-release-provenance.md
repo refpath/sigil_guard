@@ -3,10 +3,10 @@ sigil_guard:
   id: "SP.05"
   title: "Audit And Release Provenance"
   domain: security
-  status: implemented
+  status: implemented/partial
   priority: critical
   created: "2026-07-01"
-  updated: "2026-08-18"
+  updated: "2026-11-20"
   tags: ["audit", "merkle", "proofs", "witnessing", "privacy", "otel", "sbom", "release-provenance", "http-client", "v3"]
   depends_on: ["R.01", "R.02", "R.04", "R.07", "SP.01"]
 ---
@@ -93,7 +93,9 @@ SP.01 evidence shape), `"decision_id"`, `"trace_id"`, `"span_id"`,
 pattern names only), `"quarantine_ref"`. Because `metadata` is outside the
 canonical bytes (D17), evidence refs are integrity-bound by the digests
 they contain and by the DSSE-signed export layer, not by the chain HMAC;
-this is a recorded consequence of freezing `sign_event/3`.
+this is a recorded consequence of freezing `sign_event/3`. The keys are
+reserved names. The host writes them; no SigilGuard function mints a
+`"decision_id"` (see Correlation And Optional OTel Integration).
 
 ### Event Hash Field List (Exact, Ordered)
 
@@ -122,7 +124,7 @@ SP.09 records these constants as normative literals.
   "timestamp": "2026-07-02T12:00:00.000Z",
   "metadata": {
     "decision": {"matched_rules": ["repo.write.block"], "verdict": "block"},
-    "decision_id": "<computed: 16-byte hex>",
+    "decision_id": "<host-supplied opaque id>",
     "evidence": [{"kind": "checkpoint", "ref": "<computed: digest>"}],
     "payload_digest": "<computed: sha256>"
   },
@@ -348,12 +350,15 @@ the payload; duplicate keyids are rejected per SP.01. Before cosigning, a
 witness MUST verify the operator signature against its trust material
 and, when it holds a previously cosigned checkpoint for the same
 `chain_id`, MUST verify a consistency proof from that checkpoint to this
-one; a failed proof refuses the cosignature with the proof's error. With
-no prior checkpoint, the witness records this one as its baseline
-(trust-on-first-checkpoint, recorded). Threshold verification counts
-distinct witness keyids from a named witness key set (host config or
-trust-bundle role per SP.02's m-of-n vocabulary) whose signatures verify;
-fewer than `m` fails with `{:error, :witness_threshold_not_met}`.
+one; a failed proof refuses the cosignature with the proof's error.
+`cosign/3` performs the consistency check when `:previous` is passed. It
+does not verify the operator signature; the witness does that around the
+call with `Envelope.verify/2`. With no prior checkpoint, the witness
+records this one as its baseline (trust-on-first-checkpoint, recorded);
+the caller persists that baseline. Threshold verification counts distinct
+witness keyids from a named witness key set (host config or trust-bundle
+role per SP.02's m-of-n vocabulary) whose signatures verify; fewer than
+`m` fails with `{:error, :witness_threshold_not_met}`.
 Unresolved keyids are tolerated per SP.01. Thresholds are opt-in:
 unwitnessed single-signature checkpoints stay valid where no threshold
 policy applies. Transport between host and witness is host-owned; an
@@ -364,21 +369,38 @@ defmodule SigilGuard.Audit.Witness do
   @spec cosign(envelope :: map(), signer :: module(), opts :: keyword()) ::
           {:ok, envelope :: map()}
           | {:error,
-             :invalid_envelope | :invalid_payload_type | :duplicate_keyid
-             | :invalid_signature | :invalid_signer | :invalid_proof
+             :invalid_envelope | :invalid_payload_type | :invalid_base64
+             | :duplicate_keyid | :invalid_signer | :invalid_proof
              | :out_of_range | :inconsistent_tree}
   # opts: :keyid; :previous (%{statement: map(), consistency_proof: map()}).
   # When :previous is present the consistency proof MUST verify first.
 
   @spec verify_threshold(
-          envelope :: map(),
-          witness_keys :: %{String.t() => binary()},
-          threshold :: pos_integer()
+          envelope :: term(),
+          witness_keys :: term(),
+          threshold :: term()
         ) ::
           {:ok, %{verified_keyids: [String.t()]}}
-          | {:error, :witness_threshold_not_met | SigilGuard.Attestation.verify_error()}
+          | {:error,
+             :witness_threshold_not_met | :invalid_envelope
+             | :invalid_payload_type | :invalid_base64 | :duplicate_keyid}
 end
 ```
+
+`cosign/3` never returns `:invalid_signature`: it signs and does not verify
+existing signatures. An envelope that does not decode to a valid
+checkpoint-state statement fails with `:invalid_envelope`. A `:previous`
+value of the wrong shape fails with `:invalid_proof`. A prior statement
+from another chain, or proof sizes that differ from the two declared tree
+sizes, fail with `:inconsistent_tree`. A witness key id already in the
+envelope fails with `:duplicate_keyid`.
+
+`verify_threshold/3` is total. An envelope that is not a map fails with
+`:invalid_envelope`. A `witness_keys` value that is not a map, or a
+threshold that is not a positive integer, can meet no threshold and fails
+with `:witness_threshold_not_met`. A structurally invalid envelope returns
+the DSSE error; a witness signature that does not verify or whose key id
+is unknown is not counted.
 
 ## Privacy Classification (Normative)
 
@@ -414,7 +436,11 @@ stored instead (fail closed to redaction, never silent clear).
 Projections emit reserved metadata keys only; unknown host keys never
 project. Hosts writing metadata MUST apply one of the four classes and
 MUST NOT write raw secrets. Digests referenced by attestation subjects
-(SP.01) are plain SHA-256 by necessity and are `clear`-class values.
+(SP.01) are plain SHA-256 by necessity and are `clear`-class values. The
+OTel column gives the class a field has when it is exported. The mapper
+exports the action and payload digests; the event id, decision id, sandbox
+id, quarantine ref, and the context, manifest, and policy digests have no
+attribute yet (see Attribute Cardinality And Sampling).
 
 ### GDPR Stance (Digest-First)
 
@@ -498,21 +524,28 @@ take the `sigilguard.` form).
 | `sigil.confirmation.actor` | `sigilguard.confirmation.actor.hash` |
 | `sigil.security.content_hash` | `sigilguard.payload.digest` (SP.01 subject vocabulary) |
 | `sigil.registry.count` / `.endpoint` / `.source` | Removed; legacy remote-bundle path deleted (SP.12). |
-| `sigil.envelope.status` / `.reason` | Removed; attestation spans emit `sigilguard.attestation.*` (SP.01). |
+| `sigil.envelope.status` / `.reason` | Removed. No `sigilguard.attestation.*` attribute is emitted (not implemented); agent-trust span metadata maps to `sigilguard.agent_trust.statement_type` and `sigilguard.agent_trust.card_digest`. |
 | `url.full` | `url.full` (unchanged; OTel semconv) |
 
 ### Attribute Cardinality And Sampling
 
 | Attribute | Cardinality | Opt-in |
 |-----------|-------------|--------|
-| `sigilguard.profile`, `sigilguard.verdict`, `sigilguard.outcome`, `sigilguard.phase`, `sigilguard.origin`, `sigilguard.sink`, `sigilguard.trust_zone`, `sigilguard.trust_level`, `sigilguard.risk_level` | bounded enum | no |
+| `sigilguard.verdict`, `sigilguard.outcome`, `sigilguard.phase`, `sigilguard.origin`, `sigilguard.sink`, `sigilguard.trust_zone`, `sigilguard.trust_level`, `sigilguard.risk_level` | bounded enum | no |
 | `sigilguard.event`, `sigilguard.component`, `sigilguard.operation` | bounded enum | no |
 | `sigilguard.tool.name`, `sigilguard.mcp.server` | bounded per deployment | no |
 | `sigilguard.effect.binding` | bounded enum (`absent`, `valid`, `invalid`; SP.19) | no |
-| `sigilguard.rules.matched`, `sigilguard.hit_count`, `sigilguard.indicator_count`, `sigilguard.indicator_ids`, `sigilguard.scanner.*`, `sigilguard.repo_policy.*` | bounded (rule/pattern ids, counts) | no |
-| `sigilguard.decision.id`, `sigilguard.actor.hash`, `sigilguard.identity.hash` | high cardinality | yes |
-| `sigilguard.action.digest`, `sigilguard.payload.digest`, `sigilguard.context.digest`, `sigilguard.manifest.digest`, `sigilguard.policy.digest` | high cardinality (digests) | yes |
-| `sigilguard.sandbox.id`, `sigilguard.quarantine.ref`, `sigilguard.audit.event_id`, `sigilguard.audit.anchor.digest`, `sigilguard.resource.uri` | high cardinality | yes |
+| `sigilguard.hit_count`, `sigilguard.indicator_count`, `sigilguard.indicator_ids`, `sigilguard.scanner.*`, `sigilguard.repo_policy.*` | bounded (rule/pattern ids, counts) | no |
+| `sigilguard.actor.hash`, `sigilguard.identity.hash` | high cardinality | yes |
+| `sigilguard.action.digest`, `sigilguard.payload.digest` | high cardinality (digests) | yes |
+| `sigilguard.audit.anchor.digest`, `sigilguard.resource.uri` | high cardinality | yes |
+| `sigilguard.mcp.protocol_version`, `sigilguard.mcp.result_type` | caller-supplied strings | yes |
+| `sigilguard.profile`, `sigilguard.rules.matched` | bounded; not implemented | no |
+| `sigilguard.decision.id`, `sigilguard.context.digest`, `sigilguard.manifest.digest`, `sigilguard.policy.digest`, `sigilguard.sandbox.id`, `sigilguard.quarantine.ref`, `sigilguard.audit.event_id` | high cardinality; not implemented | yes |
+
+The last two rows name attributes this spec defines and the mapper does not
+emit. `otel_attributes/4` maps a fixed set of telemetry metadata keys, and
+none of them produces these nine names.
 
 The digest family uses the SP.01 subject form `sigilguard.<subject>.digest`
 (dot-separated), so the mechanical rename of the `*_digest` metadata keys
@@ -520,11 +553,14 @@ yields `sigilguard.action.digest`, `sigilguard.payload.digest` (from
 `content_hash`), `sigilguard.audit.anchor.digest`,
 `sigilguard.trust_bundle.digest`, and `sigilguard.agent_trust.card_digest`;
 the related `sigilguard.action.digest_error` is a bounded error reason. The
-high-cardinality opt-in set is every emitted digest, hash, opaque id, or URI:
-the table rows above plus `sigilguard.confirmation.actor.hash`,
-`sigilguard.confirmation.nonce_hash`, `sigilguard.trust_bundle.digest`,
-`sigilguard.agent_trust.card_digest`, `sigilguard.effect.binding_digest`, and
-`sigilguard.effect.operation_key`.
+opt-in set that `otel_attributes/4` drops by default is exactly these
+fourteen attributes: `sigilguard.action.digest`, `sigilguard.payload.digest`,
+`sigilguard.audit.anchor.digest`, `sigilguard.trust_bundle.digest`,
+`sigilguard.agent_trust.card_digest`, `sigilguard.actor.hash`,
+`sigilguard.identity.hash`, `sigilguard.confirmation.actor.hash`,
+`sigilguard.confirmation.nonce_hash`, `sigilguard.effect.binding_digest`,
+`sigilguard.effect.operation_key`, `sigilguard.resource.uri`,
+`sigilguard.mcp.protocol_version`, and `sigilguard.mcp.result_type`.
 
 `otel_attributes/4` gains `include_high_cardinality: boolean` (default
 `false`): high-cardinality attributes are dropped unless opted in, so
@@ -551,18 +587,27 @@ record `block`, `quarantine`, and `confirm` outcomes.
 Correlation fields: `trace_id` and `span_id` (host-propagated, stored in
 event metadata; inside an active span they are not duplicated as
 attributes because the span context carries them) plus
-`sigilguard.decision.id`, minted per gate decision and shared by the
-decision span, the audit event, and attestation evidence refs. The
-`[:sigil_guard, ...]` telemetry events remain the stable contract.
+`sigilguard.decision.id`, an id per gate decision shared by the decision
+span, the audit event, and attestation evidence refs. The decision id is
+not implemented: no gate, gateway, or audit function mints one, and
+`otel_attributes/4` has no mapping for it. A host that wants the
+correlation writes its own id under the reserved `"decision_id"` metadata
+key, which the CloudEvents projection copies. The `[:sigil_guard, ...]`
+telemetry events remain the stable contract.
+
 `opentelemetry_api` integration follows the Oban/Ecto optional-dependency
 pattern (R.07): never a hard dep; `attach_otel_forwarder/3` stays the
-seam; the documented forwarder uses `Code.ensure_loaded?/1` plus an
-explicit config flag, and an enabled flag without the package present is
-a typed startup error. The OTel `gen_ai.*` semantic conventions are
-experimental: SigilGuard MUST NOT emit them by default and ships mapping
-guidance only (`gen_ai.tool.name` maps from `sigilguard.tool.name`;
-`gen_ai.operation.name` `execute_tool` corresponds to phase
-`tool_request`).
+seam. The host passes it a forwarder function and sets span or log
+attributes inside that function. The forwarder this spec described, which
+checks `Code.ensure_loaded?/1` plus an explicit config flag and treats an
+enabled flag without the package as a typed startup error, is not
+implemented: the library ships no forwarder that calls
+`opentelemetry_api`, the configuration surface has no such flag, and an
+unknown configuration key fails startup. The OTel `gen_ai.*` semantic
+conventions are experimental: SigilGuard MUST NOT emit them by default and
+ships mapping guidance only (`gen_ai.tool.name` maps from
+`sigilguard.tool.name`; `gen_ai.operation.name` `execute_tool` corresponds
+to phase `tool_request`).
 
 ### CloudEvents Projection
 
@@ -589,7 +634,7 @@ uses the CloudEvents distributed tracing extension (`traceparent`).
     "timestamp": "2026-07-02T12:00:00.000Z",
     "metadata": {
       "decision": {"matched_rules": ["repo.write.block"], "verdict": "block"},
-      "decision_id": "<computed>",
+      "decision_id": "<host-supplied>",
       "evidence": [{"kind": "checkpoint", "ref": "<computed>"}],
       "payload_digest": "<computed>"
     },
@@ -661,8 +706,14 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
 
 - **Rekor:** anchoring release attestations in the public Rekor
   transparency log is optional post-GA hardening; GitHub's attestation
-  store satisfies v3. SBOM digest drift at verification fails the release
-  with `:sbom_digest_mismatch`.
+  store satisfies v3.
+- **SBOM drift:** `mix sigil_guard.sbom --verify <file> --sha256 <digest>`
+  fails with `:sbom_digest_mismatch` when the file differs from the expected
+  digest. The build job passes that task a digest it computes from the same
+  file, so the check cannot fail there; it runs the structural check. The
+  workflow detects drift in the attestation job, where `sha256sum --check`
+  compares each downloaded artifact with the digest recorded in the release
+  statement.
 
 ## SigilGuard.HTTPClient Behaviour (D9)
 
@@ -711,11 +762,12 @@ zero direct `Finch.` calls remain, the `SigilGuard.Finch` pool leaves the
 application supervision tree with the dependency in M6, and every other
 store behavior (endpoint contract, receipt normalization, WORM and
 receipt-signature options, allowlisted receipt-URL enforcement) is
-unchanged. A reference finch adapter ships as documentation only. In
-addition, an optional `req`-based default anchor client MAY ship as an
-optional dependency (guarded by `Code.ensure_loaded?/1`) for hosts that want
-a batteries-included store without writing their own adapter; it is an option
-a host opts into, never a core requirement.
+unchanged. The core ships no HTTP client and no finch or `req` adapter;
+the release-and-anchoring guide shows the shape of a host adapter. An
+optional `req`-based default anchor client MAY ship as an optional
+dependency (guarded by `Code.ensure_loaded?/1`) for hosts that want a
+batteries-included store without writing their own adapter; it is an option
+a host opts into, never a core requirement. No such client ships today.
 
 ## Module Map
 
@@ -728,7 +780,8 @@ a host opts into, never a core requirement.
 | `lib/sigil_guard/audit/export.ex` | Optional statement/proof fields in export packages. |
 | `lib/sigil_guard/http_client.ex` | The behaviour above. |
 | `lib/sigil_guard/audit/anchor/store/http.ex` | Converted to `SigilGuard.HTTPClient`. |
-| `lib/sigil_guard/telemetry.ex` | `sigilguard.*` map, cardinality opt-in, CloudEvents projection. |
+| `lib/sigil_guard/telemetry.ex` | `sigilguard.*` map, cardinality opt-in, hashed-class projection, `attach_otel_forwarder/3`. |
+| `lib/sigil_guard/audit/cloud_events.ex` | CloudEvents projection (`SigilGuard.Audit.CloudEvents.project/2`). |
 | `lib/mix/tasks/sigil_guard.sbom.ex` | Canonical SPDX 2.3 SBOM task (unchanged). |
 | `test/fixtures/audit_proofs/` | Golden proof vectors per the fixture convention. |
 
@@ -745,7 +798,7 @@ SP.01's shared taxonomy applies by reference to every DSSE surface here
 | `:proof_verification_failed` | Inclusion proof does not recompute the checkpoint root | treat event claim as tampered | tamper detected |
 | `:inconsistent_tree` | Consistency proof fails between two checkpoints | treat newer chain as forked or truncated | fork/truncation detected |
 | `:out_of_range` | `leaf_index >= tree_size`; `first_size` 0 or above `second_size`; query index outside the segment; empty-tree proof request | correct indices/sizes | call rejected |
-| `:witness_threshold_not_met` | Fewer than `m` distinct witness keyids verify | gather cosignatures or fix witness set | checkpoint not witnessed |
+| `:witness_threshold_not_met` | Fewer than `m` distinct witness keyids verify; `witness_keys` is not a map; the threshold is not a positive integer | gather cosignatures or fix witness set | checkpoint not witnessed |
 | `:http_client_not_configured` | HTTP anchor store used with no resolvable `SigilGuard.HTTPClient` | configure `:http_client` | anchor op fails closed |
 | `{:http_client_error, reason}` | Adapter error, crash, or exit | host inspects transport | anchor op fails |
 | `:response_too_large` | Response body over `:max_body_bytes` | raise cap or fix service | anchor op fails |
@@ -819,6 +872,17 @@ are unchanged.
 - [x] Every emitted OTel attribute uses `sigilguard.*` (or `url.full`);
       high-cardinality attributes require `include_high_cardinality:
       true`; the rename table is test-covered.
+- [ ] `sigilguard.decision.id` is minted per gate decision and shared by
+      the decision span, the audit event, and attestation evidence refs
+      (not implemented: no code mints a decision id).
+- [ ] The mapper emits `sigilguard.profile`, `sigilguard.rules.matched`,
+      `sigilguard.context.digest`, `sigilguard.manifest.digest`,
+      `sigilguard.policy.digest`, `sigilguard.sandbox.id`,
+      `sigilguard.quarantine.ref`, and `sigilguard.audit.event_id` (not
+      implemented: `otel_attributes/4` has no mapping for them).
+- [ ] An optional `opentelemetry_api` forwarder is enabled by an explicit
+      config flag, and an enabled flag without the package is a typed
+      startup error (not implemented: no forwarder and no flag exist).
 - [x] CloudEvents projection emits `specversion` `1.0`, type
       `io.sigilguard.decision.v1`, privacy-filtered `data` only.
 - [x] The HTTP anchor store has zero direct `Finch.` calls and fails with

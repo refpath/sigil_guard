@@ -69,9 +69,13 @@ fallbacks.
 ## MCP Trust Metadata
 
 Use `_agent_trust` instead of `_sigil` for Agent Trust attestations attached to
-MCP payloads. The metadata key may appear at the JSON-RPC payload root or inside
-`params`; 1.0 strips `_agent_trust` from both locations before computing action
-digests. 1.0 does not strip `_sigil`.
+MCP payloads. `SigilGuard.Attestation.attach/2` writes the envelope at the
+JSON-RPC payload root, and `SigilGuard.Attestation.fetch/1` and the gateways
+read it only there. 1.0 strips `_agent_trust` at the root and inside `params`
+before computing action digests, so an envelope left inside `params` is not
+verified: `attestation: :required` blocks the request with
+`:invalid_attestation`, and `attestation: :optional` treats the request as
+carrying no attestation. 1.0 does not strip `_sigil`.
 
 Before:
 
@@ -109,17 +113,17 @@ After:
     "arguments": {
       "path": "docs/guide.md",
       "content": "updated"
-    },
-    "_agent_trust": {
-      "payloadType": "application/vnd.sigilguard+json",
-      "payload": "base64url-jcs-in-toto-statement",
-      "signatures": [
-        {
-          "keyid": "sha256:65b60673d6ed884bf01c2c222d82ada0740f29ac3355d6a925c81f17f47a27b8",
-          "sig": "base64url-dsse-signature"
-        }
-      ]
     }
+  },
+  "_agent_trust": {
+    "payloadType": "application/vnd.sigilguard+json",
+    "payload": "base64url-jcs-in-toto-statement",
+    "signatures": [
+      {
+        "keyid": "sha256:65b60673d6ed884bf01c2c222d82ada0740f29ac3355d6a925c81f17f47a27b8",
+        "sig": "base64url-dsse-signature"
+      }
+    ]
   }
 }
 ```
@@ -133,7 +137,8 @@ digest instead of being treated as transport metadata.
 Check both common attachment sites during migration:
 
 - **Tool-call arguments**: replace any code that inserts `_sigil` into MCP
-  `params` or `arguments` with `SigilGuard.Attestation.attach/2`.
+  `params` or `arguments` with `SigilGuard.Attestation.attach/2`, which puts
+  `_agent_trust` at the payload root.
 - **Socket or session authentication**: replace any code that accepts `_sigil`
   as an auth payload with `SigilGuard.Attestation.fetch/1` and
   `SigilGuard.Attestation.verify/3`, using trust material from a verified
@@ -182,19 +187,30 @@ After:
 ```
 
 When the token is already held out-of-band, pass it through the existing
-`:confirmation_token` option instead of embedding transport metadata:
+`:confirmation_token` option instead of embedding transport metadata. Pass the
+context the token was issued for and the key that signed it:
 
 ```elixir
 SigilGuard.MCP.Gateway.guard_confirmed_request(
   request,
-  [trust_level: :medium],
-  confirmation_token: token
+  context,
+  confirmation_token: token,
+  confirmation_key: confirmation_key
 )
 ```
 
-The same option path applies to `guarded_confirmed_request/3`,
-`guard_signed_confirmed_request/3`, `guarded_signed_confirmed_request/3`,
+Without `:confirmation_key` the token cannot be verified and the decision is
+`:block` with `audit_metadata.deny_reason` set to `:confirmation_failed`. The
+same options apply to `guarded_confirmed_request/3`,
 `guard_confirmed_result/3`, and `guarded_confirmed_result/3`.
+
+The signed variants never read a token. 1.0 has no accepting path for
+envelope-shaped request metadata, so `guard_signed_request/3`,
+`guarded_signed_request/3`, `guard_signed_confirmed_request/3`, and
+`guarded_signed_confirmed_request/3` always return a block decision, and
+`issue_signed_confirmation_token/5` always returns an error. Use
+`SigilGuard.ToolGateway.guard_request/3` with `attestation: :required` for
+signed requests.
 
 ## Registry To Trust Bundles
 
@@ -316,18 +332,20 @@ host-owned inputs to SigilGuard.
 DSSE envelopes.
 
 The 0.2.x verdict mapping is `:allowed -> "allow"`, `:blocked -> "block"`, and
-`:scanned -> "allow"`; 0.2.x `:scanned` was advisory, while 1.0 records scanner
-evidence in `matched_rules`.
+`:scanned -> "allow"`; 0.2.x `:scanned` was advisory. A 1.0
+`%SigilGuard.Decision{}` records the rules behind its verdict in
+`matched_rules`. `Attestation.from_decision/3` copies the decision `reason`
+into the predicate and does not copy `matched_rules`.
 
 | 0.2.x Envelope surface | 1.0 Attestation surface |
 |---------------------|------------------------|
 | `identity` | `predicate.actor.id` (issuer is the resolved signing key via `keyid`). |
 | `verdict` (`allowed`/`blocked`/`scanned`) | `predicate.verdict` per the mapping above. |
 | `timestamp` | `predicate.issued_at` (`expires_at` is new and required). |
-| `nonce` (16-byte hex) | `predicate.nonce`, same format. |
+| `nonce` (16-byte hex) | `predicate.nonce`, present only when `nonce:` is passed to `from_decision/3` or `sign/3`. A 16-byte hex value still works; the library does not require that format. |
 | `signature` (single base64url string) | `signatures[0].sig` in the DSSE envelope, plus new `keyid`. |
-| `reason` | `predicate.matched_rules[].explanation`. |
-| Canonical bytes `{identity,nonce,timestamp,verdict}` | PAE over the base64url DSSE payload. |
+| `reason` | `predicate.reason`, copied from the decision. |
+| Canonical bytes `{identity,nonce,timestamp,verdict}` | DSSE PAE over the payload type and the JCS statement bytes. |
 | `profile:`/`wire_verdict_format:` options | Removed; one profile, one wire form. |
 | `Envelope.sign(identity, verdict, opts)` | `Attestation.from_decision/3` + `Attestation.sign/3`. |
 | `Envelope.verify(envelope, public_key_b64u, opts)` | `Attestation.verify(envelope, trust_material, opts)`. |
@@ -352,10 +370,13 @@ request =
 After:
 
 ```elixir
+nonce = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
+
 {:ok, statement} =
   SigilGuard.Attestation.from_decision(decision, context,
     payload: request,
-    statement_type: :tool_request
+    statement_type: :tool_request,
+    nonce: nonce
   )
 
 {:ok, envelope} =
@@ -365,6 +386,9 @@ After:
 
 request = SigilGuard.Attestation.attach(request, envelope)
 ```
+
+The statement carries a nonce only when one is passed. Verification with
+`consume: true` rejects a statement without a nonce with `:invalid_payload`.
 
 ### Verifying An Attached Request
 
@@ -396,8 +420,10 @@ with {:ok, envelope} <- SigilGuard.Attestation.fetch(request),
 end
 ```
 
-The trust material can be a direct `%{keyid => public_key}` map or a map derived
-from a verified trust bundle as shown in the registry lookup migration section.
+`consume: true` consumes the nonce, so a second verification of the same
+envelope returns `{:error, :replay_detected}`. The trust material can be a
+direct `%{keyid => public_key}` map or a map derived from a verified trust
+bundle as shown in the registry lookup migration section.
 
 ## Profile To TrustProfile
 
@@ -411,7 +437,7 @@ Trust profile. 1.0 has one profile id and one wire form:
 | `SigilGuard.Profile.normalize!/1` | Removed. Build or verify a 1.0 Statement and call `SigilGuard.TrustProfile.validate/1`; invalid profiles return typed errors instead of normalizing. |
 | `SigilGuard.Profile.wire_verdict_format/1` | Removed. 1.0 uses one predicate verdict vocabulary in Agent Trust statements. |
 | `SigilGuard.Profile.verdict_acceptance/1` | Removed. `SigilGuard.Attestation.verify/3` and `SigilGuard.TrustProfile.validate/1` enforce the 1.0 profile. |
-| `SigilGuard.Profile.require_blocked_reason_on_verify?/1` | Removed. Blocking rationale lives in `predicate.matched_rules[].explanation`. |
+| `SigilGuard.Profile.require_blocked_reason_on_verify?/1` | Removed. `Attestation.from_decision/3` writes the blocking rationale to `predicate.reason`. |
 | `SigilGuard.Profile.registry_identity_endpoints/1` | Removed. DID/network identity discovery is host-owned; verified bundle issuer policy is available through `SigilGuard.TrustBundle.identity_issuers/1`. |
 | `:protocol_profile` config | Removed. Use `SigilGuard.TrustProfile.profile_id/0` when code needs the constant. |
 
@@ -457,10 +483,10 @@ Remove deleted 0.2.x keys before booting 1.0. Removed keys fail closed with
 | `:registry_bundle_max_age_seconds`, `:registry_bundle_clock_skew_seconds` | Bundle expiry and skew fields inside the trust bundle. |
 | `scanner_patterns: :registry` (value) | `scanner_patterns: :bundle`. |
 
-Kept 1.0 keys are `:trust_bundle`, `:scanner_patterns`, `:http_client`,
-`:attestation_ttl_ms`, `:max_skew_ms`, `:replay_ttl_ms`, `:vault_master_key`,
-and `:trust_mappings`. Unknown keys fail closed with reason
-`:unknown_config_key`.
+Accepted 1.0 keys are `:runtime`, `:trust_bundle`, `:scanner_patterns`,
+`:http_client`, `:attestation_ttl_ms`, `:max_skew_ms`, `:replay_ttl_ms`,
+`:vault_master_key`, and `:trust_mappings`. Unknown keys fail closed with
+reason `:unknown_config_key`.
 
 Only remove keys that configure SigilGuard. Host application boot keys may
 still use sigil-prefixed names for unrelated local concerns; 1.0 does not reserve
@@ -595,8 +621,9 @@ drift and invalidates approvals.
 ### MCP Apps
 
 Use `origin: :app` with a trusted `mcp_server` for calls originating in an MCP
-App. App calls are accepted only for app-visible tools on that same server;
-model callers are denied access to app-only tools.
+App. App calls are accepted only for app-visible tools on that same server.
+Every other origin is held to the tool's model visibility, so a caller that
+is not an App is denied an app-only tool.
 
 Call `SigilGuard.MCP.AppResource.verify/2` on the direct `resources/read`
 content before handing bytes to a renderer. Pin `expected_sha256` and allow
@@ -634,9 +661,11 @@ The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
 - **Facades remain unchanged**: `SigilGuard.scan/1`, `scan_and_redact/1`, and
   `policy_verdict/3` return shapes are byte-identical; hit maps gained additive
   optional keys only.
-- **Sandbox matrix** applies in the gate only when a call declares a `tool` or
-  `sandbox` (opt-in by presence); it does not auto-quarantine tool calls that
-  declare neither.
+- **Sandbox matrix** applies in the gate only when the context declares an
+  `isolation_level` (opt-in by presence); it does not auto-quarantine tool
+  calls that declare none. `ToolGateway.guard_request/3` selects the matrix
+  row from the side effects of the pinned manifest. Without a pinned manifest
+  the row is `execute`; `guard_result/3` resolves no manifest.
 - The confirmation token's informational `"action"` claim now records the
   unified action (`"confirm"` for confirming decisions); the token's
   cryptographic binding is unchanged.

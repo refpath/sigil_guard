@@ -3,10 +3,11 @@
 This is the canonical execution checklist for SigilGuard v3, the embedded
 Agent Trust Profile runtime. V3 is a deliberate, spec-governed breaking
 release: every architectural decision (D1-D22) is closed, research-backed,
-and recorded below with rationale (see Closed Decisions); no open choices
-remain. Execute milestones strictly in order F -> M0 -> M1 -> ... -> M13. A
-task is done only when its AC bullets hold and its named test families
-exist. Migration lives in `MIGRATING-1.0.md`, `CHANGELOG.md`, and release
+and recorded below with rationale (see Closed Decisions). Milestones F
+through M13 were executed in order. M14 is an open backlog of spec
+requirements that no code implements; each of its tasks needs a design
+decision before work starts. A task is done only when its AC bullets hold and
+its named test families exist. Migration lives in `MIGRATING-1.0.md`, `CHANGELOG.md`, and release
 notes - never in permanent legacy runtime shims.
 
 This file, the research notes (`../research/R.01`-`R.11`), and the specs
@@ -19,7 +20,7 @@ research note.
 ## Orientation (Read First)
 
 Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. Milestones F through M13 are complete.
+rewrite. Milestones F through M13 are complete. M14 is open.
 
 **v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
 a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
@@ -61,8 +62,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 295 / 295 tasks done (100%).** Milestones: 16 complete.
-**Current milestone: M13 complete - physical effect authority.**
+**Overall: 295 / 312 tasks done (94.6%).** Milestones: 16 complete, 1 open.
+**Current milestone: M14 open - spec conformance backlog.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -82,7 +83,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M11 | Security audit remediation | 22 | 22 | 100% | Complete |
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
-| — | **Total** | **295** | **295** | **100%** | 16 done |
+| M14 | Spec conformance backlog | 0 | 17 | 0% | Open |
+| — | **Total** | **295** | **312** | **94.6%** | 16 done |
 
 ### Release Handoff
 
@@ -112,7 +114,11 @@ are maintainer-owned operations and are intentionally outside this checklist.
 After the owner-managed package flow, validate the reference consumer against
 the actual 1.0.0 package artifact as release handoff evidence.
 
-The table counts every milestone task (F through M13, including M7A) exactly
+M14 records requirements that the specs state and no code implements. It
+was opened by a spec-to-code review on 2026-11-20 and no task in it is
+started.
+
+The table counts every milestone task (F through M14, including M7A) exactly
 once. The
 Mandatory Gates section is a recurring pre-commit checklist and the Deferred
 section is post-1.0.0 parking; neither is counted here.
@@ -3099,6 +3105,117 @@ and needed no task; the tasks below cover the rest.
 Validation on 2026-11-20: `./bin/check` passed all 18 checks with 1911 tests
 and 95.5% coverage. Hosted CI and a real receiving boundary were not
 exercised by this milestone.
+
+## M14 - Spec Conformance Backlog
+
+> References: the sections of `SP.01` to `SP.15` that say a behaviour is not
+> implemented, and their unchecked acceptance criteria
+> Effort: XL
+> Status: open
+> Dependencies: a design decision per task
+
+A review on 2026-11-20 compared every spec with the code. Where the code was
+wrong it was fixed, with regression tests; `CHANGELOG.md` lists those fixes.
+Where a spec required behaviour that no code implements, the spec now states
+what the code does, and the requirement is recorded here. Specs that still
+carry such requirements have status `implemented/partial`.
+
+No task below is started. Several change decision outcomes, attested
+statement content, or the confirmation token for existing consumers, so each
+needs its design confirmed against the consumer contracts before work begins.
+
+- [ ] M14.01 Repo policy facts in the kernel (`SP.04`, `SP.07`, `SP.11`).
+  - AC: the gate passes `RepoPolicy.policy_facts/2` to `BoundaryPolicy` as
+    `:repo_facts`; the `[repo]` section of a loaded policy file contributes a
+    verdict at `:file_changed`; the policy digest and default decision reach
+    the decision and its audit metadata.
+- [ ] M14.02 Output contract enforcement (`SP.04`).
+  - AC: `BoundaryPolicy.Contract.enforce/4` runs in the evaluation order for
+    outbound content; `no_raw_credentials` re-scans with the secret pattern
+    set; `digest_only_pii` has a pattern flag to act on; a class violation
+    escalates the decision to block.
+- [ ] M14.03 Scanner hit vocabulary (`SP.04`).
+  - AC: hit `category` is a closed atom set with the `"credential"` to
+    `:secret` mapping, or the spec's kernel invariant names the string
+    categories it accepts; the required hit keys for a custom pipeline match
+    what `Scanner.scan/2` enforces.
+- [ ] M14.04 Hook and adaptive signals on gate decisions (`SP.04`, `SP.07`).
+  - AC: hook signals, adaptive indicators, raised risk, and `adaptive_error`
+    appear on the decision the gate returns; a notify-form return on a
+    blockable phase is `:invalid_hook_result`; `sensitivity:` rules have a
+    `Context` field to match.
+- [ ] M14.05 Sandbox matrix defaults (`SP.04`, `SP.07`, `SP.03`).
+  - AC: the `absent` column is reachable through the gate for a tool phase
+    with no declared isolation level, or the spec drops it; `guard_result/3`
+    resolves the manifest so a result uses its declared classes.
+  - Note: the first item changes decisions for hosts that declare no
+    isolation level.
+- [ ] M14.06 Scanner time bound and stream binding (`SP.04`, `SP.07`).
+  - AC: `:scanner_timeout` and `:stream_holdback_overflow` are produced and
+    tested, or removed from the error tables; stream chunks bind to payload
+    and context digests.
+- [ ] M14.07 Attestation predicate completeness (`SP.01`, `SP.03`, `SP.07`).
+  - AC: `Attestation.from_decision/3` emits the `boundary` mirror,
+    `matched_rules`, evidence references, a generated nonce, and millisecond
+    timestamps; the `action` subject binds method and arguments; a confirmed
+    release attests `released_sanitized`; `sign/3` and
+    `TrustProfile.validate/1` reject an inverted lifetime and missing
+    required predicate fields; `:ttl_ms` sets `expires_at`; binary and list
+    payloads are accepted.
+  - Note: this changes signed statement content and the frozen vectors.
+- [ ] M14.08 Trust bundle as verification material (`SP.01`, `SP.02`,
+      `SP.03`, `SP.13`).
+  - AC: `Attestation.verify/3` accepts a `%TrustBundle{}` and resolves `keys`
+    minus revocations; `:require_manifest` is honoured there; a manifest's
+    `issuer_keyid` must name a bundle-declared issuer; the gateway trusts a
+    manifest only from a verified bundle; `identity_issuers` has a consumer.
+- [ ] M14.09 Trust bundle verification gaps (`SP.02`).
+  - AC: `TrustBundle.verify/2` and `load/2` with `cache: false` check the
+    sequence floor; a rotation document's `rollback_floor` must exceed the
+    previous one; a first-seen bundle with a rotation chain can establish its
+    pin; bundle-state Statements exist or leave the spec.
+- [ ] M14.10 Confirmation token alignment (`SP.03`, `SP.08`).
+  - AC: the token `action_digest` follows SP.01 Digest Computation and the
+    body is JCS, or the specs adopt the legacy digest as the contract; direct
+    `Confirmation.issue/5` and `verify/5` apply the strip rule; the token
+    actor equals a verified attestation actor when one is present; result
+    tokens can bind a manifest; the signed `MCP.Gateway` helpers verify
+    attestations or are removed.
+  - Note: the token format is a consumer contract.
+- [ ] M14.11 Gateway error data and telemetry (`SP.03`, `SP.05`, `SP.16`).
+  - AC: gateway denials carry the registry fields the spec lists; the MCP
+    event carries manifest and result facts and the gate event the protocol
+    fields; a decision id is minted and shared by span, audit event, and
+    evidence references; the mapper emits the attributes SP.05 lists, or the
+    spec drops them.
+- [ ] M14.12 Agent-to-agent trust (`SP.13`).
+  - AC: peer trust resolves from configured or bundle actor rules when no
+    resolver is passed; `quarantined` reflects indicators regardless of
+    verdict; a failed peer card takes the unknown-peer path; agent statements
+    carry requester binding; `verify_agent_response/3` compares the
+    delegation mirror and the capability and recomputes the context digest.
+- [ ] M14.13 Vault and identity (`SP.10`).
+  - AC: `Vault.InMemory` returns `{:error, :vault_unavailable}` when its
+    process is not running; identifier shape validation matches the spec or
+    the spec drops it; vault concurrency, rotation, and export-exclusion
+    tests exist.
+- [ ] M14.14 Repo policy error atoms (`SP.11`).
+  - AC: `:invalid_path` is produced or removed; a malformed loader option
+    value returns `:invalid_options` before any filesystem access.
+- [ ] M14.15 Backend selection (`SP.06`).
+  - AC: `SigilGuard.Backend.impl/0` and `SigilGuard.Config` agree. Today the
+    first accepts a module named by the `:backend` application key and the
+    second rejects that key as removed.
+- [ ] M14.16 Benchmark fixtures (`SP.15`).
+  - AC: BM.02 has a 1 KiB corpus that contains a hit; BM.04 splits a secret
+    across a chunk boundary; BM.06 uses a bundle with two delegations and ten
+    patterns; BM.07 and BM.08 report what the spec names; the environment
+    block records RAM.
+- [ ] M14.17 Release evidence and examples (`SP.05`, `SP.14`).
+  - AC: the publish workflow checks the SBOM digest against a value it did
+    not compute from the same file; a consumer can run the SBOM structural
+    check outside a `sigil_guard` checkout; illustrative modules live under
+    `examples/` or the spec keeps the current wording.
 
 ## Package verification maintenance
 

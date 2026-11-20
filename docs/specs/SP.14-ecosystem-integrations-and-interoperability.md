@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: high
   created: "2026-07-02"
-  updated: "2026-08-19"
+  updated: "2026-11-20"
   tags: ["integrations", "interoperability", "livebooks", "openssf", "tier-1", "v3"]
   depends_on: ["R.06", "R.07"]
 ---
@@ -38,9 +38,15 @@ watchlist, and the documentation artifacts, each with acceptance criteria.
 
 ### Overview
 
-Integrations ship as ExDoc guides plus pinned illustrative modules under
-`examples/`. SigilGuard MUST take zero hard dependencies on any target; the
-host framework owns the extension point, SigilGuard supplies the verdict.
+Integrations ship as ExDoc guides. The illustrative modules are the Elixir
+code blocks inside those guides; no module ships under `examples/`, which
+holds only the Tidewave policy file `examples/tidewave/SIGILGUARD_POLICY`.
+`test/sigil_guard/conformance/consumer_contracts_test.exs` compiles the
+hermes_mcp, Jido, and Tidewave guide modules from the guide text and
+exercises them, and `bin/guide_consumer.exs` runs the guide modules against
+the pinned frameworks in an isolated consumer. SigilGuard MUST take zero
+hard dependencies on any target; the host framework owns the extension
+point, SigilGuard supplies the verdict.
 Insertion points are `SigilGuard.ToolGateway.guard_request/2` before tool
 execution and `SigilGuard.ToolGateway.guard_result/2` before a result
 reaches the model (SP.03). Denials surface as `%SigilGuard.Decision{}`
@@ -240,8 +246,11 @@ provides self-study, 45-minute talk, and 90-minute workshop paths.
 Each livebook MUST execute top-to-bottom via `Mix.install` with zero network
 access from a repository checkout. Local execution reuses the repository
 configuration and lockfile; a Run in Livebook import falls back to the
-published `sigil_guard` Hex package. The M7 validation script runs every
-deterministic code cell in a network-denied environment and fails on any error.
+published `sigil_guard` Hex package. The M7 validation script,
+`mix sigil.livebook_check`, runs the Elixir code cells of every notebook in a
+child `elixir` process with `HEX_OFFLINE=1` and `REBAR_OFFLINE=1` and fails on
+any error. It forces the AI notebook into its scripted mode. It does not block
+other network access, so the zero-network rule is otherwise a review item.
 The AI notebook MUST default to a deterministic proposal replay and MUST keep
 the optional live provider call outside the security authority path. The
 hermes notebook MUST NOT fetch `hermes_mcp`: it exercises the interceptor
@@ -281,7 +290,8 @@ documentation and release artifacts are the files listed in the module map.
 | `guides/cheatsheet.cheatmd` | ExDoc cheatsheet. |
 | `guides/threat-model.md` | Threat-model guide rendered from R.06. |
 | `guides/integrations/*.md` | Four Tier 1 guides (hermes_mcp, jido, langchain, tidewave). |
-| `examples/` | Pinned illustrative modules and the Tidewave policy. |
+| `examples/tidewave/SIGILGUARD_POLICY` | The Tidewave boundary policy. No module ships under `examples/`. |
+| `test/support/guide_fixture.ex`, `bin/guide_consumer.exs` | Compile and run the guide code blocks in the test suite and in an isolated pinned consumer. |
 | `notebooks/README.md` | Tutorial catalog, capability coverage, talk plans, and AI-demo operating notes. |
 | `notebooks/*.livemd` | The executable tutorial track. |
 | `SECURITY.md` | Disclosure policy and runbook pointer. |
@@ -328,7 +338,7 @@ runtime errors. N/A rows are intentional.
 
 | Test | Module | What It Verifies |
 |------|--------|------------------|
-| livebook execution | M7 validation script | every notebook runs top-to-bottom offline via local-path `Mix.install`. |
+| livebook execution | `mix sigil.livebook_check` | every notebook's Elixir cells run top-to-bottom via local-path `Mix.install` with Hex and Rebar offline. |
 | guide compile | pinned-version procedure | every Tier 1 guide compiles with warnings as errors at its pin. |
 | anubis variant | pinned-version procedure | the hermes guide compiles against `anubis_mcp` (test-only). |
 | docs render | `mix docs` | cheatsheet, guides, and threat-model guide render without warnings. |
@@ -341,7 +351,8 @@ runtime errors. N/A rows are intentional.
       procedure, plus every Per-Target Acceptance row.
 - [x] `guides/cheatsheet.cheatmd` covers gate verdicts, policy grammar,
       attestation calls, and the confirmation flow.
-- [x] All five livebooks execute top-to-bottom offline in the validation run.
+- [x] All eleven livebooks execute top-to-bottom offline in the validation
+      run (`mix sigil.livebook_check`).
 - [x] `SECURITY.md` contains supported versions, channel, SLO, and the SP.02
       runbook pointer.
 - [x] `guides/threat-model.md` matches R.06 claim levels exactly.
@@ -356,7 +367,8 @@ Aligned with task milestone M7 (the task list owns task IDs); publish-gated
 items are maintainer-owned release handoff.
 
 - [x] M7: cheatsheet, threat-model guide, and doc-coverage enforcement.
-- [x] M7: four Tier 1 guides plus `examples/` with pinned validation records.
+- [x] M7: four Tier 1 guides with a pinned validation record in each guide
+      header, plus the Tidewave policy under `examples/tidewave/`.
 - [x] M7: eleven Livebook tutorials plus the offline execution validation script.
 - [x] M7: SECURITY.md and documentation gates completed.
 - [x] M8/GA: leave tags, pushes, and publication to the maintainer.

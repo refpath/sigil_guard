@@ -9,14 +9,24 @@ of its own in any decision path.
 ## Verifying a release SBOM
 
 SigilGuard generates an SPDX 2.3 SBOM with the built-in Mix task. Generation
-uses only the Mix project, `mix.lock`, and Jason — no network:
+reads the Mix project, `mix.lock`, the `hex_metadata.config` of each locked
+runtime dependency under `deps/`, and the checked-out Git revision. It makes
+no network call, so fetch the dependencies first:
 
 ```bash
+mix deps.get
 mix sigil_guard.sbom --output dist/sigil_guard.spdx.json
 ```
 
-Verification has two levels. **Structural** verification checks the document
-against the current project and lockfile:
+A runtime dependency whose `hex_metadata.config` is missing, names another
+version, or lists no license fails generation with
+`{:invalid_runtime_dependency_metadata, package}`.
+
+Verification has two levels. **Structural** verification compares the
+document with what the task would generate for the Mix project it runs in:
+the project name and version, the lockfile, the fetched dependency metadata,
+and the Git revision bound into the document namespace. Run it in the
+`sigil_guard` checkout the SBOM was generated from:
 
 ```bash
 mix sigil_guard.sbom --verify dist/sigil_guard.spdx.json
@@ -24,8 +34,9 @@ mix sigil_guard.sbom --verify dist/sigil_guard.spdx.json
 
 **Digest** verification additionally binds the file to the exact bytes attested
 in the release provenance (the SLSA build-provenance subject and the `artifacts`
-list under the signed predicate's `release` object). Compute the digest and pass
-it:
+list under the signed predicate's `release` object). Pass the digest recorded
+in the provenance, not one computed from the file being checked; `shasum`
+prints the local value for comparison:
 
 ```bash
 shasum -a 256 dist/sigil_guard.spdx.json
@@ -47,8 +58,10 @@ gh attestation verify sigil_guard-1.0.0.tar --repo refpath/sigil_guard \
 
 ### Consumer-side verification in CI
 
-A downstream consumer gates its own build on the same evidence — provenance,
-SBOM digest, and structure — before trusting the release:
+A downstream consumer gates its own build on the signed evidence before
+trusting the release. `gh attestation verify` hashes the downloaded file and
+accepts it only when a signed attestation names that digest, so these
+commands bind the tarball and the SBOM bytes to the release:
 
 ```yaml
 - name: Verify sigil_guard release
@@ -61,10 +74,15 @@ SBOM digest, and structure — before trusting the release:
       --predicate-type https://sigilguard.dev/attestation/release/v1
     gh attestation verify sigil_guard-1.0.0.spdx.json --repo refpath/sigil_guard \
       --predicate-type https://sigilguard.dev/attestation/release/v1
-    mix sigil_guard.sbom \
-      --verify sigil_guard-1.0.0.spdx.json \
-      --sha256 "$(shasum -a 256 sigil_guard-1.0.0.spdx.json | cut -d' ' -f1)"
 ```
+
+`mix sigil_guard.sbom --verify` is not a consumer-side check. It compares the
+document with the Mix project it runs in, so inside a consumer project it
+fails with `:invalid_document_name`. A `--sha256` value computed from the
+same file can never mismatch; take the expected digest from the signed
+release predicate (`release.artifacts[].sha256`). To repeat the structural
+check, run it in a `sigil_guard` checkout of the released tag after
+`mix deps.get`.
 
 The tagged-release workflow accepts only the exact Mix-project version tag at
 the triggering commit. It produces build provenance with `actions/attest`, then
@@ -151,11 +169,12 @@ alias SigilGuard.Audit.Anchor.Store
   )
 ```
 
-`Store.fetch/2` reads a record back by receipt or digest and rejects it unless
-its canonical digest matches the request; when it falls back to a receipt URI,
-private, loopback, and link-local targets are rejected unless
-`allow_private_receipt_url: true` is passed. Bodies over `:max_body_bytes`
-(default 1 MiB) fail `:response_too_large`.
+`Store.fetch/3` reads a record back by receipt or digest and rejects it unless
+its canonical digest matches the request. When it falls back to a receipt URI,
+a hostname must have an exact entry in `:receipt_url_hosts`, and private,
+loopback, and link-local targets are rejected with `:unsafe_receipt_url`;
+`allow_private_receipt_url: true` lifts both checks. Bodies over
+`:max_body_bytes` (default 1 MiB) fail `:response_too_large`.
 
 The remote endpoint contract (paths, request body, receipt shape) is documented
 on `SigilGuard.Audit.Anchor.Store.HTTP`; a WORM adapter is that endpoint backed

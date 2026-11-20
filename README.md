@@ -106,7 +106,7 @@ decision =
   )
 
 :redact = decision.action
-"token=[SECRET]" = decision.sanitized_text
+"[SECRET]" = decision.sanitized_text
 ```
 
 Scanning and policy are also available on their own:
@@ -178,9 +178,14 @@ result maps and wants the full enforcement surface. Use `SigilGuard.MCP.Gateway`
 when wiring an MCP transport that wants JSON-RPC-compatible helper names and
 tuple responses; it is a thin permanent facade over `ToolGateway`.
 
-Guard a tool request against a pinned manifest:
+Guard a tool request against a pinned manifest. Build the manifest with
+`SigilGuard.CapabilityManifest.new/1`: `attest_request/3` and
+`issue_confirmation/5` bind the manifest digest only when they receive the
+struct.
 
 ```elixir
+{:ok, pinned_manifest} = SigilGuard.CapabilityManifest.new(manifest_document)
+
 request = %{
   "method" => "tools/call",
   "params" => %{
@@ -194,6 +199,10 @@ request = %{
 }
 
 context = [
+  phase: :tool_request,
+  origin: :model,
+  sink: :tool,
+  tool: "repo_file_write",
   actor: "spiffe://agents/editor",
   trust_level: :medium,
   sandbox_id: "sandbox-123",
@@ -207,7 +216,17 @@ decision =
   )
 ```
 
-Attach and require Agent Trust evidence with the `_agent_trust` metadata key:
+A manifest that requires a sandbox blocks the request with `sandbox_required`
+unless the context names a `sandbox_id` and an `isolation_level` at or above
+the manifest minimum. When the manifest declares the `write` side effect and
+the sandbox is a `:container`, the sandbox matrix asks for confirmation, so
+`decision.action` is `:confirm`. The same request with `isolation_level: :vm`
+returns `:allow`.
+
+Attach and require Agent Trust evidence with the `_agent_trust` metadata key.
+The attestation binds the context it is signed with, and `guard_request/3`
+verifies it against a context that carries `phase`, `origin`, `sink`, and
+`tool`, so sign with those fields set:
 
 ```elixir
 {:ok, envelope} =
@@ -228,6 +247,11 @@ verified =
     trust_material: %{"agent-ed25519-1" => agent_public_key}
   )
 ```
+
+A request whose attestation is missing or fails verification is blocked with
+`audit_metadata.deny_reason` set to `:invalid_attestation`. A verified request
+continues to the policy decision, so `verified.action` is still `:confirm`
+here.
 
 Confirmation tokens use `_agent_confirmation` when a decision requires human
 approval:
@@ -250,6 +274,10 @@ confirmed =
     confirmation_key: confirmation_key
   )
 ```
+
+`confirmed.action` is `:allow`. The token is bound to the request, the
+context, and the manifest digest, and it is consumed on first use: a second
+request with the same token is blocked.
 
 ### Physical-effect requests
 

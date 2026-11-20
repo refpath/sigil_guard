@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: critical
   created: "2026-07-31"
-  updated: "2026-07-31"
+  updated: "2026-11-20"
   tags: ["mcp", "mrtr", "mcp-apps", "manifest", "confirmation", "json-rpc"]
   depends_on: ["R.08", "SP.03", "SP.08"]
 ---
@@ -72,7 +72,7 @@ sequenceDiagram
 | GenServer | no | Protocol parsing and verification are pure. |
 | Behaviour | no | Host seams already exist at the gateway boundary. |
 | ETS | no | No protocol session state is introduced. |
-| Telemetry | yes | Existing MCP request/result events carry added metadata. |
+| Telemetry | yes | The existing `[:sigil_guard, :mcp, :request]` event carries added metadata. |
 
 ## Data Model
 
@@ -146,13 +146,19 @@ resource.
 
 ## Telemetry And Observability
 
-Existing `[:sigil_guard, :mcp, :request]` and result/gate events add
-`protocol_version`, `mcp_result_type`, and `origin` where available. Raw
-request state, input responses, HTML, and header values never enter telemetry.
-The consolidated MCP event is emitted only after the top-level gateway has
-attached protocol/result classification, including on pre-gate denials. The
-protocol and result-type OTel attributes are high-cardinality and therefore
-require `include_high_cardinality: true` in metric/span projections.
+The existing `[:sigil_guard, :mcp, :request]` event, which `guard_request/3`
+and `guard_result/3` both emit, adds `protocol_version` and
+`mcp_result_type` where available and carries `origin`. The
+`[:sigil_guard, :runtime, :gate]` event carries `origin` but neither
+protocol field: the gate emits it before the gateway attaches the protocol
+and result classification. Raw request state, input responses, HTML, and
+header values never enter telemetry. The consolidated MCP event is emitted
+only after the top-level gateway has attached protocol/result
+classification, including on pre-gate denials. The block events of the
+signed `MCP.Gateway` helpers (SP.03) are the exception and carry neither
+field. The protocol and result-type OTel attributes are high-cardinality and
+therefore require `include_high_cardinality: true` in metric/span
+projections.
 
 ## Error Handling
 
@@ -191,8 +197,10 @@ require `include_high_cardinality: true` in metric/span projections.
   adapter.
 - Only the exact `2026-07-28` revision selects v2 behavior; unknown future
   revisions must be added deliberately after protocol negotiation support.
-- App-only tools are hidden from model callers and require an app caller on the
-  same trusted server boundary.
+- App-only tools are hidden from every caller whose origin is not `:app` and
+  require an app caller on the same trusted server boundary. An app caller is
+  denied a tool whose manifest pins no App visibility, and any tool when no
+  manifest resolves.
 - The stable Apps extension predates MCP v2 examples. The host maps its
   negotiated extension capability into v2 request metadata and discovery.
 - HTML5 validation, rendering, browser origins, CSP and Permissions Policy,
@@ -205,7 +213,7 @@ require `include_high_cardinality: true` in metric/span projections.
 | structured tamper | `MCP.SecurityPayloadTest` | number, boolean, key, state, and response changes alter digests |
 | metadata stability | `MCP.SecurityPayloadTest` | ids, tracing, and SigilGuard metadata do not alter approval digest |
 | semantic metadata | `MCP.SecurityPayloadTest` | client capabilities and vendor extensions alter approval digests |
-| modern result | gateway tests | `resultType` is inserted/preserved only for the exact v2 revision |
+| modern result | gateway tests | `resultType: "complete"` is inserted only for the exact v2 revision; an existing `resultType` is kept, on a redacted result too |
 | MRTR | gateway tests | input-required results and retries retain semantics |
 | error registry | gateway tests | exact `-31990..-31984` mapping |
 | manifest v2 | manifest tests | title/icons/UI/header drift and malformed annotations fail |

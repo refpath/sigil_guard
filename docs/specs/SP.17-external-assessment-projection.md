@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: high
   created: "2026-08-15"
-  updated: "2026-08-15"
+  updated: "2026-11-20"
   tags: ["oscal", "assessment", "audit", "evidence", "interoperability"]
   depends_on: ["R.10", "SP.05"]
 ---
@@ -95,9 +95,11 @@ non-canonicalizable export content.
 
 ## Input Data Model
 
-All context maps are closed and use the atom keys listed below. String-keyed
-maps and unknown keys return `{:error, :invalid_context}`. No external string
-is converted to an atom.
+All context maps are closed and use the atom keys listed below. A string key,
+an unknown key, or a missing required key returns
+`{:error, :invalid_context}` in the root, result, and evidence maps, and
+`{:error, :invalid_observation}` in an observation, a subject, or the
+`:sigilguard` map. No external string is converted to an atom.
 
 ### Root Context
 
@@ -226,14 +228,14 @@ file, dereference a URI, publish an artifact, or register it with a service.
 | Error | Cause | Recovery |
 |-------|-------|----------|
 | `:invalid_export` | wrong export shape, non-JSON content, invalid UTF-8, or atom/string key collision | finalize a valid `Audit.Export` first |
-| `:invalid_context` | wrong map type, unknown keys, missing fields, malformed text, subject, or local property | supply the closed context contract |
+| `:invalid_context` | context is not a map; a root, result, or evidence map that is not a map, has a string or unknown key, or lacks a required key; malformed root, result, or evidence text | supply the closed context contract |
 | `:invalid_uuid` | root or subject is not UUIDv4/v5 | supply a valid stable UUID |
 | `:invalid_timestamp` | timestamp is not UTC ISO 8601 or violates ordering/window rules | correct the host collection times |
 | `:invalid_uri` | plan/evidence locator is malformed, empty, or fragment/query-only | supply a distinct RFC 3986 locator URI reference |
 | `:invalid_digest` | expected digest is not lowercase SHA-256 hex | supply `Audit.Export.digest/1` output |
 | `:export_digest_mismatch` | finalized export bytes differ from the pinned digest | reject and investigate tampering/stale context |
 | `:invalid_reviewed_controls` | empty, duplicate, or malformed control list | provide exact unique OSCAL tokens |
-| `:invalid_observation` | empty observations, duplicate methods/subjects, or malformed observation | correct the host observation |
+| `:invalid_observation` | empty or non-list observations; an observation, subject, or `:sigilguard` map that is not a map, has a string or unknown key, or lacks a required key; malformed observation text, control-id list, subject type, method, or local property; duplicate methods or subjects | correct the host observation |
 | `:unknown_control` | an observation names a control outside result scope | add it deliberately to reviewed scope or remove the association |
 
 ## Security Considerations

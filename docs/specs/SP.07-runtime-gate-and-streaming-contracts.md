@@ -3,10 +3,10 @@ sigil_guard:
   id: "SP.07"
   title: "Runtime Gate And Streaming Contracts"
   domain: security
-  status: implemented
+  status: implemented/partial
   priority: high
   created: "2026-07-01"
-  updated: "2026-07-07"
+  updated: "2026-11-20"
   tags: ["runtime", "scanner", "streaming", "quarantine", "telemetry"]
   depends_on: ["SP.01", "SP.04", "R.06"]
 ---
@@ -99,7 +99,7 @@ sequenceDiagram
 | `SigilGuard.Context` | Replace or wrap with `SigilGuard.Boundary` normalized context. |
 | `SigilGuard.Decision` | Unify verdict vocabulary and add typed fields per the V3 Decision Contract below. |
 | `SigilGuard.Runtime.Gate` | Evaluate the boundary policy through `BoundaryPolicy.evaluate/2` (SP.04) as a decision contribution; the gate keeps extraction, scanning, quarantine inspection, output sanitization, confirmation, and decision assembly. See *Gate ↔ Kernel Delegation* below. |
-| `SigilGuard.Runtime.Stream` | Keep holdback logic; bind stream chunks to payload/context digests. Property-test obligations live in SP.04's Streaming Property-Test Specification. |
+| `SigilGuard.Runtime.Stream` | Keep holdback logic; bind stream chunks to payload/context digests. The digest binding is not implemented: each push is a separate `Runtime.Gate.evaluate/3` call over the buffered text, and a host that needs a digest for the whole stream computes it over the assembled output. Property-test obligations live in SP.04's Streaming Property-Test Specification. |
 | `SigilGuard.Quarantine` indicators | Become bundle-provided and pluggable; the current seven ship as built-in defaults. Contract owned by SP.04. |
 | Runtime telemetry | Emit SP.05 decision attributes and no raw payloads. |
 
@@ -117,47 +117,84 @@ Per call, the gate:
 
 1. **Extracts, scans, inspects (gate-owned).** Normalize `Context`; `Scanner.scan`
    (hits + a scanner-failure signal); `Quarantine.inspect` (verdict, indicators,
-   sanitized text); optionally compile+evaluate `RepoPolicy` into
-   `RepoPolicy.policy_facts/2`.
+   sanitized text); at `:repo_change` with a `:repo_policy` option, compile and
+   evaluate `RepoPolicy` (`RepoPolicy.compile/1`, `RepoPolicy.evaluate/2`). The
+   gate does not call `RepoPolicy.policy_facts/2`.
 2. **Builds a `SigilGuard.Boundary`.** Bridge the `Context` phase to a lifecycle
    phase with `Lifecycle.from_context_phase/1`; carry `source`/`sink`/`trust_zone`/
-   `trust_level`, the scanner `hits` (closed `:secret` category), and — only when
-   the host supplied them — `tool` and `sandbox` (see *Sandbox default* below).
-   Populate the three SP.01 digests from `Attestation.Digest.digests/4` (they are
-   evidence, inert to the verdict) so `evidence_refs`/audit are grounded. A digest
-   that cannot be computed, for example for a payload with a `null` map value, an
-   integer outside the JCS range, or invalid UTF-8, is replaced by a digest
-   derived from the error reason. The Boundary stays valid and step 3 always
-   runs. A Boundary the kernel rejects blocks.
-3. **Evaluates the kernel.** `BoundaryPolicy.evaluate(boundary, policy:,
-   repo_facts:, on_sensitive:, hooks:, adaptive_detector:, hook_timeout_ms:)`
-   contributes the policy-file `[rules]`, sandbox matrix, hook, adaptive, and the
-   shared kernel invariants (untrusted-tool-request, secret→external-sink,
-   repo-facts). Its unified verdict maps back to the v2 dual vocabulary and folds
-   into the gate's `strongest_verdict` combination.
+   `trust_level`, the scanner `hits` as returned (built-in patterns carry category
+   `:secret`, custom patterns a string category), and the quarantine
+   `indicators`. `tool` and `sandbox` are carried only when the context names a
+   tool or an isolation level (see *Sandbox default* below). The `tool` map holds
+   the context tool name, plus `manifest_digest` and `side_effects` when the
+   caller passes `:manifest_facts`. Populate three digests: `action_digest` from
+   `Confirmation.fetch_action_digest/2` (the legacy digest that confirmation
+   tokens bind, not `Attestation.Digest.action_digest/4`), `payload_digest` from
+   `Attestation.Digest.payload_digest/1`, and `context_digest` from
+   `Attestation.Digest.context_digest/2`. They satisfy the Boundary's digest
+   requirement and are inert to the verdict; the gate does not copy them into
+   `evidence_refs`. A digest that cannot be computed, for example for a payload
+   with a `null` map value, an integer outside the JCS range, or invalid UTF-8,
+   is replaced by a digest derived from the error reason. The Boundary stays
+   valid and step 3 always runs. A Boundary the kernel rejects blocks.
+3. **Evaluates the kernel.** `BoundaryPolicy.evaluate(boundary, evaluate_sandbox:,
+   on_sensitive:, policy:, hooks:, adaptive_detector:, hook_timeout_ms:, text:)`
+   contributes the policy-file `[rules]` (the gate's `:boundary_policy` option),
+   sandbox matrix, hook, adaptive, and the shared kernel invariants
+   (untrusted-tool-request, secret→external-sink). The gate passes no
+   `repo_facts:`, so the kernel's repo-facts contribution does not fire through
+   the gate; the repo-policy verdict enters at step 4 instead. The kernel's
+   unified verdict maps back to the v2 dual vocabulary and replaces the gate's
+   own verdict only when it is strictly stronger.
 4. **Composes gate-owned signals.** The gate keeps the verdicts the kernel does not
-   reproduce: scanner-failure (fail-closed block), quarantine gradations
-   (`:blocked`/`:suspicious`) with the `tool_result`+`:model` confirm downgrade, the
-   D17 risk×trust ladder (`SigilGuard.Policy.evaluate`), the broad sensitive-content
-   rule (any hit category; `log`/`repo`/`tool` sinks; non-external redaction), and
-   the repo-policy-compile-error block. The strongest contribution wins.
+   reproduce: scanner-failure (fail-closed block), the repo-policy verdict (`block`,
+   and `require_approval` as confirm) with the repo-policy-compile-error block,
+   quarantine gradations (`:blocked`/`:suspicious`) with the `tool_result`+`:model`
+   confirm downgrade, the D17 risk×trust ladder (`SigilGuard.Policy.evaluate`), and
+   the broad sensitive-content rule (any hit category; `log`/`repo`/`tool` sinks;
+   non-external redaction). The strongest contribution MUST win. That holds
+   between the source-to-sink result, the risk×trust verdict, and the kernel
+   verdict, and among the source-to-sink signals themselves: scanner failure,
+   the repo-policy verdict, an untrusted-zone tool request, quarantine, and
+   scanner hits each contribute at most one verdict, and the strongest wins by
+   the verdict order. A tie keeps the earlier signal in that list. A
+   `:repo_change` that the repo policy sends to `require_approval` blocks when
+   its content carries blocking quarantine indicators or a secret headed to an
+   external sink. An approval that wins over a redaction is a confirm with
+   `effect: :redact`. The inferred risk is the highest any of these signals
+   reports; the action's own classification applies only when none does.
 5. **Assembles (gate-owned).** Apply output sanitization to content the verdict
    permits, compute `content_hash`, enforce the confirmable action digest, and
    build the final `%Decision{}`.
 
-Because `BoundaryPolicy` is *silent* wherever it would disagree with the broader
-gate rules (it fires only on `:secret` hits to `[:external, :network]`, and never
-on the gate's `%{id, severity}` quarantine indicators, which lack a `quarantine`
-key), the composition is behavior-preserving; the M1.02 facade shapes
-(`scan/1`, `scan_and_redact/1`, `policy_verdict/3`) are unaffected.
+Without a `:boundary_policy`, hooks, an adaptive detector, or a
+`Context.isolation_level`, `BoundaryPolicy` is *silent* wherever it would
+disagree with the broader gate rules: its invariants fire only on `:secret` hits
+to `[:external, :network]` and on an untrusted-zone tool request, and never on
+the gate's `%{id, severity, category}` quarantine indicators, which lack a
+`quarantine` key. In that configuration the composition is behavior-preserving.
+A policy-file `indicator:` rule does match those indicators by `category`
+(`injection` or `poisoning`). The M1.02 facade shapes (`scan/1`,
+`scan_and_redact/1`, `policy_verdict/3`) are unaffected.
 
 **Sandbox default.** The sandbox mismatch matrix (SP.04) is fail-closed by
-construction, but in the runtime gate it is **opt-in by presence**: it applies at
-`:tool_request`/`:tool_result` only when the boundary carries a `sandbox`
-(isolation level) or a `tool` with a verified `manifest_digest`. A tool-phase
-boundary with neither does not auto-quarantine, so hosts that do not declare
-tool/sandbox context keep today's behavior; hosts that do declare it get the
-full fail-closed matrix.
+construction, but in the runtime gate it is opt-in by isolation level: the
+gate calls the kernel with `evaluate_sandbox: false` unless
+`Context.isolation_level` is set, so the matrix applies at
+`:tool_request`/`:tool_result` only for a context that declares an isolation
+level (`:none` included). A verified manifest does not turn the matrix on. It
+selects the side-effect class once the matrix runs: the gate reads the
+`:manifest_facts` option (`%{manifest_digest: sha256, side_effects: [name]}`)
+and puts both values on the boundary `tool`. `delete` maps to `write`,
+`privileged` to `execute`, `none` to no class, and a name outside the manifest
+vocabulary to `execute`. Without `:manifest_facts` the tool is class `execute`.
+`ToolGateway.guard_request/3` sets `:manifest_facts` from the pinned manifest
+and discards a caller-supplied value; `ToolGateway.guard_result/3` resolves no
+manifest and discards it too, so a result is class `execute` (SP.03). A
+tool-phase context
+with no isolation level does not auto-quarantine, so hosts that do not declare
+one keep today's behavior; hosts that do declare it get the full fail-closed
+matrix.
 
 ## V3 Decision Contract
 
@@ -213,8 +250,8 @@ evidence-linked without raw payloads:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `matched_rules` | `[%{rule_id: String.t(), explanation: String.t()}]` | Every rule that contributed to the verdict; MAY be empty. Mirrors into SP.01's `predicate.matched_rules`, where `rule_id` is emitted as `id`. |
-| `evidence_refs` | `[String.t()]` | Audit event ids and checkpoint digests supporting the decision (SP.05). Each ref becomes the `ref` value of a `predicate.evidence` entry in SP.01. |
+| `matched_rules` | `[%{rule_id: String.t(), explanation: String.t()}]` | Every rule that contributed to the verdict; MAY be empty. The gate adds one `gate` rule carrying its reason, when it has one, and appends the kernel's matched rules. Mirrors into SP.01's `predicate.matched_rules`, where `rule_id` is emitted as `id`. The mirror is not implemented: `Attestation.from_decision/3` does not read the field, so a host that needs the rules in a statement adds them itself. |
+| `evidence_refs` | `[String.t()]` | Audit event ids and checkpoint digests supporting the decision (SP.05). Each ref becomes the `ref` value of a `predicate.evidence` entry in SP.01. Neither part is implemented: the gate and the kernel always return `[]`, and `predicate.evidence` comes only from the `:evidence` option that the host passes to `Attestation.from_decision/3`. |
 | `effect` | `:allow \| :redact \| :quarantine \| nil` | The post-confirmation executable action, separated from the unified verdict. On a `:confirm` decision, `action` is the unified verdict `:confirm` while `effect` records what to execute once confirmation is accepted. On non-confirm decisions `effect` MAY mirror `action` or be `nil`. The confirmation dispatch (`ToolGateway`/`Base`) reads `effect`, not `action`, to decide what runs after acceptance; the confirmation token binding is unchanged (it never depended on `action`). |
 
 Runtime decisions also surface the boundary labels `source`, `sink`,
@@ -254,14 +291,14 @@ milestone exit. They MUST NOT change in 1.0.0.
 | `identity` | string or nil | no | Signed or resolved identity. |
 | `tool` | string or nil | no | Tool name. |
 | `trust_level` | atom | yes | Caller trust level. |
-| `trust_zone` | atom/string/nil | no | Deployment-defined zone. |
+| `trust_zone` | atom | no | Closed enum: `:trusted`, `:semi_trusted`, or `:untrusted`; default `:semi_trusted`. The string forms of those three names are normalized to the atoms. Any other value, `nil` included, blocks with `:invalid_trust_zone`. |
 
 ### Decision
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `verdict` | atom | yes | `:allowed`, `:blocked`, or confirm-shaped policy result. |
-| `action` | atom | yes | `:allow`, `:block`, `:redact`, or `:confirm`. |
+| `action` | atom | yes | `:allow`, `:redact`, `:confirm`, `:quarantine`, or `:block`. |
 | `reason` | string | no | Operator-facing reason. |
 | `risk_level` | atom | yes | `:low`, `:medium`, or `:high`. |
 | `hits` | list | yes | Scanner hits. |
@@ -304,6 +341,12 @@ boundary labels) are normative in the V3 Decision Contract section.
 | invalid risk options | blocked decision | fix policy options | request blocked. |
 | stream halt | halted stream state | drop/quarantine/request approval | no further chunks emitted. |
 
+The malformed-context row describes `Runtime.Gate.evaluate/3` called directly.
+The gateways (SP.03) build the context with `MCP.SecurityPayload.context/3`
+first. There a term that is not a context struct, map, or keyword list is
+replaced by the direction defaults and does not block; a malformed field value
+inside a map or keyword context still blocks.
+
 ## Security Considerations
 
 - Audit metadata must use hashes, counts, ids, and context values rather than
@@ -334,15 +377,17 @@ boundary labels) are normative in the V3 Decision Contract section.
       closed enum.
 - [x] The legacy `Decision.verdict` field maps consistently from
       `Decision.action` and stays available in 1.0.0 for compatibility.
-- [x] `matched_rules` and `evidence_refs` carry the typed shapes above, and
-      their mirrors into SP.01's `predicate.matched_rules` and
-      `predicate.evidence` are verified by tests.
+- [x] `matched_rules` and `evidence_refs` carry the typed shapes above.
+- [ ] Their mirrors into SP.01's `predicate.matched_rules` and
+      `predicate.evidence` are verified by tests (not implemented:
+      `Attestation.from_decision/3` reads neither field, and `evidence_refs`
+      is always `[]`).
 - [x] `SigilGuard.scan/1`, `scan_and_redact/1`, and `policy_verdict/3`
       return shapes are byte-identical to v2, asserted by the
       consumer-contracts conformance test; hit-map extensions are additive
       only and `name` stays required.
 - [x] `Runtime.Gate` delegates policy evaluation to
-      `BoundaryPolicy.evaluate/1`, and quarantine indicators load from trust
+      `BoundaryPolicy.evaluate/2`, and quarantine indicators load from trust
       bundles with the seven built-ins as defaults (SP.04 contract).
 - [x] Streaming holdback passes SP.04's Streaming Property-Test
       Specification, including split-secret vectors.

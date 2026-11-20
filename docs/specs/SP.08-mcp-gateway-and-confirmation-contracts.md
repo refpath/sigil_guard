@@ -3,10 +3,10 @@ sigil_guard:
   id: "SP.08"
   title: "MCP Gateway And Confirmation Transition Contracts"
   domain: security
-  status: implemented
+  status: implemented/partial
   priority: high
   created: "2026-07-01"
-  updated: "2026-07-07"
+  updated: "2026-11-20"
   tags: ["mcp", "gateway", "confirmation", "json-rpc", "action-digest"]
   depends_on: ["SP.01", "SP.03", "SP.07"]
 ---
@@ -17,10 +17,12 @@ sigil_guard:
 
 This spec documents the implemented MCP-shaped gateway helpers and HMAC
 confirmation token flow. Current behavior protects tool requests and results
-with runtime-gate decisions, optional envelope verification, JSON-RPC errors,
-and approval tokens bound to exact action digests. In v3, these helpers are
-rewired to `ToolGateway`, `CapabilityManifest`, `_agent_trust`, and
-`_agent_confirmation`. This spec additionally fixes three v3 contracts: the
+with runtime-gate decisions, optional attestation verification, JSON-RPC
+errors, and approval tokens bound to exact action digests. In v3, these
+helpers are rewired to `ToolGateway`, `CapabilityManifest`, `_agent_trust`,
+and `_agent_confirmation`. The signed helper functions keep their names but
+always block; attestation verification is the `:attestation` option of
+`ToolGateway.guard_request/3`. This spec also fixes three v3 contracts: the
 confirmation claims delta, the reserved `_agent_*` metadata namespace with
 its exact digest strip list, and the gateway facade function mapping (D14).
 
@@ -39,16 +41,20 @@ its exact digest strip list, and the gateway facade function mapping (D14).
 
 ### Overview
 
-`SigilGuard.MCP.Gateway` is an adapter-neutral helper module. It understands
-common JSON-RPC tool-call and result shapes, builds the SP.16 structured
-security projection, strips only fixed trust metadata from action digests,
-labels the boundary context, delegates to `SigilGuard.Runtime.Gate`, and
-verifies Agent Trust attestations.
+`SigilGuard.MCP.Gateway` is an adapter-neutral helper module that delegates
+to `SigilGuard.ToolGateway`. `ToolGateway` understands common JSON-RPC
+tool-call and result shapes, builds the SP.16 structured security projection,
+strips only fixed trust metadata from action digests, labels the boundary
+context, delegates to `SigilGuard.Runtime.Gate`, and verifies Agent Trust
+attestations on requests when the caller passes `attestation: :optional` or
+`:required`. The facade's signed helpers do not verify attestations; they
+always block (Gateway Function Mapping).
 
 `SigilGuard.Confirmation` issues HMAC-SHA256 tokens with canonical claims. A
 token binds to payload, normalized context, actor, action, decision reason,
-expiry, and nonce. Verification consumes nonces by default through
-`SigilGuard.ReplayStore`; callers explicitly opt out with `consume: false`.
+expiry, nonce, and the manifest digest when the issuer supplies one.
+Verification consumes nonces by default through `SigilGuard.ReplayStore`;
+callers explicitly opt out with `consume: false`.
 
 ### Data Flow
 
@@ -79,9 +85,9 @@ sequenceDiagram
 | Request guard | `SigilGuard.MCP.Gateway.guard_request/3` | Returns decision. |
 | Request wire helper | `guarded_request/3` | Returns `{:ok, decision}` or JSON-RPC error tuple. |
 | Result guard | `guard_result/3` and result helpers | Tool-result to model boundary. |
-| Signed request guard | signed helper functions | Verifies existing envelope metadata. |
+| Signed request guard | `ToolGateway.guard_request/3` with `attestation: :required` | Verifies the `_agent_trust` attestation. The `MCP.Gateway` signed helper functions verify nothing and always block. |
 | Confirmation token | `SigilGuard.Confirmation` | HMAC token bound to action digest. |
-| Single-use option | `Confirmation.verify/5`, `ReplayStore` | `consume: true` rejects reuse. |
+| Single-use option | `Confirmation.verify/5`, `ReplayStore` | Reuse is rejected by default; `consume: false` opts out. |
 | Error response codes | `MCP.Gateway` | Block, confirm, and quarantine codes. |
 
 ## V3 Rewire
@@ -91,7 +97,7 @@ sequenceDiagram
 | `SigilGuard.MCP.Gateway` | Permanent thin facade over `ToolGateway` (D14); see Gateway Function Mapping. |
 | `_sigil` request metadata | Replace with `_agent_trust`; see Metadata Namespace. |
 | `_sigil_confirmation` metadata | Replace with `_agent_confirmation`; see Metadata Namespace. |
-| Optional envelope verification | Replace with `Attestation.verify/3` (SP.01). |
+| Optional envelope verification | Replaced by `Attestation.verify/3` (SP.01) inside `ToolGateway.guard_request/3`, under the `:attestation` option. The facade's signed helpers do not call it. |
 | Gateway-only tool trust | Bind to `CapabilityManifest` digest (SP.03). |
 | HMAC confirmation claims | Keep action-digest lesson; bind to manifest and sandbox-aware context digests per the V3 Confirmation Claims Delta. |
 
@@ -113,6 +119,10 @@ sequenceDiagram
 | `expires_at` | string | yes | ISO 8601 expiry. |
 | `nonce` | string | yes | Replay nonce. |
 
+The table is the v2 baseline. A v3 token also carries `payload_digest`,
+`context_digest`, and, when the issuer passes `:manifest`, `manifest_digest`;
+SP.03 owns the complete list.
+
 ## V3 Confirmation Claims Delta
 
 This section is normative for v3 and records only the delta from the
@@ -124,9 +134,9 @@ change; it is not a competing claim list.
 
 | Claim surface | V2 (implemented) | V3 (delta) |
 |---------------|------------------|------------|
-| `action_digest` | Digest over payload and normalized context. | Same binding intent; computed per SP.01's Digest Computation section. |
-| `manifest_digest` | Absent. | New claim. Tokens MUST bind the SP.03 capability-manifest digest, so an approval dies with any tool-definition drift or rug pull. |
-| Context binding | Context digest without sandbox fields. | The bound context digest MUST include `sandbox_id` and `isolation_level` per SP.01's Context Digest field list; an approval can never be replayed against another sandbox. |
+| `action_digest` | Digest over payload and normalized context. | Unchanged. It stays the legacy digest from `SigilGuard.Confirmation.fetch_action_digest/2` (SHA-256 over the legacy canonical JSON of the payload and every Context field). It is not computed per SP.01's Digest Computation section and differs from `Attestation.Digest.action_digest/4`. The SP.01 computations supply the separate `payload_digest` and `context_digest` claims. |
+| `manifest_digest` | Absent. | New claim. Tokens MUST bind the SP.03 capability-manifest digest, so an approval dies with any tool-definition drift or rug pull. The issuer writes the claim by passing `:manifest`. `ToolGateway.guard_request/3` enforces it: with a resolved manifest it rejects a token whose claim is absent or different, and without one it rejects a token that carries the claim, both with `:manifest_digest_mismatch`. `guard_result/3` resolves no manifest, so a result token has to be issued without the claim. |
+| Context binding | Context digest without sandbox fields. | The bound context digest MUST include `sandbox_id` and `isolation_level` per SP.01's Context Digest field list; an approval can never be replayed against another sandbox. `context_digest` covers `Context.sandbox_id` and `Context.isolation_level`. Sandbox values carried only under `context.metadata` are outside `context_digest`; the legacy `action_digest` covers them, so a changed value still fails with `:digest_mismatch`. |
 | TTL | `:ttl_ms` option, default `300_000` ms. | Same default, aligned with `:attestation_ttl_ms` in SP.01's Replay And Expiry Semantics. |
 | Single-use | Opt-in via `consume: true`. | Default. See below. |
 
@@ -165,6 +175,16 @@ levels, never deeper); this table restates the list for gateway
 implementers and MUST stay identical to SP.01. A digest computed with and
 without attached metadata MUST be identical.
 
+Two code paths apply the rule. `MCP.SecurityPayload.for_gate/3`, which every
+gateway guard and token helper calls, strips before any digest is computed.
+`Attestation.Digest` strips inside `payload_digest/1` and the action
+preimages. `SigilGuard.Confirmation` applies no strip rule of its own: its
+legacy `action_digest` digests the payload as given. The identity above
+therefore holds for gateway callers. It is not implemented for a host that
+calls `Confirmation.issue/5` or `verify/5` directly with metadata attached;
+that host strips the payload first, or verification fails with
+`:digest_mismatch`.
+
 The legacy `_sigil` and `_sigil_confirmation` keys do not exist in v3: they
 are not read, not stripped, and not special-cased, so a v3 digest treats
 them as ordinary user content. There is no runtime shim or dual-read mode
@@ -176,22 +196,29 @@ wave; released 1.0.0 strips only the `_agent_*` list above.
 
 `SigilGuard.MCP.Gateway` remains a permanent thin facade over
 `SigilGuard.ToolGateway` (D14): it is not deprecated, and every helper keeps
-its name and arity. Signed variants take `_agent_trust` attestations instead
-of `_sigil` envelopes. `ToolGateway` signatures and the request/result
-binding rules are owned by SP.03 (its gateway facade mapping and
-Confirmation Lifecycle sections).
+its name and arity. The signed variants were specified to take `_agent_trust`
+attestations instead of `_sigil` envelopes. That is not implemented: they
+delegate to `SigilGuard.ToolGateway.Base`, always block, and never issue a
+token. A host that needs an attestation-verified request calls
+`ToolGateway.guard_request/3` with `attestation: :required`; the facade's
+`guard_request/3` and `guard_confirmed_request/3` forward that option.
+`ToolGateway` signatures and the request/result binding rules are owned by
+SP.03 (its gateway facade mapping and Confirmation Lifecycle sections).
 
 | V2 helper (name kept in v3) | V3 behavior |
 |-----------------------------|-------------|
-| `guard_request/3`, `guarded_request/3` | Delegate to `ToolGateway`; request binding adds capability-manifest verification per SP.03. |
-| `guard_result/3`, `guarded_result/3`, `guarded_result_chunk/3` | Delegate to `ToolGateway`; result binding carries `request_action_digest` per SP.01's action-digest table. |
-| `guard_signed_request/3`, `guarded_signed_request/3` | Verify `_agent_trust` attestations with `Attestation.verify/3` instead of `_sigil` envelope metadata. |
+| `guard_request/3`, `guarded_request/3` | Delegate to `ToolGateway` with `confirmation: :off`; request binding adds capability-manifest verification per SP.03 when the caller passes `:manifests` or `:trust_bundle`. |
+| `guard_result/3`, `guarded_result/3`, `guarded_result_chunk/3` | Delegate to `ToolGateway`. The result guards record `request_action_digest` when the caller passes the `:request_action_digest` option (SP.01's action-digest table); they resolve no manifest and verify no attestation. |
+| `guard_signed_request/3`, `guarded_signed_request/3` | Always block with code `-31990`. `Attestation.verify/3` is not called and the runtime gate does not run. The reason names `missing_envelope`, `invalid_envelope`, `missing_identity`, or `legacy_envelope_removed`. |
 | `guard_confirmed_request/3`, `guarded_confirmed_request/3` | Verify `_agent_confirmation` tokens under the V3 Confirmation Claims Delta (manifest and sandbox binding, consume by default). |
-| `guard_signed_confirmed_request/3`, `guarded_signed_confirmed_request/3` | Both of the above; the token actor MUST match the verified attestation actor id. |
-| `guard_confirmed_result/3`, `guarded_confirmed_result/3` | Result-side confirmation under the same claims delta. |
-| `issue_confirmation_token/5` | Name kept; issued claims gain `manifest_digest` and the sandbox-aware context digest. |
-| `issue_signed_confirmation_token/5` | Verifies `_agent_trust` first and binds the token actor to the attestation actor id. |
+| `guard_signed_confirmed_request/3`, `guarded_signed_confirmed_request/3` | Always block as the signed guards above; the confirmation token is not read. The rule that the token actor MUST match the verified attestation actor id is not implemented by any function. |
+| `guard_confirmed_result/3`, `guarded_confirmed_result/3` | Result-side confirmation under the same claims delta, without manifest binding. |
+| `issue_confirmation_token/5` | Name kept; issued claims gain the sandbox-aware context digest and, when the caller passes `:manifest`, `manifest_digest`. |
+| `issue_signed_confirmation_token/5` | Always returns `{:error, reason}` with one of the four reasons above; never issues a token. |
 | `issue_result_confirmation_token/5` | Result-side issuance under the claims delta. |
+
+`verify_request_envelope/2` is kept on the facade too. It always returns
+`{:error, reason}` with one of the same four reasons.
 
 V3 renumbers the gateway rejection codes to `-31990..-31984`, owned by
 SP.03's JSON-RPC error registry and selected under MCP `2026-07-28` by SP.16;
@@ -205,10 +232,11 @@ is a breaking change from v0.2's `-32001..-32003`, documented in
 |--------|---------|
 | `lib/sigil_guard/mcp/gateway.ex` | MCP-shaped guard helpers. |
 | `lib/sigil_guard/tool_gateway.ex` | Transport-neutral gateway implementation. |
+| `lib/sigil_guard/tool_gateway/base.ex` | JSON-RPC response shaping and the fail-closed signed helpers. |
 | `lib/sigil_guard/confirmation.ex` | Action-bound confirmation tokens. |
 | `lib/sigil_guard/runtime/gate.ex` | Underlying boundary decision engine. |
 | `lib/sigil_guard/attestation.ex` | `_agent_trust` attachment and verification. |
-| `lib/sigil_guard/replay_store.ex` | Optional confirmation nonce consumption. |
+| `lib/sigil_guard/replay_store.ex` | Confirmation nonce consumption, on by default. |
 | `test/sigil_guard/mcp/gateway_test.exs` | Gateway request/result/signed/confirmation tests. |
 | `test/sigil_guard/confirmation_test.exs` | Token signing, expiry, digest, replay tests. |
 
@@ -230,8 +258,14 @@ is a breaking change from v0.2's `-32001..-32003`, documented in
   computing the payload digest so tokens bind to the actual structured tool
   action, not correlation fields. Parameter names, nested values, numbers,
   booleans, nulls, and MRTR state/responses remain bound.
-- Signed confirmation flow binds the token actor/identity to the verified
-  envelope identity.
+- The signed confirmation flow was specified to bind the token
+  actor/identity to the verified envelope identity. It is not implemented:
+  the signed helpers block before any token is read or issued. In
+  `ToolGateway.guard_request/3` with `attestation: :required`, the token and
+  the attestation are each recomputed against the same request context,
+  whose digest includes `actor` and `identity`. No code compares the token
+  `actor` claim with `predicate.actor.id`; a host that needs that equality
+  checks it itself.
 - HMAC keys must be at least 16 bytes.
 - SP.03 attestations replace envelope verification while preserving
   confirmation digest binding.
@@ -247,7 +281,7 @@ is a breaking change from v0.2's `-32001..-32003`, documented in
 |------|--------|------------------|
 | request block | `MCP.GatewayTest` | Sensitive request returns JSON-RPC error. |
 | result sanitize | `MCP.GatewayTest` | Unsafe result is blocked/redacted. |
-| signed request | `MCP.GatewayTest` | Envelope identity binds to context. |
+| signed request | `MCP.GatewayTest` | Signed helpers block every request and issue no token. |
 | confirmation issue | `ConfirmationTest` | Confirmable decision creates token. |
 | digest mismatch | `ConfirmationTest` | Token cannot approve changed payload/context. |
 | consume replay | `ConfirmationTest` | Single-use token rejects reuse. |
@@ -264,12 +298,21 @@ is a breaking change from v0.2's `-32001..-32003`, documented in
       `MIGRATING-1.0.md`.
 - [x] `_agent_trust`, `_agent_confirmation`, and `confirmation_token` (atom
       and string forms, payload root and `params` level) are stripped before
-      every digest, and digests are identical with and without them,
-      mirroring SP.01's strip-rule tests.
+      every digest the gateways compute, and those digests are identical
+      with and without them, mirroring SP.01's strip-rule tests.
+- [ ] `Confirmation.issue/5` and `verify/5` called directly strip the same
+      keys before `action_digest` (not implemented:
+      `fetch_action_digest/2` digests the payload as given; a direct caller
+      strips first).
 - [x] Released 1.0.0 gives `_sigil` and `_sigil_confirmation` no special
       handling anywhere under `lib/`.
 - [x] Every helper in the Gateway Function Mapping keeps its v2 name and
-      arity on the `MCP.Gateway` facade and delegates to `ToolGateway`.
+      arity on the `MCP.Gateway` facade, and the unsigned helpers delegate
+      to `ToolGateway`.
+- [ ] The signed helpers verify `_agent_trust` attestations, and the signed
+      confirmation helpers bind the token actor to the attestation actor id
+      (not implemented: they always block and issue no token; hosts call
+      `ToolGateway.guard_request/3` with `attestation: :required`).
 - [x] Gateway rejection codes are `-31990..-31984` per SP.03's registry, and
       no code outside that registry is emitted.
 
@@ -280,8 +323,9 @@ is a breaking change from v0.2's `-32001..-32003`, documented in
 - [x] Signed request helpers implemented.
 - [x] Confirmation token binding implemented.
 - [x] Single-use replay option implemented.
-- [x] Replace signed request helpers with SP.03 tool-manifest attestations
-      (M3).
+- [ ] Replace signed request helpers with SP.03 tool-manifest attestations
+      (M3; not done for the helpers: attestation verification landed in
+      `ToolGateway.guard_request/3`, and the signed helpers always block).
 - [x] Replace metadata keys with `_agent_trust` and `_agent_confirmation`;
       dual-strip through M3-M5, `_sigil*` removal in M6.
 - [x] Flip confirmation single-use to consume-by-default with manifest and

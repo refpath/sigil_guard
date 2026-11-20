@@ -21,7 +21,7 @@ decision = ToolGateway.guard_request(request, context)
 
 case decision.action do
   :allow -> execute_tool(request)
-  :redact -> execute_tool(decision.sanitized_text || request)
+  :redact -> reject_request(decision)
   :confirm -> request_human_approval(decision)
   :quarantine -> quarantine_request(decision)
   :block -> reject_request(decision)
@@ -35,7 +35,10 @@ JSON-RPC-compatible helper names and tuple responses are useful.
 Common meanings:
 
 - `:allow` — pass the payload through unchanged.
-- `:redact` — use the sanitized payload or text from the decision.
+- `:redact` — sensitive content was found. `decision.sanitized_text` is the
+  redacted scan text. For a structured request it is a flattened projection,
+  not a replacement argument map, so refuse the call unless the host applies
+  and validates its own transformation.
 - `:confirm` — require an action-bound confirmation token before execution.
 - `:quarantine` — isolate the payload and surface evidence to the operator.
 - `:block` — deny the operation.
@@ -94,51 +97,79 @@ matchers include `phase`, `origin`, `sink`, `zone`, `trust`, `sensitivity`,
 `isolation`, `effect`, `hits`, and `indicator`.
 
 Repo-policy decisions inside `[repo]` are `allow`, `require_approval`, or
-`block`; `require_approval` maps to the 1.0 `:confirm` gate verdict.
+`block`. The runtime gate applies a compiled repo policy passed as
+`repo_policy:` at phase `:repo_change`, where `require_approval` becomes the
+1.0 `:confirm` verdict.
 
-Load and evaluate the repo section directly when you only need repo path rules:
+`SigilGuard.BoundaryPolicy.File.load/1` reads this file. Its `repo` field is
+the compiled `[repo]` section, which `SigilGuard.RepoPolicy.evaluate/2` checks
+against an agent, an action, and the changed paths:
 
 ```elixir
-{:ok, policy} = SigilGuard.RepoPolicy.load(repo_root)
+{:ok, policy_file} = SigilGuard.BoundaryPolicy.File.load(repo_root)
 
 decision =
-  SigilGuard.RepoPolicy.evaluate(policy,
-    phase: :tool_request,
-    source: :model,
-    sink: :tool,
-    action: :write,
-    tool: "repo_file_write",
-    actor: "spiffe://example.test/agents/release-bot"
+  SigilGuard.RepoPolicy.evaluate(policy_file.repo,
+    agent: "release-bot",
+    action: "modify",
+    changed_paths: ["docs/guide.md", "CHANGELOG.md"]
   )
+
+:allow = decision.verdict
 ```
+
+A path no rule matches, such as `lib/app.ex`, takes the `[repo]` default and
+returns `:require_approval`. `SigilGuard.RepoPolicy.load/1` reads a file that
+holds only the flat repo grammar, with no `version 3` line and no section
+headers; on the file above it returns `{:error, {:invalid_decision, 0}}`.
 
 Boundary policy can be evaluated directly when the host already has a normalized
-boundary:
+boundary. The boundary needs `phase`, `source`, `sink`, and the three SHA-256
+digests. A boundary that fails validation is blocked; without the digests the
+reason is `invalid_boundary`. `actor` is a map with an `"id"`:
 
 ```elixir
+{:ok, digests} =
+  SigilGuard.Attestation.Digest.digests(:tool_request, request, context)
+
 decision =
   SigilGuard.BoundaryPolicy.evaluate(
-    phase: :tool_request,
-    source: :model,
-    sink: :tool,
-    action: :execute,
-    trust_zone: :trusted,
-    actor: "spiffe://example.test/agents/release-bot"
+    [
+      phase: :tool_request,
+      source: :model,
+      sink: :tool,
+      trust_zone: :trusted,
+      trust_level: :high,
+      actor: %{"id" => "spiffe://example.test/agents/release-bot"},
+      action_digest: digests["action"],
+      payload_digest: digests["payload"],
+      context_digest: digests["context"]
+    ],
+    policy: policy_file
   )
+
+:allow = decision.action
 ```
+
+No rule in the file above matches this boundary, so the file's `default allow`
+decides.
 
 ## Attestation Sign And Verify
 
 Create a statement from a decision, sign it with a host signer, and attach it
-as `_agent_trust`.
+as `_agent_trust`. Give each statement its own nonce: verification with
+`consume: true` rejects a statement that has none.
 
 ```elixir
 alias SigilGuard.Attestation
 
+nonce = Base.encode16(:crypto.strong_rand_bytes(16), case: :lower)
+
 {:ok, statement} =
   Attestation.from_decision(decision, context,
     payload: request,
-    statement_type: :tool_request
+    statement_type: :tool_request,
+    nonce: nonce
   )
 
 {:ok, envelope} =
@@ -169,10 +200,15 @@ with {:ok, envelope} <- Attestation.fetch(request),
 end
 ```
 
+`consume: true` records the nonce in `SigilGuard.ReplayStore`. A second
+verification of the same envelope returns `{:error, :replay_detected}`, and a
+statement signed without a nonce returns `{:error, :invalid_payload}`.
+
 ## Confirmation Flow
 
 Confirmation is bound to the exact payload and boundary context. If either
-changes, verification fails.
+changes, verification fails. `guard_request/3` and `guard_result/3` verify the
+token themselves when they receive `confirmation_key:`.
 
 ```elixir
 secret_key = System.fetch_env!("SIGILGUARD_CONFIRMATION_KEY")
@@ -190,7 +226,7 @@ decision = SigilGuard.ToolGateway.guard_request(request, context)
 
 confirmed_request = SigilGuard.Attestation.attach_confirmation(request, token)
 
-case SigilGuard.ToolGateway.guard_confirmed_request(
+case SigilGuard.ToolGateway.guard_request(
        confirmed_request,
        context,
        confirmation_key: secret_key
@@ -200,10 +236,11 @@ case SigilGuard.ToolGateway.guard_confirmed_request(
 end
 ```
 
-Use the out-of-band option when the host keeps tokens outside the MCP payload:
+A token is consumed on first use. Use the out-of-band option when the host
+keeps tokens outside the MCP payload:
 
 ```elixir
-SigilGuard.ToolGateway.guard_confirmed_request(
+SigilGuard.ToolGateway.guard_request(
   request,
   context,
   confirmation_key: secret_key,
@@ -211,5 +248,9 @@ SigilGuard.ToolGateway.guard_confirmed_request(
 )
 ```
 
-The same pattern applies to result confirmation with
-`guard_confirmed_result/3`.
+Result confirmation follows the same pattern: issue the token with
+`direction: :result` and pass it to `guard_result/3`. A confirmed quarantine
+comes back as `:redact` with the sanitized result, never the raw tool output.
+`SigilGuard.MCP.Gateway` exposes the same token handling as
+`guard_confirmed_request/3` and `guard_confirmed_result/3`; its
+`guard_request/3` and `guard_result/3` ignore tokens.
