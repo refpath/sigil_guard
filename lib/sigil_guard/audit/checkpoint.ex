@@ -490,7 +490,7 @@ defmodule SigilGuard.Audit.Checkpoint do
   end
 
   defp verify_unsigned(opts) do
-    if Keyword.get(opts, :require_signature, false) do
+    if SigilGuard.Options.flag(opts, :require_signature, false, true) do
       {:error, :unsigned_checkpoint}
     else
       {:ok, %{status: :unsigned, issuer: nil}}

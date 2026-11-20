@@ -852,7 +852,7 @@ defmodule SigilGuard.Attestation do
   # `require_manifest: true` holds whether or not the other digests are
   # recomputed: the statement names a manifest and it is the one supplied.
   defp required_manifest(statement, opts) do
-    if Keyword.get(opts, :require_manifest, false) == true do
+    if SigilGuard.Options.flag(opts, :require_manifest, false, true) do
       statement
       |> subject_digest("manifest")
       |> compare_required_manifest(Digest.option_manifest_digest(opts))
@@ -983,12 +983,14 @@ defmodule SigilGuard.Attestation do
   defp parse_required_datetime(_), do: {:error, :invalid_payload}
 
   defp maybe_consume_nonce(statement, opts) do
-    if Keyword.get(opts, :replay, Keyword.get(opts, :consume, false)) do
+    if SigilGuard.Options.flag(opts, replay_key(opts), false, true) do
       consume_nonce(statement, opts)
     else
       :ok
     end
   end
+
+  defp replay_key(opts), do: if(Keyword.has_key?(opts, :replay), do: :replay, else: :consume)
 
   defp consume_nonce(statement, opts) do
     predicate = statement["predicate"]

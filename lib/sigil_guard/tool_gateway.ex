@@ -515,9 +515,10 @@ defmodule SigilGuard.ToolGateway do
   end
 
   defp require_manifest?(opts) do
-    Keyword.get_lazy(opts, :require_manifest, fn ->
-      Keyword.has_key?(opts, :manifests) or Keyword.has_key?(opts, :trust_bundle)
-    end)
+    case Keyword.fetch(opts, :require_manifest) do
+      {:ok, value} -> value != false
+      :error -> Keyword.has_key?(opts, :manifests) or Keyword.has_key?(opts, :trust_bundle)
+    end
   end
 
   defp fetch_manifest(manifests, tool, server)
@@ -1207,7 +1208,7 @@ defmodule SigilGuard.ToolGateway do
          %CapabilityManifest{suspicious_params: [_ | _]} = capability,
          opts
        ) do
-    if Keyword.get(opts, :allow_suspicious_params, false) do
+    if SigilGuard.Options.flag(opts, :allow_suspicious_params, false, false) do
       decision
     else
       suspicious_confirmation(decision, payload, context, capability)

@@ -393,7 +393,7 @@ defmodule SigilGuard.Scanner.Pipeline do
     end
   end
 
-  defp validation_enabled?(opts), do: Keyword.get(opts, :validate, true) != false
+  defp validation_enabled?(opts), do: SigilGuard.Options.flag(opts, :validate, true, true)
 
   defp confidence_floor(opts, key, default) do
     case Keyword.get(opts, key, default) do

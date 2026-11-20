@@ -126,7 +126,7 @@ defmodule SigilGuard.Audit.Anchor.Store do
 
   defp enforce_required_worm({:ok, receipt}, opts) when is_map(receipt) do
     cond do
-      Keyword.get(opts, :require_worm, false) != true ->
+      not SigilGuard.Options.flag(opts, :require_worm, false, true) ->
         {:ok, receipt}
 
       field(receipt, "worm") == true ->

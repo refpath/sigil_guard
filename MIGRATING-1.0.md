@@ -599,6 +599,15 @@ An attestation digest input of the shape `{:error, reason}` (for example a
 `sandbox_id` taken from a failed lookup) is refused with `:invalid_payload`.
 Releases up to 1.0.5 left it out, which attested "no sandbox".
 
+### Switch Options
+
+Boolean options are read one way. `true` and `false` behave as documented;
+any other value, `nil` included, is the strict setting: on for a
+requirement or protection, off for a relaxation. Releases up to 1.0.5 read
+most switches by truthiness, so `nil` forwarded from an unset host setting
+turned `:cache`, `:quarantine` and `:output_contracts` off, and `"true"`
+left `require_manifest:` off. Pass booleans.
+
 ### Policy File Errors
 
 `BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}` for a

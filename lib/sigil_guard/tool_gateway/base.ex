@@ -832,7 +832,8 @@ defmodule SigilGuard.ToolGateway.Base do
       |> Map.new()
       |> Map.merge(registry_data(error_kind(decision), decision, metadata))
 
-    if Keyword.get(opts, :include_sanitized, false) and is_binary(decision.sanitized_text) do
+    if SigilGuard.Options.flag(opts, :include_sanitized, false, false) and
+         is_binary(decision.sanitized_text) do
       Map.put(base, "sanitized_text", decision.sanitized_text)
     else
       base

@@ -233,16 +233,16 @@ defmodule SigilGuard.AttestationBundleTrustTest do
                {:error, :unknown_manifest}
     end
 
-    test "only the value true turns the requirement on" do
+    test "only the value false turns the requirement off; another value is read strictly" do
       envelope = signed(Issuer)
 
-      for value <- [false, nil, "true", 1] do
-        assert {:ok, _} =
-                 Attestation.verify(
-                   envelope,
-                   trust(),
-                   Keyword.put(@trust_opts, :require_manifest, value)
-                 )
+      verify =
+        &Attestation.verify(envelope, trust(), Keyword.put(@trust_opts, :require_manifest, &1))
+
+      assert {:ok, _} = verify.(false)
+
+      for value <- [true, nil, "true", 1] do
+        assert verify.(value) == {:error, :unknown_manifest}
       end
     end
   end

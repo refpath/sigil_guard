@@ -200,7 +200,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
       not String.valid?(host) ->
         {:error, :unsafe_receipt_url}
 
-      Keyword.get(opts, :allow_private_receipt_url, false) == true ->
+      SigilGuard.Options.flag(opts, :allow_private_receipt_url, false, false) ->
         :ok
 
       private_receipt_host?(host) ->
@@ -516,7 +516,8 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   end
 
   defp validate_required_worm(receipt, opts) do
-    if Keyword.get(opts, :require_worm, false) == true and field(receipt, "worm") != true do
+    if SigilGuard.Options.flag(opts, :require_worm, false, true) and
+         field(receipt, "worm") != true do
       {:error, :worm_required}
     else
       :ok
@@ -525,7 +526,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
 
   defp verify_fetch_receipt_reference(ref, opts) do
     cond do
-      Keyword.get(opts, :require_receipt_signature, false) != true ->
+      not SigilGuard.Options.flag(opts, :require_receipt_signature, false, true) ->
         :ok
 
       is_map(ref) ->
@@ -537,7 +538,7 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTP do
   end
 
   defp verify_required_receipt_signature(receipt, opts) do
-    if Keyword.get(opts, :require_receipt_signature, false) do
+    if SigilGuard.Options.flag(opts, :require_receipt_signature, false, true) do
       Receipt.verify(receipt, receipt_verify_opts(opts))
     else
       :ok

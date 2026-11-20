@@ -504,7 +504,7 @@ defmodule SigilGuard.Runtime.Gate do
   # message and turns this step off.
   defp output_contract(state, %{action: action} = crossing)
        when action in [:allow, :redact, :confirm] do
-    if Keyword.get(state.opts, :output_contracts, true) do
+    if Keyword.get(state.opts, :output_contracts, true) != false do
       state.opts
       |> Keyword.get(:boundary_policy)
       |> OutputContract.apply(

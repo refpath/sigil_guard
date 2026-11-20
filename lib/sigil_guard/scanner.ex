@@ -276,7 +276,7 @@ defmodule SigilGuard.Scanner do
     %{
       patterns_checked: if(is_list(patterns), do: length(patterns), else: 0),
       pipeline: pipeline_name(Keyword.get(opts, :pipeline, :staged)),
-      scanner_validate: Keyword.get(opts, :validate, true) != false
+      scanner_validate: SigilGuard.Options.flag(opts, :validate, true, true)
     }
   end
 

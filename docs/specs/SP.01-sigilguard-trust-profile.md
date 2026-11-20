@@ -484,7 +484,10 @@ subject while the caller supplies neither option fails with
 `{:error, :unknown_manifest}`. A different digest, or a caller-supplied
 manifest against a statement without the subject, fails with
 `{:error, :manifest_digest_mismatch}`. Action/payload/context mismatches
-fail with `{:error, :digest_mismatch}`. Without `require_manifest: true` a
+fail with `{:error, :digest_mismatch}`. Switch options such as
+`:require_manifest` and `:replay` are booleans; another value, `nil`
+included, is read as the strict setting (on for a requirement, off for a
+relaxation). Without `require_manifest: true` a
 statement that has no `manifest` subject verifies when the caller supplies no
 manifest. With it, the statement MUST carry a `manifest` subject equal to the
 digest of the supplied `:manifest` or `:manifest_digest`, whether or not the

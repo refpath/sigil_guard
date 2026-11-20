@@ -483,7 +483,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp threshold(role, opts) do
-    if Keyword.get(opts, :enforce_declared_threshold, false) do
+    if SigilGuard.Options.flag(opts, :enforce_declared_threshold, false, true) do
       {:ok, Map.fetch!(role, "threshold")}
     else
       {:ok, 1}

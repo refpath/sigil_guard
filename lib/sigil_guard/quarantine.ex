@@ -293,7 +293,8 @@ defmodule SigilGuard.Quarantine do
   defp verdict([], _, _), do: :safe
 
   defp verdict(indicators, %Context{phase: :tool_result, sink: :model}, opts) do
-    if Keyword.get(opts, :strict_quarantine, false) or high_severity?(indicators) do
+    if SigilGuard.Options.flag(opts, :strict_quarantine, false, true) or
+         high_severity?(indicators) do
       :blocked
     else
       :suspicious

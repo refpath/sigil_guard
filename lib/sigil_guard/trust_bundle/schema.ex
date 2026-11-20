@@ -301,7 +301,7 @@ defmodule SigilGuard.TrustBundle.Schema do
   defp validate_role_keyids(_, _, _), do: {:error, :invalid_bundle_format}
 
   defp maybe_require_bundle_delegate(delegates, opts) do
-    if Keyword.get(opts, :require_bundle?, false) and
+    if SigilGuard.Options.flag(opts, :require_bundle?, false, true) and
          not Enum.any?(delegates, &(Map.get(&1, "name") == "bundle")) do
       {:error, :unknown_role}
     else

@@ -634,6 +634,29 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       end
     end
 
+    test "a switch option that is not a boolean is read strictly" do
+      context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+
+      decision = Gate.evaluate("build completed", context, strict_quarantine: false)
+      assert decision.verdict == :allowed
+
+      for value <- [nil, "false"] do
+        assert Gate.evaluate("build completed", context, output_contracts: value).verdict ==
+                 :allowed
+      end
+
+      digest = String.duplicate("a", 64)
+
+      receipt = %{
+        "uri" => "https://localhost/anchors/#{digest}##{digest}",
+        "anchor_digest" => digest
+      }
+
+      assert SigilGuard.Audit.Anchor.Store.fetch(SigilGuard.Audit.Anchor.Store.HTTP, receipt,
+               allow_private_receipt_url: "yes"
+             ) == {:error, :unsafe_receipt_url}
+    end
+
     test "the runtime owns the state tables the stateful calls use" do
       runtime = Process.whereis(SigilGuard.Runtime)
 

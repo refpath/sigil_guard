@@ -280,7 +280,7 @@ defmodule SigilGuard.Audit.Export do
   defp verify_anchor(export, checkpoint, opts) do
     case field(export, "anchor") do
       nil ->
-        if Keyword.get(opts, :require_anchor, false) do
+        if SigilGuard.Options.flag(opts, :require_anchor, false, true) do
           {:error, :missing_anchor}
         else
           {:ok, nil}

@@ -86,7 +86,7 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
   end
 
   defp allow_local_receipt(opts) do
-    if Keyword.get(opts, :require_worm, false) == true do
+    if SigilGuard.Options.flag(opts, :require_worm, false, true) do
       {:error, :worm_required}
     else
       :ok

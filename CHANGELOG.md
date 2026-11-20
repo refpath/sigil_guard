@@ -5,6 +5,16 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Switch options are read one way everywhere. A boolean is taken as
+  given; any other value, `nil` included, is the strict setting: on for a
+  requirement or protection (`:require_manifest`, `:require_worm`,
+  `:require_receipt_signature`, `:require_signature`, `:require_anchor`,
+  `:require_peer_card`, `:replay`, `:cache`, `:quarantine`,
+  `:output_contracts`, `:strict_quarantine`, `:enforce_declared_threshold`),
+  off for a relaxation (`:allow_private_receipt_url`,
+  `:allow_suspicious_params`, `:include_sanitized`). Before, the same
+  malformed value was on in one function, off in another, and raised in a
+  third; `:require_receipt_signature` was read two ways in one module.
 - `SigilGuard.Runtime.Gate.evaluate/3` checks `:indicator_sets` with the new
   `SigilGuard.Quarantine.valid_indicator_sets?/1` and blocks a malformed
   value as malformed options. It used to rescue the exception from the

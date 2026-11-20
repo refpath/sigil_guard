@@ -176,7 +176,7 @@ defmodule SigilGuard.TrustBundle do
   end
 
   defp cache_loaded({:ok, bundle}, opts) do
-    if Keyword.get(opts, :cache, true) do
+    if SigilGuard.Options.flag(opts, :cache, true, true) do
       case Cache.put(bundle) do
         {:ok, _} -> {:ok, bundle}
         {:error, reason} -> quarantine_error(reason, cache_error_info(bundle), opts)
@@ -542,7 +542,7 @@ defmodule SigilGuard.TrustBundle do
   defp source_kind(_), do: :invalid
 
   defp quarantine_error(reason, info, opts) do
-    if Keyword.get(opts, :quarantine, true) do
+    if SigilGuard.Options.flag(opts, :quarantine, true, true) do
       Quarantine.record(reason, quarantine_info(info, opts))
     end
 

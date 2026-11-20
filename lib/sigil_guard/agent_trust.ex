@@ -302,7 +302,7 @@ defmodule SigilGuard.AgentTrust do
   end
 
   defp build_unknown(statement_type, params) do
-    if Keyword.get(params.opts, :require_peer_card, false) do
+    if SigilGuard.Options.flag(params.opts, :require_peer_card, false, true) do
       {:error, :unknown_agent}
     else
       decision = quarantine_unknown(params.decision)

@@ -75,7 +75,7 @@ defmodule SigilGuard.ToolGateway.Effect do
 
     %__MODULE__{
       mode: :required,
-      replay_protected?: Keyword.get(opts, :consume_confirmation, true) not in [false, nil],
+      replay_protected?: SigilGuard.Options.flag(opts, :consume_confirmation, true, false),
       digests: digests(payload, context),
       record: record,
       binding_digest: record_digest(record, &EffectAuthority.binding_digest/1),

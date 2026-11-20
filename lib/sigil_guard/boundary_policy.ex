@@ -318,7 +318,7 @@ defmodule SigilGuard.BoundaryPolicy do
   defp sandbox_matrix(%Boundary{phase: phase} = boundary, matching, opts)
        when phase in @sandbox_phases do
     cond do
-      not Keyword.get(opts, :evaluate_sandbox, true) -> nil
+      not SigilGuard.Options.flag(opts, :evaluate_sandbox, true, true) -> nil
       not sandbox_scoped?(boundary) -> nil
       isolation_override?(matching) -> nil
       true -> sandbox_cell(boundary)
