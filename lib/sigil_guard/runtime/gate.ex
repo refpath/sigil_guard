@@ -1,20 +1,13 @@
 defmodule SigilGuard.Runtime.Gate do
   @moduledoc """
-  Boundary-aware runtime gate for MCP/tool-call security.
+  One decision for text crossing a boundary.
 
-  The gate composes existing SigilGuard primitives into a source-to-sink
-  decision:
-
-    * normalize boundary context
-    * scan content for sensitive values
-    * inspect untrusted tool/resource output for quarantine indicators
-    * evaluate policy using action risk and trust
-    * apply deterministic source-to-sink rules
-    * emit telemetry without raw sensitive values
-
-  This module is transport-agnostic. MCP adapters can call it before and
-  after tool execution without SigilGuard depending on a specific MCP
-  package.
+  `evaluate/3` normalizes the context, scans the text for secrets, inspects
+  tool and resource output for quarantine indicators, classifies the action's
+  risk against the caller's trust, applies the source-to-sink rules and any
+  policy file, and emits telemetry that carries no raw content. It knows
+  nothing of a transport: the MCP gateways call it before and after a tool
+  runs.
   """
 
   alias SigilGuard.Attestation.Digest
@@ -600,8 +593,8 @@ defmodule SigilGuard.Runtime.Gate do
   defp risk_rank(risk), do: Enum.find_index(@risk_levels, &(&1 == risk))
 
   # Evaluate the boundary policy kernel over a normalized `Boundary` and fold
-  # its verdict into the gate's combination. The
-  # kernel contributes policy-file `[rules]`, the sandbox matrix, hooks, adaptive
+  # its verdict into the gate's combination. The kernel contributes
+  # policy-file `[rules]`, the sandbox matrix, hooks, adaptive
   # signals, and the shared invariants (untrusted-tool-request, secret->external);
   # the gate keeps scanner-failure, quarantine gradations, risk x trust, and the
   # broader sensitive-content rules it alone observes. The kernel always runs:
@@ -717,7 +710,7 @@ defmodule SigilGuard.Runtime.Gate do
   end
 
   # Map a legacy verdict/action pair to its unified-enum strength so gate and
-  # Kernel contributions combine by the documented total order.
+  # kernel contributions combine by the documented total order.
   defp unified_strength(:blocked, :quarantine), do: :quarantine
   defp unified_strength(:blocked, _), do: :block
   defp unified_strength({:confirm, _}, :quarantine), do: :quarantine
@@ -725,9 +718,9 @@ defmodule SigilGuard.Runtime.Gate do
   defp unified_strength(:allowed, :redact), do: :redact
   defp unified_strength(:allowed, _), do: :allow
 
-  # A confirming verdict's `action` is `:confirm`; the
-  # executable action to run once confirmation is accepted moves to `effect`. Every
-  # other verdict's action is already in the closed set.
+  # A confirming verdict's `action` is `:confirm`; the action to run once the
+  # confirmation is accepted moves to `effect`. Every other verdict's action
+  # is already in the closed set.
   defp unified_action({:confirm, _}, _), do: :confirm
   defp unified_action(_, action), do: action
 
@@ -915,7 +908,7 @@ defmodule SigilGuard.Runtime.Gate do
       action_digest: action_digest,
       scanner_error: state.scanner_error
     }
-    |> put_action_digest_error(action_digest_error)
+    |> put_present(:action_digest_error, action_digest_error)
     |> put_repo_policy_metadata(state.repo_policy)
     |> put_repo_facts_metadata(state.repo_facts)
     |> put_advisory_metadata(state)
@@ -942,11 +935,6 @@ defmodule SigilGuard.Runtime.Gate do
 
   defp put_present(metadata, _, nil), do: metadata
   defp put_present(metadata, key, value), do: Map.put(metadata, key, value)
-
-  defp put_action_digest_error(metadata, nil), do: metadata
-
-  defp put_action_digest_error(metadata, reason),
-    do: Map.put(metadata, :action_digest_error, reason)
 
   defp action_from_payload(payload) when is_map(payload) do
     payload[:tool] || payload["tool"] || payload[:action] || payload["action"]

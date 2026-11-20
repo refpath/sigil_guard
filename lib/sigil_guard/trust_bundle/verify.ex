@@ -548,11 +548,8 @@ defmodule SigilGuard.TrustBundle.Verify do
   defp verify_signature(signature, public_keys, pae) do
     public_key = Map.fetch!(public_keys, signature.keyid)
 
-    with {:ok, decoded_signature} <- decode_base64(signature.sig),
-         :ok <- verify_ed25519(pae, decoded_signature, public_key) do
-      :ok
-    else
-      {:error, reason} -> {:error, reason}
+    with {:ok, decoded_signature} <- decode_base64(signature.sig) do
+      verify_ed25519(pae, decoded_signature, public_key)
     end
   end
 

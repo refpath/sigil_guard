@@ -196,8 +196,6 @@ defmodule SigilGuard.Attestation do
          :ok <- validate_freshness(statement, opts),
          :ok <- maybe_consume_nonce(statement, opts) do
       {:ok, statement}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

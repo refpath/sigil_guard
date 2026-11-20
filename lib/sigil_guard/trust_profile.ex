@@ -84,8 +84,6 @@ defmodule SigilGuard.TrustProfile do
          :ok <- validate_core_fields(statement["predicate"]),
          :ok <- validate_statement_predicate(statement_type, statement["predicate"]) do
       {:ok, statement}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 

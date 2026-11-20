@@ -1,11 +1,11 @@
 defmodule SigilGuard.ToolGateway.Base do
   @moduledoc """
-  Provides the transport-neutral mechanics behind the tool gateways.
+  The transport-neutral steps the tool gateways share.
 
-  This module accepts decoded MCP-shaped maps, derives the request or result
-  boundary, builds a structured `SigilGuard.MCP.SecurityPayload`, and delegates
-  enforcement to `SigilGuard.Runtime.Gate`. It also shapes safe JSON-RPC
-  responses and drives the chunk-aware result sanitizer.
+  It takes decoded MCP-shaped maps, derives the request or result boundary,
+  builds a structured `SigilGuard.MCP.SecurityPayload`, and calls
+  `SigilGuard.Runtime.Gate`. It also builds the JSON-RPC responses and runs
+  the chunked result sanitizer.
 
   Most applications should call `SigilGuard.MCP.Gateway` or
   `SigilGuard.ToolGateway`. This lower-level module exists for their shared

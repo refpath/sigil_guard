@@ -205,8 +205,6 @@ defmodule SigilGuard.ToolGateway do
          {:ok, capability} <- manifest_struct(observed_manifest),
          :ok <- manifest_freshness(capability, opts) do
       {:ok, capability}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -217,8 +215,6 @@ defmodule SigilGuard.ToolGateway do
          :ok <- maybe_match_server(capability, opts),
          :ok <- manifest_freshness(capability, opts) do
       {:ok, capability}
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -460,13 +456,7 @@ defmodule SigilGuard.ToolGateway do
   def finish_guarded_result_stream(stream, opts \\ []),
     do: GatewayBase.finish_guarded_result_stream(stream, opts)
 
-  defp resolve_manifest(nil, opts) do
-    if require_manifest?(opts) do
-      {:error, :unknown_manifest}
-    else
-      {:ok, nil}
-    end
-  end
+  defp resolve_manifest(nil, opts), do: maybe_allow_missing_manifest(opts)
 
   defp resolve_manifest(tool, opts) do
     case manifest_entry(tool, opts) do

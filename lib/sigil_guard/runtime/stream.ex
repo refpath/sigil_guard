@@ -294,7 +294,7 @@ defmodule SigilGuard.Runtime.Stream do
   end
 
   defp validate_options!(opts) do
-    unless is_list(opts) and Keyword.keyword?(opts),
+    unless Keyword.keyword?(opts),
       do: raise(ArgumentError, "stream options must be a keyword list")
 
     patterns = Keyword.get(opts, :patterns, Patterns.built_in())

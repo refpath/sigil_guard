@@ -357,9 +357,7 @@ defmodule SigilGuard.Confirmation do
   defp validate_manifest_digest(%{"manifest_digest" => digest}, opts) when is_binary(digest) do
     case expected_manifest_digest(opts) do
       {:ok, ^digest} -> :ok
-      {:ok, _} -> {:error, :manifest_digest_mismatch}
-      :none -> {:error, :manifest_digest_mismatch}
-      {:error, _} -> {:error, :manifest_digest_mismatch}
+      _ -> {:error, :manifest_digest_mismatch}
     end
   end
 

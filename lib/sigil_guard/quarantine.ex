@@ -271,7 +271,7 @@ defmodule SigilGuard.Quarantine do
     ]
   end
 
-  # An empty prefilter means “always scan”; otherwise require a matching token.
+  # An empty prefilter means "always scan"; otherwise require a matching token.
   defp prefilter_active?(%{prefilter: []}, _), do: true
 
   defp prefilter_active?(%{prefilter: prefilter}, lowercase),

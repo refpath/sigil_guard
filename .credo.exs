@@ -71,8 +71,6 @@
           {Credo.Check.Readability.ParenthesesOnZeroArityDefs, []},
           {Credo.Check.Readability.PipeIntoAnonymousFunctions, []},
           {Credo.Check.Readability.PredicateFunctionNames, []},
-          # PreferUnquotedAtoms — incompatible with Elixir >= 1.7.0
-          {Credo.Check.Readability.PreferUnquotedAtoms, false},
           {Credo.Check.Readability.RedundantBlankLines, []},
           {Credo.Check.Readability.Semicolons, []},
           {Credo.Check.Readability.SeparateAliasRequire, []},
@@ -107,8 +105,6 @@
           {Credo.Check.Refactor.FunctionArity, [max_arity: 5]},
           {Credo.Check.Refactor.IoPuts, []},
           {Credo.Check.Refactor.LongQuoteBlocks, [max_line_count: 18]},
-          # MapInto — incompatible with Elixir >= 1.8.0
-          {Credo.Check.Refactor.MapInto, false},
           {Credo.Check.Refactor.MapJoin, []},
           {Credo.Check.Refactor.MapMap, []},
           {Credo.Check.Refactor.MatchInCondition, []},
@@ -138,8 +134,6 @@
            ]},
           {Credo.Check.Warning.IExPry, []},
           {Credo.Check.Warning.IoInspect, []},
-          # LazyLogging — incompatible with Elixir >= 1.7.0
-          {Credo.Check.Warning.LazyLogging, false},
           {Credo.Check.Warning.LeakyEnvironment, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
           {Credo.Check.Warning.MissedMetadataKeyInLoggerConfig, []},

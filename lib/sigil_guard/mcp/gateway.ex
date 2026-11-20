@@ -2,10 +2,9 @@ defmodule SigilGuard.MCP.Gateway do
   @moduledoc """
   Guards MCP requests and results at a host-owned transport boundary.
 
-  This module is the stable adapter facade for MCP clients, servers, and
-  gateways. It accepts decoded MCP-shaped values and returns decisions or
-  JSON-RPC-compatible tuple shapes while delegating policy enforcement to
-  `SigilGuard.ToolGateway`.
+  MCP clients, servers and gateways call this module. It takes decoded
+  MCP-shaped values and returns decisions or JSON-RPC tuple shapes; the
+  policy work is done by `SigilGuard.ToolGateway`.
 
   SigilGuard does not negotiate the protocol, perform discovery, own
   authorization, or send transport messages. The host supplies the negotiated
@@ -14,7 +13,7 @@ defmodule SigilGuard.MCP.Gateway do
   responsible for validating the complete wire request, including required
   client capabilities.
 
-  Calls without “confirmed” in their name deliberately disable confirmation
+  Calls without "confirmed" in their name disable confirmation
   handling. Confirmed variants honor an action-bound token. Use
   `SigilGuard.ToolGateway` directly when the host also needs manifest
   verification, attestation creation, or the complete policy option surface.
@@ -257,9 +256,5 @@ defmodule SigilGuard.MCP.Gateway do
     ToolGateway.response_for_decision(decision, id, opts)
   end
 
-  defp force_opts(opts, replacements) do
-    Enum.reduce(replacements, opts, fn {key, value}, acc ->
-      Keyword.put(acc, key, value)
-    end)
-  end
+  defp force_opts(opts, replacements), do: Keyword.merge(opts, replacements)
 end

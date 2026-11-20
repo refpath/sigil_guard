@@ -2,17 +2,10 @@ defmodule SigilGuard do
   @moduledoc """
   Native Elixir security runtime for MCP and agent tool boundaries.
 
-  SigilGuard provides composable security layers for MCP (Model Context
-  Protocol) tool calls and AI agent interactions:
-
-  1. Sensitivity scanning: detect credentials, API keys, and secrets in text
-  2. Agent Trust attestations: DSSE-backed evidence for tamper detection
-  3. Policy enforcement: risk classification with trust-gated access control
-  4. Tamper-evident audit: an HMAC-SHA256 chain that detects modification,
-     insertion, deletion, and reordering
-  5. Secure vaulting: encrypted storage for sensitive values
-  6. Runtime gating: boundary-aware MCP/tool request and result decisions
-  7. Repo policy: deterministic repo path governance
+  This module holds the shortest calls: scanning, redaction and the policy
+  verdict. A host that guards MCP traffic starts at `SigilGuard.ToolGateway`
+  or `SigilGuard.Runtime.Gate`; the module list below says where each part
+  lives.
 
   ## Runtime Configuration
 
@@ -25,42 +18,34 @@ defmodule SigilGuard do
 
   ## Quick Start
 
-      # Scan text for sensitive content
       {:ok, "safe text"} = SigilGuard.scan("safe text")
       {:hit, hits} = SigilGuard.scan("AKIAIOSFODNN7EXAMPLE")
 
-      # Redact sensitive content
-      redacted = SigilGuard.scan_and_redact("key=AKIAIOSFODNN7EXAMPLE")
-      # => "key=[AWS_KEY]"
+      "key=[AWS_KEY]" = SigilGuard.scan_and_redact("key=AKIAIOSFODNN7EXAMPLE")
 
-      # Evaluate policy
       :allowed = SigilGuard.policy_verdict("read_file", :medium)
       :blocked = SigilGuard.policy_verdict("delete_database", :low)
 
-  ## Architecture
+  ## Modules
 
-  SigilGuard is designed as a set of composable modules with behaviour-based
-  extension points. Each module can be used independently or combined via
-  the top-level facade functions.
-
-  See individual module documentation for detailed usage:
-
-  - `SigilGuard.Backend` — Native backend behaviour and selection
-  - `SigilGuard.Scanner` — Sensitivity scanning engine
-  - `SigilGuard.Scanner.Pipeline` — Staged scanner validation/enrichment pipeline
-  - `SigilGuard.Patterns` — Pattern compilation and management
-  - `SigilGuard.Runtime.Gate` — Boundary-aware tool/runtime decisions
-  - `SigilGuard.Runtime.Stream` — Chunk-safe streaming sanitization
-  - `SigilGuard.MCP.Gateway` — MCP-shaped request/result guard helpers
-  - `SigilGuard.Confirmation` — Action-bound approval tokens
-  - `SigilGuard.Attestation` — Agent Trust attestation metadata helpers
-  - `SigilGuard.Policy` — Risk classification and trust gating
-  - `SigilGuard.Audit` — Tamper-evident audit chain
-  - `SigilGuard.Audit.Export` — Portable signed checkpoint + anchor packages
-  - `SigilGuard.Assessment.OSCAL` — Host-context OSCAL observation projection
-  - `SigilGuard.Vault` — Secure secret storage
-  - `SigilGuard.Identity` — Trust level hierarchy
-  - `SigilGuard.Signer` — Cryptographic signing behaviour
+  - `SigilGuard.ToolGateway` and `SigilGuard.MCP.Gateway`: MCP tool requests
+    and results, manifests, attestations and confirmation tokens.
+  - `SigilGuard.Runtime.Gate` and `SigilGuard.Runtime.Stream`: one boundary
+    decision over text, and the same over chunks.
+  - `SigilGuard.Scanner` and `SigilGuard.Patterns`: secret detection and
+    redaction.
+  - `SigilGuard.BoundaryPolicy` and `SigilGuard.RepoPolicy`: source-to-sink
+    rules and repository path rules.
+  - `SigilGuard.Confirmation`: approval tokens bound to one action.
+  - `SigilGuard.Attestation` and `SigilGuard.AgentTrust`: signed Agent Trust
+    statements.
+  - `SigilGuard.TrustBundle`: signed local trust material.
+  - `SigilGuard.Audit`, `SigilGuard.Audit.Checkpoint` and
+    `SigilGuard.Audit.Export`: the HMAC event chain, Merkle checkpoints and
+    signed exports.
+  - `SigilGuard.EffectAuthority`: requests that change the physical world.
+  - `SigilGuard.Vault`, `SigilGuard.Signer` and `SigilGuard.Identity`: host
+    seams for secrets, signing keys and identity.
   """
 
   alias SigilGuard.Backend

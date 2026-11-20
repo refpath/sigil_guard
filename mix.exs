@@ -40,9 +40,7 @@ defmodule SigilGuard.MixProject do
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.html": :test,
-        "coveralls.lcov": :test,
-        cover: :test,
-        "cover.html": :test
+        "coveralls.lcov": :test
       ]
     ]
   end
@@ -52,34 +50,23 @@ defmodule SigilGuard.MixProject do
 
   defp deps do
     [
-      # Core
       {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.1"},
       {:telemetry, "~> 1.0"},
-
-      # Code quality
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_check, "~> 0.17", only: [:dev, :test], runtime: false},
-
-      # Documentation
       {:ex_doc, "~> 0.35", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.22", only: [:dev, :test], runtime: false},
       {:doctest_formatter, "~> 0.4", only: [:dev, :test], runtime: false},
-
-      # Testing
       {:excoveralls, "~> 0.18", only: :test},
       {:bypass, "~> 2.1", only: :test},
       {:muex, "~> 0.11.3", only: [:dev, :test], runtime: false},
       {:stream_data, "~> 1.4", only: :test},
-
-      # Benchmarks
       {:benchee, "~> 1.3", only: :dev, runtime: false},
       {:benchee_markdown, "~> 0.3", only: :dev, runtime: false},
-
-      # Release
       {:git_ops, "~> 2.6", only: :dev, runtime: false}
     ]
   end
@@ -186,7 +173,7 @@ defmodule SigilGuard.MixProject do
         "Getting Started": ~r/README/,
         Guides: ~r/guides/,
         Performance: ~r{bench/output/},
-        Reference: ~r/MIGRATING|CHANGELOG|SECURITY|CONTRIBUTING|AGENTS|LICENSE/
+        Reference: ~r/MIGRATING|CHANGELOG|SECURITY|CONTRIBUTING|LICENSE/
       ],
       groups_for_modules: [
         "Mix Tasks": [
@@ -339,8 +326,6 @@ defmodule SigilGuard.MixProject do
       "bench.audit": ["run bench/audit.exs"],
       "bench.primitives": ["run bench/primitives.exs"],
       "bench.corpus": ["run bench/corpus.exs"],
-
-      # Release
       release: ["git_ops.release"]
     ]
   end
