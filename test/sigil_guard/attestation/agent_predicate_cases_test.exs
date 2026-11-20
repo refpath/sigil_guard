@@ -85,7 +85,7 @@ defmodule SigilGuard.Attestation.AgentPredicateCasesTest do
   end
 
   describe "build_request/2" do
-    test "build_request/1 has no peer trust to write" do
+    test "without options a request predicate has no peer trust and is refused" do
       payload = Map.delete(request_payload(), "delegation_chain")
 
       assert AgentPredicate.build_request(payload) == {:error, :invalid_payload}
@@ -94,7 +94,7 @@ defmodule SigilGuard.Attestation.AgentPredicateCasesTest do
   end
 
   describe "action_digest/3" do
-    test "arguments with no JSON form are refused" do
+    test "arguments with no JSON form, or an integer above 2^53 - 1, are refused" do
       payload = Map.delete(request_payload(), "delegation_chain")
 
       for arguments <- [{1, 2}, self(), <<255>>, %{1 => 2}, [1 | 2]] do

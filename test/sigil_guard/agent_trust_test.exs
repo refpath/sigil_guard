@@ -475,7 +475,6 @@ defmodule SigilGuard.AgentTrustTest do
                  now: @now
                )
 
-      # Verification returned the statement without altering the caller's payload.
       assert get_in(payload, ["result", "content"]) == injected
 
       # The host must route the response content through the result pipeline,

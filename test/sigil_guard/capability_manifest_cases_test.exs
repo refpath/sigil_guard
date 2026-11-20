@@ -26,7 +26,7 @@ defmodule SigilGuard.CapabilityManifestCasesTest do
                )
     end
 
-    test "rejects icons of the wrong shape" do
+    test "icons of the wrong shape are refused" do
       icon = %{"src" => "https://example.test/icon.png"}
 
       assert {:ok, _} = CapabilityManifest.new(Map.put(manifest(), "icons", [icon]))

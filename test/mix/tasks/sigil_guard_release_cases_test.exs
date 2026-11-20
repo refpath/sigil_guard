@@ -1,6 +1,7 @@
 defmodule Mix.Tasks.SigilGuard.ReleaseCasesTest do
   @moduledoc false
 
+  # The tests set and restore process-wide environment variables.
   use ExUnit.Case, async: false
 
   alias Mix.Tasks.SigilGuard.ReleaseStatement

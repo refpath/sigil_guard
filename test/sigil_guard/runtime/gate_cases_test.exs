@@ -1,7 +1,7 @@
 defmodule SigilGuard.Runtime.GateCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.BoundaryPolicy
   alias SigilGuard.RepoPolicy

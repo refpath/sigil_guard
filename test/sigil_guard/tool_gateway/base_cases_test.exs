@@ -1,7 +1,7 @@
 defmodule SigilGuard.ToolGateway.BaseCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.Decision
   alias SigilGuard.ToolGateway
@@ -25,7 +25,7 @@ defmodule SigilGuard.ToolGateway.BaseCasesTest do
     assert response["result"]["content"] == [%{"type" => "text", "text" => "write complete"}]
   end
 
-  test "a result that is not a map and needs confirmation stays unconfirmed without a token" do
+  test "a text result that needs confirmation is refused without a token and released redacted with one" do
     decision = Base.guard_confirmed_result(@injection, trust_level: :high)
     assert {:confirm, _} = decision.verdict
     assert decision.effect == :quarantine
@@ -100,7 +100,7 @@ defmodule SigilGuard.ToolGateway.BaseCasesTest do
     end
   end
 
-  test "confirmation helpers and stream helpers work without options" do
+  test "a request token issued without options is accepted for that request" do
     request = %{
       "jsonrpc" => "2.0",
       "id" => 2,
@@ -109,21 +109,43 @@ defmodule SigilGuard.ToolGateway.BaseCasesTest do
     }
 
     pending = Base.guard_request(request, trust_level: :medium)
+    {:ok, token} = Base.issue_confirmation_token(request, [trust_level: :medium], pending, @key)
 
-    assert {:ok, token} =
-             Base.issue_confirmation_token(request, [trust_level: :medium], pending, @key)
+    accepted =
+      Base.guard_confirmed_request(
+        Map.put(request, "_agent_confirmation", token),
+        [trust_level: :medium],
+        confirmation_key: @key,
+        consume_confirmation: false
+      )
 
-    assert is_binary(token)
+    assert accepted.verdict == :allowed
+    assert accepted.audit_metadata.confirmation_status == :accepted
+  end
 
-    result_pending = Base.guard_result(@injection, trust_level: :high)
+  test "a result token issued without options releases the result redacted" do
+    pending = Base.guard_result(@injection, trust_level: :high)
 
-    assert {:ok, _} =
-             Base.issue_result_confirmation_token(
-               @injection,
-               [trust_level: :high],
-               result_pending,
-               @key
-             )
+    {:ok, token} =
+      Base.issue_result_confirmation_token(@injection, [trust_level: :high], pending, @key)
+
+    released =
+      Base.guard_confirmed_result(@injection, [trust_level: :high],
+        confirmation_key: @key,
+        confirmation_token: token,
+        consume_confirmation: false
+      )
+
+    assert {released.verdict, released.action} == {:allowed, :redact}
+  end
+
+  test "the signed-request tombstones and stream helpers take default arguments" do
+    request = %{
+      "jsonrpc" => "2.0",
+      "id" => 2,
+      "method" => "tools/call",
+      "params" => %{"name" => "delete_database", "arguments" => %{"id" => "tenant-a"}}
+    }
 
     assert Base.guard_signed_request(request).audit_metadata.envelope_reason == :missing_envelope
 

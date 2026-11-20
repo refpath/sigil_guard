@@ -1,7 +1,7 @@
 defmodule SigilGuard.HooksCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.AdaptiveDetector
   alias SigilGuard.Boundary

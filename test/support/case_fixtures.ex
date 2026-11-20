@@ -2,7 +2,7 @@ defmodule SigilGuard.CaseFixtures.Signer do
   @moduledoc false
 
   @behaviour SigilGuard.Signer
-  @seed :crypto.hash(:sha256, "coverage-script-signer")
+  @seed :crypto.hash(:sha256, "sigil_guard_case_signer")
 
   @impl SigilGuard.Signer
   def sign(message) do

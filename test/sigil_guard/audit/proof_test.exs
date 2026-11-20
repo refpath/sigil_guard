@@ -298,7 +298,6 @@ defmodule SigilGuard.Audit.ProofTest do
       assert Proof.verify_consistency(proof, ctx.roots["5"], ctx.roots["4"]) ==
                {:error, :inconsistent_tree}
 
-      # Equal sizes MUST carry no proof nodes.
       nonempty = Map.put(proof, "proof_nodes", [ctx.roots["5"]])
 
       assert Proof.verify_consistency(nonempty, ctx.roots["5"], ctx.roots["5"]) ==

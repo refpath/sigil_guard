@@ -339,7 +339,6 @@ defmodule SigilGuard.AuditTest do
 
       bytes = Audit.canonical_bytes(event)
 
-      # Keys should be in alphabetical order
       assert bytes ==
                ~s({"action":"read_file","actor":"did:web:alice","id":"abc123","result":"success","timestamp":"2024-01-01T00:00:00.000Z","type":"mcp.tool_call"})
     end

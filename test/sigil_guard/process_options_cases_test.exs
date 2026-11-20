@@ -1,6 +1,7 @@
 defmodule SigilGuard.ProcessOptionsCasesTest do
   @moduledoc false
 
+  # The tests change the application environment the vault reads.
   use ExUnit.Case, async: false
 
   alias SigilGuard.Signer.Ed25519
@@ -48,7 +49,7 @@ defmodule SigilGuard.ProcessOptionsCasesTest do
     GenServer.stop(pid)
   end
 
-  test "attach_otel_forwarder/2 forwards every known event with bounded attributes" do
+  test "attach_otel_forwarder/2 forwards policy and gate events without actor or hash attributes" do
     parent = self()
     handler_id = "sigil-otel-default-test-#{System.unique_integer()}"
 

@@ -178,7 +178,7 @@ defmodule SigilGuard.AttestationBundleTrustTest do
                {:error, :digest_mismatch}
     end
 
-    test "a keyid map still works and an empty struct is no trust material" do
+    test "a keyid map verifies and an empty TrustBundle struct fails :unknown_key_id" do
       trust = %{keyid(Issuer) => Issuer.public_key()}
 
       assert {:ok, _} = Attestation.verify(signed(Issuer), trust, now: @now)

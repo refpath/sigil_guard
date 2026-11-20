@@ -436,13 +436,11 @@ defmodule SigilGuard.AgentCardTest do
       {:ok, card} = AgentCard.new(valid_card())
       {:ok, card_json} = JCS.encode(card)
 
-      # DSSE form.
       {:ok, dsse} = AgentCard.sign(card, IssuerSigner)
       assert {:ok, ^card} = AgentCard.verify(dsse, issuer_material(), now: @now)
       [%{"keyid" => dsse_keyid}] = dsse["signatures"]
       assert dsse_keyid == issuer_keyid()
 
-      # RFC 7515 Ed25519-JWS form, same keypair.
       header = %{"alg" => "EdDSA", "kid" => issuer_keyid()}
       header_b64 = Base.url_encode64(Jason.encode!(header), padding: false)
       payload_b64 = Base.url_encode64(card_json, padding: false)

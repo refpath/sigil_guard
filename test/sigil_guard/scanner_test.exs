@@ -202,7 +202,7 @@ defmodule SigilGuard.ScannerTest do
       assert Scanner.redact("hello world", hits, default_replacement: "***") == "*** world"
     end
 
-    test "handles multiple non-overlapping hits" do
+    test "redact/2 replaces each of two non-overlapping hits with its own hint" do
       hits = [
         %{
           offset: 0,

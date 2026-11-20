@@ -1,6 +1,7 @@
 defmodule SigilGuard.RuntimeCasesTest do
   @moduledoc false
 
+  # The tests start runtimes that compete for the named tables.
   use ExUnit.Case, async: false
 
   alias SigilGuard.Runtime

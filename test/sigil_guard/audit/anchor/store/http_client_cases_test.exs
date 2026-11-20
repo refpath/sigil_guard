@@ -1,7 +1,7 @@
 defmodule SigilGuard.Audit.Anchor.Store.HTTPClientCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.Audit
   alias SigilGuard.Audit.Anchor

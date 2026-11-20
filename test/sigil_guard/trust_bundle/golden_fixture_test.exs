@@ -221,7 +221,6 @@ defmodule SigilGuard.TrustBundle.GoldenFixtureTest do
       assert TrustBundle.load({:map, first}, now: @now, cache: false) ==
                {:error, :sequence_below_floor}
 
-      # The cached snapshot itself still verifies, and a newer one does too.
       assert {:ok, %TrustBundle{sequence: 2}} = TrustBundle.verify(second, now: @now)
       assert {:ok, %TrustBundle{sequence: 3}} = TrustBundle.verify(next_minimal(3), now: @now)
 

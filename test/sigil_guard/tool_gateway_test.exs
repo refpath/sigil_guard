@@ -1761,7 +1761,6 @@ defmodule SigilGuard.ToolGatewayTest do
 
       refute accepted.audit_metadata[:deny_reason] == :invalid_attestation
 
-      # The statement describes the boundary the gateway decided at.
       {:ok, statement} = Attestation.verify(envelope, trust, now: @now)
 
       assert Map.take(statement["predicate"]["boundary"], ~w(phase origin sink)) == %{
@@ -1863,7 +1862,6 @@ defmodule SigilGuard.ToolGatewayTest do
 
         statement = Jason.decode!(Base.url_decode64!(envelope["payload"], padding: false))
 
-        # The gateway accepts its own attestation for the same request.
         verified =
           ToolGateway.guard_request(Map.put(request, "_agent_trust", envelope), context,
             attestation: :required,

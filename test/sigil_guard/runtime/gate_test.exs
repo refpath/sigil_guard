@@ -149,7 +149,7 @@ defmodule SigilGuard.Runtime.GateTest do
       assert boundary.context_digest == expected_digest
     end
 
-    test "boundary context digest does not collide at the old inspect truncation horizon" do
+    test "actors sharing a 6,500-byte prefix get distinct boundary context digests" do
       prefix = String.duplicate("actor-prefix-", 500)
 
       base_context = [
@@ -719,7 +719,7 @@ defmodule SigilGuard.Runtime.GateTest do
       assert decision.audit_metadata.repo_policy_error
     end
 
-    test "handles repo-change contexts without changed path lists" do
+    test "a repo change without changed paths falls to the require_approval default" do
       {:ok, repo_policy} =
         SigilGuard.RepoPolicy.compile(%{
           default_decision: :require_approval,
@@ -1021,7 +1021,7 @@ defmodule SigilGuard.Runtime.GateTest do
       end
     end
 
-    test "runtime decisions carry the new typed fields (matched_rules, boundary labels)" do
+    test "runtime decisions carry source, sink, trust zone, actor, resource and matched rules" do
       decision =
         Gate.evaluate("token=supersecretvalue123",
           phase: :tool_result,

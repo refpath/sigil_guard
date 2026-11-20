@@ -1,6 +1,7 @@
 defmodule Mix.Tasks.SigilGuard.SbomCasesTest do
   @moduledoc false
 
+  # Mix.Project.push/1, File.cd!/2 and PATH changes are VM-wide.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

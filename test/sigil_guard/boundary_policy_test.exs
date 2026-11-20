@@ -513,7 +513,6 @@ defmodule SigilGuard.BoundaryPolicyTest do
       return = {:ok, [%{id: "inj", severity: :high, confidence: 0.5}]}
       decision = BoundaryPolicy.evaluate(base(), detector_opts(return))
 
-      # Verdict is unchanged (still allow); only risk and indicators move.
       assert decision.action == :allow
       assert decision.risk_level == :high
 

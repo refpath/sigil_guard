@@ -144,7 +144,7 @@ defmodule SigilGuard.ToolGateway.BaseTest do
     assert allowed_response["id"] == "r1"
   end
 
-  test "guarded_result handles redaction and blocking response variants" do
+  test "guarded_result releases a redacted secret and refuses an AWS key bound for an external sink with -31990" do
     redacted_result = %{"content" => [%{"type" => "text", "text" => "token=supersecretvalue123"}]}
 
     assert {:ok, response, %Decision{action: :redact}} =

@@ -1,6 +1,7 @@
 defmodule SigilGuard.ConfirmationCasesTest do
   @moduledoc false
 
+  # Verification writes nonces to the runtime's shared replay table.
   use ExUnit.Case, async: false
 
   alias SigilGuard.Confirmation

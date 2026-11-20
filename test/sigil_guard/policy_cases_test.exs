@@ -1,7 +1,7 @@
 defmodule SigilGuard.PolicyCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.Policy
 

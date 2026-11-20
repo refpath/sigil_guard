@@ -39,7 +39,9 @@ defmodule SigilGuard.RuntimeAbsentTest do
     assert tables(peer) == []
   end
 
-  test "the default rate limiter refuses, and a caller's own table still works", %{peer: peer} do
+  test "without the runtime the default rate limiter refuses and a caller-owned table counts", %{
+    peer: peer
+  } do
     assert :peer.call(peer, SigilGuard.Policy, :rate_check, ["actor", []]) ==
              {:error, :rate_limited}
 

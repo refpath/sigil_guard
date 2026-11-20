@@ -459,7 +459,7 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
     end
   end
 
-  describe "inputs that used to raise" do
+  describe "malformed shapes are answered, not raised" do
     @improper [1 | 2]
 
     test "a struct or an improper list as a request or result" do

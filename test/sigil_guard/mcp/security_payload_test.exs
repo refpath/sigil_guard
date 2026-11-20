@@ -174,7 +174,7 @@ defmodule SigilGuard.MCP.SecurityPayloadTest do
     end
   end
 
-  test "handles scalar and malformed messages without raising" do
+  test "scalar messages get direction defaults and a false tool or action field is :invalid" do
     assert is_map(SecurityPayload.request("plain"))
     assert is_map(SecurityPayload.result(nil))
     assert SecurityPayload.tool_name(%{"tool" => false}) == :invalid

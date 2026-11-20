@@ -1,7 +1,7 @@
 defmodule SigilGuard.ToolGatewayCasesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias SigilGuard.Attestation
   alias SigilGuard.Attestation.Digest
@@ -155,7 +155,7 @@ defmodule SigilGuard.ToolGatewayCasesTest do
     refute inspect(response) =~ "clean tool output"
   end
 
-  test "a confirm on a result with advisory indicators only is status confirm, with string-keyed ids" do
+  test "a hook's advisory indicator on a confirm-verdict result sets quarantine status confirm and reports its string id" do
     context = [
       phase: :tool_result,
       origin: :tool,
@@ -205,7 +205,7 @@ defmodule SigilGuard.ToolGatewayCasesTest do
 
   defp manifest, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
 
-  test "a manifests option that is a struct is no manifest map and blocks" do
+  test "a struct passed as :manifests blocks as unknown_manifest instead of raising" do
     request = %{
       "jsonrpc" => "2.0",
       "id" => 1,

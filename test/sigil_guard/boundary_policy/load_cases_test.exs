@@ -1,6 +1,7 @@
 defmodule SigilGuard.BoundaryPolicy.LoadCasesTest do
   @moduledoc false
 
+  # One test removes read permission from a file other tests read.
   use ExUnit.Case, async: false
 
   alias SigilGuard.BoundaryPolicy.File, as: PolicyFile
@@ -8,7 +9,12 @@ defmodule SigilGuard.BoundaryPolicy.LoadCasesTest do
   @policy "version 3\n\n[rules]\ndefault allow\n"
 
   setup do
-    dir = Path.join(System.tmp_dir!(), "sigil_cov_policy_#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "sigil_guard_policy_load_#{System.unique_integer([:positive])}"
+      )
+
     File.mkdir_p!(dir)
     File.write!(Path.join(dir, "custom-policy"), @policy)
 

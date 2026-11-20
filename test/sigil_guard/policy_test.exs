@@ -187,7 +187,6 @@ defmodule SigilGuard.PolicyTest do
             Policy.evaluate("test_action", trust, risk_level: risk)
           end)
 
-        # Once :allowed appears, all higher trust levels should also be :allowed
         Enum.reduce(verdicts, false, fn verdict, saw_allowed ->
           if saw_allowed do
             assert verdict == :allowed,

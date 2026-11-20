@@ -1,6 +1,7 @@
 defmodule Mix.Tasks.SigilGuard.DocsLintCasesTest do
   @moduledoc false
 
+  # File.cd!/2 changes the working directory of the whole VM.
   use ExUnit.Case, async: false
 
   import SigilGuard.CaseFixtures.Tmp, only: [fixture_root: 1]
@@ -9,7 +10,7 @@ defmodule Mix.Tasks.SigilGuard.DocsLintCasesTest do
 
   defp front_matter(id), do: "---\nid: \"#{id}\"\n---\n\n# #{id}\n"
 
-  test "formats a finding that has no line" do
+  test "a finding without a line number prints as path: kind: message" do
     root =
       fixture_root(%{
         "README.md" => "Public docs\n",

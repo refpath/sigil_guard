@@ -5,11 +5,8 @@ defmodule SigilGuard.Attestation.DigestCasesTest do
 
   alias SigilGuard.Attestation.Digest
 
-  describe "context_digest/2" do
-  end
-
   describe "digests/4" do
-    test "digests/3 states no manifest subject" do
+    test "without a manifest option, digests/3 returns only the action, context and payload digests" do
       payload = %{"method" => "tools/call", "params" => %{"name" => "repo_file_write"}}
       context = %{phase: :tool_request, origin: :user, sink: :tool, tool: "repo_file_write"}
 

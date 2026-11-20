@@ -52,7 +52,7 @@ defmodule SigilGuardTest do
       assert :allowed = SigilGuard.policy_verdict("delete_database", :high)
     end
 
-    test "returns confirmation for borderline cases" do
+    test "a medium-risk action at low trust asks for confirmation" do
       assert {:confirm, reason} = SigilGuard.policy_verdict("create_user", :low)
       assert is_binary(reason)
     end

@@ -1,6 +1,7 @@
 defmodule SigilGuard.TrustBundle.TelemetryCasesTest do
   @moduledoc false
 
+  # The tests clear and fill the runtime's shared bundle cache.
   use ExUnit.Case, async: false
 
   alias SigilGuard.Attestation.Envelope

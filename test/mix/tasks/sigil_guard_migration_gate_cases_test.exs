@@ -1,6 +1,7 @@
 defmodule Mix.Tasks.SigilGuard.MigrationGateCasesTest do
   @moduledoc false
 
+  # File.cd!/2 changes the working directory of the whole VM.
   use ExUnit.Case, async: false
 
   import SigilGuard.CaseFixtures.Tmp, only: [fixture_root: 1]
