@@ -62,7 +62,7 @@ defmodule SigilGuard.Policy do
     high: :high
   }
 
-  @default_rate_table :sigil_guard_rates
+  @default_rate_table SigilGuard.Runtime.Tables.rates()
   @rate_count {__MODULE__, :entries}
   @rate_prune {__MODULE__, :last_prune}
 

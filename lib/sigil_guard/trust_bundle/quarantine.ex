@@ -10,7 +10,7 @@ defmodule SigilGuard.TrustBundle.Quarantine do
   sequence and digest fields are omitted.
   """
 
-  @table :sigil_guard_trust_bundle_quarantine
+  @table SigilGuard.Runtime.Tables.trust_bundle_quarantine()
 
   @typedoc "Audit-safe trust-bundle quarantine record."
   @type t :: %{

@@ -11,7 +11,7 @@ defmodule SigilGuard.TrustBundle.Cache do
   alias SigilGuard.Crypto
   alias SigilGuard.TrustBundle
 
-  @table :sigil_guard_trust_bundle
+  @table SigilGuard.Runtime.Tables.trust_bundle()
 
   @type root_pin :: %{
           version: pos_integer(),

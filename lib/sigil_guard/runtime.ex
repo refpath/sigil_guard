@@ -57,13 +57,6 @@ defmodule SigilGuard.Runtime do
   alias SigilGuard.TrustBundle.Cache
   alias SigilGuard.TrustBundle.Quarantine
 
-  @tables [
-    :sigil_guard_rates,
-    :sigil_guard_replay,
-    :sigil_guard_trust_bundle,
-    :sigil_guard_trust_bundle_quarantine
-  ]
-
   @type option :: {:config, keyword()} | {:name, GenServer.name()}
 
   @doc "Start the runtime and take ownership of SigilGuard's named ETS tables."
@@ -163,7 +156,7 @@ defmodule SigilGuard.Runtime do
   defp ensure_table_ownership! do
     owner = self()
 
-    Enum.each(@tables, fn table ->
+    Enum.each(SigilGuard.Runtime.Tables.all(), fn table ->
       case :ets.info(table, :owner) do
         ^owner ->
           :ok

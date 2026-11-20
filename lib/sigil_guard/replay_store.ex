@@ -11,7 +11,7 @@ defmodule SigilGuard.ReplayStore do
   `:replay_capacity_exceeded` without evicting live entries.
   """
 
-  @table :sigil_guard_replay
+  @table SigilGuard.Runtime.Tables.replay()
   @prune_key {:sigil_guard_replay_store, :meta, :last_prune}
   @prune_interval_ms 60_000
   @capacity_key {__MODULE__, :meta, :entries}

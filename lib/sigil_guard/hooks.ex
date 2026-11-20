@@ -34,8 +34,6 @@ defmodule SigilGuard.Hooks do
   alias SigilGuard.Lifecycle
   alias SigilGuard.Telemetry
 
-  @default_timeout_ms 5_000
-  @max_timeout_ms 4_294_967_295
   @risk_rank %{low: 0, medium: 1, high: 2}
 
   @callback_for %{
@@ -126,11 +124,13 @@ defmodule SigilGuard.Hooks do
   defp normalize_options(opts) do
     if Keyword.keyword?(opts) do
       hooks = Keyword.get(opts, :hooks, [])
-      timeout = Keyword.get(opts, :hook_timeout_ms, @default_timeout_ms)
 
-      if valid_hooks?(hooks) and valid_timeout?(timeout),
-        do: {:ok, hooks, timeout},
-        else: :error
+      with true <- valid_hooks?(hooks),
+           {:ok, timeout} <- SigilGuard.BoundedCall.timeout(opts) do
+        {:ok, hooks, timeout}
+      else
+        _ -> :error
+      end
     else
       :error
     end
@@ -138,10 +138,6 @@ defmodule SigilGuard.Hooks do
 
   defp valid_hooks?(hooks),
     do: is_list(hooks) and Enum.all?(hooks, &(is_atom(&1) and Code.ensure_loaded?(&1)))
-
-  defp valid_timeout?(timeout) do
-    is_integer(timeout) and timeout >= 0 and timeout <= @max_timeout_ms
-  end
 
   defp invalid_options(boundary) do
     reason = :invalid_hook_options

@@ -130,6 +130,32 @@ defmodule SigilGuard.BoundaryPolicy do
   @type policy :: %{optional(atom()) => term()} | nil
 
   @doc """
+  Return whether `opts` holds well-formed extension options for `evaluate/2`.
+
+  Checks `:hooks` (a list of modules), `:adaptive_detector` (a module or
+  nil) and `:hook_timeout_ms` (an integer from 0 to 4,294,967,295). The
+  hooks and the detector refuse malformed values themselves;
+  `SigilGuard.Runtime.Gate` checks first so that it can block before any
+  other work.
+
+      iex> SigilGuard.BoundaryPolicy.valid_extension_options?(hook_timeout_ms: 100)
+      true
+
+      iex> SigilGuard.BoundaryPolicy.valid_extension_options?(hooks: "not a list")
+      false
+
+  """
+  @doc since: "1.1.0"
+  @spec valid_extension_options?(keyword()) :: boolean()
+  def valid_extension_options?(opts) do
+    hooks = Keyword.get(opts, :hooks, [])
+    detector = Keyword.get(opts, :adaptive_detector)
+
+    is_list(hooks) and Enum.all?(hooks, &is_atom/1) and (is_nil(detector) or is_atom(detector)) and
+      SigilGuard.BoundedCall.timeout(opts) != :error
+  end
+
+  @doc """
   Evaluate a boundary and return a `SigilGuard.Decision`.
 
   Options: `:policy` (compiled policy, or nil), `:on_sensitive`

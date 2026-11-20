@@ -15,8 +15,23 @@ defmodule SigilGuard.BoundedCall do
   # a watcher that kills it when the caller goes down. The watcher ends with
   # whichever of the two ends first, so no process outlives the call.
 
+  @default_timeout_ms 5_000
+  @max_timeout_ms 4_294_967_295
+
   @typedoc "The callback's value, or how it failed to produce one."
   @type result :: {:ok, term()} | :crash | :timeout
+
+  @doc false
+  @spec timeout(keyword()) :: {:ok, non_neg_integer()} | :error
+  def timeout(opts) do
+    case Keyword.get(opts, :hook_timeout_ms, @default_timeout_ms) do
+      timeout when is_integer(timeout) and timeout >= 0 and timeout <= @max_timeout_ms ->
+        {:ok, timeout}
+
+      _ ->
+        :error
+    end
+  end
 
   @doc false
   @spec run((-> term()), timeout()) :: result()
