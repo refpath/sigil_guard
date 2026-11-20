@@ -8,7 +8,7 @@ Each suite has its own page with the full Benchee statistics.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (0eca0a4)
+- SigilGuard: 1.0.5 (1426856)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -16,9 +16,9 @@ Each suite has its own page with the full Benchee statistics.
 
 | Figure | Median (us) | Percent |
 |--------|------------:|--------:|
-| BM.04 stream median per chunk | 211.803 |  |
-| BM.04 stream overhead versus single pass | 20617.852 | 317.5 |
-| BM.08 gateway overhead versus no-op | 45.873 |  |
+| BM.04 stream median per chunk | 137.619 |  |
+| BM.04 stream overhead versus single pass | 13414.924 | 319.4 |
+| BM.08 gateway overhead versus no-op | 54.749 |  |
 
 ## Scanner Benchmarks
 
@@ -32,17 +32,17 @@ Full statistics: [Scanner Benchmarks](scanner.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.01 scan clean 1k | 13.834 | 17.833 | 3208 |
-| BM.01 scan clean 1m | 13612.166 | 14640.364 | 3352 |
-| BM.01 scan clean 64k | 847.958 | 979.299 | 3232 |
-| BM.02 scan hits 1k | 16.292 | 22.333 | 11096 |
-| BM.02 scan hits 1m | 14578.584 | 15439.308 | 2022456 |
-| BM.02 scan hits 64k | 872.958 | 972.637 | 127976 |
-| BM.09 scan and redact hits 1k | 16.708 | 25.709 | 10888 |
-| BM.09 scan and redact hits 64k | 900.958 | 1002.070 | 131984 |
-| BM.10 quarantine inspect clean 1k | 107.542 | 123.958 | 2168 |
-| BM.10 quarantine inspect injection | 15.417 | 22.541 | 9912 |
-| BM.11 pattern sets resolve 10 entries | 7.750 | 16.000 | 8040 |
+| BM.01 scan clean 1k | 13.750 | 17.625 | 3208 |
+| BM.01 scan clean 1m | 13969.063 | 15259.621 | 3352 |
+| BM.01 scan clean 64k | 886.146 | 1024.318 | 3232 |
+| BM.02 scan hits 1k | 16.292 | 23.541 | 11080 |
+| BM.02 scan hits 1m | 15130.125 | 16967.893 | 2023720 |
+| BM.02 scan hits 64k | 912.625 | 1043.945 | 128624 |
+| BM.09 scan and redact hits 1k | 16.500 | 25.291 | 11368 |
+| BM.09 scan and redact hits 64k | 858.875 | 1025.513 | 132160 |
+| BM.10 quarantine inspect clean 1k | 23.125 | 32.792 | 2944 |
+| BM.10 quarantine inspect injection | 15.750 | 22.125 | 10088 |
+| BM.11 pattern sets resolve 10 entries | 8.667 | 20.291 | 8040 |
 
 ## Runtime Gate and Policy Benchmarks
 
@@ -56,18 +56,18 @@ Full statistics: [Runtime Gate and Policy Benchmarks](gate.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.03 runtime gate allow | 135.814 | 163.335 | 42736 |
-| BM.03 runtime gate block | 26.834 | 42.708 | 52520 |
-| BM.03 runtime gate quarantine | 50.335 | 61.750 | 59784 |
-| BM.03 runtime gate redact | 38.584 | 53.793 | 53384 |
-| BM.12 policy verdict allowed | 0.541 | 0.791 | 808 |
+| BM.03 runtime gate allow | 68.583 | 83.417 | 44760 |
+| BM.03 runtime gate block | 35.125 | 46.001 | 52984 |
+| BM.03 runtime gate quarantine | 51.041 | 63.333 | 61480 |
+| BM.03 runtime gate redact | 43.000 | 55.917 | 55088 |
+| BM.12 policy verdict allowed | 0.500 | 13.709 | 808 |
 | BM.12 policy verdict blocked | 0.292 | 0.500 | 856 |
-| BM.13 boundary policy kernel | 2.833 | 6.001 | 3208 |
-| BM.14 policy file parse | 79.251 | 101.909 | 53872 |
-| BM.14 runtime gate with output contract | 3499.756 | 3875.911 | 453288 |
-| BM.15 repo policy compile | 10.125 | 13.625 | 12528 |
-| BM.15 repo policy evaluate | 5.500 | 9.041 | 9064 |
-| BM.15 runtime gate repo change | 37.833 | 52.875 | 88328 |
+| BM.13 boundary policy kernel | 2.459 | 6.750 | 3208 |
+| BM.14 policy file parse | 81.625 | 104.869 | 54088 |
+| BM.14 runtime gate with output contract | 1961.425 | 2137.253 | 421648 |
+| BM.15 repo policy compile | 9.250 | 12.208 | 12528 |
+| BM.15 repo policy evaluate | 5.583 | 10.500 | 9064 |
+| BM.15 runtime gate repo change | 40.209 | 57.708 | 89248 |
 
 ## Streaming Benchmarks
 
@@ -83,9 +83,9 @@ Full statistics: [Streaming Benchmarks](stream.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.04 runtime stream 64k clean | 28658.602 | 30221.029 | 5900800 |
-| BM.04 runtime stream 64k split secret | 27110.801 | 30121.749 | 5963200 |
-| BM.04 single pass gate 64k | 6492.949 | 7344.447 | 1235912 |
+| BM.04 runtime stream 64k clean | 17776.316 | 19877.778 | 5893048 |
+| BM.04 runtime stream 64k split secret | 17615.273 | 21096.472 | 5952560 |
+| BM.04 single pass gate 64k | 4200.349 | 5035.638 | 1892480 |
 
 ## Tool Gateway Benchmarks
 
@@ -100,17 +100,17 @@ Full statistics: [Tool Gateway Benchmarks](gateway.md).
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
 | BM.08 no-op baseline | 0.002 | 0.003 | 0 |
-| BM.08 tool gateway guard_request | 45.875 | 57.043 | 85032 |
-| BM.16 guard_request pinned compiled manifest | 53.293 | 70.125 | 102312 |
-| BM.16 guard_request pinned manifest | 95.459 | 127.585 | 187080 |
-| BM.16 guard_request required attestation | 194.792 | 259.280 | 285160 |
-| BM.17 guard_result | 42.458 | 58.250 | 76712 |
-| BM.17 guard_result pinned manifest | 93.834 | 111.876 | 175904 |
-| BM.18 capability manifest drifted fields | 49.918 | 62.542 | 87760 |
-| BM.18 capability manifest new | 44.668 | 58.500 | 82336 |
-| BM.18 capability manifest verify | 48.418 | 66.292 | 82472 |
-| BM.19 effect authority admit | 31.584 | 44.791 | 50560 |
-| BM.19 guard_request effect binding | 260.959 | 396.973 | 470960 |
+| BM.08 tool gateway guard_request | 54.751 | 69.960 | 87368 |
+| BM.16 guard_request pinned compiled manifest | 61.375 | 78.000 | 104888 |
+| BM.16 guard_request pinned manifest | 117.126 | 139.666 | 188344 |
+| BM.16 guard_request required attestation | 205.210 | 255.126 | 286752 |
+| BM.17 guard_result | 47.250 | 60.459 | 80216 |
+| BM.17 guard_result pinned manifest | 111.041 | 133.626 | 179136 |
+| BM.18 capability manifest drifted fields | 57.625 | 70.292 | 87688 |
+| BM.18 capability manifest new | 45.167 | 61.916 | 82392 |
+| BM.18 capability manifest verify | 52.375 | 66.209 | 82600 |
+| BM.19 effect authority admit | 28.083 | 41.505 | 52752 |
+| BM.19 guard_request effect binding | 239.876 | 299.981 | 466896 |
 
 ## Confirmation Token Benchmarks
 
@@ -125,10 +125,10 @@ Full statistics: [Confirmation Token Benchmarks](confirmation.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.20 confirmation action digest | 8.333 | 13.583 | 19296 |
-| BM.20 confirmation issue | 26.666 | 52.333 | 58712 |
-| BM.20 confirmation verify | 33.166 | 59.042 | 64104 |
-| BM.20 guard_request accepted token | 34.042 | 78.541 | 15560 |
+| BM.20 confirmation action digest | 8.166 | 12.864 | 19544 |
+| BM.20 confirmation issue | 26.000 | 48.458 | 59720 |
+| BM.20 confirmation verify | 36.667 | 66.543 | 64848 |
+| BM.20 guard_request accepted token | 37.583 | 81.334 | 17416 |
 
 ## Attestation Benchmarks
 
@@ -143,13 +143,13 @@ Full statistics: [Attestation Benchmarks](attestation.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.05 attestation sign | 89.417 | 111.834 | 51136 |
-| BM.05 attestation verify | 75.876 | 99.793 | 78816 |
-| BM.21 attestation digests | 14.667 | 29.875 | 51096 |
-| BM.21 attestation from_decision | 25.000 | 45.625 | 66072 |
-| BM.21 trust profile validate | 2.416 | 5.334 | 3480 |
-| BM.22 attestation verify signature only | 57.667 | 72.792 | 26848 |
-| BM.22 attestation verify with trust bundle | 79.376 | 97.626 | 84000 |
+| BM.05 attestation sign | 92.251 | 116.793 | 51136 |
+| BM.05 attestation verify | 74.834 | 98.917 | 79272 |
+| BM.21 attestation digests | 15.042 | 25.459 | 51672 |
+| BM.21 attestation from_decision | 25.708 | 45.042 | 67040 |
+| BM.21 trust profile validate | 2.166 | 4.542 | 3480 |
+| BM.22 attestation verify signature only | 61.250 | 74.625 | 26848 |
+| BM.22 attestation verify with trust bundle | 76.333 | 98.000 | 85144 |
 
 ## Trust Bundle Benchmarks
 
@@ -163,10 +163,10 @@ Full statistics: [Trust Bundle Benchmarks](trust_bundle.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.06 trust bundle cache warm | 0.958 | 4.541 | 48 |
-| BM.06 trust bundle verify cold | 103.917 | 130.501 | 111496 |
-| BM.23 trust bundle load | 105.417 | 129.417 | 132830 |
-| BM.23 trust bundle pattern sets | 8.042 | 24.208 | 8160 |
+| BM.06 trust bundle cache warm | 0.834 | 3.750 | 48 |
+| BM.06 trust bundle verify cold | 97.625 | 116.886 | 111496 |
+| BM.23 trust bundle load | 104.917 | 132.036 | 132830 |
+| BM.23 trust bundle pattern sets | 7.791 | 21.542 | 8160 |
 
 ## Agent-To-Agent Trust Benchmarks
 
@@ -182,13 +182,13 @@ Full statistics: [Agent-To-Agent Trust Benchmarks](agent_trust.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.24 agent card digest | 16.167 | 38.291 | 37704 |
-| BM.24 agent card sign | 89.167 | 110.073 | 40528 |
-| BM.24 agent card verify | 66.208 | 85.585 | 49824 |
-| BM.25 attest agent request | 229.585 | 309.898 | 230992 |
-| BM.25 attest agent response | 225.126 | 298.820 | 213160 |
-| BM.25 verify agent response | 175.417 | 221.304 | 161944 |
-| BM.25 verify delegation chain | 3.500 | 8.542 | 10152 |
+| BM.24 agent card digest | 17.750 | 34.375 | 37704 |
+| BM.24 agent card sign | 98.083 | 118.417 | 40528 |
+| BM.24 agent card verify | 67.709 | 87.083 | 49824 |
+| BM.25 attest agent request | 257.210 | 318.622 | 232464 |
+| BM.25 attest agent response | 244.293 | 313.123 | 214176 |
+| BM.25 verify agent response | 175.625 | 210.209 | 162992 |
+| BM.25 verify delegation chain | 3.792 | 10.333 | 10152 |
 
 ## Audit Evidence Benchmarks
 
@@ -204,14 +204,14 @@ Full statistics: [Audit Evidence Benchmarks](audit.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.07 audit append onto 10k chain | 1.792 | 2.958 | 1720 |
-| BM.07 audit checkpoint create 10k | 6932.305 | 9023.712 | 4164856 |
-| BM.07 audit inclusion verify 10k | 7.667 | 49.792 | 5808 |
-| BM.26 audit consistency proof 10k | 6600.138 | 9749.225 | 4424016 |
-| BM.26 audit consistency verify 10k | 11.542 | 124.418 | 8488 |
-| BM.26 audit export create 1k | 3782.686 | 4652.726 | 2779859 |
-| BM.26 audit inclusion proof 10k | 6687.158 | 10173.919 | 4317736 |
-| BM.26 audit verify chain 1k | 1814.738 | 2313.028 | 1536072 |
+| BM.07 audit append onto 10k chain | 1.958 | 3.000 | 1720 |
+| BM.07 audit checkpoint create 10k | 7402.885 | 9252.766 | 4164856 |
+| BM.07 audit inclusion verify 10k | 7.833 | 48.916 | 5808 |
+| BM.26 audit consistency proof 10k | 5969.168 | 8801.369 | 4424016 |
+| BM.26 audit consistency verify 10k | 11.750 | 119.714 | 8488 |
+| BM.26 audit export create 1k | 3488.740 | 4470.525 | 2779859 |
+| BM.26 audit inclusion proof 10k | 6944.036 | 9001.468 | 4317736 |
+| BM.26 audit verify chain 1k | 2029.773 | 2470.279 | 1536072 |
 
 ## Primitive Benchmarks
 
@@ -225,15 +225,15 @@ Full statistics: [Primitive Benchmarks](primitives.md).
 
 | Scenario | Median (us) | p99 (us) | Memory (bytes) |
 |----------|------------:|---------:|---------------:|
-| BM.27 canonical json decode statement | 4.792 | 7.542 | 10824 |
-| BM.27 jcs encode statement | 13.542 | 34.167 | 43616 |
+| BM.27 canonical json decode statement | 4.833 | 7.666 | 10824 |
+| BM.27 jcs encode statement | 13.791 | 33.118 | 43616 |
 | BM.28 secure compare 64 bytes | 0.083 | 0.125 | 0 |
-| BM.28 sha256 hex 1k | 0.541 | 0.750 | 152 |
-| BM.29 identity did:key public key | 1.208 | 2.375 | 2176 |
-| BM.29 identity spiffe id check | 1.583 | 2.917 | 712 |
-| BM.30 replay store detect replay | 0.500 | 0.708 | 400 |
-| BM.30 vault decrypt | 1.250 | 2.625 | 352 |
-| BM.30 vault exists | 0.792 | 1.292 | 288 |
-| BM.31 telemetry otel attributes | 2.917 | 4.208 | 5896 |
-| BM.31 telemetry otel attributes high cardinality | 2.750 | 7.292 | 5128 |
+| BM.28 sha256 hex 1k | 0.542 | 0.792 | 152 |
+| BM.29 identity did:key public key | 1.209 | 2.042 | 2176 |
+| BM.29 identity spiffe id check | 1.458 | 2.458 | 712 |
+| BM.30 replay store detect replay | 0.375 | 0.542 | 376 |
+| BM.30 vault decrypt | 1.125 | 2.083 | 352 |
+| BM.30 vault exists | 0.792 | 1.333 | 288 |
+| BM.31 telemetry otel attributes | 3.375 | 3.958 | 5664 |
+| BM.31 telemetry otel attributes high cardinality | 2.417 | 3.875 | 5008 |
 

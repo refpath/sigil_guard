@@ -14,7 +14,7 @@ Mode: measured. Values are measured for this environment, not ratified SLO bound
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (0eca0a4)
+- SigilGuard: 1.0.5 (1426856)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-11-20
 
@@ -79,101 +79,101 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.11 pattern sets resolve 10 entries</td>
-    <td style="white-space: nowrap; text-align: right">117.36 K</td>
-    <td style="white-space: nowrap; text-align: right">8.52 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;98.54%</td>
-    <td style="white-space: nowrap; text-align: right">7.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">16 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">109.62 K</td>
+    <td style="white-space: nowrap; text-align: right">9.12 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;85.24%</td>
+    <td style="white-space: nowrap; text-align: right">8.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">20.29 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.01 scan clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">68.94 K</td>
-    <td style="white-space: nowrap; text-align: right">14.51 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;15.34%</td>
-    <td style="white-space: nowrap; text-align: right">13.83 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">17.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">69.35 K</td>
+    <td style="white-space: nowrap; text-align: right">14.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;16.27%</td>
+    <td style="white-space: nowrap; text-align: right">13.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">17.63 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect injection</td>
-    <td style="white-space: nowrap; text-align: right">63.40 K</td>
-    <td style="white-space: nowrap; text-align: right">15.77 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;16.68%</td>
-    <td style="white-space: nowrap; text-align: right">15.42 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">22.54 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">62.50 K</td>
+    <td style="white-space: nowrap; text-align: right">16.00 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;22.28%</td>
+    <td style="white-space: nowrap; text-align: right">15.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">22.13 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">59.55 K</td>
-    <td style="white-space: nowrap; text-align: right">16.79 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;18.20%</td>
+    <td style="white-space: nowrap; text-align: right">58.47 K</td>
+    <td style="white-space: nowrap; text-align: right">17.10 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;19.52%</td>
     <td style="white-space: nowrap; text-align: right">16.29 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">22.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">23.54 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.09 scan and redact hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">56.76 K</td>
-    <td style="white-space: nowrap; text-align: right">17.62 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;21.94%</td>
-    <td style="white-space: nowrap; text-align: right">16.71 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">25.71 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">57.18 K</td>
+    <td style="white-space: nowrap; text-align: right">17.49 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;15.44%</td>
+    <td style="white-space: nowrap; text-align: right">16.50 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">25.29 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">9.37 K</td>
-    <td style="white-space: nowrap; text-align: right">106.77 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;7.89%</td>
-    <td style="white-space: nowrap; text-align: right">107.54 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">123.96 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.16 K</td>
-    <td style="white-space: nowrap; text-align: right">862.28 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;4.38%</td>
-    <td style="white-space: nowrap; text-align: right">847.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">979.30 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.14 K</td>
-    <td style="white-space: nowrap; text-align: right">877.32 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;3.20%</td>
-    <td style="white-space: nowrap; text-align: right">872.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">972.64 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">40.54 K</td>
+    <td style="white-space: nowrap; text-align: right">24.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;13.37%</td>
+    <td style="white-space: nowrap; text-align: right">23.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">32.79 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.09 scan and redact hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.10 K</td>
-    <td style="white-space: nowrap; text-align: right">906.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;4.67%</td>
-    <td style="white-space: nowrap; text-align: right">900.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">1002.07 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1.13 K</td>
+    <td style="white-space: nowrap; text-align: right">885.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.60%</td>
+    <td style="white-space: nowrap; text-align: right">858.88 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1025.51 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
+    <td style="white-space: nowrap; text-align: right">1.12 K</td>
+    <td style="white-space: nowrap; text-align: right">891.49 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;6.68%</td>
+    <td style="white-space: nowrap; text-align: right">886.15 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1024.32 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
+    <td style="white-space: nowrap; text-align: right">1.09 K</td>
+    <td style="white-space: nowrap; text-align: right">916.06 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;5.89%</td>
+    <td style="white-space: nowrap; text-align: right">912.63 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1043.95 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.01 scan clean 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0728 K</td>
-    <td style="white-space: nowrap; text-align: right">13733.26 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;2.65%</td>
-    <td style="white-space: nowrap; text-align: right">13612.17 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">14640.36 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.0718 K</td>
+    <td style="white-space: nowrap; text-align: right">13919.85 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;3.81%</td>
+    <td style="white-space: nowrap; text-align: right">13969.06 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">15259.62 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0687 K</td>
-    <td style="white-space: nowrap; text-align: right">14565.00 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;2.66%</td>
-    <td style="white-space: nowrap; text-align: right">14578.58 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">15439.31 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.0660 K</td>
+    <td style="white-space: nowrap; text-align: right">15140.14 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;4.11%</td>
+    <td style="white-space: nowrap; text-align: right">15130.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">16967.89 &micro;s</td>
   </tr>
 
 </table>
@@ -188,68 +188,68 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.11 pattern sets resolve 10 entries</td>
-    <td style="white-space: nowrap;text-align: right">117.36 K</td>
+    <td style="white-space: nowrap;text-align: right">109.62 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.01 scan clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">68.94 K</td>
-    <td style="white-space: nowrap; text-align: right">1.7x</td>
+    <td style="white-space: nowrap; text-align: right">69.35 K</td>
+    <td style="white-space: nowrap; text-align: right">1.58x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect injection</td>
-    <td style="white-space: nowrap; text-align: right">63.40 K</td>
-    <td style="white-space: nowrap; text-align: right">1.85x</td>
+    <td style="white-space: nowrap; text-align: right">62.50 K</td>
+    <td style="white-space: nowrap; text-align: right">1.75x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">59.55 K</td>
-    <td style="white-space: nowrap; text-align: right">1.97x</td>
+    <td style="white-space: nowrap; text-align: right">58.47 K</td>
+    <td style="white-space: nowrap; text-align: right">1.87x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.09 scan and redact hits 1k</td>
-    <td style="white-space: nowrap; text-align: right">56.76 K</td>
-    <td style="white-space: nowrap; text-align: right">2.07x</td>
+    <td style="white-space: nowrap; text-align: right">57.18 K</td>
+    <td style="white-space: nowrap; text-align: right">1.92x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect clean 1k</td>
-    <td style="white-space: nowrap; text-align: right">9.37 K</td>
-    <td style="white-space: nowrap; text-align: right">12.53x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.16 K</td>
-    <td style="white-space: nowrap; text-align: right">101.2x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.14 K</td>
-    <td style="white-space: nowrap; text-align: right">102.96x</td>
+    <td style="white-space: nowrap; text-align: right">40.54 K</td>
+    <td style="white-space: nowrap; text-align: right">2.7x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.09 scan and redact hits 64k</td>
-    <td style="white-space: nowrap; text-align: right">1.10 K</td>
-    <td style="white-space: nowrap; text-align: right">106.34x</td>
+    <td style="white-space: nowrap; text-align: right">1.13 K</td>
+    <td style="white-space: nowrap; text-align: right">97.09x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.01 scan clean 64k</td>
+    <td style="white-space: nowrap; text-align: right">1.12 K</td>
+    <td style="white-space: nowrap; text-align: right">97.72x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.02 scan hits 64k</td>
+    <td style="white-space: nowrap; text-align: right">1.09 K</td>
+    <td style="white-space: nowrap; text-align: right">100.42x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.01 scan clean 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0728 K</td>
-    <td style="white-space: nowrap; text-align: right">1611.7x</td>
+    <td style="white-space: nowrap; text-align: right">0.0718 K</td>
+    <td style="white-space: nowrap; text-align: right">1525.85x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap; text-align: right">0.0687 K</td>
-    <td style="white-space: nowrap; text-align: right">1709.31x</td>
+    <td style="white-space: nowrap; text-align: right">0.0660 K</td>
+    <td style="white-space: nowrap; text-align: right">1659.61x</td>
   </tr>
 
 </table>
@@ -276,23 +276,28 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect injection</td>
-    <td style="white-space: nowrap">9.68 KB</td>
-    <td>1.23x</td>
+    <td style="white-space: nowrap">9.85 KB</td>
+    <td>1.25x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1k</td>
-    <td style="white-space: nowrap">10.84 KB</td>
+    <td style="white-space: nowrap">10.82 KB</td>
     <td>1.38x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.09 scan and redact hits 1k</td>
-    <td style="white-space: nowrap">10.63 KB</td>
-    <td>1.35x</td>
+    <td style="white-space: nowrap">11.10 KB</td>
+    <td>1.41x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.10 quarantine inspect clean 1k</td>
-    <td style="white-space: nowrap">2.12 KB</td>
-    <td>0.27x</td>
+    <td style="white-space: nowrap">2.88 KB</td>
+    <td>0.37x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.09 scan and redact hits 64k</td>
+    <td style="white-space: nowrap">129.06 KB</td>
+    <td>16.44x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.01 scan clean 64k</td>
@@ -301,13 +306,8 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.02 scan hits 64k</td>
-    <td style="white-space: nowrap">124.98 KB</td>
-    <td>15.92x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.09 scan and redact hits 64k</td>
-    <td style="white-space: nowrap">128.89 KB</td>
-    <td>16.42x</td>
+    <td style="white-space: nowrap">125.61 KB</td>
+    <td>16.0x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.01 scan clean 1m</td>
@@ -316,7 +316,7 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.02 scan hits 1m</td>
-    <td style="white-space: nowrap">1975.05 KB</td>
-    <td>251.55x</td>
+    <td style="white-space: nowrap">1976.29 KB</td>
+    <td>251.71x</td>
   </tr>
 </table>
