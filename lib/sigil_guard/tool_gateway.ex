@@ -133,7 +133,7 @@ defmodule SigilGuard.ToolGateway do
     decision =
       with :ok <- Effect.check_option(effect),
            {:ok, capability} <- resolve_manifest(payload.tool, opts),
-           :ok <- manifest_freshness(capability, opts),
+           :ok <- request_manifest_freshness(capability, opts),
            :ok <- passthrough_resource_audience(capability, opts),
            :ok <- verify_caller_visibility(capability, request_context),
            :ok <- require_sandbox(capability, request_context),
@@ -760,6 +760,12 @@ defmodule SigilGuard.ToolGateway do
   defp maybe_put_observed(manifest, _, nil), do: manifest
   defp maybe_put_observed(manifest, key, value), do: Map.put(manifest, key, value)
 
+  # A denial for an expired manifest says when it expired.
+  defp request_manifest_freshness(capability, opts) do
+    with {:error, :manifest_expired} <- manifest_freshness(capability, opts),
+         do: {:error, {:manifest_expired, %{expires_at: capability.expires_at}}}
+  end
+
   defp manifest_freshness(nil, _), do: :ok
 
   defp manifest_freshness(%CapabilityManifest{expires_at: expires_at}, opts) do
@@ -1006,7 +1012,7 @@ defmodule SigilGuard.ToolGateway do
 
     case Attestation.verify(envelope, Keyword.get(opts, :trust_material, %{}), verify_opts) do
       {:ok, statement} -> attested_actor(statement, context)
-      {:error, _} -> {:error, :invalid_attestation}
+      {:error, reason} -> {:error, {:invalid_attestation, %{attestation_error: reason}}}
     end
   end
 
@@ -1017,7 +1023,7 @@ defmodule SigilGuard.ToolGateway do
 
     if is_nil(expected) or expected == get_in(statement, ["predicate", "actor", "id"]),
       do: :ok,
-      else: {:error, :invalid_attestation}
+      else: {:error, {:invalid_attestation, %{attestation_error: :actor_mismatch}}}
   end
 
   defp inbound_verify_opts(payload, context, capability, opts) do

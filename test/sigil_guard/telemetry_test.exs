@@ -178,6 +178,152 @@ defmodule SigilGuard.TelemetryTest do
     end
   end
 
+  describe "decision correlation and denial facts" do
+    alias SigilGuard.Runtime.Gate
+    alias SigilGuard.ToolGateway
+
+    defp capture(event, fun) do
+      handler = "telemetry-capture-#{System.unique_integer()}"
+      parent = self()
+
+      :telemetry.attach(
+        handler,
+        event,
+        fn _, _, metadata, _ -> send(parent, {:captured, metadata}) end,
+        nil
+      )
+
+      try do
+        result = fun.()
+        assert_receive {:captured, metadata}
+        {result, metadata}
+      after
+        :telemetry.detach(handler)
+      end
+    end
+
+    test "a host correlation id reaches the decision, the event and the attribute" do
+      context = [phase: :tool_request, sink: :tool, sandbox_id: "sandbox-7", trust_level: :high]
+
+      {decision, metadata} =
+        capture([:sigil_guard, :runtime, :gate], fn ->
+          Gate.evaluate("clean", context, decision_id: "req-7f3a")
+        end)
+
+      assert decision.audit_metadata.decision_id == "req-7f3a"
+      assert metadata.decision_id == "req-7f3a"
+      assert metadata.sandbox_id == "sandbox-7"
+
+      event = [:sigil_guard, :runtime, :gate]
+      low = Telemetry.otel_attributes(event, %{}, metadata)
+      high = Telemetry.otel_attributes(event, %{}, metadata, include_high_cardinality: true)
+
+      refute Map.has_key?(low, "sigilguard.decision.id")
+      refute Map.has_key?(low, "sigilguard.sandbox.id")
+      assert high["sigilguard.decision.id"] == "req-7f3a"
+      assert high["sigilguard.sandbox.id"] == "sandbox-7"
+    end
+
+    test "the gate mints no id and ignores one it cannot carry" do
+      for opts <- [
+            [],
+            [decision_id: ""],
+            [decision_id: 7],
+            [decision_id: String.duplicate("a", 129)],
+            [decision_id: <<0, 1>>]
+          ] do
+        decision = Gate.evaluate("clean", [trust_level: :high], opts)
+
+        refute Map.has_key?(decision.audit_metadata, :decision_id)
+      end
+    end
+
+    test "the rules behind a decision are a bounded attribute" do
+      {:ok, policy} =
+        SigilGuard.BoundaryPolicy.File.parse("version 3\n[rules]\nblock sink:external\n")
+
+      context = [phase: :outbound_model, sink: :external, trust_level: :high]
+
+      {decision, metadata} =
+        capture([:sigil_guard, :runtime, :gate], fn ->
+          Gate.evaluate("clean", context, boundary_policy: policy)
+        end)
+
+      assert decision.audit_metadata.matched_rule_ids == ["line_3"]
+
+      assert Telemetry.otel_attributes([:sigil_guard, :runtime, :gate], %{}, metadata)[
+               "sigilguard.rules.matched"
+             ] == ["line_3"]
+
+      refute Map.has_key?(
+               Gate.evaluate("clean", [trust_level: :high], []).audit_metadata,
+               :matched_rule_ids
+             )
+    end
+
+    test "a gateway denial names its reason and manifest on the MCP event" do
+      manifest = SigilGuard.FixturePath.read_unexpiring_manifest!()
+
+      request = %{
+        "jsonrpc" => "2.0",
+        "id" => 1,
+        "method" => "tools/call",
+        "params" => %{"name" => manifest["name"], "arguments" => %{}}
+      }
+
+      event = [:sigil_guard, :mcp, :request]
+
+      {denied, denied_metadata} =
+        capture(event, fn ->
+          ToolGateway.guard_request(request, [trust_level: :high],
+            manifests: %{manifest["name"] => manifest}
+          )
+        end)
+
+      assert denied.audit_metadata.deny_reason == :sandbox_required
+
+      assert Telemetry.otel_attributes(event, %{}, denied_metadata)["sigilguard.deny_reason"] ==
+               "sandbox_required"
+
+      context = [trust_level: :high, sandbox_id: "s", isolation_level: :vm]
+
+      {allowed, metadata} =
+        capture(event, fn ->
+          ToolGateway.guard_request(request, context, manifests: %{manifest["name"] => manifest})
+        end)
+
+      low = Telemetry.otel_attributes(event, %{}, metadata)
+      high = Telemetry.otel_attributes(event, %{}, metadata, include_high_cardinality: true)
+
+      assert low["sigilguard.manifest.name"] == manifest["name"]
+      refute Map.has_key?(low, "sigilguard.manifest.digest")
+      assert high["sigilguard.manifest.digest"] == allowed.audit_metadata.manifest_digest
+      refute Map.has_key?(low, "sigilguard.deny_reason")
+    end
+
+    test "an audit log event carries the event id as an opt-in attribute" do
+      event = [:sigil_guard, :audit, :logged]
+
+      {signed, metadata} =
+        capture(event, fn ->
+          "runtime.gate"
+          |> SigilGuard.Audit.new_event("did:web:agent", "cell.move", "allow")
+          |> SigilGuard.Audit.sign_event(:crypto.hash(:sha256, "telemetry chain key"))
+        end)
+
+      assert metadata.event_id == signed.id
+
+      refute Map.has_key?(
+               Telemetry.otel_attributes(event, %{}, metadata),
+               "sigilguard.audit.event_id"
+             )
+
+      assert Telemetry.otel_attributes(event, %{}, metadata, include_high_cardinality: true)[
+               "sigilguard.audit.event_id"
+             ] == signed.id
+    end
+  end
+
   describe "otel_attributes/4 hashed class" do
     @field_hash_key :crypto.hash(:sha256, "telemetry field hash test key")
     @hashed_attributes ~w(sigilguard.actor.hash sigilguard.identity.hash

@@ -51,6 +51,10 @@ defmodule SigilGuard.Runtime.Gate do
     * `:risk_level` — override policy risk
     * `:on_sensitive` — `:block` or `:redact` for sensitive content
     * `:strict_quarantine` — block medium quarantine indicators too
+    * `:decision_id` — a correlation id the host chooses, up to 128 printable
+      bytes. It is copied to `audit_metadata.decision_id` and the telemetry
+      event so a span, an audit event and an attestation can name the same
+      decision. The gate generates none.
     * `:manifest_facts` — `%{manifest_digest: sha256, side_effects: [name]}` from
       a capability manifest the caller verified. The sandbox matrix and
       `effect:` policy rules use the classes it declares; without it a tool is
@@ -476,6 +480,7 @@ defmodule SigilGuard.Runtime.Gate do
         state
         |> audit_metadata(crossing.verdict, crossing.action, action_digest, action_digest_error)
         |> put_present(:output_contract_transforms, crossing.transforms)
+        |> put_present(:matched_rule_ids, rule_ids(boundary_decision, crossing))
     }
   end
 
@@ -893,6 +898,26 @@ defmodule SigilGuard.Runtime.Gate do
     |> put_repo_policy_metadata(state.repo_policy)
     |> put_repo_facts_metadata(state.repo_facts)
     |> put_advisory_metadata(state)
+    |> put_present(:decision_id, decision_id(state.opts))
+    |> put_present(:sandbox_id, audit_binary(state.context.sandbox_id))
+  end
+
+  # The kernel and contract rules behind the decision, for telemetry. The
+  # gate's own `"gate"` rule carries a free-text reason and is left out.
+  defp rule_ids(boundary_decision, crossing) do
+    case Enum.map(boundary_matched_rules(boundary_decision) ++ crossing.rules, & &1.rule_id) do
+      [] -> nil
+      ids -> ids
+    end
+  end
+
+  # A host-chosen correlation id. The gate mints none: a decision depends on
+  # its inputs only.
+  defp decision_id(opts) do
+    case Keyword.get(opts, :decision_id) do
+      id when is_binary(id) and byte_size(id) in 1..128 -> if String.printable?(id), do: id
+      _ -> nil
+    end
   end
 
   defp put_advisory_metadata(metadata, state) do
@@ -981,7 +1006,10 @@ defmodule SigilGuard.Runtime.Gate do
         :repo_unmatched_paths,
         :repo_policy_error,
         :repo_policy_digest,
-        :repo_policy_default
+        :repo_policy_default,
+        :decision_id,
+        :sandbox_id,
+        :matched_rule_ids
       ])
     )
   end

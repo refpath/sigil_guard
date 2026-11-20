@@ -5,6 +5,24 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- `SigilGuard.Runtime.Gate.evaluate/3` takes `:decision_id`, a correlation id
+  the host chooses. It reaches `audit_metadata`, the gate event and the
+  opt-in attribute `sigilguard.decision.id`. The gate generates none.
+- Telemetry carries more of what a decision already knows. The MCP request
+  event has `deny_reason`, `manifest_digest`, `manifest_name`,
+  `request_action_digest` and `quarantine_status`; the gate event has
+  `sandbox_id` and `matched_rule_ids`; the audit event has `event_id`. The
+  attribute mapper adds `sigilguard.deny_reason`, `sigilguard.manifest.name`,
+  `sigilguard.quarantine.status` and `sigilguard.rules.matched`, and the
+  opt-in `sigilguard.manifest.digest`, `sigilguard.policy.digest`,
+  `sigilguard.request.action.digest`, `sigilguard.sandbox.id` and
+  `sigilguard.audit.event_id`.
+- A gateway denial for an attestation says which check failed
+  (`attestation_error`, for example `expired_attestation` or
+  `digest_mismatch`), and a denial for an expired manifest carries
+  `expires_at`. Both were collapsed before.
+- Add `SigilGuard.CapabilityManifest.drifted_fields/2`, which names the
+  preimage fields in which an observed manifest differs from the pinned one.
 - `SigilGuard.Confirmation` applies the metadata strip rule to the payload it
   digests, so a token attached to the request it confirms verifies in a
   direct `verify/5` call. Only the gateways stripped it before.

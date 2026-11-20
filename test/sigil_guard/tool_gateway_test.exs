@@ -1553,6 +1553,62 @@ defmodule SigilGuard.ToolGatewayTest do
   end
 
   describe "attest_request/3 and attest_result/3" do
+    test "a denial says which verification step refused the attestation" do
+      context = attestation_request_context()
+      decision = ToolGateway.guard_request(request(), context, [])
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(decision, context,
+          payload: request(),
+          signer: TrustedSigner,
+          keyid: "trusted",
+          now: @now
+        )
+
+      trust = %{"trusted" => TrustedSigner.public_key()}
+      signed = Map.put(request(), "_agent_trust", envelope)
+
+      denial = fn request, opts ->
+        {:error, response, decision} =
+          ToolGateway.guarded_request(request, context, [{:attestation, :required} | opts])
+
+        assert decision.audit_metadata.deny_reason == :invalid_attestation
+
+        {decision.audit_metadata[:attestation_error],
+         response["error"]["data"]["attestation_error"]}
+      end
+
+      assert denial.(signed, trust_material: %{"other" => TrustedSigner.public_key()}, now: @now) ==
+               {:unknown_key_id, "unknown_key_id"}
+
+      assert denial.(signed, trust_material: trust, now: DateTime.add(@now, 3_600, :second)) ==
+               {:expired_attestation, "expired_attestation"}
+
+      changed = put_in(signed, ["params", "arguments", "content"], "other content")
+
+      assert denial.(changed, trust_material: trust, now: @now) ==
+               {:digest_mismatch, "digest_mismatch"}
+
+      # No envelope at all carries no verification error.
+      assert denial.(request(), trust_material: trust, now: @now) ==
+               {nil, "invalid_attestation"}
+    end
+
+    test "an expired manifest denial says when it expired" do
+      expired = Map.put(manifest(), "expires_at", "2020-01-01T00:00:00.000Z")
+
+      assert {:error, response, decision} =
+               ToolGateway.guarded_request(request(), sandbox_context(),
+                 manifests: %{"repo_file_write" => expired},
+                 now: @now
+               )
+
+      assert decision.audit_metadata.deny_reason == :manifest_expired
+      assert decision.audit_metadata.expires_at == "2020-01-01T00:00:00.000Z"
+      assert response["error"]["data"]["expires_at"] == "2020-01-01T00:00:00.000Z"
+      assert response["error"]["data"]["manifest_status"] == "expired"
+    end
+
     test "a verified statement about another actor is not evidence for this request" do
       context = attestation_request_context()
       decision = ToolGateway.guard_request(request(), context, [])

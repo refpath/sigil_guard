@@ -307,6 +307,43 @@ defmodule SigilGuard.CapabilityManifest do
     end
   end
 
+  @doc """
+  Name the preimage fields in which an observed manifest differs from the
+  pinned one.
+
+  `verify/2` answers whether a manifest drifted. This says where: each name is
+  a key of the digest preimage, such as `"description_sha256"`,
+  `"input_schema_sha256"` or `"side_effects"`, in sorted order. The list is
+  empty when the two digests are equal. Both manifests are validated first.
+
+  ## Example
+
+      {:ok, ["description_sha256"]} =
+        SigilGuard.CapabilityManifest.drifted_fields(
+          pinned,
+          %{pinned | "description" => "Read any file on disk."}
+        )
+
+  """
+  @doc since: "1.1.0"
+  @spec drifted_fields(t() | map(), t() | map()) ::
+          {:ok, [String.t()]} | {:error, :invalid_manifest}
+  def drifted_fields(pinned, observed) do
+    with {:ok, pinned} <- manifest_struct(pinned),
+         {:ok, observed} <- manifest_struct(observed) do
+      names = Map.keys(pinned.preimage) ++ Map.keys(observed.preimage)
+
+      drifted =
+        for name <- Enum.uniq(names),
+            Map.get(pinned.preimage, name) != Map.get(observed.preimage, name),
+            do: name
+
+      {:ok, Enum.sort(drifted)}
+    else
+      _ -> {:error, :invalid_manifest}
+    end
+  end
+
   defp manifest_struct(%__MODULE__{} = manifest), do: {:ok, manifest}
   defp manifest_struct(manifest) when is_map(manifest), do: new(manifest)
   defp manifest_struct(_), do: {:error, :invalid_manifest}

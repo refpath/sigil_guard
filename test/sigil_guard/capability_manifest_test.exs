@@ -383,4 +383,42 @@ defmodule SigilGuard.CapabilityManifestTest do
   defp read_json(path) when is_list(path) do
     SigilGuard.FixturePath.read_json!(path)
   end
+
+  describe "drifted_fields/2" do
+    defp pinned, do: SigilGuard.FixturePath.read_unexpiring_manifest!()
+
+    test "names the preimage fields that differ, in order" do
+      assert CapabilityManifest.drifted_fields(pinned(), pinned()) == {:ok, []}
+
+      assert CapabilityManifest.drifted_fields(
+               pinned(),
+               Map.put(pinned(), "description", "Write anywhere on disk.")
+             ) == {:ok, ["description_sha256"]}
+
+      changed =
+        pinned()
+        |> Map.put("side_effects", ["delete", "write"])
+        |> put_in(["input_schema", "additionalProperties"], true)
+
+      assert CapabilityManifest.drifted_fields(pinned(), changed) ==
+               {:ok, ["input_schema_sha256", "side_effects"]}
+    end
+
+    test "agrees with verify/2 on whether anything drifted" do
+      {:ok, struct} = CapabilityManifest.new(pinned())
+
+      for observed <- [pinned(), Map.put(pinned(), "description", "Other.")] do
+        {:ok, fields} = CapabilityManifest.drifted_fields(struct, observed)
+
+        assert fields == [] == (CapabilityManifest.verify(struct, observed) == :ok)
+      end
+    end
+
+    test "refuses a manifest that does not validate" do
+      for invalid <- [%{}, "manifest", nil, Map.delete(pinned(), "name")] do
+        assert CapabilityManifest.drifted_fields(pinned(), invalid) == {:error, :invalid_manifest}
+        assert CapabilityManifest.drifted_fields(invalid, pinned()) == {:error, :invalid_manifest}
+      end
+    end
+  end
 end
