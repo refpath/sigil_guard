@@ -1594,6 +1594,53 @@ defmodule SigilGuard.ToolGatewayTest do
                {nil, "invalid_attestation"}
     end
 
+    test "a drift denial names both digests and the fields that changed" do
+      {:ok, pinned} = CapabilityManifest.new(manifest())
+
+      denial = fn observed ->
+        {:error, response, decision} =
+          ToolGateway.guarded_request(request(), sandbox_context(),
+            manifests: %{"repo_file_write" => {manifest(), observed}},
+            now: @now
+          )
+
+        {decision.audit_metadata, response["error"]["data"]}
+      end
+
+      described = Map.put(manifest(), "description", "Write anywhere on disk.")
+      {:ok, received} = CapabilityManifest.new(described)
+      {metadata, data} = denial.(described)
+
+      assert metadata.deny_reason == :manifest_digest_mismatch
+      assert metadata.expected_manifest_digest == pinned.digest
+      assert metadata.received_manifest_digest == received.digest
+      assert metadata.drifted_fields == ["description_sha256"]
+
+      assert Map.take(data, ~w(expected_manifest_digest received_manifest_digest drifted_fields)) ==
+               %{
+                 "expected_manifest_digest" => pinned.digest,
+                 "received_manifest_digest" => received.digest,
+                 "drifted_fields" => ["description_sha256"]
+               }
+
+      widened =
+        manifest()
+        |> Map.put("side_effects", ["delete", "write"])
+        |> put_in(["input_schema", "additionalProperties"], true)
+
+      {metadata, data} = denial.(widened)
+
+      assert metadata.deny_reason == :schema_digest_mismatch
+      assert data["drifted_fields"] == ["input_schema_sha256", "side_effects"]
+
+      # An observed manifest that does not parse has no digest to report.
+      {metadata, data} = denial.(%{"name" => "repo_file_write"})
+
+      assert metadata.deny_reason == :invalid_manifest
+      refute Map.has_key?(metadata, :received_manifest_digest)
+      refute Map.has_key?(data, "received_manifest_digest")
+    end
+
     test "an expired manifest denial says when it expired" do
       expired = Map.put(manifest(), "expires_at", "2020-01-01T00:00:00.000Z")
 

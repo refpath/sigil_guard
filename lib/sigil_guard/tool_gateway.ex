@@ -132,7 +132,7 @@ defmodule SigilGuard.ToolGateway do
 
     decision =
       with :ok <- Effect.check_option(effect),
-           {:ok, capability} <- resolve_manifest(payload.tool, opts),
+           {:ok, capability} <- request_manifest(payload.tool, opts),
            :ok <- request_manifest_freshness(capability, opts),
            :ok <- passthrough_resource_audience(capability, opts),
            :ok <- verify_caller_visibility(capability, request_context),
@@ -759,6 +759,37 @@ defmodule SigilGuard.ToolGateway do
 
   defp maybe_put_observed(manifest, _, nil), do: manifest
   defp maybe_put_observed(manifest, key, value), do: Map.put(manifest, key, value)
+
+  # A denial for a manifest that drifted from its pin says which digest was
+  # expected, which arrived, and in which preimage fields they differ.
+  defp request_manifest(tool, opts) do
+    with {:error, reason} <- resolve_manifest(tool, opts),
+         do: {:error, drift_denial(reason, tool, opts)}
+  end
+
+  defp drift_denial(reason, tool, opts) when is_binary(tool) do
+    with {:ok, {pinned, observed}} <- manifest_entry(tool, opts),
+         {:ok, facts} <- drift_facts(pinned, observed) do
+      {reason, facts}
+    else
+      _ -> reason
+    end
+  end
+
+  defp drift_denial(reason, _, _), do: reason
+
+  defp drift_facts(pinned, observed) do
+    with {:ok, pinned} <- manifest_struct(pinned),
+         {:ok, received} <- manifest_struct(observed),
+         {:ok, fields} <- CapabilityManifest.drifted_fields(pinned, received) do
+      {:ok,
+       %{
+         expected_manifest_digest: pinned.digest,
+         received_manifest_digest: received.digest,
+         drifted_fields: fields
+       }}
+    end
+  end
 
   # A denial for an expired manifest says when it expired.
   defp request_manifest_freshness(capability, opts) do

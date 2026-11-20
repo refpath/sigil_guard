@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- A gateway denial for a manifest that drifted from its pin carries
+  `expected_manifest_digest`, `received_manifest_digest` and the preimage
+  fields that differ in `drifted_fields`, in the decision's audit metadata
+  and in the JSON-RPC error data. `drifted_fields` named a class such as
+  `manifest` or `schema` before.
 - `SigilGuard.AgentTrust.verify_agent_response/3` takes `:capability`,
   `:audience` and `:context`, checks that the peer's card declares the
   response's capability, refuses a `:payload` that is not a map instead of
