@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.13 - Agent-To-Agent Trust Statements
 
-## Executive Summary
+## Overview
 
 Multi-agent systems have no embedded trust layer: agent cards and
 inter-agent messages cross process and organization boundaries with none of
@@ -24,24 +24,6 @@ against bundle-declared issuers, and fills in the `agent_request` /
 capabilities, and RFC 8693 act-claim-shaped delegation chains. SP.03 stays
 tool-focused; SP.13 owns the agent-to-agent surface. The motivating threat
 class is OWASP ASI07, insecure inter-agent communication (R.06, TM.10).
-
-## Business Value
-
-- **Problem:** Peer agents are trusted by transport reachability. Cards are
-  unauthenticated supply-chain input, delegation history is unverifiable,
-  and hosts hand-roll signing: the reference consumer already
-  Ed25519-JWS-signs A2A v1.0 cards with SigilGuard's `Signer.Ed25519` for
-  lack of a first-class surface.
-- **Solution:** One card schema with a normative digest, DSSE signing
-  through the SP.01 shared code path, typed peer statements, and
-  deterministic delegation validation with a fail-closed unknown-agent
-  default.
-- **Beneficiary:** Agent runtimes (including the reference consumer),
-  orchestrators supervising sub-agents, auditors reconstructing cross-agent
-  incidents.
-- **Impact:** A2A impersonation and delegation abuse become verifiable
-  failures instead of silent trust; the reference consumer's JWS card
-  signing migrates to DSSE through a mechanical 1:1 mapping.
 
 ## Technical Architecture
 

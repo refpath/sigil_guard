@@ -13,24 +13,13 @@ sigil_guard:
 
 # SP.09 - Audit Chain And Anchor Contracts
 
-## Executive Summary
+## Overview
 
 This spec documents SigilGuard's implemented audit evidence layer: HMAC-linked
 events, checkpoint Merkle roots, external anchor records, anchor store
 behaviours, signed receipts, and portable export packages. SP.05 defines where
 the system should go next; this spec captures what exists now and what v3 should
 extend.
-
-## Business Value
-
-- **Problem:** Security decisions need tamper-evident evidence, but raw event
-  bodies should not be pushed into external systems by default.
-- **Solution:** Keep local HMAC-linked audit events and export signed checkpoint
-  evidence with optional external anchors.
-- **Beneficiary:** Operators, incident responders, and host applications that
-  need audit integrity without leaking raw sensitive data.
-- **Impact:** Detect modification, insertion, deletion, reordering, and anchored
-  truncation of audit chains.
 
 ## Technical Architecture
 

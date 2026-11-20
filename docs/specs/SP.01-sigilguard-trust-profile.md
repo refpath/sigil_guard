@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.01 - Agent Trust Profile
 
-## Executive Summary
+## Overview
 
 SigilGuard v3 is a breaking release built around a SigilGuard-owned Agent Trust
 Profile: DSSE-enveloped, JCS-canonical, in-toto-style statements signed over
@@ -24,20 +24,6 @@ golden-vector fixtures, the public API sketches, the final v3 configuration
 surface, the profile-wide error taxonomy, the replay and expiry defaults, and
 the Envelope-to-Attestation migration mapping. The old upstream protocol remains
 historical input only.
-
-## Business Value
-
-- **Problem:** Carrying compatibility with an abandoned protocol keeps the
-  wrong abstractions in the public API, and ad hoc canonical bytes couple
-  signature validity to JSON serialization details.
-- **Solution:** One profile, one encoding, one verification code path, one
-  shared error taxonomy, and a mechanical migration table.
-- **Beneficiary:** Host applications embedding SigilGuard in MCP servers,
-  gateways, CI, repo automation, and agent runtimes, including the
-  reference consumer.
-- **Impact:** Cleaner API, interoperable evidence (cosign/Rekor/GUAC-legible),
-  zero canonicalization attack surface in the trust path, and a migration
-  story documented once in `MIGRATING-1.0.md` instead of encoded forever.
 
 ## V3 Position
 

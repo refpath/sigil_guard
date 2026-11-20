@@ -13,26 +13,13 @@ sigil_guard:
 
 # SP.14 - Ecosystem Integrations And Interoperability
 
-## Executive Summary
+## Overview
 
 An embedded gate is only reachable where a host framework exposes an
 insertion point, so the interoperability surface determines whether the
 runtime can be applied at all (R.07). This spec fixes the Tier 1 integration
 contracts (hermes_mcp, Jido, LangChain plus ReqLLM, Tidewave), the Tier 2
 watchlist, and the documentation artifacts, each with acceptance criteria.
-
-## Business Value
-
-- **Problem:** A correct security runtime nobody wires into hermes_mcp,
-  Jido, or LangChain protects nothing; v3 needs a documented interoperability
-  surface.
-- **Solution:** Per-target integration contracts at the `ToolGateway` seam
-  plus reproducible documentation and release artifacts (R.07).
-- **Beneficiary:** Hosts on Tier 1 frameworks, and evaluators who judge a
-  security library by its docs, evidence, and supply-chain posture.
-- **Impact:** SigilGuard is installable at every major Elixir agent/tool
-  boundary with validated guides, and every published claim stays inside
-  the R.06 claim levels.
 
 ## Technical Architecture
 

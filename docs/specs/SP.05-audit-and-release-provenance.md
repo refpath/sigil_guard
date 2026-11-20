@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.05 - Audit And Release Provenance
 
-## Executive Summary
+## Overview
 
 V3 decisions produce privacy-preserving evidence that third parties can
 verify after the fact. This spec adds RFC 9162-style inclusion and
@@ -25,18 +25,6 @@ with the existing SPDX SBOM task (D15); and the `SigilGuard.HTTPClient`
 behaviour replacing direct finch use in the HTTP anchor store (D9). The
 `%SigilGuard.Audit{}` struct, `sign_event/3`, and every issued checkpoint
 root remain unchanged (D17); every addition is additive.
-
-## Business Value
-
-- **Problem:** Proving anything about a checkpointed segment requires
-  handing the verifier every event; a compromised operator can present
-  forked chains; telemetry can leak what the chain avoids storing.
-- **Solution:** O(log n) proofs against already-issued roots, m-of-n
-  witness cosignatures, uniform privacy classes, verifiable releases.
-- **Beneficiary:** Operators, auditors, regulated users, incident
-  responders, CI, and the reference consumer (read/query API).
-- **Impact:** Offline-checkable forensic evidence with zero re-issued
-  checkpoints and zero new runtime dependencies.
 
 ## Technical Architecture
 

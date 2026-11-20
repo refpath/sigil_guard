@@ -1,13 +1,9 @@
 # SigilGuard Architecture
 
-SigilGuard is an embedded native-Elixir security runtime for MCP and agent-tool
-boundaries. It runs in-process on the BEAM and depends on no hosted registry, no
-Rust/NIF backend, and no network call on the decision path.
-
-SigilGuard calls this design the Agent Trust Profile: signed local trust
-bundles, canonical agent and MCP attestations, a deterministic boundary policy
-kernel, staged scanning with quarantine, and exportable tamper-evident audit
-evidence.
+SigilGuard verifies local trust material and evaluates MCP and agent-tool
+boundaries in the host's BEAM process. The Agent Trust Profile specifies the
+signed statements, the digests that bind them to decisions, and the trust
+material used to verify them.
 
 ## Component Layers
 
@@ -41,7 +37,7 @@ flowchart TD
 
 ## Module Topology
 
-The public facade over the internal modules, grouped by responsibility.
+Public entry points and the modules each subsystem uses.
 
 ```mermaid
 flowchart TD
@@ -86,7 +82,7 @@ flowchart TD
     Runtime --> RepoPolicy[RepoPolicy]
 
     API --> Audit[Audit]
-    Audit --> Event[Audit.Event]
+    Audit --> Event[Audit struct]
     Audit --> Checkpoint[Audit.Checkpoint]
     Audit --> Proof[Audit.Proof]
     Audit --> Evidence[Audit.Evidence]
@@ -113,10 +109,9 @@ flowchart TD
 
 ### Runtime Gate
 
-A payload and its boundary context become a deterministic decision. A secret
-headed to an external sink is blocked or redacted whatever the policy says.
-Other traffic follows the policy file's rules and `default`, and with no policy
-file it is allowed.
+The gate evaluates the payload and boundary context, then combines scanner,
+quarantine, and policy results. Built-in rules apply even when the host
+supplies no policy file. The decision includes the action and the matched rules.
 
 ```mermaid
 sequenceDiagram
@@ -139,10 +134,11 @@ sequenceDiagram
 
 ### MCP And Tool Gateway
 
-Tool requests and results are bound to a pinned capability manifest and a
-signed attestation. Confirmation is bound to the exact structured action
-digest, including MRTR input responses and state. MCP Apps add a distinct
-same-server app caller and an offline-verifiable UI resource boundary.
+When a host supplies a pinned capability manifest, the gateway checks the
+tool definition against it. Hosts can require signed attestations and use
+confirmation tokens bound to the structured action, including MRTR input
+responses and state. MCP Apps add a same-server caller and offline UI
+resource verification.
 
 ```mermaid
 sequenceDiagram
@@ -157,20 +153,22 @@ sequenceDiagram
     Gateway->>Manifest: verify pinned manifest digest
     Gateway->>Gate: structured request binding
     Gate-->>Gateway: Decision
+    Gateway-->>Adapter: guarded request decision
     alt allowed
-        Gateway->>Tool: execute
-        Tool-->>Gateway: tool result
+        Adapter->>Tool: execute
+        Tool-->>Adapter: tool result
+        Adapter->>Gateway: guard tool result
         Gateway->>Gate: tool-result-to-model boundary
         Gate-->>Gateway: result decision
         Gateway-->>Adapter: resultType result or sanitized result
     else confirm required
-        Gateway-->>Adapter: JSON-RPC confirmation error
+        Adapter->>Adapter: return JSON-RPC confirmation error
         Adapter->>Confirm: issue action-bound token
         Adapter->>Gateway: request + token
         Gateway->>Confirm: verify exact action digest
         Gateway-->>Adapter: confirmed decision
     else blocked
-        Gateway-->>Adapter: JSON-RPC block/quarantine error
+        Adapter->>Adapter: return JSON-RPC denial
     end
 ```
 

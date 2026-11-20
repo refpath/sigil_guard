@@ -17,33 +17,18 @@
 
 ---
 
-SigilGuard is an embedded security runtime for MCP v2 and agent-tool boundaries,
-in native Elixir. MCP specifications are date-versioned; throughout this
-project, "MCP v2" means the final `2026-07-28` revision. SigilGuard sits between
-a language model and the tools it can reach, decides whether a tool call, a tool
-result, or a model output may cross a boundary, and can produce signed,
-tamper-evident evidence of each decision through attestations and the audit
-chain. It runs in-process on the BEAM: no sidecar, no proxy hop, no network call
-on the decision path.
-
-A model with access to private data, exposure to untrusted content, and the
-ability to act or communicate outward can be steered by one poisoned tool
-description or prompt-injected result. Model-level guardrails help but are
-probabilistic. SigilGuard is the deterministic layer underneath: signed trust
-material, capability manifests pinned by digest, source-to-sink policy, and
-human-in-the-loop confirmation bound to the exact action.
+SigilGuard is a native Elixir library for guarding MCP tool calls, tool results,
+and model output. Hosts pass the payload and boundary context to the library
+before executing a tool or releasing data. They can record the decision in a
+signed attestation or an audit chain. In these docs, MCP v2 refers to protocol
+revision `2026-07-28`.
 
 ## Why Embedded
 
-MCP security is often a proxy, a gateway, or a cloud scanner in the request
-path: a separate service with its own latency, operations, and trust boundary.
-SigilGuard is a library instead. Policy decisions are code rather than a model
-call, so the same inputs give the same verdict. The audit chain (HMAC links,
-Merkle checkpoints, inclusion and consistency proofs, signed exports) stays in
-the host application. Trust material ships with the release and nothing on the
-decision path uses the network. Measured costs per call are in the Performance
-section of the documentation; a tool request through the gateway takes tens of
-microseconds on a workstation.
+Verification and policy run in the host's BEAM process with local trust
+material. The host owns the transport, authentication, tool execution, and
+durable storage. The [benchmark reports](bench/output/benchmarks.md) include
+per-scenario timings and the environment where they were measured.
 
 ## Capabilities
 
@@ -55,7 +40,7 @@ microseconds on a workstation.
 | Signed attestations | Canonical, DSSE-enveloped statements binding an actor, tool, action, payload, and context to a verdict. |
 | Trust bundles | Signed, local trust material (roots, keys, policies, patterns, tool manifests, and revocations), verified offline. |
 | Confirmation tokens | Short-lived human-approval grants bound to the exact action, payload, and context. |
-| Streaming sanitizer | Chunk-safe holdback so a secret split across output chunks is never emitted early. |
+| Streaming sanitizer | Holds back bytes that could form a secret across output chunks and blocks when the buffer budget is exceeded. |
 | Tamper-evident audit | HMAC-linked event chains, Merkle checkpoints with inclusion and consistency proofs, signed exports, and external anchoring. |
 | Agent-to-agent trust | Signed agent cards and delegation-chain validation for inter-agent calls. |
 | Physical-effect authority | A closed binding record, a deny-only admission check against host-supplied current facts, and effect envelopes for tool requests that change the physical world. |

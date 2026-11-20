@@ -15,7 +15,7 @@ sigil_guard:
 
 # SP.19 - Physical Effect Authority
 
-## Executive Summary
+## Overview
 
 This spec defines what SigilGuard binds, checks, and records when a tool
 request changes the physical world, for example a high-level command to a
@@ -32,23 +32,6 @@ enforce. Three of the 42 are documentation properties established by review. The
 statement type, DSSE payload type, confirmation claim, `_agent_*` key,
 manifest field, or configuration key. The new binding travels inside the
 guarded payload, where the existing SP.01 digests already cover it.
-
-## Business Value
-
-- **Problem:** An agent or a generated program can propose a physical action.
-  A valid signature or a consumed nonce is then read as more than it is: as
-  proof that the target, calibration, and policy are still the reviewed ones,
-  that the action has not already happened, or that it succeeded.
-- **Solution:** One closed binding record, one deny-only admission check against
-  host-supplied current facts, a replay contract that states its per-boot
-  limits, a durable host ledger contract for effects, and separate outputs for
-  authentication and physical acceptance.
-- **Beneficiary:** Hosts that place SigilGuard in front of a device,
-  controller, or fleet interface, and operators who must explain a refusal
-  or an outcome afterwards.
-- **Impact:** Each substitution and each stale condition has one named
-  refusal. No document or decision produced by the library describes a
-  nonce-store pass or a signed report as physical fact.
 
 ## Technical Architecture
 

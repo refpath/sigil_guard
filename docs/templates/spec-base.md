@@ -13,17 +13,10 @@ sigil_guard:
 
 # [PREFIX].[NUMBER] - [Title]
 
-## Executive Summary
+## Overview
 
 [Explain what this specification defines, why it matters, its boundaries, and
 the material decisions it owns.]
-
-## Business Value
-
-- **Problem:** [What is broken or missing.]
-- **Solution:** [What this spec delivers.]
-- **Beneficiary:** [Who benefits.]
-- **Impact:** [Measurable outcome.]
 
 ## Technical Architecture
 
@@ -43,15 +36,6 @@ sequenceDiagram
     Policy-->>SigilGuard: verdict
     SigilGuard-->>Host: result
 ```
-
-### Architectural Patterns
-
-| Pattern | Used | Justification |
-|---------|------|---------------|
-| GenServer | no | |
-| Behaviour | yes | |
-| ETS | no | |
-| Telemetry | yes | |
 
 ## Data Model
 

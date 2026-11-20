@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.11 - Repo Policy Kernel Contracts
 
-## Executive Summary
+## Overview
 
 This spec documents the implemented deterministic repo policy kernel. The kernel
 evaluates actor/action/path facts against ordered path rules and returns
@@ -21,16 +21,6 @@ evaluates actor/action/path facts against ordered path rules and returns
 canonical digest. In v3, repo policy is one source of facts for
 `BoundaryPolicy`: the runtime gate passes the `RepoPolicy.policy_facts/2`
 map to the kernel as the `:repo_facts` option at a repo change.
-
-## Business Value
-
-- **Problem:** Agent-authored repo changes need deterministic preflight
-  governance independent of model judgment.
-- **Solution:** Compile data policies, validate safe relative paths, match rules
-  deterministically, and return explainable decisions.
-- **Beneficiary:** Host apps, CI integrations, and repo automation using
-  SigilGuard around generated changes.
-- **Impact:** Safer file modifications with auditable path-level reasons.
 
 ## Technical Architecture
 

@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.08 - MCP Gateway And Confirmation Transition Contracts
 
-## Executive Summary
+## Overview
 
 This spec documents the implemented MCP-shaped gateway helpers and HMAC
 confirmation token flow. Current behavior protects tool requests and results
@@ -25,17 +25,6 @@ always block; attestation verification is the `:attestation` option of
 `ToolGateway.guard_request/3`. This spec also fixes three v3 contracts: the
 confirmation claims delta, the reserved `_agent_*` metadata namespace with
 its exact digest strip list, and the gateway facade function mapping (D14).
-
-## Business Value
-
-- **Problem:** Host MCP adapters need a stable guard contract without forcing
-  SigilGuard to depend on a specific MCP package.
-- **Solution:** Accept MCP-shaped maps, normalize request/result boundaries,
-  delegate decisions to the runtime gate, and return either decisions or
-  JSON-RPC-shaped errors.
-- **Beneficiary:** MCP servers, clients, gateways, and host applications.
-- **Impact:** Transport-agnostic MCP security with confirmation flows that
-  cannot be replayed across different actions.
 
 ## Technical Architecture
 

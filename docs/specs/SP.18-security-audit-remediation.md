@@ -13,17 +13,11 @@ sigil_guard:
 
 # SP.18 - Security Audit Remediation
 
-## Executive Summary
+## Overview
 
 Harden trust, policy, replay, streaming and verification with deterministic
 regression evidence. Keep the three runtime dependencies, native Elixir implementation,
 local trust bootstrap, host-owned transports and v3 envelopes.
-
-## Business Value
-
-Prevent unauthorized trust updates, revoked issuers, replay, policy bypass and
-credential disclosure. Make maintenance, packaging and performance evidence
-reproducible without suggesting that scanner heuristics solve prompt injection.
 
 ## Technical Architecture
 

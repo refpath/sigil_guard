@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.02 - Embedded Trust Bundles
 
-## Executive Summary
+## Overview
 
 V3 trust material is embedded and signed. There is no registry runtime
 model. A trust bundle is one local, DSSE-signed JSON document carrying
@@ -25,18 +25,6 @@ expiry, monotonic sequences with rollback floors, revocation by list and by
 omission, and a cross-signed emergency rotation chain walked from a pinned
 genesis root. Remote loading is not part of the v3 core; hosts that want
 remote distribution own that transport and pass verified bytes in.
-
-## Business Value
-
-- **Problem:** Registry vocabulary implies a web dependency, and the v2
-  single-signature bundle has no answer to a leaked signer key (R.03).
-- **Solution:** A local signed-bundle API with roles, thresholds, rotation,
-  revocation, and rollback protection, verified entirely offline.
-- **Beneficiary:** Embedded and CI users needing deterministic offline
-  trust; the reference consumer, which needs a library-mode bootstrap
-  (R.07).
-- **Impact:** Signer-compromise survivability, rollback rejection, and a
-  network-free trust path that a test enforces.
 
 ## Technical Architecture
 

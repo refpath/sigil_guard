@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.06 - Envelope And Native Backend Transition Contracts
 
-## Executive Summary
+## Overview
 
 This spec documents the completed transition away from verdict-only envelopes
 and profile compatibility while retaining the native Elixir backend, signing
@@ -21,16 +21,6 @@ behaviour, and replay-protection lessons. Its status is
 `implemented/transition`: the native backend remains in v3, while
 `SigilGuard.Envelope` and `SigilGuard.Profile` are deleted public surfaces
 mapped to Agent Trust attestations (SP.01) and historical fixtures.
-
-## Business Value
-
-- **Problem:** The library had stable envelope and backend behavior, but that
-  behavior should not define the v3 public trust model.
-- **Solution:** Keep the native backend, signer behaviour, and replay checks,
-  while deleting verdict-only envelope/profile APIs and mapping migrations to
-  Agent Trust Profile attestations.
-- **Beneficiary:** Existing users migrating to v3 and future attestation work.
-- **Impact:** Safer refactors and a clear migration boundary.
 
 ## Technical Architecture
 

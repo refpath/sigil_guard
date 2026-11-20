@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.10 - Vault And Identity Contracts
 
-## Executive Summary
+## Overview
 
 This spec documents the implemented vault behaviour, in-memory AES-256-GCM
 vault, identity provider behaviour, and trust-level hierarchy. These modules
@@ -23,17 +23,6 @@ trust bundles, attestations, and policy decisions. This update records the v3
 actor/issuer identity shape (R.05), a config-driven trust-mapping core default,
 the hardened vault callback contract, and complete field tables for
 `Vault.Entry` and `Identity.Binding`.
-
-## Business Value
-
-- **Problem:** Host apps need a clean seam for secret storage and identity trust
-  without forcing SigilGuard to own the host's auth or KMS.
-- **Solution:** Provide behaviours and local development implementations with
-  explicit limitations.
-- **Beneficiary:** Host applications integrating SigilGuard into existing auth,
-  KMS, vault, or session systems.
-- **Impact:** Secrets can be referenced by vault id and trust levels can drive
-  policy without embedding host-specific auth logic.
 
 ## Technical Architecture
 

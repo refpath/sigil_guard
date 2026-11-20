@@ -15,7 +15,7 @@ sigil_guard:
 
 # SP.03 - MCP And Tool Attestation Gateway
 
-## Executive Summary
+## Overview
 
 V3 turns the current MCP helpers into a first-class, transport-neutral tool
 gateway. This spec is normative for four artifacts: the CapabilityManifest
@@ -25,19 +25,6 @@ confirmation-token lifecycle, and the JSON-RPC error registry. MCP is the
 first adapter target; the same contract serves HTTP MCP, stdio MCP, and
 in-process tool runners. `SigilGuard.MCP.Gateway` remains permanently as a
 thin facade over `SigilGuard.ToolGateway` (D14).
-
-## Business Value
-
-- **Problem:** Tool calls are poisoned through descriptions, schemas,
-  annotations, arguments, results, token passthrough, and audience
-  confusion (R.06 rows 2-8) - mostly before any content scanner runs.
-- **Solution:** Pin every tool to a signed capability-manifest digest, bind
-  requests and results to the SP.01 digest set, gate approvals through
-  digest-bound single-use tokens, and deny drift deterministically.
-- **Beneficiary:** Hosts exposing or consuming MCP tools and local agent
-  runtimes, including the reference consumer.
-- **Impact:** Tamper-resistant tool-call verification with no adapter
-  lock-in and typed, wire-ready denial responses.
 
 ## Technical Architecture
 

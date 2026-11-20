@@ -13,25 +13,13 @@ sigil_guard:
 
 # SP.17 - External Assessment Projection
 
-## Executive Summary
+## Overview
 
 This spec defines a pure, optional projection from a finalized SigilGuard audit
 export and host-owned assessment context into OSCAL Assessment Results v1.2.3.
 It emits evidence-backed observations only. It never infers findings, risks, or
 control satisfaction, never mutates the export, and performs no network or
 clock access.
-
-## Business Value
-
-- **Problem:** External assessment tooling does not consume SigilGuard's native
-  audit package, while a naive conversion could overstate system compliance.
-- **Solution:** A schema-conformant observation projection with an externally
-  pinned evidence digest, exact reviewed-control scope, deterministic identity,
-  and machine-readable loss markers.
-- **Beneficiary:** Host applications and assessors that already own the OSCAL
-  Assessment Plan, System Security Plan, control mappings, and trust policy.
-- **Impact:** SigilGuard evidence becomes referencable by OSCAL tooling without
-  weakening or changing existing evidence and Agent Trust contracts.
 
 ## Technical Architecture
 

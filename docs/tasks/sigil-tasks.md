@@ -1,62 +1,26 @@
 # SigilGuard V3 Tasks
 
-This is the canonical execution checklist for SigilGuard v3, the embedded
-Agent Trust Profile runtime. V3 is a deliberate, spec-governed breaking
-release: every architectural decision (D1-D45) is closed, research-backed,
-and recorded below with rationale (see Closed Decisions). Milestones F
-through M13 were executed in order. M14 closed the requirements that a
-spec-to-code review found unmet: each was implemented or decided, and the
-decisions are D23 to D45. A task is done only when its AC bullets hold and
-its named test families exist. Migration lives in `MIGRATING-1.0.md`,
-`CHANGELOG.md`, and release notes - never in permanent legacy runtime shims.
+This tracker records the Agent Trust Profile rollout and subsequent
+maintenance. The [specs](../specs/README.md) define observable behavior, and
+the [research notes](../research/README.md) record the rationale. Close a task
+when its acceptance criteria hold and its named tests pass. Reopen a design
+decision through a superseding research note.
 
-This file, the research notes (`../research/R.01`-`R.12`), and the specs
-(`../specs/SP.01`-`SP.19`) are the complete, self-contained plan of record.
-An implementer needs nothing outside `docs/` and the codebase. The decisions
-were derived from primary-source research and adversarially verified against
-those sources; do not reopen a closed decision without a superseding
-research note.
+## Compatibility And Release Ownership
 
-## Orientation (Read First)
+M6 removed the 0.2.x registry, envelope, and profile surfaces. Their mappings
+are in [MIGRATING-1.0.md](../../MIGRATING-1.0.md), and the legacy vectors are
+in `test/fixtures/historical/`.
 
-Historical implementation orientation retained for maintainers reviewing the v3
-rewrite. Milestones F through M14 are complete.
-
-**v0.2.x versus v3.** The former `lib/` was the released 0.2.x runtime; v3 was
-a deliberate breaking rewrite, not an incremental patch. The Rust/NIF backend
-is already gone and stays gone (`AGENTS.md` rule 1) - ignore any NIF, rustler,
-precompiled-binary, or `SIGIL_GUARD_BUILD` references in history. Do not carry
-the v0.2 `Registry`, `Envelope`, `Profile`, `protocol_profile`, or
-`registry_*` surfaces into v3; they are deleted in M6 with 1:1 migration
-mappings in `MIGRATING-1.0.md`. Legacy golden vectors move to
-`test/fixtures/historical/` as migration evidence, not v3 proofs.
-
-**The reference consumer contract.** One production agent runtime embeds
-SigilGuard (Elixir `~> 1.19`, OTP 27+). Its 1.0 migration remains
-maintainer-owned and is validated against the published package. It depends on
-the stable contracts in decision **D17**: `scan/1`, `scan_and_redact/1`,
+The reference consumer depends on the stable contracts in decision D17.
+These include `scan/1`, `scan_and_redact/1`,
 `policy_verdict/3`, the `Identity` / `Signer` / `Vault` behaviours,
 `Signer.Ed25519.{new/1, sign_with/2, verify/3}`, and the `%Audit{}` struct
-fields - all kept byte-identical in v3 (hit maps extend additively only). The
-host supplies three init secrets via config: an audit HMAC key, an Ed25519
-signer seed, and a vault master key.
-`test/sigil_guard/conformance/consumer_contracts_test.exs` (task M1.02)
-encodes these as executable assertions and MUST stay green at every milestone
-exit - it is the tier-1 regression gate.
+fields. `test/sigil_guard/conformance/consumer_contracts_test.exs` checks the
+shared contracts. The maintainer owns pushes, tags, `git_ops` releases, and
+validation of the reference consumer against the published package.
 
-**Naming and privacy.** Never write the private consumer project's name, or
-its internal module names, into any repository file (`AGENTS.md` rule 11).
-Refer to it only as "the reference consumer"; neutralize example identifiers
-(e.g. `host:operator:42`). Maintain this in every new file.
-
-**Release mechanics.** The repo is aligned directly to `1.0.0` as the major
-release line (D11, M8). `git_ops` remains the normal release tool after the
-manual major-version alignment is committed and verified with
-`mix git_ops.release --dry-run` resuming cleanly. The maintainer performs
-publish, push, tag, and production consumer movement manually; consumers move
-to `~> 1.0` only after the package is published and validated.
-
-**Gate and conventions.** Follow [AGENTS.md](../../AGENTS.md) and the
+Follow [AGENTS.md](../../AGENTS.md) and the
 [quality guidance](../../.agents/standards/quality-gates.md) for the affected
 surface. The complete application gate is `./bin/check`, defined in `.check.exs`.
 
@@ -122,10 +86,8 @@ M15 adds per-area benchmarks and brings the library in line with the Elixir
 library guidelines and anti-pattern guides. The baseline refresh needs a
 quiet benchmark runner.
 
-The table counts every milestone task (F through M15, including M7A) exactly
-once. The
-Mandatory Gates section is a recurring pre-commit checklist and the Deferred
-section is post-1.0.0 parking; neither is counted here.
+The table counts milestone tasks F through M15, including M7A. Recurring gates
+and deferred work have separate lists below.
 
 ## Task Execution
 
@@ -3530,3 +3492,15 @@ traced every line no test executed.
 
 - [x] Verify production archive and consumer isolation from all four inherited
       Mix path variables with the sentinel regression and canonical gate.
+
+## Repository audit follow-up
+
+- Reject zero-byte and mismatched scanner hits before redaction, and block a
+  failed scan of empty text. `ScannerTest` and the consumer conformance suite
+  cover the returned errors and decisions (`SP.04`, `SP.07`).
+- Collect distinct suspicious parameter names during manifest traversal and
+  check stream capacity before copying buffered bytes. Tests cover the sorted
+  manifest disclosure and input digest on stream overflow (`SP.03`, `SP.07`).
+- Generate fresh measured JSON for both revisions in the scheduled benchmark
+  comparison. The smoke job still checks fixture wiring and scenario presence
+  (`SP.15`).

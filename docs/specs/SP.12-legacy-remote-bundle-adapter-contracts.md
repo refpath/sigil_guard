@@ -13,7 +13,7 @@ sigil_guard:
 
 # SP.12 - Legacy Remote Bundle Removal Plan
 
-## Executive Summary
+## Overview
 
 This spec documents the legacy `SigilGuard.Registry.*` namespace, its v3
 removal from the public API, and the replacement `SigilGuard.TrustBundle`
@@ -21,16 +21,6 @@ surface. Registry-named modules were useful for the initial port, but v3 does
 not maintain a runtime adapter for an abandoned protocol model. This spec also
 owns the v3 dependency end state (D9) and the maintainer-owned release handoff
 (D11).
-
-## Business Value
-
-- **Problem:** Registry-named APIs imply remote discovery and keep the wrong
-  architecture alive.
-- **Solution:** Remove registry APIs in v3 and provide a migration guide to
-  trust bundles.
-- **Beneficiary:** Host applications adopting the Agent Trust Profile.
-- **Impact:** Smaller API, no remote trust path, and fewer compatibility
-  exceptions.
 
 ## Technical Architecture
 

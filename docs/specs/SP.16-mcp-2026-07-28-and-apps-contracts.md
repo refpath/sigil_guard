@@ -13,24 +13,13 @@ sigil_guard:
 
 # SP.16 - MCP v2 (`2026-07-28`) And Apps Contracts
 
-## Executive Summary
+## Overview
 
 This spec aligns SigilGuard's transport-neutral gateway with MCP v2
 (`2026-07-28`). It defines canonical structured action binding, legal JSON-RPC
 errors, result discrimination, MRTR handling, capability-manifest v2, app
 caller visibility, and UI-resource verification without moving transport,
 authorization, discovery, or rendering into core.
-
-## Business Value
-
-- **Problem:** The pre-release gateway can approve structurally changed actions
-  and emits wire shapes that conflict with final MCP `2026-07-28`.
-- **Solution:** Canonical security payloads and explicit protocol/Apps
-  validation at the embedded boundary.
-- **Beneficiary:** Hosts embedding SigilGuard around MCP clients, servers, or
-  agent tool loops.
-- **Impact:** Exact argument tampering is rejected; modern MCP responses are
-  conformant; UI-origin execution has a policy boundary.
 
 ## Technical Architecture
 
