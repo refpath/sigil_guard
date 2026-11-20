@@ -644,6 +644,21 @@ defmodule SigilGuard.Audit.Anchor.Store.HTTPTest do
                Store.fetch(HTTP, receipt, receipt_url_hosts: ["example.test", 123])
     end
 
+    test "refuses a receipt host that is not valid UTF-8 instead of raising" do
+      {_, anchor} = anchor_fixture()
+      digest = Anchor.digest(anchor)
+
+      receipt = %{
+        "uri" => "https://" <> <<0xFF, 0xFE>> <> "/audit/anchors/#{digest}##{digest}",
+        "anchor_digest" => digest
+      }
+
+      assert {:error, :unsafe_receipt_url} = Store.fetch(HTTP, receipt)
+
+      assert {:error, :unsafe_receipt_url} =
+               Store.fetch(HTTP, receipt, allow_private_receipt_url: true)
+    end
+
     test "returns HTTP and body errors", %{bypass: bypass, url: url} do
       {_, anchor} = anchor_fixture()
       digest = Anchor.digest(anchor)

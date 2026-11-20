@@ -586,6 +586,19 @@ A host that sets `runtime: false` adds `SigilGuard.Runtime` to its own
 supervision tree. Stateless verification (`consume: false`,
 `TrustBundle.load/2` with `cache: false`) needs no table.
 
+### Confirmation Tokens At The Model Phases
+
+`Confirmation.issue/5` and `verify/5` returned `{:error, :invalid_payload}`
+at `:inbound_user` and `:outbound_model`, where `Runtime.Gate` returns
+confirm verdicts. They now bind the context digest under the statement type
+`Attestation` uses for that phase (`model_ingress`, `model_egress`), from
+`Attestation.Digest.phase_statement_type/1`. Tokens at `:tool_request`,
+`:tool_result`, and `:repo_change` are byte-for-byte unchanged.
+
+An attestation digest input of the shape `{:error, reason}` (for example a
+`sandbox_id` taken from a failed lookup) is refused with `:invalid_payload`.
+Releases up to 1.0.5 left it out, which attested "no sandbox".
+
 ### Confirmation Option Values
 
 `Confirmation.verify/5` reads `consume:` as a boolean. `false` skips the

@@ -621,6 +621,19 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
       assert verify.([]) == {:error, :replay_detected}
     end
 
+    test "a gate confirmation at any context phase can be answered by a token" do
+      key = :crypto.hash(:sha256, "consumer-phase-key")
+
+      for phase <- [:inbound_user, :tool_request, :tool_result, :outbound_model, :repo_change] do
+        context = [phase: phase, trust_level: :low, actor: "consumer-agent"]
+        decision = Gate.evaluate("text", context, risk_level: :medium)
+
+        assert {:confirm, _} = decision.verdict
+        assert {:ok, token} = Confirmation.issue("text", context, decision, key)
+        assert {:ok, _} = Confirmation.verify(token, "text", context, key, consume: false)
+      end
+    end
+
     test "the runtime owns the state tables the stateful calls use" do
       runtime = Process.whereis(SigilGuard.Runtime)
 
