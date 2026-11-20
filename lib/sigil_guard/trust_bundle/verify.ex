@@ -47,11 +47,8 @@ defmodule SigilGuard.TrustBundle.Verify do
   def verify(envelope, opts \\ [])
 
   def verify(envelope, opts) when is_map(envelope) and is_list(opts) do
-    with {:ok, fields} <- envelope_fields(envelope),
-         :ok <- require_payload_type(fields.payload_type),
-         {:ok, signatures} <- signature_fields(fields.signatures),
-         :ok <- reject_duplicate_keyids(signatures),
-         {:ok, payload} <- decode_base64(fields.payload),
+    with {:ok, fields} <- Envelope.decode(envelope),
+         %{payload: payload, signatures: signatures} = fields,
          {:ok, document} <- decode_document(payload),
          {:ok, :bundle, document} <- Schema.validate(document),
          :ok <- verify_rotation_chain(document, signatures, fields.payload_type, payload, opts),
@@ -69,87 +66,6 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   def verify(_, _), do: {:error, :invalid_envelope}
-
-  defp envelope_fields(%{} = envelope) do
-    payload = field(envelope, "payload")
-    payload_type = field(envelope, "payloadType")
-    signatures = field(envelope, "signatures")
-
-    valid? =
-      is_binary(payload) and is_binary(payload_type) and is_list(signatures) and
-        signatures != [] and SigilGuard.Limits.check(envelope) == :ok and
-        Canonical.JSON.unique_keys?(envelope) and length(signatures) <= 64
-
-    if valid? do
-      {:ok, %{payload: payload, payload_type: payload_type, signatures: signatures}}
-    else
-      {:error, :invalid_envelope}
-    end
-  end
-
-  # A rotation chain entry comes from the bundle document and may be any JSON
-  # value.
-  defp envelope_fields(_), do: {:error, :invalid_envelope}
-
-  defp field(map, key) do
-    case Map.fetch(map, key) do
-      {:ok, value} -> value
-      :error -> Map.get(map, atom_key(key))
-    end
-  end
-
-  defp atom_key("keyid"), do: :keyid
-  defp atom_key("payload"), do: :payload
-  defp atom_key("payloadType"), do: :payloadType
-  defp atom_key("sig"), do: :sig
-  defp atom_key("signatures"), do: :signatures
-
-  defp require_payload_type(payload_type) do
-    if payload_type == Envelope.payload_type() do
-      :ok
-    else
-      {:error, :invalid_payload_type}
-    end
-  end
-
-  defp signature_fields(signatures) do
-    result =
-      Enum.reduce_while(signatures, {:ok, []}, fn signature, {:ok, parsed} ->
-        case signature_field(signature) do
-          {:ok, fields} -> {:cont, {:ok, [fields | parsed]}}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-      end)
-
-    case result do
-      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp signature_field(%{} = signature) do
-    keyid = field(signature, "keyid")
-    sig = field(signature, "sig")
-
-    if is_binary(keyid) and keyid != "" and is_binary(sig) and
-         Canonical.JSON.unique_keys?(signature) do
-      {:ok, %{keyid: keyid, sig: sig}}
-    else
-      {:error, :invalid_envelope}
-    end
-  end
-
-  defp signature_field(_), do: {:error, :invalid_envelope}
-
-  defp reject_duplicate_keyids(signatures) do
-    keyids = Enum.map(signatures, & &1.keyid)
-
-    if Enum.uniq(keyids) == keyids do
-      :ok
-    else
-      {:error, :duplicate_keyid}
-    end
-  end
 
   defp decode_base64(value) when is_binary(value) do
     with :error <- Base.url_decode64(value, padding: false),
@@ -349,8 +265,7 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp rotation_version_digest(envelope) do
-    with {:ok, fields} <- envelope_fields(envelope),
-         {:ok, payload} <- decode_base64(fields.payload),
+    with {:ok, %{payload: payload}} <- Envelope.decode(envelope),
          {:ok, document} <- decode_document(payload),
          {:ok, :rotation, document} <- Schema.validate(document) do
       {:ok, String.to_integer(Map.fetch!(document, "root_version")), document_digest(document)}
@@ -382,11 +297,8 @@ defmodule SigilGuard.TrustBundle.Verify do
   end
 
   defp verify_rotation(envelope, previous) do
-    with {:ok, fields} <- envelope_fields(envelope),
-         :ok <- require_payload_type(fields.payload_type),
-         {:ok, signatures} <- signature_fields(fields.signatures),
-         :ok <- reject_duplicate_keyids(signatures),
-         {:ok, payload} <- decode_base64(fields.payload),
+    with {:ok, fields} <- Envelope.decode(envelope),
+         %{payload: payload, signatures: signatures} = fields,
          {:ok, document} <- decode_document(payload),
          {:ok, :rotation, document} <- Schema.validate(document),
          :ok <- check_next_root_version(document, previous),
