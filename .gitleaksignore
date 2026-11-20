@@ -28,3 +28,6 @@ f91c3b7a2d03b2054ee1b6b2b3ac0e0941878c80:test/sigil_guard/scanner/pipeline_test.
 441f3507c393843d729d827b4541c6279a898aaf:test/sigil_guard/scanner_test.exs:stripe-access-token:36
 441f3507c393843d729d827b4541c6279a898aaf:test/sigil_guard/scanner_test.exs:private-key:73
 441f3507c393843d729d827b4541c6279a898aaf:test/sigil_guard/scanner_test.exs:private-key:85
+351c7a4ea28ee6c7431d03fed40f423b7848e713:test/sigil_guard/tool_gateway_test.exs:generic-api-key:1639
+0943d895f2d31b96dae82d3e94c62f48c459a657:test/sigil_guard/tool_gateway_test.exs:generic-api-key:1817
+2db1b40dc5d6a03964b2faf9f5ad0d09ce2568d4:test/sigil_guard/runtime/gate_test.exs:generic-api-key:471
