@@ -846,23 +846,23 @@ authorization, and rendering.
 The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
 `%SigilGuard.Decision{}` carries the unified verdict enum on `:action`:
 
-- **`:action` is the unified verdict** `:allow | :redact | :confirm | :quarantine
-  | :block`. A confirming decision's `:action` is `:confirm`; the executable
+- `:action` is the unified verdict `:allow | :redact | :confirm | :quarantine |
+  :block`. A confirming decision's `:action` is `:confirm`; the executable
   action to run after confirmation moves to the new `:effect` field
   (`:allow | :redact | :quarantine | nil`). Code that read `decision.action` to
   decide what to execute after a confirmation must read `decision.effect`. In
   particular, a `tool_result` prompt-injection decision that used to report
   `action: :quarantine` now reports `action: :confirm, effect: :quarantine`.
-- **`:verdict`**, the legacy dual vocabulary
-  (`:allowed | :blocked | {:confirm, reason}`), is still populated for
-  compatibility.
-- **New fields**: `matched_rules` (`[%{rule_id, explanation}]`), `evidence_refs`,
-  `effect`, and the boundary labels `source`, `sink`, `trust_zone`, `actor`,
-  `resource`. The `:require_approval` repo action is closed to `:confirm`.
-- **Facades remain unchanged**: `SigilGuard.scan/1`, `scan_and_redact/1`, and
-  `policy_verdict/3` return shapes are byte-identical; hit maps gained additive
-  optional keys only.
-- **Sandbox matrix** applies in the gate only when the context declares an
+- `:verdict` keeps the legacy dual vocabulary
+  (`:allowed | :blocked | {:confirm, reason}`) for compatibility.
+- The struct gains `matched_rules` (`[%{rule_id, explanation}]`),
+  `evidence_refs`, `effect`, and the boundary labels `source`, `sink`,
+  `trust_zone`, `actor`, `resource`. The `:require_approval` repo action is
+  closed to `:confirm`.
+- The facades `SigilGuard.scan/1`, `scan_and_redact/1`, and
+  `policy_verdict/3` keep byte-identical return shapes; hit maps gained
+  additive optional keys only.
+- The sandbox matrix applies in the gate only when the context declares an
   `isolation_level` (opt-in by presence); it does not auto-quarantine tool
   calls that declare none. `ToolGateway.guard_request/3` selects the matrix
   row from the side effects of the pinned manifest. `guard_result/3` does
@@ -875,7 +875,7 @@ The runtime gate now evaluates through `SigilGuard.BoundaryPolicy`, and
   unified action (`"confirm"` for confirming decisions); the token's
   cryptographic binding is unchanged.
 
-## Audit hardening of v3 acceptance
+## Audit Hardening Of v3 Acceptance
 
 Signed v3 bytes stay valid, and these ambiguous inputs are now rejected.
 Application null-valued map fields now fail `:invalid_payload` instead of
@@ -890,7 +890,7 @@ Unsigned authority changes, expired or revoked issuers, and stale replay claims
 fail closed. Review the [strict deployment guide](guides/strict-deployment.md)
 for work limits, explicit bundle scanner selection and streaming retention.
 
-## Boundary validation corrections
+## Envelope, Audit Evidence, Vault And Stream Inputs
 
 Unambiguous v1 audit bytes and Agent Trust payload bytes are unchanged. JSON
 objects with duplicate decoded keys (including escaped aliases), envelopes with
@@ -902,6 +902,10 @@ Envelope signing rejects duplicate key IDs with `:duplicate_keyid` and
 verifier-capacity overflow with `:invalid_envelope`. Keep multisignatures
 within 64 entries and the existing envelope input budget. Cosigning an
 atom-keyed envelope replaces its signature field without retaining an alias.
+Envelope key checks also reject numeric/string and character-list/string
+collisions after JSON key normalization, including extension fields. Malformed
+Unicode keys produce checked errors at envelope and audit storage boundaries.
+Unique serializable keys keep their existing behavior.
 
 Checkpoint constructors now return checked errors for malformed events and
 metadata that cannot be serialized as unambiguous JSON. Valid native JSON
@@ -927,6 +931,8 @@ Plaintext remains arbitrary binary data; descriptions are UTF-8 strings.
 containers or uncompiled patterns instead of failing later with a field access
 error. Invalid window values still select the conservative default.
 
+## Integration Examples
+
 Integration examples now preserve the original structured value on `:allow`
 and refuse `:redact` until the host supplies a validated schema-specific
 transformation. Update copied Hermes/Jido/LangChain/ReqLLM examples, including
@@ -935,7 +941,3 @@ follows the same contract. The former Tidewave Plug wrapper was unusable with
 Tidewave 0.6.1's body-parsing contract and has been removed from the guide;
 only the tested authorization helper is provided, with transport adaptation
 explicitly left to the host.
-
-Envelope key checks also reject numeric/string and character-list/string
-collisions after JSON key normalization, including extension fields. Malformed Unicode keys produce checked errors at envelope and audit storage
-boundaries. Unique serializable keys keep their existing behavior.
