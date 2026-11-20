@@ -5,6 +5,17 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- Add `SigilGuard.Scanner.scan_result/2`, which returns `{:error, reason}`
+  where `scan/2` raises. The gate and output contracts use it instead of
+  rescuing every exception around the scanner.
+- `SigilGuard.Scanner` is a behaviour with one callback, `scan/3`, for
+  `:pipeline` modules; `SigilGuard.Scanner.Pipeline` implements it.
+- Add `SigilGuard.TrustBundle.Cache.fetch/1`. `get/1` returns the same
+  result and is marked deprecated in the documentation, since a `get`
+  returns a value or a default.
+- The behaviour implementations hosts call directly (`Vault.InMemory`,
+  `Signer.Ed25519`, both anchor stores, `Backend.Elixir`) have documentation
+  and specs.
 - `SigilGuard.BoundaryPolicy.File.load/2` returns `{:error, :unreadable_policy}`
   for a policy file that exists and cannot be read. It returned `:not_found`,
   the answer for no policy file.

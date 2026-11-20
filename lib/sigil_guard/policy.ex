@@ -155,6 +155,10 @@ defmodule SigilGuard.Policy do
   Perform a rate check for an identity performing an action.
 
   Returns `:ok` if within limits, or `{:error, :rate_limited}` if exceeded.
+  Malformed input is refused the same way: an identity that is not a binary
+  of at most 4096 bytes, options that are not a keyword list, a
+  non-positive `:max_requests` or `:window_ms`, or a `:rate_store` that is
+  not an atom.
 
   This is a fixed-window counter: an identity's first request opens a
   window, requests within `:window_ms` count against `:max_requests`, and

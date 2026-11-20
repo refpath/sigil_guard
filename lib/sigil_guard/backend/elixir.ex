@@ -27,30 +27,44 @@ defmodule SigilGuard.Backend.Elixir do
 
   @behaviour SigilGuard.Backend
 
-  @impl SigilGuard.Backend
-  def scan(text, opts), do: SigilGuard.Scanner.scan(text, opts)
+  alias SigilGuard.Audit
+  alias SigilGuard.Identity
+  alias SigilGuard.Patterns
+  alias SigilGuard.Policy
+  alias SigilGuard.Scanner
 
+  @doc "Scan text with `SigilGuard.Scanner.scan/2`."
   @impl SigilGuard.Backend
-  def redact(text, hits, opts), do: SigilGuard.Scanner.redact(text, hits, opts)
+  @spec scan(String.t(), keyword()) :: {:ok, String.t()} | {:hit, [Patterns.scan_hit()]}
+  def scan(text, opts), do: Scanner.scan(text, opts)
 
+  @doc "Redact hits with `SigilGuard.Scanner.redact/3`."
   @impl SigilGuard.Backend
-  def scan_and_redact(text, opts), do: SigilGuard.Scanner.scan_and_redact(text, opts)
+  @spec redact(String.t(), [Patterns.scan_hit()], keyword()) :: String.t()
+  def redact(text, hits, opts), do: Scanner.redact(text, hits, opts)
 
+  @doc "Scan and redact with `SigilGuard.Scanner.scan_and_redact/2`."
   @impl SigilGuard.Backend
-  def evaluate_policy(action, trust_level, opts) do
-    SigilGuard.Policy.evaluate(action, trust_level, opts)
-  end
+  @spec scan_and_redact(String.t(), keyword()) :: String.t()
+  def scan_and_redact(text, opts), do: Scanner.scan_and_redact(text, opts)
 
+  @doc "Evaluate an action with `SigilGuard.Policy.evaluate/3`."
   @impl SigilGuard.Backend
-  def classify_risk(action, opts), do: SigilGuard.Policy.classify_risk(action, opts)
+  @spec evaluate_policy(String.t(), Identity.trust_level(), keyword()) :: Policy.verdict()
+  def evaluate_policy(action, trust_level, opts), do: Policy.evaluate(action, trust_level, opts)
 
+  @doc "Classify an action with `SigilGuard.Policy.classify_risk/2`."
   @impl SigilGuard.Backend
-  def audit_sign_event(event, key, prev_hmac) do
-    SigilGuard.Audit.sign_event(event, key, prev_hmac)
-  end
+  @spec classify_risk(String.t(), keyword()) :: Policy.risk_level()
+  def classify_risk(action, opts), do: Policy.classify_risk(action, opts)
 
+  @doc "Sign an audit event with `SigilGuard.Audit.sign_event/3`."
   @impl SigilGuard.Backend
-  def audit_verify_chain(events, key) do
-    SigilGuard.Audit.verify_chain(events, key)
-  end
+  @spec audit_sign_event(Audit.t(), binary(), String.t() | nil) :: Audit.t()
+  def audit_sign_event(event, key, prev_hmac), do: Audit.sign_event(event, key, prev_hmac)
+
+  @doc "Verify an audit chain with `SigilGuard.Audit.verify_chain/2`."
+  @impl SigilGuard.Backend
+  @spec audit_verify_chain([Audit.t()], binary()) :: :ok | {:broken, non_neg_integer()}
+  def audit_verify_chain(events, key), do: Audit.verify_chain(events, key)
 end

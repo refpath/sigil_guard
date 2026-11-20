@@ -4,8 +4,9 @@ defmodule SigilGuard.TrustBundle do
 
   Trust bundles are local, DSSE-signed JSON documents. The full schema,
   role-threshold verification, cache, quarantine, and development bootstrap
-  behavior are implemented in `SigilGuard.TrustBundle.Schema`, `Verify`,
-  `Cache`, and `Quarantine`. Core
+  behavior are implemented in `SigilGuard.TrustBundle.Schema`,
+  `SigilGuard.TrustBundle.Verify`, `SigilGuard.TrustBundle.Cache`, and
+  `SigilGuard.TrustBundle.Quarantine`. Core
   verification never fetches remote material; hosts own any transport and pass
   verified bytes, maps, files, or `priv/` sources into this API.
 
@@ -136,7 +137,7 @@ defmodule SigilGuard.TrustBundle do
     do: quarantine_error(:invalid_source, %{source: source}, opts)
 
   @doc false
-  @spec load_configured!(keyword(), keyword()) :: :ok | no_return()
+  @spec load_configured!(keyword(), keyword()) :: :ok
   def load_configured!(config, opts \\ [])
 
   def load_configured!(config, opts) when is_list(config) and is_list(opts) do

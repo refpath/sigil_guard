@@ -38,7 +38,7 @@ defmodule SigilGuard.Bench.TrustBundle do
 
     %{
       "BM.06 trust bundle verify cold" => fn -> TrustBundle.verify(envelope, now: now) end,
-      "BM.06 trust bundle cache warm" => fn -> Cache.get(bundle.bundle_id) end,
+      "BM.06 trust bundle cache warm" => fn -> Cache.fetch(bundle.bundle_id) end,
       "BM.23 trust bundle load" => fn ->
         TrustBundle.load({:map, envelope}, now: now, cache: false)
       end,
@@ -71,7 +71,7 @@ defmodule SigilGuard.Bench.TrustBundle do
 
     {:ok, _} = Cache.put(bundle)
 
-    Bench.expect!(match?({:ok, _}, Cache.get(bundle.bundle_id)), "BM.06 cache read misses")
+    Bench.expect!(match?({:ok, _}, Cache.fetch(bundle.bundle_id)), "BM.06 cache read misses")
   end
 end
 

@@ -53,15 +53,29 @@ defmodule SigilGuard.TrustBundle.Cache do
   end
 
   @doc """
-  Return the cached snapshot for a bundle id.
+  Fetch the cached snapshot for a bundle id.
+
+  Returns `{:ok, bundle}`, or `:error` when nothing is cached for the id or
+  the runtime is not running.
   """
-  @spec get(bundle_id :: String.t()) :: {:ok, TrustBundle.t()} | :error
-  def get(bundle_id) when is_binary(bundle_id) do
+  @doc since: "1.1.0"
+  @spec fetch(bundle_id :: String.t()) :: {:ok, TrustBundle.t()} | :error
+  def fetch(bundle_id) when is_binary(bundle_id) do
     case lookup(bundle_id) do
       [{^bundle_id, bundle, _, _, _, _}] -> {:ok, bundle}
       [] -> :error
     end
   end
+
+  @doc """
+  Return the cached snapshot for a bundle id.
+
+  The same as `fetch/1`; the name does not follow the `get` convention, which
+  returns a value or a default.
+  """
+  @doc deprecated: "Use SigilGuard.TrustBundle.Cache.fetch/1"
+  @spec get(bundle_id :: String.t()) :: {:ok, TrustBundle.t()} | :error
+  def get(bundle_id) when is_binary(bundle_id), do: fetch(bundle_id)
 
   @doc false
   @spec root_pin(bundle_id :: String.t()) :: {:ok, root_pin()} | :error

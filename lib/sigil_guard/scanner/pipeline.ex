@@ -18,6 +18,8 @@ defmodule SigilGuard.Scanner.Pipeline do
   to an external classifier or probabilistic model.
   """
 
+  @behaviour SigilGuard.Scanner
+
   alias SigilGuard.Patterns
 
   @typedoc "Non-sensitive evidence labels attached to enriched scanner hits."
@@ -52,6 +54,7 @@ defmodule SigilGuard.Scanner.Pipeline do
     * `:generic_secret_min_entropy` - generic secret Shannon entropy floor. Defaults to `2.8`.
     * `:token_min_entropy` - bearer/API token Shannon entropy floor. Defaults to `3.0`.
   """
+  @impl SigilGuard.Scanner
   @spec scan(String.t(), [Patterns.compiled_pattern()], keyword()) :: [Patterns.scan_hit()]
   def scan(text, patterns, opts \\ []) when is_binary(text) and is_list(patterns) do
     min_confidence = confidence_floor(opts, :min_confidence, 0.0)
@@ -176,14 +179,14 @@ defmodule SigilGuard.Scanner.Pipeline do
     value = secret_value(candidate.match, candidate.pattern.name)
 
     [
-      credential_category?(candidate) && :credential_category,
-      known_key_format?(candidate) && :known_key_format,
-      assignment_context?(candidate.match) && :assignment_context,
-      assignment_boundary?(candidate) && :assignment_boundary,
-      candidate.entropy >= 3.0 && :high_entropy,
-      byte_size(value) >= 20 && :long_value,
-      token_boundary_signal?(candidate) && :token_boundary,
-      uri_authority?(candidate) && :uri_with_authority
+      credential_category?(candidate) and :credential_category,
+      known_key_format?(candidate) and :known_key_format,
+      assignment_context?(candidate.match) and :assignment_context,
+      assignment_boundary?(candidate) and :assignment_boundary,
+      candidate.entropy >= 3.0 and :high_entropy,
+      byte_size(value) >= 20 and :long_value,
+      token_boundary_signal?(candidate) and :token_boundary,
+      uri_authority?(candidate) and :uri_with_authority
     ]
     |> Enum.filter(& &1)
   end

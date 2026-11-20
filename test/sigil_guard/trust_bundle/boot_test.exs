@@ -26,14 +26,14 @@ defmodule SigilGuard.TrustBundle.BootTest do
   describe "load_configured!/2" do
     test "skips loading when trust bundle config is :none" do
       assert TrustBundle.load_configured!(trust_bundle: :none) == :ok
-      assert Cache.get("boot-trust") == :error
+      assert Cache.fetch("boot-trust") == :error
     end
 
     test "loads configured trust bundle source and caches the verified snapshot" do
       envelope = envelope(bundle_document(sequence: 1))
 
       assert TrustBundle.load_configured!(trust_bundle: {:map, envelope}) == :ok
-      assert {:ok, %TrustBundle{bundle_id: "boot-trust", sequence: 1}} = Cache.get("boot-trust")
+      assert {:ok, %TrustBundle{bundle_id: "boot-trust", sequence: 1}} = Cache.fetch("boot-trust")
     end
 
     test "raises config error naming invalid source failures" do

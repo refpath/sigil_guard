@@ -4,7 +4,8 @@ defmodule SigilGuard.TrustBundle.Verify do
 
   Validates schemas, pinned authority, cross-signed rotation chains, signature
   thresholds and freshness. Reads cached pins and irreversible revocations;
-  loading, cache writes and diagnostic recording belong to `TrustBundle`.
+  loading, cache writes and diagnostic recording belong to
+  `SigilGuard.TrustBundle`.
   """
 
   alias SigilGuard.Attestation.Envelope
@@ -221,7 +222,7 @@ defmodule SigilGuard.TrustBundle.Verify do
     authority = Map.take(document, ["roles", "keys"])
 
     trusted =
-      case Cache.get(document["bundle_id"]) do
+      case Cache.fetch(document["bundle_id"]) do
         {:ok, cached} -> Map.take(cached.document, ["roles", "keys"])
         :error -> Map.get(genesis, :authority)
       end

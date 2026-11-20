@@ -22,10 +22,10 @@ defmodule SigilGuard.EffectAuthority.Facts do
   @spec validate(term()) :: {:ok, t()} | {:error, :invalid_current_facts}
   def validate(current) when is_map(current) and not is_struct(current) do
     with true <- closed?(current),
-         {:ok, target} <- target(current[:target]),
+         {:ok, target} <- target(current.target),
          {:ok, artifacts} <- artifacts(Map.fetch(current, :artifacts)),
-         {:ok, observed_at} <- unix_ms(current[:observed_at]),
-         {:ok, now} <- unix_ms(current[:now]),
+         {:ok, observed_at} <- unix_ms(current.observed_at),
+         {:ok, now} <- unix_ms(current.now),
          true <- identifiers?(current) do
       {:ok,
        %{

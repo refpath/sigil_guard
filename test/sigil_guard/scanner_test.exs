@@ -253,4 +253,60 @@ defmodule SigilGuard.ScannerTest do
       end
     end
   end
+
+  describe "scan_result/2" do
+    defmodule RaisingPipeline do
+      @moduledoc false
+      @behaviour SigilGuard.Scanner
+
+      @impl SigilGuard.Scanner
+      def scan(_, _, _), do: raise("pipeline down")
+    end
+
+    defmodule WrongHitsPipeline do
+      @moduledoc false
+      @behaviour SigilGuard.Scanner
+
+      @impl SigilGuard.Scanner
+      def scan(_, _, _), do: [%{name: "x", offset: 99, length: 5}]
+    end
+
+    test "agrees with scan/2 where scan/2 returns" do
+      for text <- ["safe text", "key AKIAIOSFODNN7EXAMPLE here"] do
+        assert Scanner.scan_result(text) == Scanner.scan(text)
+      end
+    end
+
+    test "returns a reason for each input scan/2 raises on" do
+      for {text, opts, reason} <- [
+            {123, [], :invalid_text},
+            {"text", :not_options, :invalid_options},
+            {"text", [max_input_bytes: 2], :input_too_large},
+            {"text", [pipeline: 123], :invalid_pipeline},
+            {"text", [pipeline: String], :invalid_pipeline},
+            {"text", [pipeline: WrongHitsPipeline], :invalid_pipeline_result},
+            {"text", [pipeline: RaisingPipeline], :pipeline_failed},
+            {"text", [patterns: [%{name: "no regex"}]], :pipeline_failed}
+          ] do
+        assert Scanner.scan_result(text, opts) == {:error, reason}
+      end
+    end
+
+    test "scan/2 still raises for the same inputs" do
+      assert_raise ArgumentError, ~r/must return valid scan hits/, fn ->
+        Scanner.scan("text", pipeline: WrongHitsPipeline)
+      end
+
+      assert_raise RuntimeError, "pipeline down", fn ->
+        Scanner.scan("text", pipeline: RaisingPipeline)
+      end
+    end
+
+    test "the gate fails closed when its scan cannot run" do
+      context = [phase: :tool_result, origin: :tool, sink: :model, trust_level: :high]
+      decision = SigilGuard.Runtime.Gate.evaluate("text", context, pipeline: RaisingPipeline)
+
+      assert decision.verdict == :blocked
+    end
+  end
 end

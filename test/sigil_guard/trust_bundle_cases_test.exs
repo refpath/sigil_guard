@@ -39,7 +39,7 @@ defmodule SigilGuard.TrustBundleCasesTest do
     on_exit(fn -> :telemetry.detach(handler) end)
 
     assert TrustBundle.load({:map, envelope}, now: @now) == {:error, :sequence_below_floor}
-    assert {:ok, %TrustBundle{sequence: 2}} = Cache.get(verified.bundle_id)
+    assert {:ok, %TrustBundle{sequence: 2}} = Cache.fetch(verified.bundle_id)
     assert Cache.floor(verified.bundle_id) == 2
 
     assert [record] = Quarantine.list(verified.bundle_id)
@@ -56,11 +56,11 @@ defmodule SigilGuard.TrustBundleCasesTest do
     {:ok, issued_at, 0} = DateTime.from_iso8601(bundle.document["issued_at"])
     {:ok, expires_at, 0} = DateTime.from_iso8601(bundle.document["expires_at"])
     assert DateTime.diff(expires_at, issued_at, :millisecond) == 3_600_000
-    assert {:ok, ^bundle} = Cache.get("sigilguard-dev")
+    assert {:ok, ^bundle} = Cache.fetch("sigilguard-dev")
 
     # Another default call draws another seed: other root keys under the pinned version.
     assert TrustBundle.dev_bundle() == {:error, :invalid_bundle_format}
-    assert {:ok, ^bundle} = Cache.get("sigilguard-dev")
+    assert {:ok, ^bundle} = Cache.fetch("sigilguard-dev")
   end
 
   test "load_configured!/2 refuses a configuration that is not a keyword list" do

@@ -2,7 +2,8 @@ defmodule SigilGuard.BoundaryPolicy.File do
   @moduledoc """
   Boundary-policy file grammar parser.
 
-  Parses the 1.0 line-oriented policy file into a compiled `%File{}`: an ordered
+  Parses the 1.0 line-oriented policy file into a compiled
+  `%SigilGuard.BoundaryPolicy.File{}`: an ordered
   list of `[rules]`, an optional `default` verdict, the `[contracts]` section
   compiled by `SigilGuard.BoundaryPolicy.Contract` into a `%{sink => contract}`
   map, and the `[repo]` section compiled through `SigilGuard.RepoPolicy`.
@@ -83,7 +84,7 @@ defmodule SigilGuard.BoundaryPolicy.File do
   defstruct rules: [], default: nil, contracts: %{}, repo: nil, digest: nil
 
   @doc """
-  Parse policy-file bytes into a compiled `%File{}`.
+  Parse policy-file bytes into a compiled `%SigilGuard.BoundaryPolicy.File{}`.
   """
   @spec parse(binary()) :: {:ok, t()} | {:error, parse_error()}
   def parse(bytes) when is_binary(bytes) do

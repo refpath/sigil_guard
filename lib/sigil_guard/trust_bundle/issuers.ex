@@ -59,7 +59,7 @@ defmodule SigilGuard.TrustBundle.Issuers do
 
   defp current_document(%TrustBundle{bundle_id: id, sequence: sequence, document: document})
        when is_binary(id) do
-    case Cache.get(id) do
+    case Cache.fetch(id) do
       {:ok, cached} when cached.sequence >= sequence -> cached.document
       _ -> document
     end

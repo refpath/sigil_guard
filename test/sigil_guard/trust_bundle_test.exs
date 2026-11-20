@@ -44,7 +44,7 @@ defmodule SigilGuard.TrustBundleTest do
     assert TrustBundle.load({:priv, :sigil_guard, rel}, now: @now, quarantine: false) ==
              {:error, :invalid_source}
 
-    assert Cache.get(cached.bundle_id) == {:ok, cached}
+    assert Cache.fetch(cached.bundle_id) == {:ok, cached}
     File.write!(path, "")
     assert TrustBundle.load({:file, path}, quarantine: false) == {:error, :invalid_source}
     File.write!(priv_path, "")
@@ -250,7 +250,7 @@ defmodule SigilGuard.TrustBundleTest do
       assert TrustBundle.tools(bundle) == [%{"name" => "dev-tool"}]
       assert TrustBundle.identity_issuers(bundle) == ["did:example:dev"]
 
-      assert {:ok, ^bundle} = Cache.get("sigilguard-dev")
+      assert {:ok, ^bundle} = Cache.fetch("sigilguard-dev")
     end
 
     test "dev_bundle supports deterministic seeds and expires at ttl_ms" do

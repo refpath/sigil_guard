@@ -62,21 +62,18 @@ defmodule SigilGuard.Runtime.OutputContract do
 
   # A scan that cannot run leaves the contract unproven, so the crossing fails.
   defp matches(text, scan_opts, wanted?) do
-    case Scanner.scan(text, scan_opts) do
+    case Scanner.scan_result(text, scan_opts) do
       {:ok, _} -> {:ok, []}
       {:hit, hits} -> {:ok, for(hit <- hits, wanted?.(hit.category), do: hit.match)}
+      {:error, _} -> :scan_failed
     end
-  rescue
-    _ -> :scan_failed
-  catch
-    _, _ -> :scan_failed
   end
 
   defp transforms(contract, text, credentials, pii) do
     [
-      credentials != [] && :credentials,
-      pii != [] && :pii,
-      is_integer(contract.max_size) && byte_size(text) > contract.max_size && :truncate
+      credentials != [] and :credentials,
+      pii != [] and :pii,
+      is_integer(contract.max_size) and byte_size(text) > contract.max_size and :truncate
     ]
     |> Enum.filter(& &1)
   end

@@ -242,15 +242,10 @@ defmodule SigilGuard.Runtime.Gate do
   defp scan_hits(nil, _), do: {[], nil}
 
   defp scan_hits(text, opts) do
-    try do
-      case Scanner.scan(text, opts) do
-        {:ok, _} -> {[], nil}
-        {:hit, hits} -> {hits, nil}
-      end
-    rescue
-      _ -> {scanner_error_hit(text), :scanner_failed}
-    catch
-      _, _ -> {scanner_error_hit(text), :scanner_failed}
+    case Scanner.scan_result(text, opts) do
+      {:ok, _} -> {[], nil}
+      {:hit, hits} -> {hits, nil}
+      {:error, _} -> {scanner_error_hit(text), :scanner_failed}
     end
   end
 

@@ -244,7 +244,8 @@ defmodule SigilGuard.Config do
   end
 
   defp validate_cross_options(opts) do
-    if opts[:scanner_patterns] == :bundle and opts[:trust_bundle] == :none do
+    if Keyword.fetch!(opts, :scanner_patterns) == :bundle and
+         Keyword.fetch!(opts, :trust_bundle) == :none do
       {:error,
        SigilGuard.ConfigError.new(
          :scanner_patterns,

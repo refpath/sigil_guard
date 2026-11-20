@@ -9,13 +9,34 @@ defmodule SigilGuard.Scanner do
 
   ## Pipeline Extensions
 
-  Pass `pipeline: MyPipeline` to use a module that exports `scan/3`.
-  The module receives `(text, patterns, opts)` and must return scan hits.
+  Pass `pipeline: MyPipeline` to use a module that implements this module's
+  `c:scan/3` callback: it receives `(text, patterns, opts)` and returns scan
+  hits. `SigilGuard.Scanner.Pipeline` is the built-in implementation.
   """
 
   alias SigilGuard.Patterns
   alias SigilGuard.Scanner.Pipeline
   alias SigilGuard.Telemetry
+
+  @typedoc "Why `scan_result/2` returned no scan."
+  @type scan_error ::
+          :invalid_text
+          | :invalid_options
+          | :input_too_large
+          | :invalid_pipeline
+          | :invalid_pipeline_result
+          | :pipeline_failed
+
+  @doc """
+  Find the sensitive spans in `text` with the compiled `patterns`.
+
+  Each hit must lie inside `text`; `scan/2` checks the result.
+  """
+  @callback scan(
+              text :: String.t(),
+              patterns :: [Patterns.compiled_pattern()],
+              opts :: keyword()
+            ) :: [Patterns.scan_hit()]
 
   @doc """
   Scan text for sensitive content using the given patterns.
@@ -50,23 +71,53 @@ defmodule SigilGuard.Scanner do
     if SigilGuard.Limits.check(text, opts) != :ok,
       do: raise(ArgumentError, "scanner input budget exceeded")
 
+    spanned_scan(text, opts, :raise)
+  end
+
+  @doc """
+  Scan like `scan/2`, but return a reason where `scan/2` raises.
+
+  Returns `{:ok, text}`, `{:hit, hits}`, or `{:error, reason}`: `:invalid_text`
+  for text that is not a binary, `:invalid_options`, `:input_too_large` past
+  `:max_input_bytes`, `:invalid_pipeline` for a `:pipeline` value that is not a
+  pipeline, `:invalid_pipeline_result` for hits that do not describe the
+  text, and `:pipeline_failed` when the pipeline raises, throws, or exits.
+  `SigilGuard.Runtime.Gate` and output contracts scan through this function,
+  so a scan that cannot run fails their decision closed.
+
+  ## Examples
+
+      iex> SigilGuard.Scanner.scan_result("safe text")
+      {:ok, "safe text"}
+
+      iex> SigilGuard.Scanner.scan_result("text", max_input_bytes: 2)
+      {:error, :input_too_large}
+
+  """
+  @doc since: "1.1.0"
+  @spec scan_result(term(), term()) ::
+          {:ok, String.t()} | {:hit, [Patterns.scan_hit()]} | {:error, scan_error()}
+  def scan_result(text, opts \\ []) do
+    cond do
+      not is_binary(text) -> {:error, :invalid_text}
+      not Keyword.keyword?(opts) -> {:error, :invalid_options}
+      SigilGuard.Limits.check(text, opts) != :ok -> {:error, :input_too_large}
+      true -> spanned_scan(text, opts, :return)
+    end
+  end
+
+  defp spanned_scan(text, opts, mode) do
     patterns = Keyword.get_lazy(opts, :patterns, &Patterns.built_in/0)
-    telemetry_metadata = telemetry_metadata(patterns, opts)
+    metadata = telemetry_metadata(patterns, opts)
 
-    Telemetry.span([:sigil_guard, :scan], telemetry_metadata, fn ->
-      hits =
-        text
-        |> do_scan(patterns, opts)
-        |> validate_hits!(text)
-
+    Telemetry.span([:sigil_guard, :scan], metadata, fn ->
       result =
-        if hits == [] do
-          {:ok, text}
-        else
-          {:hit, hits}
-        end
+        text
+        |> run_pipeline(patterns, opts, mode)
+        |> checked_hits(text)
+        |> settle(text, mode)
 
-      {result, Map.put(telemetry_metadata, :hit_count, length(hits))}
+      {result, Map.put(metadata, :hit_count, hit_count(result))}
     end)
   end
 
@@ -148,37 +199,53 @@ defmodule SigilGuard.Scanner do
       else: raise(ArgumentError, "options must be a keyword list")
   end
 
-  defp do_scan(text, patterns, opts) do
+  defp run_pipeline(text, patterns, opts, :raise), do: pipeline_hits(text, patterns, opts)
+
+  # The gate and output contracts decide even when a pipeline fails, so here
+  # any failure inside the pipeline, built-in or host-supplied, is a reason.
+  defp run_pipeline(text, patterns, opts, :return) do
+    pipeline_hits(text, patterns, opts)
+  rescue
+    _ -> {:error, :pipeline_failed, nil}
+  catch
+    _, _ -> {:error, :pipeline_failed, nil}
+  end
+
+  defp pipeline_hits(text, patterns, opts) do
     case Keyword.get(opts, :pipeline, :staged) do
-      :staged ->
-        Pipeline.scan(text, patterns, opts)
-
-      :regex ->
-        Pipeline.regex_scan(text, patterns)
-
-      module when is_atom(module) ->
-        Code.ensure_loaded(module)
-
-        if function_exported?(module, :scan, 3) do
-          module.scan(text, patterns, opts)
-        else
-          raise ArgumentError, "scanner pipeline module must export scan/3"
-        end
-
-      other ->
-        raise ArgumentError, "invalid scanner pipeline #{inspect(other)}"
+      :staged -> {:ok, Pipeline.scan(text, patterns, opts)}
+      :regex -> {:ok, Pipeline.regex_scan(text, patterns)}
+      module when is_atom(module) -> module_hits(module, text, patterns, opts)
+      other -> {:error, :invalid_pipeline, "invalid scanner pipeline #{inspect(other)}"}
     end
   end
 
-  defp validate_hits!(hits, text) when is_list(hits) do
-    if Enum.all?(hits, &valid_hit?(&1, text)) do
-      hits
-    else
-      raise ArgumentError, "scanner pipeline must return valid scan hits"
-    end
+  defp module_hits(module, text, patterns, opts) do
+    Code.ensure_loaded(module)
+
+    if function_exported?(module, :scan, 3),
+      do: {:ok, module.scan(text, patterns, opts)},
+      else: {:error, :invalid_pipeline, "scanner pipeline module must export scan/3"}
   end
 
-  defp validate_hits!(_, _), do: raise(ArgumentError, "scanner pipeline must return a hit list")
+  defp checked_hits({:ok, hits}, text) when is_list(hits) do
+    if Enum.all?(hits, &valid_hit?(&1, text)),
+      do: {:ok, hits},
+      else: {:error, :invalid_pipeline_result, "scanner pipeline must return valid scan hits"}
+  end
+
+  defp checked_hits({:ok, _}, _),
+    do: {:error, :invalid_pipeline_result, "scanner pipeline must return a hit list"}
+
+  defp checked_hits(error, _), do: error
+
+  defp settle({:ok, []}, text, _), do: {:ok, text}
+  defp settle({:ok, hits}, _, _), do: {:hit, hits}
+  defp settle({:error, _, message}, _, :raise), do: raise(ArgumentError, message)
+  defp settle({:error, reason, _}, _, :return), do: {:error, reason}
+
+  defp hit_count({:hit, hits}), do: length(hits)
+  defp hit_count(_), do: 0
 
   defp valid_hit?(
          %{
@@ -207,7 +274,7 @@ defmodule SigilGuard.Scanner do
 
   defp telemetry_metadata(patterns, opts) do
     %{
-      patterns_checked: length(patterns),
+      patterns_checked: if(is_list(patterns), do: length(patterns), else: 0),
       pipeline: pipeline_name(Keyword.get(opts, :pipeline, :staged)),
       scanner_validate: Keyword.get(opts, :validate, true) != false
     }

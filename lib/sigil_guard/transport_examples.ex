@@ -1,6 +1,6 @@
 defmodule SigilGuard.TransportExamples do
   @moduledoc """
-  Transport-neutral `ToolGateway` context examples.
+  Transport-neutral `SigilGuard.ToolGateway` context examples.
 
   HTTP MCP uses the canonical server URI as both the MCP server identifier and
   the resource indicator:

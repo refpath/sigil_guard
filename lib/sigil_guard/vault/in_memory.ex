@@ -75,7 +75,16 @@ defmodule SigilGuard.Vault.InMemory do
   @spec validate_master_key_option(term()) :: {:ok, term()}
   def validate_master_key_option(master_key), do: {:ok, master_key}
 
+  @doc """
+  Encrypt `plaintext` and store it under a new vault id.
+
+  Returns `{:ok, vault_id}`, `{:error, :invalid_plaintext}` or
+  `{:error, :invalid_description}` for arguments that are not binaries (the
+  description must be valid UTF-8), and `{:error, :vault_unavailable}` when
+  the vault process is not running.
+  """
   @impl SigilGuard.Vault
+  @spec encrypt(term(), term()) :: {:ok, SigilGuard.Vault.vault_id()} | {:error, atom()}
   def encrypt(plaintext, _) when not is_binary(plaintext), do: {:error, :invalid_plaintext}
   def encrypt(_, description) when not is_binary(description), do: {:error, :invalid_description}
 
@@ -85,10 +94,19 @@ defmodule SigilGuard.Vault.InMemory do
       else: {:error, :invalid_description}
   end
 
+  @doc """
+  Return the plaintext stored under `vault_id`.
+
+  Returns `{:error, :vault_unavailable}` when the vault process is not
+  running.
+  """
   @impl SigilGuard.Vault
+  @spec decrypt(SigilGuard.Vault.vault_id()) :: {:ok, binary()} | {:error, term()}
   def decrypt(vault_id), do: call({:decrypt, vault_id}, {:error, :vault_unavailable})
 
+  @doc "Return whether an entry exists for `vault_id`; `false` when the vault is not running."
   @impl SigilGuard.Vault
+  @spec exists?(SigilGuard.Vault.vault_id()) :: boolean()
   def exists?(vault_id), do: call({:exists?, vault_id}, false)
 
   @doc "List all vault entry IDs with their descriptions (not plaintext)."

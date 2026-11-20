@@ -26,7 +26,7 @@ defmodule SigilGuard.TrustBundle.CacheTest do
 
       assert Cache.floor("example-org-trust") == 0
       assert Cache.put(bundle) == {:ok, bundle}
-      assert Cache.get("example-org-trust") == {:ok, bundle}
+      assert Cache.fetch("example-org-trust") == {:ok, bundle}
       assert Cache.floor("example-org-trust") == 3
     end
 
@@ -36,7 +36,7 @@ defmodule SigilGuard.TrustBundle.CacheTest do
 
       assert Cache.put(original) == {:ok, original}
       assert Cache.put(duplicate) == {:ok, original}
-      assert Cache.get("example-org-trust") == {:ok, original}
+      assert Cache.fetch("example-org-trust") == {:ok, original}
       assert Cache.floor("example-org-trust") == 3
     end
 
@@ -51,7 +51,7 @@ defmodule SigilGuard.TrustBundle.CacheTest do
                {:error, :sequence_below_floor}
 
       assert Cache.floor("example-org-trust") == 5
-      assert Cache.get("missing") == :error
+      assert Cache.fetch("missing") == :error
       assert Cache.floor("missing") == 0
     end
 
@@ -62,9 +62,9 @@ defmodule SigilGuard.TrustBundle.CacheTest do
 
       assert Cache.put(accepted) == {:ok, accepted}
       assert Cache.put(stale_root) == {:error, :sequence_below_floor}
-      assert Cache.get("example-org-trust") == {:ok, accepted}
+      assert Cache.fetch("example-org-trust") == {:ok, accepted}
       assert Cache.put(advancing_root) == {:ok, advancing_root}
-      assert Cache.get("example-org-trust") == {:ok, advancing_root}
+      assert Cache.fetch("example-org-trust") == {:ok, advancing_root}
     end
 
     test "accepts an advancing sequence and keeps the floor monotonic" do
@@ -75,7 +75,7 @@ defmodule SigilGuard.TrustBundle.CacheTest do
       assert Cache.floor("example-org-trust") == 2
       assert Cache.put(second) == {:ok, second}
       assert Cache.floor("example-org-trust") == 6
-      assert Cache.get("example-org-trust") == {:ok, second}
+      assert Cache.fetch("example-org-trust") == {:ok, second}
     end
   end
 
@@ -160,6 +160,11 @@ defmodule SigilGuard.TrustBundle.CacheTest do
     assert Cache.put(unauthorized) == {:error, :forked_root_chain}
     revoked = bundle(sequence: 2, envelope: %{"signatures" => [%{"keyid" => "revoked"}]})
     assert Cache.put(revoked) == {:error, :revoked_key}
-    assert Cache.get(first.bundle_id) == {:ok, first}
+    assert Cache.fetch(first.bundle_id) == {:ok, first}
+  end
+
+  test "get/1 answers as fetch/1" do
+    assert Cache.get("no-such-bundle") == :error
+    assert Cache.get("no-such-bundle") == Cache.fetch("no-such-bundle")
   end
 end

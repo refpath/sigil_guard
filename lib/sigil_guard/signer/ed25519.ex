@@ -69,7 +69,7 @@ defmodule SigilGuard.Signer.Ed25519 do
   @spec start_link(keyword()) :: Agent.on_start()
   def start_link(opts) do
     with {:ok, validated} <- validate_start_options(opts),
-         {:ok, private_key} <- validate_private_key(validated[:private_key]) do
+         {:ok, private_key} <- validate_private_key(Keyword.fetch!(validated, :private_key)) do
       signer = new(private_key)
       Agent.start_link(fn -> signer end, name: __MODULE__)
     end
@@ -88,13 +88,17 @@ defmodule SigilGuard.Signer.Ed25519 do
   def validate_private_key_option(private_key) when is_binary(private_key), do: {:ok, private_key}
   def validate_private_key_option(_), do: {:error, "expected a binary Ed25519 seed"}
 
+  @doc "Sign `message` with the private key the signer process holds."
   @impl SigilGuard.Signer
+  @spec sign(binary()) :: binary()
   def sign(message) do
     signer = Agent.get(__MODULE__, & &1)
     sign_with(signer, message)
   end
 
+  @doc "Return the raw 32-byte public key of the signer process."
   @impl SigilGuard.Signer
+  @spec public_key() :: binary()
   def public_key do
     Agent.get(__MODULE__, & &1.public_key)
   end

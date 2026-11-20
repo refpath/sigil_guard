@@ -226,8 +226,8 @@ defmodule SigilGuard.AgentTrust do
   @doc """
   Verify a payload delegation chain against a signed predicate mirror.
 
-  Inbound `agent_request` verification composes this with `AgentCard.verify/3`
-  and `Attestation.verify/3`. The chain order is digest-bound (RFC 8785
+  Inbound `agent_request` verification composes this with
+  `SigilGuard.AgentCard.verify/3` and `SigilGuard.Attestation.verify/3`. The chain order is digest-bound (RFC 8785
   preserves array order), so any reorder, insertion, drop, edit, or one-sided
   presence between the payload chain and `predicate.delegation_chain` fails
   `:delegation_chain_tampered`. Depth beyond `:max_delegation_depth`

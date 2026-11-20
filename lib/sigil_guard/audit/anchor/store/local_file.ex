@@ -28,7 +28,15 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
     "uri" => :uri
   }
 
+  @doc """
+  Persist an anchor record to the local append-only file and return its receipt.
+
+  Hosts usually call `SigilGuard.Audit.Anchor.Store.put/3`, which adds
+  telemetry. The options are described in the module documentation.
+  """
   @impl SigilGuard.Audit.Anchor.Store
+  @spec put(term(), keyword()) ::
+          {:ok, SigilGuard.Audit.Anchor.Store.receipt()} | {:error, term()}
   def put(record, opts) when is_map(record) and is_list(opts) do
     with :ok <- validate_options(opts),
          :ok <- validate_anchor(record),
@@ -46,7 +54,14 @@ defmodule SigilGuard.Audit.Anchor.Store.LocalFile do
 
   def put(_, _), do: {:error, :invalid_anchor}
 
+  @doc """
+  Fetch the anchor record a receipt or an anchor digest names, and check that
+  it digests to the expected value.
+
+  Hosts usually call `SigilGuard.Audit.Anchor.Store.fetch/3`.
+  """
   @impl SigilGuard.Audit.Anchor.Store
+  @spec fetch(term(), keyword()) :: {:ok, Anchor.t()} | {:error, term()}
   def fetch(receipt_or_digest, opts) when is_list(opts) do
     with :ok <- validate_options(opts),
          {:ok, digest} <- digest_from_ref(receipt_or_digest),

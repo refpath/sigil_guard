@@ -134,7 +134,7 @@ defmodule SigilGuard.BoundaryPolicy do
 
   Options: `:policy` (compiled policy, or nil), `:on_sensitive`
   (`:block | :redact`, default `:block`), `:repo_facts` (the repository
-  `RepoPolicy.policy_facts/2` map, or nil), `:hooks` (a list of
+  `SigilGuard.RepoPolicy.policy_facts/2` map, or nil), `:hooks` (a list of
   `SigilGuard.Hooks` modules in invocation order), `:hook_timeout_ms`
   (default `5_000`), `:adaptive_detector` (a `SigilGuard.AdaptiveDetector`
   module or nil) and `:text` (content for the detector to analyze).

@@ -76,7 +76,7 @@ custom_patterns = [
 true = bundle.dev?
 1 = bundle.sequence
 1 = bundle.root_version
-{:ok, ^bundle} = Cache.get(bundle.bundle_id)
+{:ok, ^bundle} = Cache.fetch(bundle.bundle_id)
 
 %{
   bundle_id: bundle.bundle_id,

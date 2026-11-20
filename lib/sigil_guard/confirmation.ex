@@ -53,7 +53,9 @@ defmodule SigilGuard.Confirmation do
   Compute the deterministic digest for a payload crossing a boundary.
 
   The digest is a lowercase SHA-256 hex string over canonical bytes containing
-  the payload and normalized `SigilGuard.Context`.
+  the payload and normalized `SigilGuard.Context`. Raises `ArgumentError` when
+  the payload or context has no canonical form; `fetch_action_digest/2`
+  returns `{:error, reason}` instead.
   """
   @spec action_digest(term(), Context.t() | map() | keyword()) :: String.t()
   def action_digest(payload, context) do
