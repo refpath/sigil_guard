@@ -5,6 +5,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## Unreleased
 
+- A `tool_result` attestation built from a decision lists the built-in
+  quarantine indicators that fired. `predicate.quarantine.indicator_ids` kept
+  only string ids, and the built-in ids are atoms, so it was always empty.
 - `SigilGuard.ToolGateway.guard_request/3` reads the sandbox id and isolation
   level from `Context.sandbox_id` and `Context.isolation_level`, the fields the
   context digest binds, and falls back to `context.metadata`. A context that

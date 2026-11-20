@@ -572,20 +572,28 @@ defmodule SigilGuard.Attestation do
   defp quarantine_status(:released_sanitized), do: "released_sanitized"
   defp quarantine_status(_), do: "none"
 
-  defp normalize_indicator_ids(ids, _) when is_list(ids) do
-    ids
-    |> Enum.filter(&is_binary/1)
-    |> Enum.sort()
-  end
+  defp normalize_indicator_ids(ids, _) when is_list(ids), do: indicator_id_strings(ids)
 
   defp normalize_indicator_ids(_, indicators) when is_list(indicators) do
     indicators
+    |> Enum.filter(&is_map/1)
     |> Enum.map(&(Map.get(&1, :id) || Map.get(&1, "id")))
-    |> Enum.filter(&is_binary/1)
-    |> Enum.sort()
+    |> indicator_id_strings()
   end
 
   defp normalize_indicator_ids(_, _), do: []
+
+  # Built-in indicator ids are atoms; bundle-supplied ids are strings.
+  defp indicator_id_strings(ids) do
+    ids
+    |> Enum.flat_map(fn
+      id when is_binary(id) -> [id]
+      id when is_atom(id) and not is_nil(id) and not is_boolean(id) -> [Atom.to_string(id)]
+      _ -> []
+    end)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   defp scanner_predicate(source) do
     summary = source.decision.audit_metadata[:scanner_summary] || %{}

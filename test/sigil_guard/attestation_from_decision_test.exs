@@ -97,13 +97,13 @@ defmodule SigilGuard.AttestationFromDecisionTest do
                  now: @now,
                  request_action_digest: String.duplicate("a", 64),
                  quarantine_status: :released_sanitized,
-                 indicator_ids: ["z", :ignored, "a"],
+                 indicator_ids: ["z", 123, nil, %{}, "a", :ignore_instructions, "a"],
                  scanner_hit_count: 2
                )
 
       assert statement["predicate"]["quarantine"] == %{
                "status" => "released_sanitized",
-               "indicator_ids" => ["a", "z"]
+               "indicator_ids" => ["a", "ignore_instructions", "z"]
              }
 
       assert statement["predicate"]["scanner"] == %{"hit_count" => 2, "redacted" => true}
