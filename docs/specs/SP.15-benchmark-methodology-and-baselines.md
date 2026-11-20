@@ -144,6 +144,14 @@ BM.03 quarantine fixture ran at low trust and was blocked. The fixture
 preconditions above exist so that a scenario cannot be published under a
 name it does not measure.
 
+The committed `bench/baseline.json` and `bench/output/benchmarks.*` come
+from runs before these corrections. Their rows for BM.02 at 1 KiB, the
+BM.03 quarantine path, BM.04, BM.06, and BM.07 describe the earlier
+fixtures until a baseline refresh replaces them, and the published page
+says so. A refresh needs three runs within +/-5% on a quiet runner; three
+runs on a shared workstation on 2026-11-20 spread up to 15% and were not
+used.
+
 ## Environment Disclosure Format
 
 Every published result - `bench/output/benchmarks.md`, README excerpts, talk

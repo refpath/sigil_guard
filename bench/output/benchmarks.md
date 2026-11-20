@@ -6,6 +6,7 @@
 - SigilGuard: 1.0.1 (ec939e1)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
 - Date: 2026-09-11
+- Fixtures: This run predates the fixture corrections of 2026-11-20. Its `BM.04 runtime stream 64k split secret` row timed a stream that halted at its first chunk, its `BM.03 runtime gate quarantine` row timed a blocked request, and its `BM.02 scan hits 1k` row scanned text without a secret. Those three rows are not comparable with a later run.
 - Background load: Unrelated BEAM work exceeded 50% CPU in 60 of 164 sampled seconds, with a peak observed process CPU of 1303.7% (100% is one logical CPU). This shared-host run is informational, not a controlled timing comparison.
 
 
