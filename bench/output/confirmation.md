@@ -17,9 +17,9 @@ every value is per call.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (39a9315)
+- SigilGuard: 1.0.5 (becb2d6)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-11-20
+- Date: 2026-11-21
 
 ## System
 
@@ -82,38 +82,38 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation action digest</td>
-    <td style="white-space: nowrap; text-align: right">107.14 K</td>
-    <td style="white-space: nowrap; text-align: right">9.33 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;24.02%</td>
-    <td style="white-space: nowrap; text-align: right">8.92 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">15.50 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">115.21 K</td>
+    <td style="white-space: nowrap; text-align: right">8.68 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;22.83%</td>
+    <td style="white-space: nowrap; text-align: right">8.10 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">15.23 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation issue</td>
-    <td style="white-space: nowrap; text-align: right">37.61 K</td>
-    <td style="white-space: nowrap; text-align: right">26.59 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;15.26%</td>
-    <td style="white-space: nowrap; text-align: right">26.13 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">41.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">34.06 K</td>
+    <td style="white-space: nowrap; text-align: right">29.36 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;20.43%</td>
+    <td style="white-space: nowrap; text-align: right">28.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">45.75 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation verify</td>
-    <td style="white-space: nowrap; text-align: right">26.36 K</td>
-    <td style="white-space: nowrap; text-align: right">37.94 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;19.73%</td>
-    <td style="white-space: nowrap; text-align: right">40.33 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">60.25 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">27.84 K</td>
+    <td style="white-space: nowrap; text-align: right">35.91 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;19.60%</td>
+    <td style="white-space: nowrap; text-align: right">34.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">51.29 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 guard_request accepted token</td>
-    <td style="white-space: nowrap; text-align: right">5.97 K</td>
-    <td style="white-space: nowrap; text-align: right">167.64 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;8.50%</td>
-    <td style="white-space: nowrap; text-align: right">164.42 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">208.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">5.60 K</td>
+    <td style="white-space: nowrap; text-align: right">178.46 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;7.68%</td>
+    <td style="white-space: nowrap; text-align: right">176.92 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">217.51 &micro;s</td>
   </tr>
 
 </table>
@@ -128,26 +128,26 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation action digest</td>
-    <td style="white-space: nowrap;text-align: right">107.14 K</td>
+    <td style="white-space: nowrap;text-align: right">115.21 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation issue</td>
-    <td style="white-space: nowrap; text-align: right">37.61 K</td>
-    <td style="white-space: nowrap; text-align: right">2.85x</td>
+    <td style="white-space: nowrap; text-align: right">34.06 K</td>
+    <td style="white-space: nowrap; text-align: right">3.38x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 confirmation verify</td>
-    <td style="white-space: nowrap; text-align: right">26.36 K</td>
-    <td style="white-space: nowrap; text-align: right">4.06x</td>
+    <td style="white-space: nowrap; text-align: right">27.84 K</td>
+    <td style="white-space: nowrap; text-align: right">4.14x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.20 guard_request accepted token</td>
-    <td style="white-space: nowrap; text-align: right">5.97 K</td>
-    <td style="white-space: nowrap; text-align: right">17.96x</td>
+    <td style="white-space: nowrap; text-align: right">5.60 K</td>
+    <td style="white-space: nowrap; text-align: right">20.56x</td>
   </tr>
 
 </table>
@@ -169,17 +169,17 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.20 confirmation issue</td>
-    <td style="white-space: nowrap">61.41 KB</td>
-    <td>2.77x</td>
+    <td style="white-space: nowrap">61.77 KB</td>
+    <td>2.78x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.20 confirmation verify</td>
-    <td style="white-space: nowrap">66.59 KB</td>
-    <td>3.0x</td>
+    <td style="white-space: nowrap">66.90 KB</td>
+    <td>3.01x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.20 guard_request accepted token</td>
-    <td style="white-space: nowrap">304.55 KB</td>
-    <td>13.72x</td>
+    <td style="white-space: nowrap">302.14 KB</td>
+    <td>13.61x</td>
   </tr>
 </table>

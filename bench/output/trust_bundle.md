@@ -16,9 +16,9 @@ every value is per call.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (39a9315)
+- SigilGuard: 1.0.5 (becb2d6)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-11-20
+- Date: 2026-11-21
 
 ## System
 
@@ -81,38 +81,38 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap; text-align: right">741.48 K</td>
-    <td style="white-space: nowrap; text-align: right">1.35 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;368.15%</td>
-    <td style="white-space: nowrap; text-align: right">0.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">3.32 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">925.11 K</td>
+    <td style="white-space: nowrap; text-align: right">1.08 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;101.01%</td>
+    <td style="white-space: nowrap; text-align: right">1.15 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1.41 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.23 trust bundle pattern sets</td>
-    <td style="white-space: nowrap; text-align: right">117.70 K</td>
-    <td style="white-space: nowrap; text-align: right">8.50 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;64.94%</td>
-    <td style="white-space: nowrap; text-align: right">7.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">25.90 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">118.87 K</td>
+    <td style="white-space: nowrap; text-align: right">8.41 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;46.71%</td>
+    <td style="white-space: nowrap; text-align: right">7.83 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">18.38 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap; text-align: right">9.04 K</td>
-    <td style="white-space: nowrap; text-align: right">110.60 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;12.23%</td>
-    <td style="white-space: nowrap; text-align: right">108.46 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">167.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">10.70 K</td>
+    <td style="white-space: nowrap; text-align: right">93.47 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;7.27%</td>
+    <td style="white-space: nowrap; text-align: right">92.29 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">112.75 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.23 trust bundle load</td>
-    <td style="white-space: nowrap; text-align: right">8.21 K</td>
-    <td style="white-space: nowrap; text-align: right">121.87 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;25.77%</td>
-    <td style="white-space: nowrap; text-align: right">110.67 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">221.11 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">10.15 K</td>
+    <td style="white-space: nowrap; text-align: right">98.56 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;7.13%</td>
+    <td style="white-space: nowrap; text-align: right">97 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">119.88 &micro;s</td>
   </tr>
 
 </table>
@@ -127,26 +127,26 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap;text-align: right">741.48 K</td>
+    <td style="white-space: nowrap;text-align: right">925.11 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.23 trust bundle pattern sets</td>
-    <td style="white-space: nowrap; text-align: right">117.70 K</td>
-    <td style="white-space: nowrap; text-align: right">6.3x</td>
+    <td style="white-space: nowrap; text-align: right">118.87 K</td>
+    <td style="white-space: nowrap; text-align: right">7.78x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap; text-align: right">9.04 K</td>
-    <td style="white-space: nowrap; text-align: right">82.01x</td>
+    <td style="white-space: nowrap; text-align: right">10.70 K</td>
+    <td style="white-space: nowrap; text-align: right">86.47x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.23 trust bundle load</td>
-    <td style="white-space: nowrap; text-align: right">8.21 K</td>
-    <td style="white-space: nowrap; text-align: right">90.36x</td>
+    <td style="white-space: nowrap; text-align: right">10.15 K</td>
+    <td style="white-space: nowrap; text-align: right">91.18x</td>
   </tr>
 
 </table>
@@ -163,22 +163,22 @@ Memory Usage
   </tr>
   <tr>
     <td style="white-space: nowrap">BM.06 trust bundle cache warm</td>
-    <td style="white-space: nowrap">3.26 KB</td>
+    <td style="white-space: nowrap">4.83 KB</td>
     <td>&nbsp;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.23 trust bundle pattern sets</td>
-    <td style="white-space: nowrap">8.02 KB</td>
-    <td>2.46x</td>
+    <td style="white-space: nowrap">7.68 KB</td>
+    <td>1.59x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.06 trust bundle verify cold</td>
-    <td style="white-space: nowrap">108.95 KB</td>
-    <td>33.42x</td>
+    <td style="white-space: nowrap">108.70 KB</td>
+    <td>22.49x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.23 trust bundle load</td>
-    <td style="white-space: nowrap">129.79 KB</td>
-    <td>39.81x</td>
+    <td style="white-space: nowrap">129.54 KB</td>
+    <td>26.8x</td>
   </tr>
 </table>

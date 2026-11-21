@@ -16,9 +16,9 @@ every value is per call.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (39a9315)
+- SigilGuard: 1.0.5 (becb2d6)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-11-20
+- Date: 2026-11-21
 
 ## System
 
@@ -81,101 +81,101 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.28 secure compare 64 bytes</td>
-    <td style="white-space: nowrap; text-align: right">18235.48 K</td>
-    <td style="white-space: nowrap; text-align: right">0.0548 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;50.04%</td>
-    <td style="white-space: nowrap; text-align: right">0.0528 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.0705 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">20949.73 K</td>
+    <td style="white-space: nowrap; text-align: right">0.0477 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;23.51%</td>
+    <td style="white-space: nowrap; text-align: right">0.0464 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.0546 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 replay store detect replay</td>
-    <td style="white-space: nowrap; text-align: right">2608.60 K</td>
-    <td style="white-space: nowrap; text-align: right">0.38 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;56.74%</td>
-    <td style="white-space: nowrap; text-align: right">0.37 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.65 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">2874.20 K</td>
+    <td style="white-space: nowrap; text-align: right">0.35 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;48.92%</td>
+    <td style="white-space: nowrap; text-align: right">0.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.54 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.28 sha256 hex 1k</td>
-    <td style="white-space: nowrap; text-align: right">1905.19 K</td>
-    <td style="white-space: nowrap; text-align: right">0.52 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;51.93%</td>
-    <td style="white-space: nowrap; text-align: right">0.49 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">1.82 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">2144.45 K</td>
+    <td style="white-space: nowrap; text-align: right">0.47 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;41.09%</td>
+    <td style="white-space: nowrap; text-align: right">0.45 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1.48 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 vault exists</td>
-    <td style="white-space: nowrap; text-align: right">1228.30 K</td>
-    <td style="white-space: nowrap; text-align: right">0.81 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;644.15%</td>
-    <td style="white-space: nowrap; text-align: right">0.80 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">1.04 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
-    <td style="white-space: nowrap; text-align: right">777.36 K</td>
-    <td style="white-space: nowrap; text-align: right">1.29 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;26.25%</td>
-    <td style="white-space: nowrap; text-align: right">1.21 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">2.65 &micro;s</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
-    <td style="white-space: nowrap; text-align: right">508.99 K</td>
-    <td style="white-space: nowrap; text-align: right">1.96 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;245.72%</td>
-    <td style="white-space: nowrap; text-align: right">1.63 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">3.70 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1429.84 K</td>
+    <td style="white-space: nowrap; text-align: right">0.70 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;32.14%</td>
+    <td style="white-space: nowrap; text-align: right">0.69 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.83 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 vault decrypt</td>
-    <td style="white-space: nowrap; text-align: right">499.46 K</td>
-    <td style="white-space: nowrap; text-align: right">2.00 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;1449.62%</td>
-    <td style="white-space: nowrap; text-align: right">1.28 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">3.32 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">920.99 K</td>
+    <td style="white-space: nowrap; text-align: right">1.09 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;39.31%</td>
+    <td style="white-space: nowrap; text-align: right">1.07 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1.33 &micro;s</td>
   </tr>
 
   <tr>
-    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
-    <td style="white-space: nowrap; text-align: right">354.23 K</td>
-    <td style="white-space: nowrap; text-align: right">2.82 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;36.10%</td>
-    <td style="white-space: nowrap; text-align: right">2.78 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">3.79 &micro;s</td>
+    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
+    <td style="white-space: nowrap; text-align: right">862.09 K</td>
+    <td style="white-space: nowrap; text-align: right">1.16 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;27.89%</td>
+    <td style="white-space: nowrap; text-align: right">1.16 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1.56 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
+    <td style="white-space: nowrap; text-align: right">615.64 K</td>
+    <td style="white-space: nowrap; text-align: right">1.62 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;175.68%</td>
+    <td style="white-space: nowrap; text-align: right">1.35 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">5.08 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.31 telemetry otel attributes high cardinality</td>
-    <td style="white-space: nowrap; text-align: right">331.68 K</td>
-    <td style="white-space: nowrap; text-align: right">3.01 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;160.12%</td>
-    <td style="white-space: nowrap; text-align: right">2.74 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">6.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">389.20 K</td>
+    <td style="white-space: nowrap; text-align: right">2.57 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;39.56%</td>
+    <td style="white-space: nowrap; text-align: right">2.45 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">4.65 &micro;s</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
+    <td style="white-space: nowrap; text-align: right">379.20 K</td>
+    <td style="white-space: nowrap; text-align: right">2.64 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;19.77%</td>
+    <td style="white-space: nowrap; text-align: right">2.61 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">3.76 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.27 canonical json decode statement</td>
-    <td style="white-space: nowrap; text-align: right">140.58 K</td>
-    <td style="white-space: nowrap; text-align: right">7.11 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;412.80%</td>
-    <td style="white-space: nowrap; text-align: right">5.04 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">24.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">232.34 K</td>
+    <td style="white-space: nowrap; text-align: right">4.30 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;19.96%</td>
+    <td style="white-space: nowrap; text-align: right">4.17 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">6.13 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.27 jcs encode statement</td>
-    <td style="white-space: nowrap; text-align: right">65.25 K</td>
-    <td style="white-space: nowrap; text-align: right">15.33 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;126.66%</td>
-    <td style="white-space: nowrap; text-align: right">13.58 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">35.75 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">75.88 K</td>
+    <td style="white-space: nowrap; text-align: right">13.18 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;28.79%</td>
+    <td style="white-space: nowrap; text-align: right">11.96 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">32.83 &micro;s</td>
   </tr>
 
 </table>
@@ -190,68 +190,68 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.28 secure compare 64 bytes</td>
-    <td style="white-space: nowrap;text-align: right">18235.48 K</td>
+    <td style="white-space: nowrap;text-align: right">20949.73 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 replay store detect replay</td>
-    <td style="white-space: nowrap; text-align: right">2608.60 K</td>
-    <td style="white-space: nowrap; text-align: right">6.99x</td>
+    <td style="white-space: nowrap; text-align: right">2874.20 K</td>
+    <td style="white-space: nowrap; text-align: right">7.29x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.28 sha256 hex 1k</td>
-    <td style="white-space: nowrap; text-align: right">1905.19 K</td>
-    <td style="white-space: nowrap; text-align: right">9.57x</td>
+    <td style="white-space: nowrap; text-align: right">2144.45 K</td>
+    <td style="white-space: nowrap; text-align: right">9.77x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 vault exists</td>
-    <td style="white-space: nowrap; text-align: right">1228.30 K</td>
-    <td style="white-space: nowrap; text-align: right">14.85x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
-    <td style="white-space: nowrap; text-align: right">777.36 K</td>
-    <td style="white-space: nowrap; text-align: right">23.46x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
-    <td style="white-space: nowrap; text-align: right">508.99 K</td>
-    <td style="white-space: nowrap; text-align: right">35.83x</td>
+    <td style="white-space: nowrap; text-align: right">1429.84 K</td>
+    <td style="white-space: nowrap; text-align: right">14.65x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.30 vault decrypt</td>
-    <td style="white-space: nowrap; text-align: right">499.46 K</td>
-    <td style="white-space: nowrap; text-align: right">36.51x</td>
+    <td style="white-space: nowrap; text-align: right">920.99 K</td>
+    <td style="white-space: nowrap; text-align: right">22.75x</td>
   </tr>
 
   <tr>
-    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
-    <td style="white-space: nowrap; text-align: right">354.23 K</td>
-    <td style="white-space: nowrap; text-align: right">51.48x</td>
+    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
+    <td style="white-space: nowrap; text-align: right">862.09 K</td>
+    <td style="white-space: nowrap; text-align: right">24.3x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
+    <td style="white-space: nowrap; text-align: right">615.64 K</td>
+    <td style="white-space: nowrap; text-align: right">34.03x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.31 telemetry otel attributes high cardinality</td>
-    <td style="white-space: nowrap; text-align: right">331.68 K</td>
-    <td style="white-space: nowrap; text-align: right">54.98x</td>
+    <td style="white-space: nowrap; text-align: right">389.20 K</td>
+    <td style="white-space: nowrap; text-align: right">53.83x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
+    <td style="white-space: nowrap; text-align: right">379.20 K</td>
+    <td style="white-space: nowrap; text-align: right">55.25x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.27 canonical json decode statement</td>
-    <td style="white-space: nowrap; text-align: right">140.58 K</td>
-    <td style="white-space: nowrap; text-align: right">129.72x</td>
+    <td style="white-space: nowrap; text-align: right">232.34 K</td>
+    <td style="white-space: nowrap; text-align: right">90.17x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.27 jcs encode statement</td>
-    <td style="white-space: nowrap; text-align: right">65.25 K</td>
-    <td style="white-space: nowrap; text-align: right">279.46x</td>
+    <td style="white-space: nowrap; text-align: right">75.88 K</td>
+    <td style="white-space: nowrap; text-align: right">276.07x</td>
   </tr>
 
 </table>
@@ -268,57 +268,57 @@ Memory Usage
   </tr>
   <tr>
     <td style="white-space: nowrap">BM.28 secure compare 64 bytes</td>
-    <td style="white-space: nowrap">0.58 B</td>
+    <td style="white-space: nowrap">0.50 B</td>
     <td>&nbsp;</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.30 replay store detect replay</td>
-    <td style="white-space: nowrap">368.31 B</td>
-    <td>633.91x</td>
+    <td style="white-space: nowrap">368.86 B</td>
+    <td>741.26x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.28 sha256 hex 1k</td>
-    <td style="white-space: nowrap">155.11 B</td>
-    <td>266.97x</td>
+    <td style="white-space: nowrap">154.55 B</td>
+    <td>310.58x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.30 vault exists</td>
-    <td style="white-space: nowrap">284.80 B</td>
-    <td>490.18x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
-    <td style="white-space: nowrap">2189 B</td>
-    <td>3767.61x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
-    <td style="white-space: nowrap">705.60 B</td>
-    <td>1214.45x</td>
+    <td style="white-space: nowrap">276 B</td>
+    <td>554.65x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.30 vault decrypt</td>
-    <td style="white-space: nowrap">340 B</td>
-    <td>585.19x</td>
+    <td style="white-space: nowrap">341.33 B</td>
+    <td>685.95x</td>
   </tr>
     <tr>
-    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
-    <td style="white-space: nowrap">5772 B</td>
-    <td>9934.5x</td>
+    <td style="white-space: nowrap">BM.29 identity did:key public key</td>
+    <td style="white-space: nowrap">2187.56 B</td>
+    <td>4396.15x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.29 identity spiffe id check</td>
+    <td style="white-space: nowrap">707.43 B</td>
+    <td>1421.66x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.31 telemetry otel attributes high cardinality</td>
     <td style="white-space: nowrap">5006 B</td>
-    <td>8616.1x</td>
+    <td>10060.13x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.31 telemetry otel attributes</td>
+    <td style="white-space: nowrap">5772 B</td>
+    <td>11599.5x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.27 canonical json decode statement</td>
-    <td style="white-space: nowrap">10904 B</td>
-    <td>18767.46x</td>
+    <td style="white-space: nowrap">10930.67 B</td>
+    <td>21966.44x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.27 jcs encode statement</td>
-    <td style="white-space: nowrap">43616 B</td>
-    <td>75069.85x</td>
+    <td style="white-space: nowrap">43704 B</td>
+    <td>87828.23x</td>
   </tr>
 </table>

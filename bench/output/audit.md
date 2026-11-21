@@ -18,9 +18,9 @@ every value is per call.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (39a9315)
+- SigilGuard: 1.0.5 (becb2d6)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-11-20
+- Date: 2026-11-21
 
 ## System
 
@@ -83,74 +83,74 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.07 audit append onto 10k chain</td>
-    <td style="white-space: nowrap; text-align: right">589011.38</td>
-    <td style="white-space: nowrap; text-align: right">0.00170 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;39.75%</td>
-    <td style="white-space: nowrap; text-align: right">0.00159 ms</td>
-    <td style="white-space: nowrap; text-align: right">0.00401 ms</td>
+    <td style="white-space: nowrap; text-align: right">635851.90</td>
+    <td style="white-space: nowrap; text-align: right">0.00157 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;54.88%</td>
+    <td style="white-space: nowrap; text-align: right">0.00149 ms</td>
+    <td style="white-space: nowrap; text-align: right">0.00313 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">110189.16</td>
-    <td style="white-space: nowrap; text-align: right">0.00908 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;136.51%</td>
-    <td style="white-space: nowrap; text-align: right">0.00746 ms</td>
-    <td style="white-space: nowrap; text-align: right">0.0550 ms</td>
+    <td style="white-space: nowrap; text-align: right">131278.12</td>
+    <td style="white-space: nowrap; text-align: right">0.00762 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;79.50%</td>
+    <td style="white-space: nowrap; text-align: right">0.00660 ms</td>
+    <td style="white-space: nowrap; text-align: right">0.0518 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit consistency verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">72850.85</td>
-    <td style="white-space: nowrap; text-align: right">0.0137 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;115.59%</td>
+    <td style="white-space: nowrap; text-align: right">86953.00</td>
     <td style="white-space: nowrap; text-align: right">0.0115 ms</td>
-    <td style="white-space: nowrap; text-align: right">0.136 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;99.22%</td>
+    <td style="white-space: nowrap; text-align: right">0.00958 ms</td>
+    <td style="white-space: nowrap; text-align: right">0.101 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit verify chain 1k</td>
-    <td style="white-space: nowrap; text-align: right">494.10</td>
-    <td style="white-space: nowrap; text-align: right">2.02 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;16.86%</td>
-    <td style="white-space: nowrap; text-align: right">1.94 ms</td>
-    <td style="white-space: nowrap; text-align: right">3.61 ms</td>
+    <td style="white-space: nowrap; text-align: right">628.12</td>
+    <td style="white-space: nowrap; text-align: right">1.59 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;3.70%</td>
+    <td style="white-space: nowrap; text-align: right">1.58 ms</td>
+    <td style="white-space: nowrap; text-align: right">1.88 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit export create 1k</td>
-    <td style="white-space: nowrap; text-align: right">297.42</td>
-    <td style="white-space: nowrap; text-align: right">3.36 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;4.06%</td>
-    <td style="white-space: nowrap; text-align: right">3.35 ms</td>
-    <td style="white-space: nowrap; text-align: right">3.75 ms</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
-    <td style="white-space: nowrap; text-align: right">137.20</td>
-    <td style="white-space: nowrap; text-align: right">7.29 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;23.65%</td>
-    <td style="white-space: nowrap; text-align: right">7.22 ms</td>
-    <td style="white-space: nowrap; text-align: right">11.78 ms</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
-    <td style="white-space: nowrap; text-align: right">114.59</td>
-    <td style="white-space: nowrap; text-align: right">8.73 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;40.55%</td>
-    <td style="white-space: nowrap; text-align: right">7.76 ms</td>
-    <td style="white-space: nowrap; text-align: right">19.21 ms</td>
+    <td style="white-space: nowrap; text-align: right">287.60</td>
+    <td style="white-space: nowrap; text-align: right">3.48 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;1.84%</td>
+    <td style="white-space: nowrap; text-align: right">3.47 ms</td>
+    <td style="white-space: nowrap; text-align: right">3.73 ms</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap; text-align: right">112.41</td>
-    <td style="white-space: nowrap; text-align: right">8.90 ms</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;30.11%</td>
-    <td style="white-space: nowrap; text-align: right">8.00 ms</td>
-    <td style="white-space: nowrap; text-align: right">17.06 ms</td>
+    <td style="white-space: nowrap; text-align: right">184.02</td>
+    <td style="white-space: nowrap; text-align: right">5.43 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;14.67%</td>
+    <td style="white-space: nowrap; text-align: right">5.42 ms</td>
+    <td style="white-space: nowrap; text-align: right">6.94 ms</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
+    <td style="white-space: nowrap; text-align: right">182.23</td>
+    <td style="white-space: nowrap; text-align: right">5.49 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;11.71%</td>
+    <td style="white-space: nowrap; text-align: right">5.55 ms</td>
+    <td style="white-space: nowrap; text-align: right">6.79 ms</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
+    <td style="white-space: nowrap; text-align: right">181.20</td>
+    <td style="white-space: nowrap; text-align: right">5.52 ms</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;18.83%</td>
+    <td style="white-space: nowrap; text-align: right">5.60 ms</td>
+    <td style="white-space: nowrap; text-align: right">6.94 ms</td>
   </tr>
 
 </table>
@@ -165,50 +165,50 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.07 audit append onto 10k chain</td>
-    <td style="white-space: nowrap;text-align: right">589011.38</td>
+    <td style="white-space: nowrap;text-align: right">635851.90</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">110189.16</td>
-    <td style="white-space: nowrap; text-align: right">5.35x</td>
+    <td style="white-space: nowrap; text-align: right">131278.12</td>
+    <td style="white-space: nowrap; text-align: right">4.84x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit consistency verify 10k</td>
-    <td style="white-space: nowrap; text-align: right">72850.85</td>
-    <td style="white-space: nowrap; text-align: right">8.09x</td>
+    <td style="white-space: nowrap; text-align: right">86953.00</td>
+    <td style="white-space: nowrap; text-align: right">7.31x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit verify chain 1k</td>
-    <td style="white-space: nowrap; text-align: right">494.10</td>
-    <td style="white-space: nowrap; text-align: right">1192.09x</td>
+    <td style="white-space: nowrap; text-align: right">628.12</td>
+    <td style="white-space: nowrap; text-align: right">1012.31x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.26 audit export create 1k</td>
-    <td style="white-space: nowrap; text-align: right">297.42</td>
-    <td style="white-space: nowrap; text-align: right">1980.44x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
-    <td style="white-space: nowrap; text-align: right">137.20</td>
-    <td style="white-space: nowrap; text-align: right">4293.07x</td>
-  </tr>
-
-  <tr>
-    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
-    <td style="white-space: nowrap; text-align: right">114.59</td>
-    <td style="white-space: nowrap; text-align: right">5140.23x</td>
+    <td style="white-space: nowrap; text-align: right">287.60</td>
+    <td style="white-space: nowrap; text-align: right">2210.9x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap; text-align: right">112.41</td>
-    <td style="white-space: nowrap; text-align: right">5239.72x</td>
+    <td style="white-space: nowrap; text-align: right">184.02</td>
+    <td style="white-space: nowrap; text-align: right">3455.28x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
+    <td style="white-space: nowrap; text-align: right">182.23</td>
+    <td style="white-space: nowrap; text-align: right">3489.31x</td>
+  </tr>
+
+  <tr>
+    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
+    <td style="white-space: nowrap; text-align: right">181.20</td>
+    <td style="white-space: nowrap; text-align: right">3509.08x</td>
   </tr>
 
 </table>
@@ -230,13 +230,13 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.07 audit inclusion verify 10k</td>
-    <td style="white-space: nowrap">0.00554 MB</td>
-    <td>3.34x</td>
+    <td style="white-space: nowrap">0.00541 MB</td>
+    <td>3.26x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.26 audit consistency verify 10k</td>
-    <td style="white-space: nowrap">0.00809 MB</td>
-    <td>4.89x</td>
+    <td style="white-space: nowrap">0.00786 MB</td>
+    <td>4.74x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.26 audit verify chain 1k</td>
@@ -245,22 +245,22 @@ Memory Usage
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.26 audit export create 1k</td>
-    <td style="white-space: nowrap">2.66 MB</td>
-    <td>1604.41x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
-    <td style="white-space: nowrap">4.22 MB</td>
-    <td>2546.44x</td>
-  </tr>
-    <tr>
-    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
-    <td style="white-space: nowrap">4.12 MB</td>
-    <td>2485.27x</td>
+    <td style="white-space: nowrap">2.58 MB</td>
+    <td>1559.07x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.07 audit checkpoint create 10k</td>
-    <td style="white-space: nowrap">3.98 MB</td>
-    <td>2401.58x</td>
+    <td style="white-space: nowrap">3.75 MB</td>
+    <td>2263.43x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.26 audit consistency proof 10k</td>
+    <td style="white-space: nowrap">3.99 MB</td>
+    <td>2408.26x</td>
+  </tr>
+    <tr>
+    <td style="white-space: nowrap">BM.26 audit inclusion proof 10k</td>
+    <td style="white-space: nowrap">3.89 MB</td>
+    <td>2349.96x</td>
   </tr>
 </table>

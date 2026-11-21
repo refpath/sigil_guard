@@ -16,9 +16,9 @@ every value is per call.
 - Hardware: Apple M4 Max, 16 cores, 128 GB RAM
 - OS: unix/darwin
 - Elixir: 1.20.4 / OTP: 29
-- SigilGuard: 1.0.5 (39a9315)
+- SigilGuard: 1.0.5 (becb2d6)
 - Benchee: warmup 2 s, time 5 s, memory_time 2 s
-- Date: 2026-11-20
+- Date: 2026-11-21
 
 ## System
 
@@ -81,110 +81,110 @@ Run Time
 
   <tr>
     <td style="white-space: nowrap">BM.12 policy verdict blocked</td>
-    <td style="white-space: nowrap; text-align: right">3523.75 K</td>
-    <td style="white-space: nowrap; text-align: right">0.28 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;26.69%</td>
-    <td style="white-space: nowrap; text-align: right">0.27 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.51 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">4138.39 K</td>
+    <td style="white-space: nowrap; text-align: right">0.24 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;31.67%</td>
+    <td style="white-space: nowrap; text-align: right">0.24 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.29 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.12 policy verdict allowed</td>
-    <td style="white-space: nowrap; text-align: right">2207.26 K</td>
-    <td style="white-space: nowrap; text-align: right">0.45 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;39.39%</td>
-    <td style="white-space: nowrap; text-align: right">0.44 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">0.63 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">2392.91 K</td>
+    <td style="white-space: nowrap; text-align: right">0.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;30.32%</td>
+    <td style="white-space: nowrap; text-align: right">0.41 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.54 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.13 boundary policy kernel</td>
-    <td style="white-space: nowrap; text-align: right">314.27 K</td>
-    <td style="white-space: nowrap; text-align: right">3.18 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;73.58%</td>
-    <td style="white-space: nowrap; text-align: right">2.88 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">12.82 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">361.69 K</td>
+    <td style="white-space: nowrap; text-align: right">2.76 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;82.62%</td>
+    <td style="white-space: nowrap; text-align: right">2.31 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">8.86 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 repo policy evaluate</td>
-    <td style="white-space: nowrap; text-align: right">142.75 K</td>
-    <td style="white-space: nowrap; text-align: right">7.01 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;31.60%</td>
-    <td style="white-space: nowrap; text-align: right">6.60 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">14.58 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">153.43 K</td>
+    <td style="white-space: nowrap; text-align: right">6.52 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;22.59%</td>
+    <td style="white-space: nowrap; text-align: right">6.06 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">14.31 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 repo policy compile</td>
-    <td style="white-space: nowrap; text-align: right">73.96 K</td>
-    <td style="white-space: nowrap; text-align: right">13.52 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;34.39%</td>
-    <td style="white-space: nowrap; text-align: right">12.46 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">34.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">84.68 K</td>
+    <td style="white-space: nowrap; text-align: right">11.81 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;39.27%</td>
+    <td style="white-space: nowrap; text-align: right">10.92 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">26.04 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap; text-align: right">37.86 K</td>
-    <td style="white-space: nowrap; text-align: right">26.42 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;18.11%</td>
-    <td style="white-space: nowrap; text-align: right">25.38 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">39.71 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">42.38 K</td>
+    <td style="white-space: nowrap; text-align: right">23.59 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;14.94%</td>
+    <td style="white-space: nowrap; text-align: right">21.92 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">35.83 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap; text-align: right">30.14 K</td>
-    <td style="white-space: nowrap; text-align: right">33.18 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;19.76%</td>
-    <td style="white-space: nowrap; text-align: right">32 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">47 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">32.99 K</td>
+    <td style="white-space: nowrap; text-align: right">30.31 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;13.66%</td>
+    <td style="white-space: nowrap; text-align: right">29.13 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">41.17 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 runtime gate repo change</td>
-    <td style="white-space: nowrap; text-align: right">25.00 K</td>
-    <td style="white-space: nowrap; text-align: right">40.00 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;9.24%</td>
-    <td style="white-space: nowrap; text-align: right">39.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">50.29 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">26.18 K</td>
+    <td style="white-space: nowrap; text-align: right">38.20 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;8.91%</td>
+    <td style="white-space: nowrap; text-align: right">37.67 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">49.50 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap; text-align: right">21.34 K</td>
-    <td style="white-space: nowrap; text-align: right">46.86 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;13.00%</td>
-    <td style="white-space: nowrap; text-align: right">46.75 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">61.00 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">24.45 K</td>
+    <td style="white-space: nowrap; text-align: right">40.90 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;10.54%</td>
+    <td style="white-space: nowrap; text-align: right">40.04 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">52.96 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.14 policy file parse</td>
-    <td style="white-space: nowrap; text-align: right">12.77 K</td>
-    <td style="white-space: nowrap; text-align: right">78.30 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;13.44%</td>
-    <td style="white-space: nowrap; text-align: right">77.58 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">103.42 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">13.79 K</td>
+    <td style="white-space: nowrap; text-align: right">72.49 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;9.15%</td>
+    <td style="white-space: nowrap; text-align: right">71.79 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">91.92 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap; text-align: right">10.92 K</td>
-    <td style="white-space: nowrap; text-align: right">91.59 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;11.39%</td>
-    <td style="white-space: nowrap; text-align: right">89.71 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">116.33 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">12.22 K</td>
+    <td style="white-space: nowrap; text-align: right">81.82 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;5.76%</td>
+    <td style="white-space: nowrap; text-align: right">80.63 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">96.92 &micro;s</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.14 runtime gate with output contract</td>
-    <td style="white-space: nowrap; text-align: right">0.62 K</td>
-    <td style="white-space: nowrap; text-align: right">1607.80 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">&plusmn;7.23%</td>
-    <td style="white-space: nowrap; text-align: right">1571.57 &micro;s</td>
-    <td style="white-space: nowrap; text-align: right">1913.79 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">0.69 K</td>
+    <td style="white-space: nowrap; text-align: right">1456.09 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">&plusmn;2.81%</td>
+    <td style="white-space: nowrap; text-align: right">1460.26 &micro;s</td>
+    <td style="white-space: nowrap; text-align: right">1558.89 &micro;s</td>
   </tr>
 
 </table>
@@ -199,74 +199,74 @@ Run Time Comparison
     <th style="text-align: right">Slower</th>
   <tr>
     <td style="white-space: nowrap">BM.12 policy verdict blocked</td>
-    <td style="white-space: nowrap;text-align: right">3523.75 K</td>
+    <td style="white-space: nowrap;text-align: right">4138.39 K</td>
     <td>&nbsp;</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.12 policy verdict allowed</td>
-    <td style="white-space: nowrap; text-align: right">2207.26 K</td>
-    <td style="white-space: nowrap; text-align: right">1.6x</td>
+    <td style="white-space: nowrap; text-align: right">2392.91 K</td>
+    <td style="white-space: nowrap; text-align: right">1.73x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.13 boundary policy kernel</td>
-    <td style="white-space: nowrap; text-align: right">314.27 K</td>
-    <td style="white-space: nowrap; text-align: right">11.21x</td>
+    <td style="white-space: nowrap; text-align: right">361.69 K</td>
+    <td style="white-space: nowrap; text-align: right">11.44x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 repo policy evaluate</td>
-    <td style="white-space: nowrap; text-align: right">142.75 K</td>
-    <td style="white-space: nowrap; text-align: right">24.68x</td>
+    <td style="white-space: nowrap; text-align: right">153.43 K</td>
+    <td style="white-space: nowrap; text-align: right">26.97x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 repo policy compile</td>
-    <td style="white-space: nowrap; text-align: right">73.96 K</td>
-    <td style="white-space: nowrap; text-align: right">47.65x</td>
+    <td style="white-space: nowrap; text-align: right">84.68 K</td>
+    <td style="white-space: nowrap; text-align: right">48.87x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap; text-align: right">37.86 K</td>
-    <td style="white-space: nowrap; text-align: right">93.09x</td>
+    <td style="white-space: nowrap; text-align: right">42.38 K</td>
+    <td style="white-space: nowrap; text-align: right">97.64x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap; text-align: right">30.14 K</td>
-    <td style="white-space: nowrap; text-align: right">116.92x</td>
+    <td style="white-space: nowrap; text-align: right">32.99 K</td>
+    <td style="white-space: nowrap; text-align: right">125.45x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.15 runtime gate repo change</td>
-    <td style="white-space: nowrap; text-align: right">25.00 K</td>
-    <td style="white-space: nowrap; text-align: right">140.95x</td>
+    <td style="white-space: nowrap; text-align: right">26.18 K</td>
+    <td style="white-space: nowrap; text-align: right">158.1x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap; text-align: right">21.34 K</td>
-    <td style="white-space: nowrap; text-align: right">165.12x</td>
+    <td style="white-space: nowrap; text-align: right">24.45 K</td>
+    <td style="white-space: nowrap; text-align: right">169.28x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.14 policy file parse</td>
-    <td style="white-space: nowrap; text-align: right">12.77 K</td>
-    <td style="white-space: nowrap; text-align: right">275.89x</td>
+    <td style="white-space: nowrap; text-align: right">13.79 K</td>
+    <td style="white-space: nowrap; text-align: right">300.0x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap; text-align: right">10.92 K</td>
-    <td style="white-space: nowrap; text-align: right">322.73x</td>
+    <td style="white-space: nowrap; text-align: right">12.22 K</td>
+    <td style="white-space: nowrap; text-align: right">338.6x</td>
   </tr>
 
   <tr>
     <td style="white-space: nowrap">BM.14 runtime gate with output contract</td>
-    <td style="white-space: nowrap; text-align: right">0.62 K</td>
-    <td style="white-space: nowrap; text-align: right">5665.5x</td>
+    <td style="white-space: nowrap; text-align: right">0.69 K</td>
+    <td style="white-space: nowrap; text-align: right">6025.88x</td>
   </tr>
 
 </table>
@@ -294,51 +294,51 @@ Memory Usage
     <tr>
     <td style="white-space: nowrap">BM.13 boundary policy kernel</td>
     <td style="white-space: nowrap">4.00 KB</td>
-    <td>4.79x</td>
+    <td>4.78x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.15 repo policy evaluate</td>
-    <td style="white-space: nowrap">10.02 KB</td>
-    <td>11.99x</td>
+    <td style="white-space: nowrap">9.94 KB</td>
+    <td>11.9x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.15 repo policy compile</td>
-    <td style="white-space: nowrap">13.02 KB</td>
-    <td>15.58x</td>
+    <td style="white-space: nowrap">10.95 KB</td>
+    <td>13.11x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.03 runtime gate block</td>
-    <td style="white-space: nowrap">53.62 KB</td>
-    <td>64.17x</td>
+    <td style="white-space: nowrap">54.48 KB</td>
+    <td>65.2x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.03 runtime gate redact</td>
-    <td style="white-space: nowrap">55.34 KB</td>
-    <td>66.24x</td>
+    <td style="white-space: nowrap">55.12 KB</td>
+    <td>65.97x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.15 runtime gate repo change</td>
-    <td style="white-space: nowrap">94.14 KB</td>
-    <td>112.67x</td>
+    <td style="white-space: nowrap">93.39 KB</td>
+    <td>111.77x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.03 runtime gate allow</td>
-    <td style="white-space: nowrap">45.21 KB</td>
-    <td>54.11x</td>
+    <td style="white-space: nowrap">45.38 KB</td>
+    <td>54.31x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.14 policy file parse</td>
-    <td style="white-space: nowrap">53.29 KB</td>
-    <td>63.78x</td>
+    <td style="white-space: nowrap">52.40 KB</td>
+    <td>62.71x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.03 runtime gate quarantine</td>
-    <td style="white-space: nowrap">62.04 KB</td>
-    <td>74.25x</td>
+    <td style="white-space: nowrap">62.20 KB</td>
+    <td>74.45x</td>
   </tr>
     <tr>
     <td style="white-space: nowrap">BM.14 runtime gate with output contract</td>
-    <td style="white-space: nowrap">413.83 KB</td>
-    <td>495.29x</td>
+    <td style="white-space: nowrap">414.29 KB</td>
+    <td>495.83x</td>
   </tr>
 </table>
