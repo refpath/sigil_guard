@@ -3418,7 +3418,13 @@ traced every line no test executed.
     38, 56, 41 and 42 of 79 medians within +/-5%, the last two with sub-10
     us scenarios timed in batches; the widest spreads were 58%, 22.5%,
     28.2% and 130%. Load averages stayed between 10 and 20 from other
-    processes during the last set. The rule needs a quiet runner.
+    processes during the last set. A fifth set on 2026-11-21, at load
+    averages between 1.4 and 3.1, kept 68 of 79 within +/-5% of their
+    three-run mean, with a widest deviation of 10.2%. Nine of the eleven
+    outside are in the gateway, confirmation and attestation suites, whose
+    scenario groups moved together by up to about 5% within a run, so low
+    load alone did not steady the workstation. The rule needs a dedicated
+    runner.
   - Not closed by the scheduled revision comparison, which bounds the changes
     between two named revisions and leaves the committed baseline as it is.
 - [x] M15.11 Intermittent failure of the untrusted-input gateway property.
