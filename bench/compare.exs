@@ -3,6 +3,8 @@ defmodule SigilGuard.BenchCompare do
 
   @schema "sigil_guard_bench_baseline/v1"
   @threshold 0.20
+  @band 0.05
+  @band_runs 3
   @runner_keys ~w(hardware cores os elixir otp benchee)
   @stat_keys ~w(median_ns p99_ns memory_bytes)
 
@@ -11,11 +13,136 @@ defmodule SigilGuard.BenchCompare do
           | {:warn, String.t()}
           | {:pass, String.t()}
 
-  @doc "Compare a run with the baseline. Halts with status 1 on a failure."
+  @doc """
+  Compare a run with the baseline, or check a baseline refresh with
+  `--band` given once per run. Halts with status 1 on a failure.
+  """
   @spec main([String.t()]) :: :ok
   def main(argv \\ System.argv()) do
-    opts = parse_args(argv)
+    case parse_args(argv) do
+      %{band: [_ | _]} = opts -> main_band(opts)
+      opts -> main_compare(opts)
+    end
+  end
 
+  @doc """
+  Check that a baseline refresh holds: at least three measured runs of one
+  runner class with the same scenarios, and every scenario's median within
+  +/-5% of the mean of its medians.
+  """
+  @spec band([term()]) :: {:ok, [finding()]} | {:error, [finding()]}
+  def band(runs) when is_list(runs) and length(runs) >= @band_runs do
+    with :ok <- validate_band_runs(runs),
+         :ok <- same_across(runs, &runner_class/1, "runner class"),
+         :ok <- same_across(runs, &scenario_names/1, "scenario set") do
+      band_findings(runs)
+    else
+      {:error, reason} -> {:error, [{:fail, reason}]}
+    end
+  end
+
+  def band(_), do: {:error, [{:fail, "a baseline refresh needs at least #{@band_runs} runs"}]}
+
+  @doc "The baseline document for an accepted run: the run without its `mode`."
+  @spec baseline(map()) :: map()
+  def baseline(run) when is_map(run), do: Map.delete(run, "mode")
+
+  defp main_band(opts) do
+    runs = Enum.map(opts.band, &read_json!/1)
+
+    case band(runs) do
+      {:ok, findings} ->
+        print_findings(findings)
+        write_baseline(opts.write_baseline, List.last(runs))
+
+      {:error, findings} ->
+        print_findings(findings)
+        System.halt(1)
+    end
+  end
+
+  defp write_baseline(nil, _), do: :ok
+
+  defp write_baseline(path, run) do
+    json = Jason.encode!(ordered(baseline(run)), pretty: true)
+    File.write!(path, [json, "\n"])
+    Mix.shell().info("Wrote #{path}")
+  end
+
+  # Sorted keys keep a baseline refresh a readable diff.
+  defp ordered(map) when is_map(map) do
+    map
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(fn {key, value} -> {key, ordered(value)} end)
+    |> Jason.OrderedObject.new()
+  end
+
+  defp ordered(value), do: value
+
+  defp validate_band_runs(runs) do
+    Enum.reduce_while(Enum.with_index(runs, 1), :ok, fn {run, index}, :ok ->
+      case validate_band_run(run, "run #{index}") do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp validate_band_run(run, label) when is_map(run) do
+    with :ok <- validate_document(run, label) do
+      if run["mode"] == "measured",
+        do: :ok,
+        else: {:error, "#{label} is not a measured run"}
+    end
+  end
+
+  defp validate_band_run(_, label), do: {:error, "#{label} must be a JSON object"}
+
+  defp same_across(runs, key, what) do
+    if match?([_], Enum.uniq_by(runs, key)),
+      do: :ok,
+      else: {:error, "runs differ in #{what}"}
+  end
+
+  defp scenario_names(run), do: Enum.sort(Map.keys(run["scenarios"]))
+
+  defp band_findings([first | _] = runs) do
+    outside =
+      first["scenarios"]
+      |> Map.keys()
+      |> Enum.sort()
+      |> Enum.flat_map(fn name ->
+        band_finding(name, Enum.map(runs, & &1["scenarios"][name]["median_ns"]))
+      end)
+
+    case outside do
+      [] -> {:ok, [{:pass, "every scenario median within +/-5% across #{length(runs)} runs"}]}
+      _ -> {:error, outside}
+    end
+  end
+
+  defp band_finding(name, medians) do
+    deviation = mean_deviation(medians)
+
+    if deviation > @band do
+      percent = Float.round(deviation * 100, 1)
+      values = inspect(medians, charlists: :as_lists)
+      [{:fail, "#{name} median #{percent}% from the mean of #{values}"}]
+    else
+      []
+    end
+  end
+
+  # The largest distance of a median from the mean, as a fraction of the mean.
+  defp mean_deviation(medians) do
+    mean = Enum.sum(medians) / length(medians)
+
+    if mean == 0,
+      do: 0.0,
+      else: Enum.max(Enum.map(medians, &abs(&1 - mean))) / mean
+  end
+
+  defp main_compare(opts) do
     baseline = read_json!(opts.baseline)
     run = read_json!(opts.run)
 
@@ -227,7 +354,13 @@ defmodule SigilGuard.BenchCompare do
   defp parse_args(argv) do
     {opts, _, invalid} =
       OptionParser.parse(argv,
-        strict: [baseline: :string, run: :string, require_comparable: :boolean],
+        strict: [
+          baseline: :string,
+          run: :string,
+          require_comparable: :boolean,
+          band: :keep,
+          write_baseline: :string
+        ],
         aliases: [b: :baseline, r: :run]
       )
 
@@ -236,6 +369,8 @@ defmodule SigilGuard.BenchCompare do
     end
 
     %{
+      band: Keyword.get_values(opts, :band),
+      write_baseline: Keyword.get(opts, :write_baseline),
       require_comparable: Keyword.get(opts, :require_comparable, false),
       baseline: Keyword.get(opts, :baseline, "bench/baseline.json"),
       run: Keyword.get(opts, :run, "bench/output/benchmarks.json")

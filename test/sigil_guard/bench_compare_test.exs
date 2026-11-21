@@ -137,6 +137,107 @@ defmodule SigilGuard.BenchCompareTest do
     assert from_zero =~ "unbounded increase from zero (1 vs 0)"
   end
 
+  describe "band/1" do
+    test "three measured runs within 5 percent of their mean pass" do
+      runs = Enum.map([100, 104, 96], &measured(median_ns: &1))
+
+      assert {:ok, [{:pass, "every scenario median within +/-5% across 3 runs"}]} =
+               SigilGuard.BenchCompare.band(runs)
+    end
+
+    test "a median exactly 5 percent from the mean passes and one beyond it fails" do
+      assert {:ok, _} =
+               SigilGuard.BenchCompare.band(Enum.map([95, 100, 105], &measured(median_ns: &1)))
+
+      assert {:error, [{:fail, message}]} =
+               SigilGuard.BenchCompare.band(Enum.map([94, 100, 106], &measured(median_ns: &1)))
+
+      assert message == "#{@scenario} median 6.0% from the mean of [94, 100, 106]"
+    end
+
+    test "every scenario outside the band is named" do
+      runs =
+        for median <- [100, 100, 130] do
+          measured(median_ns: median)
+          |> put_in(["scenarios", "BM.02 scan hits 1k"], stats(median_ns: 200 - median))
+        end
+
+      assert {:error, findings} = SigilGuard.BenchCompare.band(runs)
+
+      assert Enum.map(findings, fn {:fail, message} -> hd(String.split(message, " median")) end) ==
+               ["BM.01 scan clean 1k", "BM.02 scan hits 1k"]
+    end
+
+    test "fewer than three runs are refused" do
+      assert {:error, [{:fail, "a baseline refresh needs at least 3 runs"}]} =
+               SigilGuard.BenchCompare.band([measured(), measured()])
+
+      assert {:error, [{:fail, "a baseline refresh needs at least 3 runs"}]} =
+               SigilGuard.BenchCompare.band(:not_a_list)
+    end
+
+    test "a smoke run or a run without a mode is refused" do
+      assert {:error, [{:fail, "run 2 is not a measured run"}]} =
+               SigilGuard.BenchCompare.band([measured(), document(mode: "smoke"), measured()])
+
+      assert {:error, [{:fail, "run 3 is not a measured run"}]} =
+               SigilGuard.BenchCompare.band([measured(), measured(), document()])
+    end
+
+    test "runs from different runner classes or with different scenarios are refused" do
+      other_cpu = put_in(measured(), ["environment", "hardware"], "other")
+
+      assert {:error, [{:fail, "runs differ in runner class"}]} =
+               SigilGuard.BenchCompare.band([measured(), measured(), other_cpu])
+
+      extra = put_in(measured(), ["scenarios", "BM.99 new scenario"], stats(median_ns: 1))
+
+      assert {:error, [{:fail, "runs differ in scenario set"}]} =
+               SigilGuard.BenchCompare.band([measured(), extra, measured()])
+    end
+
+    test "a malformed run is refused with its position" do
+      assert {:error, [{:fail, "run 2 missing schema"}]} =
+               SigilGuard.BenchCompare.band([
+                 measured(),
+                 Map.delete(measured(), "schema"),
+                 measured()
+               ])
+
+      assert {:error, [{:fail, "run 1 must be a JSON object"}]} =
+               SigilGuard.BenchCompare.band([[], measured(), measured()])
+    end
+
+    test "the accepted last run is written as the baseline, without its mode and with sorted keys" do
+      dir = Path.join(System.tmp_dir!(), "sigil_guard_band_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+
+      paths =
+        for {median, index} <- Enum.with_index([100, 102, 99], 1) do
+          path = Path.join(dir, "run-#{index}.json")
+          File.write!(path, Jason.encode!(measured(median_ns: median)))
+          path
+        end
+
+      out = Path.join(dir, "baseline.json")
+      args = Enum.flat_map(paths, &["--band", &1]) ++ ["--write-baseline", out]
+
+      ExUnit.CaptureIO.capture_io(fn -> assert :ok = SigilGuard.BenchCompare.main(args) end)
+
+      text = File.read!(out)
+      baseline = Jason.decode!(text)
+
+      assert baseline == Map.delete(measured(median_ns: 99), "mode")
+      assert :ok = SigilGuard.BenchCompare.validate_document(baseline, "baseline")
+
+      assert Enum.sort_by(~w(environment recorded_at scenarios schema), &:binary.match(text, &1)) ==
+               ~w(environment recorded_at scenarios schema)
+    end
+  end
+
+  defp measured(overrides \\ []), do: document([mode: "measured"] ++ overrides)
+
   defp document(overrides \\ []) do
     mode = Keyword.get(overrides, :mode)
     stats_overrides = Keyword.drop(overrides, [:mode])
