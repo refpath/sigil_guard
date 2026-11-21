@@ -95,6 +95,7 @@ defmodule SigilGuard.ToolGateway.Effect do
   defp statement_expiry(%{"predicate" => %{"expires_at" => expires_at}}), do: expires_at
   defp statement_expiry(_), do: nil
 
+  # Both values parsed when the token and the attestation verified.
   defp instant(value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
       {:ok, datetime, _} -> [datetime]

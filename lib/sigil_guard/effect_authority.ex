@@ -145,8 +145,8 @@ defmodule SigilGuard.EffectAuthority do
   `request` and `context` with `effect_binding: :required`. An allowed decision
   guarded with `:off`, or one whose `effect_binding_digest` and
   `effect_operation_key` belong to another record, is refused with
-  `:not_authorized`. `current` is an
-  atom-keyed closed map of facts the host read from its own sources:
+  `:not_authorized`. `current` is an atom-keyed closed map of facts the host
+  read from its own sources:
   `:principal`, `:target` (`%{id: ..., environment: :physical | :simulated}`),
   `:policy_epoch`, `:observed_at`, and `:now`, plus optional `:artifacts`
   (`%{name: ..., sha256: ...}` maps) and `:frame_revision`.
@@ -161,8 +161,9 @@ defmodule SigilGuard.EffectAuthority do
   `:authority_expired` refuses a `:now` later than the decision's
   `effect_authority_expires_at`, the earliest stated expiry of the token and
   the attestation the gateway accepted. The checks run in the SP.19 admission
-  order, and the first failure is returned as `{:error, reason}`. The result is not a credential: it applies to the
-  dispatch that follows immediately, and a refusal never upgrades a verdict.
+  order, and the first failure is returned as `{:error, reason}`. The result
+  is not a credential: it applies to the dispatch that follows immediately,
+  and a refusal never upgrades a verdict.
   """
   @doc since: "1.1.0"
   @spec admit(term(), term(), Context.t() | map() | keyword(), term(), term()) ::
