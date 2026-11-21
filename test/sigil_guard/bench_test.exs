@@ -261,6 +261,37 @@ defmodule SigilGuard.BenchTest do
 
       assert Bench.memory_info() =~ expected
     end
+
+    test "the environment block names the CPU model, not the topology, on macOS" do
+      cpu = Bench.cpu_info()
+
+      assert cpu =~ ~r/\S/
+
+      if :os.type() == {:unix, :darwin} do
+        refute String.starts_with?(cpu, "[")
+      end
+    end
+
+    test "the Linux CPU model is the first model name in /proc/cpuinfo" do
+      text = """
+      processor\t: 0
+      vendor_id\t: AuthenticAMD
+      model name\t: AMD EPYC 7763 64-Core Processor
+      flags\t\t: fpu vme
+
+      processor\t: 1
+      model name\t: AMD EPYC 9V74 80-Core Processor
+      """
+
+      assert Bench.cpuinfo_model(text) == {:ok, "AMD EPYC 7763 64-Core Processor"}
+      assert Bench.cpuinfo_model("model name : Xeon \t \n") == {:ok, "Xeon"}
+    end
+
+    test "a /proc/cpuinfo without a model name yields no model" do
+      assert Bench.cpuinfo_model("processor\t: 0\nCPU part\t: 0xd0c\n") == :error
+      assert Bench.cpuinfo_model("model name\t:\nprocessor\t: 1\n") == :error
+      assert Bench.cpuinfo_model("") == :error
+    end
   end
 
   describe "audit chain fixture" do

@@ -419,12 +419,38 @@ defmodule SigilGuard.Bench do
 
   defp format_duration(seconds), do: "#{seconds} s"
 
-  defp cpu_info do
-    case command("sysctl", ["-n", "machdep.cpu.brand_string"]) do
-      {:ok, cpu} -> cpu
+  @doc """
+  The CPU model: `machdep.cpu.brand_string` on macOS and the first
+  `model name` in `/proc/cpuinfo` on Linux. Elsewhere, or when neither
+  names a model, the scheduler topology stands in for it.
+  """
+  @spec cpu_info() :: String.t()
+  def cpu_info do
+    case cpu_model(:os.type()) do
+      {:ok, model} -> model
       :error -> inspect(:erlang.system_info(:cpu_topology), limit: 8)
     end
   end
+
+  @doc "The first `model name` in the text of `/proc/cpuinfo`."
+  @spec cpuinfo_model(String.t()) :: {:ok, String.t()} | :error
+  def cpuinfo_model(text) do
+    case Regex.run(~r/^model name[ \t]*:[ \t]*(\S.*?)[ \t]*$/m, text) do
+      [_, model] -> {:ok, model}
+      nil -> :error
+    end
+  end
+
+  defp cpu_model({:unix, :darwin}), do: command("sysctl", ["-n", "machdep.cpu.brand_string"])
+
+  defp cpu_model({:unix, _}) do
+    case File.read("/proc/cpuinfo") do
+      {:ok, text} -> cpuinfo_model(text)
+      {:error, _} -> :error
+    end
+  end
+
+  defp cpu_model(_), do: :error
 
   # Runs a command with an empty environment and returns its trimmed output.
   # A command that is missing or fails is `:error`.
