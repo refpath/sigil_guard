@@ -3419,6 +3419,8 @@ traced every line no test executed.
     us scenarios timed in batches; the widest spreads were 58%, 22.5%,
     28.2% and 130%. Load averages stayed between 10 and 20 from other
     processes during the last set. The rule needs a quiet runner.
+  - Not closed by the scheduled revision comparison, which bounds the changes
+    between two named revisions and leaves the committed baseline as it is.
 - [x] M15.11 Intermittent failure of the untrusted-input gateway property.
   - AC: the property "a mutated context or option value is answered, not
     raised" passes in every full run, or the input that raises is fixed.
@@ -3504,3 +3506,8 @@ traced every line no test executed.
 - Generate fresh measured JSON for both revisions in the scheduled benchmark
   comparison. The smoke job still checks fixture wiring and scenario presence
   (`SP.15`).
+- Name the revision pair the scheduled benchmark comparison measures. A
+  manual run takes `head` and `base`, and the job records both hashes. A
+  result covers the changes between that pair only, so the comparison is
+  evidence for single-revision changes; release-wide performance claims wait
+  for M15.10 (`SP.15`).

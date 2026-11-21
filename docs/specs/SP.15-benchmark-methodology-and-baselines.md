@@ -232,6 +232,19 @@ and `unknown RAM` elsewhere. Hostnames and user paths MUST NOT appear.
   environment block; on any other hardware the job is informational.
   Cross-hardware comparison is invalid by definition. The runner class is
   the `hardware`, `cores`, `os`, `elixir`, `otp`, and `benchee` fields.
+- **Revision comparison:** the scheduled `comparable-performance` job in
+  `.github/workflows/security-measurements.yml` measures two revisions on
+  one runner with full `mix bench` runs and compares them with
+  `--require-comparable`, so every scenario either revision has is compared,
+  not only those in `baseline.json`. A scheduled run measures the default
+  branch tip against its parent; a manual run takes a `head` and a `base`
+  revision. The job records both commit hashes in its summary and in
+  `revisions.txt` beside the reports. A pass bounds regressions in the
+  changes between that pair only. A change that spans several commits is
+  measured by naming its own pair, and a pair that includes it in both
+  revisions says nothing about it. The comparison neither replaces
+  `baseline.json` nor supports a release-wide performance claim; that needs
+  the baseline refresh below.
 - **Baseline refresh procedure:** a dedicated PR updates `baseline.json` and
   its environment block; it MUST show three consecutive runs within +/-5%
   median on the same runner, and the commit message MUST state the reason

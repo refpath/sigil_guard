@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "17 4 * * 1"
   workflow_dispatch:
+    inputs:
+      head:
+        description: Revision to measure; empty measures the workflow ref
+        required: false
+        default: ""
+      base:
+        description: Revision to compare with; empty uses the parent of head
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -37,27 +46,38 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           elixir-version: "1.20"
           otp-version: "29"
-      - name: Measure parent and current code on the same machine
+      # A pass bounds regressions between the two named revisions only. A
+      # scheduled run compares the default branch tip with its parent; changes
+      # that landed in earlier commits are measured by naming that pair.
+      - name: Measure the base and head revisions on the same machine
         env:
           CI: "false"
+          HEAD_REF: ${{ inputs.head }}
+          BASE_REF: ${{ inputs.base }}
         run: |
-          git worktree add --detach ../sigil-benchmark-parent HEAD^
-          (cd ../sigil-benchmark-parent && rm -f bench/output/benchmarks.json && mix deps.get && mix bench)
+          head_sha=$(git rev-parse --verify --end-of-options "${HEAD_REF:-HEAD}^{commit}")
+          base_rev=${BASE_REF:-${head_sha}^}
+          base_sha=$(git rev-parse --verify --end-of-options "${base_rev}^{commit}")
+          git checkout --detach "$head_sha"
+          printf 'head %s\nbase %s\n' "$head_sha" "$base_sha" | tee bench/output/revisions.txt >> "$GITHUB_STEP_SUMMARY"
+          git worktree add --detach ../sigil-benchmark-base "$base_sha"
+          (cd ../sigil-benchmark-base && rm -f bench/output/benchmarks.json && mix deps.get && mix bench)
           rm -f bench/output/benchmarks.json
           mix deps.get
           mix bench
-          cp ../sigil-benchmark-parent/bench/output/benchmarks.json bench/output/parent-benchmarks.json
-          mix run bench/compare.exs --baseline bench/output/parent-benchmarks.json --run bench/output/benchmarks.json --require-comparable
+          cp ../sigil-benchmark-base/bench/output/benchmarks.json bench/output/base-benchmarks.json
+          mix run bench/compare.exs --baseline bench/output/base-benchmarks.json --run bench/output/benchmarks.json --require-comparable
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: comparable-performance-reports
           path: |
+            bench/output/revisions.txt
             bench/output/benchmarks.json
-            bench/output/parent-benchmarks.json
+            bench/output/base-benchmarks.json

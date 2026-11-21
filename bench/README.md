@@ -82,6 +82,17 @@ still execute. A smoke run writes under `bench/output/smoke/`, which is not
 committed, so it never replaces the published reports. CI runs the smoke and
 checks that every baseline scenario is still present.
 
+## Revision Comparison
+
+The weekly `comparable-performance` job runs the full matrix for two
+revisions on one runner and compares them with `--require-comparable`. A
+scheduled run measures the default branch tip against its parent. To
+measure another change, run the workflow by hand with `head` set to the
+commit and `base` to the commit before it. The job writes both commit hashes
+to its summary and to `revisions.txt` in the uploaded reports. A result
+covers the changes between those two revisions only; it does not replace
+the baseline or support a claim about a release as a whole.
+
 ## Baseline Refresh
 
 Refresh `bench/baseline.json` only in a dedicated PR. Run the full matrix
