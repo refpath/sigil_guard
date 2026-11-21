@@ -6,7 +6,7 @@ sigil_guard:
   status: implemented
   priority: high
   created: "2026-11-19"
-  updated: "2026-11-19"
+  updated: "2026-11-21"
   tags:
     ["physical-effect", "authority", "replay", "confirmation", "toctou",
      "evidence", "robotics"]
@@ -180,7 +180,7 @@ still match. Only a comparison against current facts detects it.
 |----|-------------|--------|----------|
 | PE.12 | Request substitution of any bound element is refused. Token verification returns `:digest_mismatch` or `:manifest_digest_mismatch`; the gateway blocks with deny reason `:confirmation_failed` and records the atom as `confirmation_reason`. Attestation verification returns the same atoms. | met | `Confirmation.verify/5`, `ToolGateway`; `tool_gateway_test.exs` "rejects confirmation tokens when the approved request binding changes"; `attestation_sign_verify_test.exs` "rejects payload, context, action, and manifest tampering" |
 | PE.13 | A refused approval is reported as one atom from a closed set. The JSON-RPC error for a failed confirmation carries the status and reason and no request text or token bytes. | met | `ToolGateway`, `MCP.Gateway`; `mcp/gateway_test.exs` "returns JSON-RPC errors for invalid confirmation tokens without leaking request text" |
-| PE.14 | `EffectAuthority.admit/5` takes the gateway decision and refuses with `:not_authorized` unless that decision allows this exact request. It then compares the binding with current facts in the fixed order under Admission Order and returns the first failing reason as a bare atom, with no value from the record, the arguments, or the facts. Equal inputs give equal results; the function reads no clock, process state, or application environment. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "refuses a decision that does not allow this exact request", "returns the first failing reason of steps 1 to 6", "returns the first failing reason of steps 7 to 14", "equal inputs give equal results", "the modules read no clock, process state, ETS, or application environment" |
+| PE.14 | `EffectAuthority.admit/5` takes the gateway decision and refuses with `:not_authorized` unless the gateway made it with `effect_binding: :required` for the binding record the request carries and it allows this exact request. A confirmed decision guarded with `:off` carries the same action digest and is refused. Admission then compares the binding with current facts in the fixed order under Admission Order and returns the first failing reason as a bare atom, with no value from the record, the arguments, or the facts. Equal inputs give equal results; the function reads no clock, process state, or application environment. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "refuses a decision that does not allow this exact request", "refuses a confirmed decision guarded without the effect binding", "refuses a decision whose effect metadata names another record", "returns the first failing reason of steps 1 to 6", "returns the first failing reason of steps 7 to 14", "equal inputs give equal results", "the modules read no clock, process state, ETS, or application environment" |
 | PE.15 | `target.environment` is a closed enum, `physical` or `simulated`. A binding approved for one never admits against the other (`:target_environment_mismatch`), even when `target.id` is equal. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "the target environment is compared after the target id", "a simulated target never satisfies an envelope for the physical one" |
 
 `:digest_mismatch` identifies the violated boundary, the approval binding, and
@@ -396,9 +396,9 @@ sides are absent or both are present with equal values.
 | Step | Check | Refusal |
 |------|-------|---------|
 | 1 | Options are a keyword list with a positive integer `:max_fact_age_ms`, an optional `:envelope`, and no other key | `:invalid_options` |
-| 2 | `decision` is a `SigilGuard.Decision` with verdict `:allowed` and action `:allow` whose `audit_metadata.action_digest` equals the action digest recomputed from `request`, `context`, and `audit_metadata.protocol_version`, as the gateway computes it | `:not_authorized` |
-| 3 | The record is present | `:effect_binding_required` |
-| 4 | The record is valid | `:invalid_effect_binding` |
+| 2 | The record is present | `:effect_binding_required` |
+| 3 | The record is valid | `:invalid_effect_binding` |
+| 4 | `decision` is a `SigilGuard.Decision` with verdict `:allowed` and action `:allow`; its `audit_metadata` has `effect_binding: :valid`, an `effect_binding_digest` and `effect_operation_key` equal to those of the record, and an `action_digest` equal to the action digest recomputed from `request`, `context`, and `audit_metadata.protocol_version`, as the gateway computes it | `:not_authorized` |
 | 5 | `current` is valid | `:invalid_current_facts` |
 | 6 | Facts are fresh | `:stale_current_facts` |
 | 7 | `current.principal` equals `context.actor` | `:principal_mismatch` |
@@ -415,13 +415,18 @@ A record without `envelope` passes step 15 when no `:envelope` option is
 supplied. Supplying one for a record that names none fails with
 `:effect_envelope_mismatch`.
 
-Step 2 depends on PE.09. Without `effect_binding: :required` the gate records
-`action_digest` only on a `confirm` decision, where it stays after the token is accepted; a decision
-that was allowed without confirmation carries `nil` (`tool_gateway_test.exs`
-"a decision allowed without confirmation carries a nil action digest"). The
-gateway binds the protocol version it selected, which a `:protocol_version`
-option can override ("the :protocol_version option changes the bound action
-digest"), so step 2 recomputes with the version the decision records. `context` is the value the host passed to `guard_request/3`,
+Step 4 depends on PE.09. Without `effect_binding: :required` the gate records
+`action_digest` only on a `confirm` decision, where it stays after the token
+is accepted; a decision that was allowed without confirmation carries `nil`
+(`tool_gateway_test.exs` "a decision allowed without confirmation carries a
+nil action digest"). A confirmed `:off` decision therefore has the action
+digest of the request, and only the effect metadata shows that the gateway
+checked the record, refused `consume_confirmation: false`, and consumed the
+attestation nonce. The record is read before the decision because the effect
+metadata is compared with it. The gateway binds the protocol version it
+selected, which a `:protocol_version` option can override ("the
+:protocol_version option changes the bound action digest"), so step 4
+recomputes with the version the decision records. `context` is the value the host passed to `guard_request/3`,
 `metadata` and `workspace_root_digest` included: the action digest covers
 the whole context (`confirmation_test.exs` "the confirmation digest covers
 context metadata and the workspace root digest").
@@ -506,8 +511,8 @@ Names change only through a revision of this spec.
 ```elixir
 defmodule SigilGuard.EffectAuthority do
   @type refusal ::
-          :invalid_options | :not_authorized | :effect_binding_required
-          | :invalid_effect_binding | :invalid_current_facts
+          :invalid_options | :effect_binding_required
+          | :invalid_effect_binding | :not_authorized | :invalid_current_facts
           | :stale_current_facts | :principal_mismatch | :target_mismatch
           | :target_environment_mismatch | :artifact_mismatch
           | :frame_revision_mismatch | :policy_epoch_mismatch
@@ -771,7 +776,7 @@ attributes the refusal in step 4 or 5 to the replay store; step 7 refused.
 | 6 | As step 5, target confirms the cancel | `cancel_requested` then `cancelled` | PE.36 | passes |
 | 7 | As step 5, no report arrives | `cancel_requested` then `unknown` | PE.36 | passes |
 | 8 | A new operation after the withdrawal | refused as in step 2 | PE.35 | passes |
-| 9 | `admit` with a blocked decision, a decision still awaiting confirmation, or an allowed decision for another request | `:not_authorized` each | PE.02, PE.14 | passes |
+| 9 | `admit` with a blocked decision, a decision still awaiting confirmation, an allowed decision for another request, or a decision for this request confirmed with `effect_binding: :off` | `:not_authorized` each | PE.02, PE.14 | passes |
 | 10 | Step 1 with the gateway given a `:protocol_version` option | `:ok` | PE.14 | passes |
 
 Falsifier: a command reaches the fake target after a refusal; the ledger

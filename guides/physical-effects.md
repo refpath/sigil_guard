@@ -147,8 +147,11 @@ the request:
 
 `admit/5` returns `:ok` or `{:error, reason}` for the first failing check, such
 as `:target_mismatch`, `:policy_epoch_mismatch`, `:stale_current_facts`, or
-`:effect_deadline_passed`. The result is not a credential. It applies to the
-dispatch that follows immediately.
+`:effect_deadline_passed`. It refuses with `:not_authorized` a decision that
+does not allow this exact request, including a confirmed decision guarded with
+`effect_binding: :off` and one whose `effect_operation_key` belongs to another
+record. The result is not a credential. It applies to the dispatch that follows
+immediately.
 
 ## 4. Record The Outcome
 

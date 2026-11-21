@@ -24,9 +24,9 @@ defmodule SigilGuard.EffectAuthority.Outcome do
 
   @admission_refusals [
     :invalid_options,
-    :not_authorized,
     :effect_binding_required,
     :invalid_effect_binding,
+    :not_authorized,
     :invalid_current_facts,
     :stale_current_facts,
     :principal_mismatch,

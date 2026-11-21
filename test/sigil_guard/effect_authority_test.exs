@@ -7,11 +7,8 @@ defmodule SigilGuard.EffectAuthorityTest do
 
   import SigilGuard.CaseFixtures, only: [sha256_hex: 1]
 
-  alias SigilGuard.Confirmation
-  alias SigilGuard.Decision
   alias SigilGuard.EffectAuthority
   alias SigilGuard.EffectAuthorityFixture, as: Fixture
-  alias SigilGuard.MCP.SecurityPayload
   alias SigilGuard.ReplayStore
   alias SigilGuard.ToolGateway
 
@@ -429,6 +426,64 @@ defmodule SigilGuard.EffectAuthorityTest do
       assert admit(off, Fixture.request()) == {:error, :not_authorized}
     end
 
+    test "refuses a confirmed decision guarded without the effect binding" do
+      off = Fixture.gateway_opts(effect_binding: :off)
+      pending = ToolGateway.guard_request(Fixture.request(), Fixture.context(), off)
+
+      {:ok, token} =
+        ToolGateway.issue_confirmation(
+          Fixture.request(),
+          Fixture.context(),
+          pending,
+          Fixture.confirmation_key(),
+          now: Fixture.now(),
+          manifest: pending.audit_metadata.manifest_digest
+        )
+
+      confirmed =
+        Fixture.request()
+        |> SigilGuard.Attestation.attach_confirmation(token)
+        |> ToolGateway.guard_request(Fixture.context(), off)
+
+      assert confirmed.verdict == :allowed
+
+      assert confirmed.audit_metadata.action_digest ==
+               Fixture.approve(Fixture.request()).audit_metadata.action_digest
+
+      refute Map.has_key?(confirmed.audit_metadata, :effect_binding)
+      assert admit(confirmed, Fixture.request()) == {:error, :not_authorized}
+    end
+
+    test "refuses a decision whose effect metadata names another record" do
+      approved = Fixture.approve(Fixture.request())
+      other = update_record(&Map.put(&1, "operation_id", "op-0002"))
+      {:ok, other_record} = EffectAuthority.fetch_binding(other)
+      {:ok, other_digest} = EffectAuthority.binding_digest(other_record)
+      {:ok, other_key} = EffectAuthority.operation_key(other_record)
+
+      for metadata <- [
+            %{effect_binding: :absent},
+            %{effect_binding: :invalid},
+            %{effect_binding_digest: other_digest},
+            %{effect_operation_key: other_key},
+            %{effect_binding_digest: nil},
+            %{effect_operation_key: nil}
+          ] do
+        changed = %{approved | audit_metadata: Map.merge(approved.audit_metadata, metadata)}
+
+        assert admit(changed, Fixture.request()) == {:error, :not_authorized},
+               "admitted #{inspect(metadata)}"
+      end
+
+      for key <- [:effect_binding, :effect_binding_digest, :effect_operation_key] do
+        dropped = %{approved | audit_metadata: Map.delete(approved.audit_metadata, key)}
+
+        assert admit(dropped, Fixture.request()) == {:error, :not_authorized}
+      end
+
+      assert admit(approved, Fixture.request()) == :ok
+    end
+
     test "the context is part of the binding" do
       decision = Fixture.approve(Fixture.request())
 
@@ -456,7 +511,7 @@ defmodule SigilGuard.EffectAuthorityTest do
 
   describe "admit/5 options" do
     test "requires a positive integer fact age and accepts no unknown key" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
 
       for opts <- [
             [],
@@ -493,24 +548,19 @@ defmodule SigilGuard.EffectAuthorityTest do
       assert EffectAuthority.admit(nil, no_record, Fixture.context(), %{}, []) ==
                {:error, :invalid_options}
 
-      assert EffectAuthority.admit(nil, no_record, Fixture.context(), %{}, @age) ==
-               {:error, :not_authorized}
+      assert admit(nil, no_record, %{}) == {:error, :effect_binding_required}
+      assert admit(nil, bad_record, %{}) == {:error, :invalid_effect_binding}
+      assert admit(nil, Fixture.request(), %{}) == {:error, :not_authorized}
 
-      assert admit(decision_for(no_record), no_record, %{}) ==
-               {:error, :effect_binding_required}
-
-      assert admit(decision_for(bad_record), bad_record, %{}) ==
-               {:error, :invalid_effect_binding}
-
-      assert admit(decision_for(Fixture.request()), Fixture.request(), %{}) ==
+      assert admit(Fixture.decision(Fixture.request()), Fixture.request(), %{}) ==
                {:error, :invalid_current_facts}
 
-      assert admit(decision_for(Fixture.request()), Fixture.request(), stale_and_wrong) ==
+      assert admit(Fixture.decision(Fixture.request()), Fixture.request(), stale_and_wrong) ==
                {:error, :stale_current_facts}
     end
 
     test "returns the first failing reason of steps 7 to 14" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
 
       wrong = %{
         Fixture.facts()
@@ -541,7 +591,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     end
 
     test "the target environment is compared after the target id" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       simulated = put_in(Fixture.facts().target.environment, :simulated)
       both = put_in(simulated.target.id, "urn:example:sim:arm-1")
 
@@ -554,7 +604,7 @@ defmodule SigilGuard.EffectAuthorityTest do
 
   describe "admit/5 conditions" do
     test "each changed fact has its own refusal" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       [config, program] = Fixture.facts().artifacts
 
       changes = [
@@ -576,7 +626,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     end
 
     test "an optional field is equal only when both sides agree on its presence" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       bare = update_record(&Map.drop(&1, ["artifacts", "frame_revision"]))
 
       assert admit(decision, Fixture.request(), Map.delete(Fixture.facts(), :artifacts)) ==
@@ -585,27 +635,27 @@ defmodule SigilGuard.EffectAuthorityTest do
       assert admit(decision, Fixture.request(), Map.delete(Fixture.facts(), :frame_revision)) ==
                {:error, :frame_revision_mismatch}
 
-      assert admit(decision_for(bare), bare, Fixture.facts()) == {:error, :artifact_mismatch}
+      assert admit(Fixture.decision(bare), bare, Fixture.facts()) == {:error, :artifact_mismatch}
 
-      assert admit(decision_for(bare), bare, Map.delete(Fixture.facts(), :artifacts)) ==
+      assert admit(Fixture.decision(bare), bare, Map.delete(Fixture.facts(), :artifacts)) ==
                {:error, :frame_revision_mismatch}
 
       assert admit(
-               decision_for(bare),
+               Fixture.decision(bare),
                bare,
                Map.drop(Fixture.facts(), [:artifacts, :frame_revision])
              ) == :ok
     end
 
     test "the order of the host's artifact list does not matter" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       reversed = Map.update!(Fixture.facts(), :artifacts, &Enum.reverse/1)
 
       assert admit(decision, Fixture.request(), reversed) == :ok
     end
 
     test "the dispatch window is inclusive to the millisecond" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       not_before = ~U[2026-11-19 12:00:00.000Z]
       not_after = ~U[2026-11-19 12:05:00.000Z]
 
@@ -622,11 +672,11 @@ defmodule SigilGuard.EffectAuthorityTest do
     test "a record without not_before admits any time up to the deadline" do
       open = update_record(&Map.delete(&1, "not_before"))
 
-      assert admit(decision_for(open), open, at(~U[2020-01-01 00:00:00.000Z])) == :ok
+      assert admit(Fixture.decision(open), open, at(~U[2020-01-01 00:00:00.000Z])) == :ok
     end
 
     test "facts are stale beyond the age bound or when observed after now" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
       now = Fixture.now()
 
       for {offset_ms, expected} <- [
@@ -642,7 +692,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     end
 
     test "a time zone other than UTC is compared by instant" do
-      decision = decision_for(Fixture.request())
+      decision = Fixture.decision(Fixture.request())
 
       shifted = %{
         Fixture.now()
@@ -698,7 +748,7 @@ defmodule SigilGuard.EffectAuthorityTest do
       for current <-
             malformed ++
               Enum.map(Map.keys(facts) -- [:artifacts, :frame_revision], &Map.delete(facts, &1)) do
-        assert admit(decision_for(Fixture.request()), Fixture.request(), current) ==
+        assert admit(Fixture.decision(Fixture.request()), Fixture.request(), current) ==
                  {:error, :invalid_current_facts},
                "accepted #{inspect(current)}"
       end
@@ -952,10 +1002,10 @@ defmodule SigilGuard.EffectAuthorityTest do
     test "a record and an envelope option must come together" do
       named = enveloped(Fixture.request())
 
-      assert admit(decision_for(named), named) == {:error, :unknown_effect_envelope}
+      assert admit(Fixture.decision(named), named) == {:error, :unknown_effect_envelope}
 
       assert EffectAuthority.admit(
-               decision_for(Fixture.request()),
+               Fixture.decision(Fixture.request()),
                Fixture.request(),
                Fixture.context(),
                Fixture.facts(),
@@ -1037,7 +1087,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     end
 
     property "arbitrary facts and envelopes never raise for an authorized request" do
-      decision = decision_for(enveloped(Fixture.request()))
+      decision = Fixture.decision(enveloped(Fixture.request()))
 
       check all(
               current <- one_of([term(), fact_mutation()]),
@@ -1079,7 +1129,7 @@ defmodule SigilGuard.EffectAuthorityTest do
     end
 
     test "distinct facts and envelope values create no atoms" do
-      decision = decision_for(enveloped(Fixture.request()))
+      decision = Fixture.decision(enveloped(Fixture.request()))
 
       probe = fn index ->
         facts = Map.put(Fixture.facts(), "extra-#{index}", index)
@@ -1342,7 +1392,7 @@ defmodule SigilGuard.EffectAuthorityTest do
 
     test "every admission refusal is recordable with the refused state only" do
       refusals = ~w(
-        invalid_options not_authorized effect_binding_required invalid_effect_binding
+        invalid_options effect_binding_required invalid_effect_binding not_authorized
         invalid_current_facts stale_current_facts principal_mismatch target_mismatch
         target_environment_mismatch artifact_mismatch frame_revision_mismatch
         policy_epoch_mismatch effect_not_yet_valid effect_deadline_passed
@@ -1475,29 +1525,12 @@ defmodule SigilGuard.EffectAuthorityTest do
       end
 
     EffectAuthority.admit(
-      decision_for(request, metadata),
+      Fixture.decision(request, metadata),
       request,
       Fixture.context(),
       facts,
       Keyword.put(@age, :envelope, envelope)
     )
-  end
-
-  defp decision_for(request, metadata \\ %{}) do
-    {:ok, digest} =
-      Confirmation.fetch_action_digest(
-        SecurityPayload.for_gate(request, :request),
-        SecurityPayload.context(request, :request, Fixture.context())
-      )
-
-    %Decision{
-      verdict: :allowed,
-      action: :allow,
-      phase: :tool_request,
-      risk_level: :low,
-      trust_level: :high,
-      audit_metadata: Map.merge(%{action_digest: digest}, metadata)
-    }
   end
 
   defp manifest_digest(tool) do

@@ -44,9 +44,9 @@ defmodule SigilGuard.EffectAuthority do
   @typedoc "The reason an admission is refused, in the order the checks run."
   @type refusal ::
           :invalid_options
-          | :not_authorized
           | :effect_binding_required
           | :invalid_effect_binding
+          | :not_authorized
           | :invalid_current_facts
           | :stale_current_facts
           | :principal_mismatch
@@ -123,13 +123,7 @@ defmodule SigilGuard.EffectAuthority do
   @doc since: "1.1.0"
   @spec operation_key(term()) :: {:ok, String.t()} | {:error, :invalid_effect_binding}
   def operation_key(record) do
-    with :ok <- Record.validate(record) do
-      {:ok,
-       jcs_digest(%{
-         "operation_id" => record["operation_id"],
-         "target_id" => record["target"]["id"]
-       })}
-    end
+    with :ok <- Record.validate(record), do: {:ok, operation_digest(record)}
   end
 
   @doc """
@@ -147,7 +141,10 @@ defmodule SigilGuard.EffectAuthority do
   Decide whether an allowed request may be dispatched now.
 
   `decision` is the value `SigilGuard.ToolGateway.guard_request/3` returned for
-  `request` and `context` with `effect_binding: :required`. `current` is an
+  `request` and `context` with `effect_binding: :required`. An allowed decision
+  guarded with `:off`, or one whose `effect_binding_digest` and
+  `effect_operation_key` belong to another record, is refused with
+  `:not_authorized`. `current` is an
   atom-keyed closed map of facts the host read from its own sources:
   `:principal`, `:target` (`%{id: ..., environment: :physical | :simulated}`),
   `:policy_epoch`, `:observed_at`, and `:now`, plus optional `:artifacts`
@@ -169,9 +166,9 @@ defmodule SigilGuard.EffectAuthority do
           :ok | {:error, refusal()}
   def admit(decision, request, context, current, opts) do
     with {:ok, options} <- admit_options(opts),
-         bound_context = SecurityPayload.context(request, :request, context),
-         {:ok, metadata} <- authorized(decision, request, bound_context),
          {:ok, record} <- Record.fetch(request),
+         bound_context = SecurityPayload.context(request, :request, context),
+         {:ok, metadata} <- authorized(decision, request, record, bound_context),
          {:ok, facts} <- Facts.validate(current),
          :ok <- fresh(facts, options.max_fact_age_ms),
          :ok <- conditions(record, facts, bound_context.actor) do
@@ -247,25 +244,38 @@ defmodule SigilGuard.EffectAuthority do
     end
   end
 
+  # A confirmed decision guarded with `effect_binding: :off` carries the same
+  # action digest as a physical-effect approval. Only the effect metadata shows
+  # that the gateway applied the physical-effect checks to this record.
   defp authorized(
          %Decision{
            verdict: :allowed,
            action: :allow,
-           audit_metadata: %{action_digest: digest} = metadata
+           audit_metadata:
+             %{
+               action_digest: action_digest,
+               effect_binding: :valid,
+               effect_binding_digest: binding_digest,
+               effect_operation_key: operation_key
+             } = metadata
          },
          request,
+         record,
          bound_context
        )
-       when is_binary(digest) do
+       when is_binary(action_digest) do
     payload = SecurityPayload.for_gate(request, :request, protocol_opts(metadata))
 
-    case Confirmation.fetch_action_digest(payload, bound_context) do
-      {:ok, ^digest} -> {:ok, metadata}
+    with ^binding_digest <- jcs_digest(record),
+         ^operation_key <- operation_digest(record),
+         {:ok, ^action_digest} <- Confirmation.fetch_action_digest(payload, bound_context) do
+      {:ok, metadata}
+    else
       _ -> {:error, :not_authorized}
     end
   end
 
-  defp authorized(_, _, _), do: {:error, :not_authorized}
+  defp authorized(_, _, _, _), do: {:error, :not_authorized}
 
   defp protocol_opts(%{protocol_version: version}) when is_binary(version),
     do: [protocol_version: version]
@@ -317,6 +327,10 @@ defmodule SigilGuard.EffectAuthority do
   defp unix_ms(timestamp, _) do
     {:ok, datetime} = SigilGuard.Clock.parse(timestamp)
     DateTime.to_unix(datetime, :millisecond)
+  end
+
+  defp operation_digest(record) do
+    jcs_digest(%{"operation_id" => record["operation_id"], "target_id" => record["target"]["id"]})
   end
 
   # A validated record holds ASCII strings only, which JCS always encodes.

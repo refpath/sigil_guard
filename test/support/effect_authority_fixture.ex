@@ -130,6 +130,48 @@ defmodule SigilGuard.EffectAuthorityFixture do
     |> SigilGuard.ToolGateway.guard_request(context(), opts)
   end
 
+  @doc """
+  Return an allowed decision for `request` built without the gateway.
+
+  It carries the action digest and, when `request` holds a valid record, the
+  effect metadata an approval guarded with `effect_binding: :required`
+  records. `metadata` is merged last.
+  """
+  @spec decision(map(), map()) :: SigilGuard.Decision.t()
+  def decision(request, metadata \\ %{}) do
+    {:ok, digest} =
+      SigilGuard.Confirmation.fetch_action_digest(
+        SigilGuard.MCP.SecurityPayload.for_gate(request, :request),
+        SigilGuard.MCP.SecurityPayload.context(request, :request, context())
+      )
+
+    %SigilGuard.Decision{
+      verdict: :allowed,
+      action: :allow,
+      phase: :tool_request,
+      risk_level: :low,
+      trust_level: :high,
+      audit_metadata:
+        %{action_digest: digest}
+        |> Map.merge(effect_metadata(request))
+        |> Map.merge(metadata)
+    }
+  end
+
+  defp effect_metadata(request) do
+    with {:ok, record} <- SigilGuard.EffectAuthority.fetch_binding(request),
+         {:ok, binding_digest} <- SigilGuard.EffectAuthority.binding_digest(record),
+         {:ok, operation_key} <- SigilGuard.EffectAuthority.operation_key(record) do
+      %{
+        effect_binding: :valid,
+        effect_binding_digest: binding_digest,
+        effect_operation_key: operation_key
+      }
+    else
+      {:error, _} -> %{}
+    end
+  end
+
   @doc "Return the confirmation key the fixtures issue tokens with."
   @spec confirmation_key() :: binary()
   def confirmation_key, do: :crypto.hash(:sha256, "effect-authority-fixture")

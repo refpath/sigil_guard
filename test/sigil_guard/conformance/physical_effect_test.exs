@@ -18,7 +18,6 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
   alias SigilGuard.Attestation
   alias SigilGuard.BoundaryPolicy.File, as: PolicyFile
   alias SigilGuard.CapabilityManifest
-  alias SigilGuard.Confirmation
   alias SigilGuard.Decision
   alias SigilGuard.EffectAuthority
   alias SigilGuard.EffectAuthorityFixture, as: Fixture
@@ -253,7 +252,7 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
 
       assert blocked.audit_metadata.deny_reason == :unknown_manifest
       assert admit_enveloped(blocked, weld) == {:error, :not_authorized}
-      assert admit_enveloped(hand_built(weld), weld) == {:error, :operation_out_of_envelope}
+      assert admit_enveloped(Fixture.decision(weld), weld) == {:error, :operation_out_of_envelope}
     end
 
     test "step 7: a widened envelope under the old digest is refused" do
@@ -564,10 +563,15 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       pending = present_raw(Fixture.request())
       blocked = present_raw(Fixture.drop_record(Fixture.request()))
       other = put_in(Fixture.request(), ["params", "arguments", "y_mm"], 101)
+      off_pending = present_raw(Fixture.request(), effect_binding: :off)
+      {:ok, off_token} = issue(Fixture.request(), off_pending)
+      off_confirmed = present(Fixture.request(), off_token, effect_binding: :off)
 
+      assert off_confirmed.verdict == :allowed
       assert admit(blocked, Fixture.request()) == {:error, :not_authorized}
       assert admit(pending, Fixture.request()) == {:error, :not_authorized}
       assert admit(approved, other) == {:error, :not_authorized}
+      assert admit(off_confirmed, Fixture.request()) == {:error, :not_authorized}
     end
 
     test "step 10: a decision produced with a :protocol_version option admits" do
@@ -877,23 +881,6 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       now: Fixture.now(),
       manifest: pending.audit_metadata.manifest_digest
     )
-  end
-
-  defp hand_built(request) do
-    {:ok, digest} =
-      Confirmation.fetch_action_digest(
-        SecurityPayload.for_gate(request, :request),
-        gateway_context(request)
-      )
-
-    %Decision{
-      verdict: :allowed,
-      action: :allow,
-      phase: :tool_request,
-      risk_level: :low,
-      trust_level: :high,
-      audit_metadata: %{action_digest: digest}
-    }
   end
 
   defp gateway_context(request), do: SecurityPayload.context(request, :request, Fixture.context())
