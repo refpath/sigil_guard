@@ -239,8 +239,14 @@ defmodule SigilGuard.Conformance.UntrustedInputTest do
       check all(
               token <- one_of([binary(max_length: 120), Mutation.term()]),
               claims <-
-                map_of(member_of(~w(v typ alg actor nonce expires_at decision)), Mutation.term(),
-                  max_length: 4
+                map(
+                  list_of(
+                    tuple(
+                      {member_of(~w(v typ alg actor nonce expires_at decision)), Mutation.term()}
+                    ),
+                    max_length: 4
+                  ),
+                  &Map.new/1
                 )
             ) do
         assert {:error, _} =
