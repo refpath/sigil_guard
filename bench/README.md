@@ -96,9 +96,24 @@ the baseline or support a claim about a release as a whole.
 ## Baseline Refresh
 
 Refresh `bench/baseline.json` only in a dedicated PR. Run the full matrix
-three times on the same runner class and confirm every scenario median is
-within +/-5% across the three runs. Then copy the accepted
-`bench/output/benchmarks.json` to `bench/baseline.json`.
+three times in a row on one runner, then check the set:
+
+```sh
+mix run bench/compare.exs --band run-1.json --band run-2.json --band run-3.json \
+  --write-baseline bench/baseline.json
+```
+
+The check passes when every scenario median lies within +/-5% of the mean
+of its three medians. It names each scenario outside the band and writes
+nothing; when the set holds, it writes the last run without its `mode` as
+the baseline.
+
+On a workstation, the machine's own speed drifts between runs, mostly in
+the allocation-heavy scenarios. The `Benchmark baseline candidate` workflow
+(`.github/workflows/benchmark-baseline.yml`, run by hand) makes the three
+runs on one GitHub-hosted runner, runs the check, and uploads the runs and
+the candidate `baseline.json` as the `benchmark-baseline-candidate`
+artifact.
 
 The commit message must state why the baseline changed: accepted performance
 change, fixture change, runner change, or Elixir/OTP bump. Silent baseline

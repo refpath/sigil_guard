@@ -3425,6 +3425,12 @@ traced every line no test executed.
     scenario groups moved together by up to about 5% within a run, so low
     load alone did not steady the workstation. The rule needs a dedicated
     runner.
+  - Next: `bench/compare.exs --band` checks a set and writes the candidate,
+    and the manual `Benchmark baseline candidate` workflow measures three
+    runs on one GitHub-hosted runner, where the 2026-11-21 pair of full
+    runs stayed within 4.5% of their mean. Dispatch it once the workflow is
+    on the default branch, and commit its candidate as
+    `bench/baseline.json` in its own commit.
   - Not closed by the scheduled revision comparison, which bounds the changes
     between two named revisions and leaves the committed baseline as it is.
 - [x] M15.11 Intermittent failure of the untrusted-input gateway property.

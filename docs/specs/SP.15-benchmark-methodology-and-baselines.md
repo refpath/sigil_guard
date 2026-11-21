@@ -191,7 +191,12 @@ mean; the widest deviation was 10.2%. Nine of the eleven outside are in
 the gateway, confirmation and attestation suites, where the scenario
 groups of a suite moved in the same direction within a run, by up to
 about 5%. That points to the machine's speed changing over minutes rather
-than to a fixture. The baseline was not replaced. The published reports
+than to a fixture: on the same workstation, allocation-heavy work alone
+drifted by up to about 15% between four-second windows while arithmetic
+held within 1%. On a GitHub-hosted Linux runner, the scheduled comparison
+of 2026-11-21 measured `becb2d6` and its parent one after the other, and
+every scenario median of the two lay within 4.5% of their mean. The
+baseline was not replaced. The published reports
 under `bench/output/` are from the last run of the fifth set and state
 their environment.
 
@@ -214,7 +219,8 @@ MUST NOT be published.
 
 The harness MUST render this block into `benchmarks.md` automatically, so a
 published file can never omit it. It reads the CPU model from
-`sysctl -n machdep.cpu.brand_string` (falling back to
+`sysctl -n machdep.cpu.brand_string` on macOS and the first `model name` in
+`/proc/cpuinfo` on Linux (falling back to
 `:erlang.system_info(:cpu_topology)`), the core count from
 `System.schedulers_online/0`, and the rest from `:os.type/0`,
 `System.version/0`, `System.otp_release/0`, the application version, and the
@@ -252,11 +258,21 @@ and `unknown RAM` elsewhere. Hostnames and user paths MUST NOT appear.
   `baseline.json` nor supports a release-wide performance claim; that needs
   the baseline refresh below.
 - **Baseline refresh procedure:** a dedicated PR updates `baseline.json` and
-  its environment block; it MUST show three consecutive runs within +/-5%
-  median on the same runner, and the commit message MUST state the reason
+  its environment block; it MUST show three consecutive runs on the same
+  runner in which every scenario median lies within +/-5% of the mean of
+  its three medians, and the commit message MUST state the reason
   (accepted performance change, fixture change, runner change, or
   Elixir/OTP bump). Silent baseline edits are treated as masking a
   regression.
+- `mix run bench/compare.exs --band <run> --band <run> --band <run>
+  --write-baseline <path>` checks a set. It refuses fewer than three runs,
+  a run that is not measured, and runs that differ in runner class or
+  scenario set, names every scenario outside the band, and only when the
+  set holds writes the last run without its `mode`, with sorted keys, as
+  the candidate baseline.
+- The manually dispatched `.github/workflows/benchmark-baseline.yml` makes
+  three consecutive full runs on one GitHub-hosted runner, runs the band
+  check, and uploads the runs, the check output and any candidate.
 
 ## Cross-Ecosystem Comparison Rules
 
@@ -333,6 +349,7 @@ Shape of `bench/baseline.json` (also the per-run `benchmarks.json`):
 | System | Integration | Direction | Protocol |
 |--------|-------------|-----------|----------|
 | CI | `mix bench --smoke` harness check; gated compare on the baseline runner class | inbound | mix task |
+| CI, manual | `benchmark-baseline.yml`: three full runs on one hosted runner, the band check, a candidate baseline | inbound | workflow dispatch |
 | ExDoc | `bench/output/benchmarks.md` as an extra | outbound | docs build |
 | llm-guard (Python) | comparison runs under the fairness rules | outbound | manual, disclosed |
 
@@ -344,6 +361,7 @@ Shape of `bench/baseline.json` (also the per-run `benchmarks.json`):
 | baseline missing a run scenario | compare failure | refresh baseline via the documented procedure | CI fails |
 | median regression > 20% | compare failure | fix the regression or justify a baseline refresh | CI fails |
 | runner class mismatch | informational | run on the baseline runner class for a binding result | warning only |
+| refresh set outside the band | band check failure | measure a new set; keep the baseline | no candidate written |
 
 ## Security Considerations
 
