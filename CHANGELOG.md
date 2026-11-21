@@ -389,7 +389,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   `params._meta["dev.sigilguard/effect"]`; `admit/5` compares it with facts
   the host reads immediately before dispatch and refuses with a named reason.
   It admits only a decision the gateway made with `effect_binding: :required`
-  for the record the request carries.
+  for the record the request carries, and refuses with `:authority_expired`
+  once the token or attestation the gateway accepted has expired.
   Effect envelopes bound a set of operations, targets and integer arguments.
   `classify_outcome/1` keeps a signed report apart from observed acceptance.
   The option defaults to `:off` and changes no existing decision, digest,

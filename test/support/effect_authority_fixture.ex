@@ -104,16 +104,19 @@ defmodule SigilGuard.EffectAuthorityFixture do
   @doc """
   Guard `request`, confirm it with a fresh token, and return the allowed decision.
 
-  The token nonce is consumed in `SigilGuard.ReplayStore`.
+  The token nonce is consumed in `SigilGuard.ReplayStore`. A `:ttl_ms`
+  override sets the token lifetime; the other overrides are gateway options.
   """
   @spec approve(map(), keyword()) :: SigilGuard.Decision.t()
   def approve(request, overrides \\ []) do
+    {token_opts, overrides} = Keyword.split(overrides, [:ttl_ms])
     opts = gateway_opts(overrides)
     pending = SigilGuard.ToolGateway.guard_request(request, context(), opts)
 
     issue_opts =
       opts
       |> Keyword.take([:protocol_version])
+      |> Keyword.merge(token_opts)
       |> Keyword.merge(now: @now, manifest: pending.audit_metadata.manifest_digest)
 
     {:ok, token} =

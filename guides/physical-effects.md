@@ -65,7 +65,9 @@ blocks a request whose digests cannot be computed (`:invalid_payload`), for
 example one with a `null` argument. Every other decision records
 `action_digest`, `payload_digest`, `context_digest`, `effect_binding_digest`,
 and `effect_operation_key` in `decision.audit_metadata`. An inbound
-attestation nonce is consumed once, on the pass that allows execution.
+attestation nonce is consumed once, on the pass that allows execution. An
+allowed decision also records `effect_authority_expires_at`, the earliest
+`expires_at` of the accepted token and the consumed attestation.
 
 The option only refuses. A valid record never replaces a confirmation the
 policy requires.
@@ -150,7 +152,9 @@ as `:target_mismatch`, `:policy_epoch_mismatch`, `:stale_current_facts`, or
 `:effect_deadline_passed`. It refuses with `:not_authorized` a decision that
 does not allow this exact request, including a confirmed decision guarded with
 `effect_binding: :off` and one whose `effect_operation_key` belongs to another
-record. The result is not a credential. It applies to the dispatch that follows
+record. It refuses with `:authority_expired` when `now` is later than
+`effect_authority_expires_at`, even inside the operation window, so an approval
+that expires before dispatch needs a new one. The result is not a credential. It applies to the dispatch that follows
 immediately.
 
 ## 4. Record The Outcome

@@ -153,9 +153,9 @@ by SP.01; the binding record adds the rest without changing any digest rule.
 | PE.06 | Parameters are bound as structured JSON: keys, nesting, booleans, `null`, and strings each change the digests. | met | `MCP.SecurityPayload`; `mcp/security_payload_test.exs` "different keys and non-string values produce different security bindings" |
 | PE.07 | The endpoint is bound through `mcp_server` and `resource_uri` in the context digest, and the gateway refuses a request whose `:resource` or `:audience` option does not match the pinned manifest. | met | `Attestation.Digest`, `ToolGateway`; `attestation/digest_test.exs` "accepts keyword context extras and rejects unknown statement types"; `threat_model/tm06_confused_deputy_test.exs` "a request indicating the wrong resource is blocked", "a credential minted for the wrong audience is blocked" |
 | PE.08 | Values under an unreserved `params._meta` key are part of the bound payload: changing one changes the payload digest and the confirmation digests. The effect binding uses the key `dev.sigilguard/effect` and so needs no new digest rule. | met | `MCP.SecurityPayload`; `mcp/security_payload_test.exs` "metadata capabilities and extensions change the security binding" |
-| PE.09 | With `effect_binding: :required`, `guard_request/3` checks the option value, runs the manifest, freshness, resource, visibility, sandbox, and attestation checks in their existing order, and then, before the runtime gate, refuses `consume_confirmation: false` (PE.25), computes the request digests, and validates the record against the closed schema under Effect Binding Record. A request whose digests cannot be computed blocks with `:invalid_payload`. A missing record blocks with `:effect_binding_required`; a malformed one blocks with `:invalid_effect_binding`. Every other decision, including one blocked before the gate, records `action_digest`, `payload_digest`, and `context_digest` in `audit_metadata`, and `effect_binding_digest` and `effect_operation_key` when the record is valid. | met | `ToolGateway`, `ToolGateway.Effect`; `tool_gateway_effect_test.exs` "a missing record blocks and still records the digests", "a malformed record blocks", "a request that cannot be digested blocks and records no digest", "existing denials keep their precedence over the record check", "the recorded digests are the ones a confirmation token binds" |
+| PE.09 | With `effect_binding: :required`, `guard_request/3` checks the option value, runs the manifest, freshness, resource, visibility, sandbox, and attestation checks in their existing order, and then, before the runtime gate, refuses `consume_confirmation: false` (PE.25), computes the request digests, and validates the record against the closed schema under Effect Binding Record. A request whose digests cannot be computed blocks with `:invalid_payload`. A missing record blocks with `:effect_binding_required`; a malformed one blocks with `:invalid_effect_binding`. Every other decision, including one blocked before the gate, records `action_digest`, `payload_digest`, and `context_digest` in `audit_metadata`, and `effect_binding_digest` and `effect_operation_key` when the record is valid. An allowed decision also records `effect_authority_expires_at`, the earliest stated `expires_at` of the confirmation token it accepted and the attestation whose nonce it consumed, in the SP.01 timestamp form with sub-millisecond digits dropped; a decision allowed with neither records none. | met | `ToolGateway`, `ToolGateway.Effect`; `tool_gateway_effect_test.exs` "a missing record blocks and still records the digests", "an allowed decision records when the accepted token expires", "the recorded expiry is the earlier of the token and the attestation", "the recorded expiry drops sub-millisecond digits", "a malformed record blocks", "a request that cannot be digested blocks and records no digest", "existing denials keep their precedence over the record check", "the recorded digests are the ones a confirmation token binds" |
 | PE.10 | Authority has a bounded lifetime. A confirmation token is refused after `expires_at` with `:expired`; an attestation is refused after `expires_at` plus skew with `:expired_attestation`. Tokens are never renewed. | met | `Confirmation`, `Attestation`; `confirmation_test.exs` "rejects expired tokens"; `attestation_sign_verify_test.exs` "honors expiration skew boundaries" |
-| PE.11 | The operation deadline is separate from authority expiry. Admission refuses when `now` is later than `not_after` (`:effect_deadline_passed`) or earlier than `not_before` (`:effect_not_yet_valid`). No skew allowance extends `not_after`. Both the authority lifetime and the deadline must hold. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "the dispatch window is inclusive to the millisecond" |
+| PE.11 | The operation deadline is separate from authority expiry, and both must hold at dispatch. Admission refuses when `now` is later than `not_after` (`:effect_deadline_passed`) or earlier than `not_before` (`:effect_not_yet_valid`), and when `now` is later than the decision's `effect_authority_expires_at` (`:authority_expired`), so an approval that expires between the gateway and dispatch admits nothing. No skew allowance extends `not_after` or the authority expiry: the gateway allows an attestation up to `expires_at` plus skew, and admission holds it to `expires_at`. | met | `EffectAuthority.admit/5`; `effect_authority_test.exs` "the dispatch window is inclusive to the millisecond", "the authority lifetime is inclusive to the millisecond", "an approval that expires before the deadline refuses the rest of the window"; `conformance/physical_effect_test.exs` "step 11: an approval that expires before dispatch sends no command" |
 
 Numbers need care. RFC 8785 serializes `120` and `120.0` to the same bytes,
 so the SP.01 attestation digests treat them as one value, while the
@@ -409,9 +409,10 @@ sides are absent or both are present with equal values.
 | 12 | Policy epochs are equal | `:policy_epoch_mismatch` |
 | 13 | `now` is not before `not_before` | `:effect_not_yet_valid` |
 | 14 | `now` is not after `not_after` | `:effect_deadline_passed` |
-| 15 | Envelope membership | see Envelope Membership |
+| 15 | `now` is not after `audit_metadata.effect_authority_expires_at`, when the decision records one | `:authority_expired` |
+| 16 | Envelope membership | see Envelope Membership |
 
-A record without `envelope` passes step 15 when no `:envelope` option is
+A record without `envelope` passes step 16 when no `:envelope` option is
 supplied. Supplying one for a record that names none fails with
 `:effect_envelope_mismatch`.
 
@@ -429,7 +430,9 @@ selected, which a `:protocol_version` option can override ("the
 recomputes with the version the decision records. `context` is the value the host passed to `guard_request/3`,
 `metadata` and `workspace_root_digest` included: the action digest covers
 the whole context (`confirmation_test.exs` "the confirmation digest covers
-context metadata and the workspace root digest").
+context metadata and the workspace root digest"). Step 4 also refuses an
+`effect_authority_expires_at` that is not an SP.01 timestamp; step 15
+compares the value the decision records with `now` from the current facts.
 
 Step 7 compares `context.actor` only. A context without `actor` never
 admits. `identity` is bound by the digests and is not compared.
@@ -468,21 +471,21 @@ quantities in integer base units such as millimetres.
 
 ### Envelope Membership
 
-Evaluated in order after step 14; the first failure is returned.
+Evaluated in order after step 15; the first failure is returned.
 
 | Step | Check | Refusal |
 |------|-------|---------|
-| 15.1 | The host supplied `:envelope` | `:unknown_effect_envelope` |
-| 15.2 | The document is valid | `:invalid_effect_envelope` |
-| 15.3 | Its `id` and digest equal `effect.envelope` | `:effect_envelope_mismatch` |
-| 15.4 | `context.actor` equals `principal` | `:principal_mismatch` |
-| 15.5 | The binding's target is listed | `:target_out_of_envelope` |
-| 15.6 | Artifact lists are equal | `:artifact_mismatch` |
-| 15.7 | Frame revisions are equal | `:frame_revision_mismatch` |
-| 15.8 | Policy epochs are equal | `:policy_epoch_mismatch` |
-| 15.9 | `now` and the binding's `not_after` are not after the envelope's `not_after` | `:effect_envelope_expired` |
-| 15.10 | The tool named by the request is listed and `decision.audit_metadata.manifest_digest` equals its `manifest_sha256` | `:operation_out_of_envelope` |
-| 15.11 | `params.arguments`, or an empty map when the key is absent, is a string-keyed map whose key set equals the operation's `parameters` key set and every value matches its bound | `:parameter_out_of_envelope` |
+| 16.1 | The host supplied `:envelope` | `:unknown_effect_envelope` |
+| 16.2 | The document is valid | `:invalid_effect_envelope` |
+| 16.3 | Its `id` and digest equal `effect.envelope` | `:effect_envelope_mismatch` |
+| 16.4 | `context.actor` equals `principal` | `:principal_mismatch` |
+| 16.5 | The binding's target is listed | `:target_out_of_envelope` |
+| 16.6 | Artifact lists are equal | `:artifact_mismatch` |
+| 16.7 | Frame revisions are equal | `:frame_revision_mismatch` |
+| 16.8 | Policy epochs are equal | `:policy_epoch_mismatch` |
+| 16.9 | `now` and the binding's `not_after` are not after the envelope's `not_after` | `:effect_envelope_expired` |
+| 16.10 | The tool named by the request is listed and `decision.audit_metadata.manifest_digest` equals its `manifest_sha256` | `:operation_out_of_envelope` |
+| 16.11 | `params.arguments`, or an empty map when the key is absent, is a string-keyed map whose key set equals the operation's `parameters` key set and every value matches its bound | `:parameter_out_of_envelope` |
 
 Whether an envelope is still approved is a host fact. The host passes only
 envelopes it currently holds as approved.
@@ -517,7 +520,7 @@ defmodule SigilGuard.EffectAuthority do
           | :target_environment_mismatch | :artifact_mismatch
           | :frame_revision_mismatch | :policy_epoch_mismatch
           | :effect_not_yet_valid | :effect_deadline_passed
-          | :unknown_effect_envelope | :invalid_effect_envelope
+          | :authority_expired | :unknown_effect_envelope | :invalid_effect_envelope
           | :effect_envelope_mismatch | :effect_envelope_expired
           | :target_out_of_envelope | :operation_out_of_envelope
           | :parameter_out_of_envelope
@@ -596,8 +599,8 @@ The host passes `result` and `metadata` to `Audit.new_event/5` and sets
 | `lib/sigil_guard/effect_authority/facts.ex` | Closed validator for the host's current facts. | implemented |
 | `lib/sigil_guard/effect_authority/envelope.ex` | Closed validator, digest, and membership steps for the effect envelope. | implemented |
 | `lib/sigil_guard/effect_authority/outcome.ex` | Ledger transition table, outcome classification, and audit fields. | implemented |
-| `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks, attestation nonce consumption. | implemented |
-| `lib/sigil_guard/tool_gateway/effect.ex` | Gateway-side state for one physical-effect request: option value, replay protection, digests, and record. | implemented |
+| `lib/sigil_guard/tool_gateway.ex` | `:effect_binding` option, PE.09 and PE.25 blocks, attestation nonce consumption, and the recorded authority expiry. | implemented |
+| `lib/sigil_guard/tool_gateway/effect.ex` | Gateway-side state for one physical-effect request: option value, replay protection, digests, record, and authority expiry. | implemented |
 | `lib/sigil_guard/telemetry.ex` | Metadata allowlist and OTel attribute names for the three effect keys. | implemented |
 | `lib/sigil_guard/confirmation.ex` | Token binding and single use. | existing; unchanged |
 | `lib/sigil_guard/replay_store.ex` | Per-boot nonce claims. | existing; unchanged |
@@ -778,9 +781,11 @@ attributes the refusal in step 4 or 5 to the replay store; step 7 refused.
 | 8 | A new operation after the withdrawal | refused as in step 2 | PE.35 | passes |
 | 9 | `admit` with a blocked decision, a decision still awaiting confirmation, an allowed decision for another request, or a decision for this request confirmed with `effect_binding: :off` | `:not_authorized` each | PE.02, PE.14 | passes |
 | 10 | Step 1 with the gateway given a `:protocol_version` option | `:ok` | PE.14 | passes |
+| 11 | A token issued with a 60 s lifetime; admission one millisecond after its `expires_at`, inside the operation window; another operation at `expires_at` | `:authority_expired`, record `refused`, no command; the other `dispatched` | PE.11 | passes |
 
-Falsifier: a command reaches the fake target after a refusal; the ledger
-shows `cancelled` or `finished` without a target report or observation;
+Falsifier: a command reaches the fake target after a refusal or after the
+approval expired; the ledger shows `cancelled` or `finished` without a target
+report or observation;
 `admit/5` returns anything that could be presented later as a credential.
 
 ### SG-F5 - Evidence Honesty
@@ -827,7 +832,7 @@ changes a result; the atom count grows with distinct inputs.
 | happy path | `EffectAuthorityTest` | valid binding, valid envelope, admitted request |
 | tamper path | `EffectAuthorityTest` | every admission and membership step returns its reason in order |
 | malformed input | `EffectAuthorityTest` | closed maps, identifier rule, limits, totality property |
-| expiry | `EffectAuthorityTest` | deadline, envelope expiry, and fact-age boundaries to the millisecond |
+| expiry | `EffectAuthorityTest` | deadline, authority lifetime, envelope expiry, and fact-age boundaries to the millisecond |
 | conformance | `PhysicalEffectTest` | SG-F1 to SG-F6 with the ledger fake |
 | compatibility | golden vectors, `ConsumerContractsTest` | no byte change with `effect_binding: :off` |
 

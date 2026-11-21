@@ -57,6 +57,7 @@ defmodule SigilGuard.EffectAuthority do
           | :policy_epoch_mismatch
           | :effect_not_yet_valid
           | :effect_deadline_passed
+          | :authority_expired
           | :unknown_effect_envelope
           | :invalid_effect_envelope
           | :effect_envelope_mismatch
@@ -157,8 +158,10 @@ defmodule SigilGuard.EffectAuthority do
     * `:envelope` - the approved effect envelope document, when the record
       names one.
 
-  The checks run in the SP.19 admission order, and the first failure is returned
-  as `{:error, reason}`. The result is not a credential: it applies to the
+  `:authority_expired` refuses a `:now` later than the decision's
+  `effect_authority_expires_at`, the earliest stated expiry of the token and
+  the attestation the gateway accepted. The checks run in the SP.19 admission
+  order, and the first failure is returned as `{:error, reason}`. The result is not a credential: it applies to the
   dispatch that follows immediately, and a refusal never upgrades a verdict.
   """
   @doc since: "1.1.0"
@@ -168,15 +171,16 @@ defmodule SigilGuard.EffectAuthority do
     with {:ok, options} <- admit_options(opts),
          {:ok, record} <- Record.fetch(request),
          bound_context = SecurityPayload.context(request, :request, context),
-         {:ok, metadata} <- authorized(decision, request, record, bound_context),
+         {:ok, authority} <- authorized(decision, request, record, bound_context),
          {:ok, facts} <- Facts.validate(current),
          :ok <- fresh(facts, options.max_fact_age_ms),
-         :ok <- conditions(record, facts, bound_context.actor) do
+         :ok <- conditions(record, facts, bound_context.actor),
+         :ok <- unexpired(authority.expires_at, facts.now) do
       Envelope.admit(record, options.envelope, %{
         actor: bound_context.actor,
         now: facts.now,
         request: request,
-        manifest_digest: metadata[:manifest_digest]
+        manifest_digest: authority.manifest_digest
       })
     end
   end
@@ -268,14 +272,27 @@ defmodule SigilGuard.EffectAuthority do
 
     with ^binding_digest <- jcs_digest(record),
          ^operation_key <- operation_digest(record),
+         {:ok, expires_at} <- authority_expiry(metadata),
          {:ok, ^action_digest} <- Confirmation.fetch_action_digest(payload, bound_context) do
-      {:ok, metadata}
+      {:ok, %{expires_at: expires_at, manifest_digest: metadata[:manifest_digest]}}
     else
       _ -> {:error, :not_authorized}
     end
   end
 
   defp authorized(_, _, _, _), do: {:error, :not_authorized}
+
+  # The gateway records no expiry for a decision the policy allowed without a
+  # token or an attestation; the operation deadline alone bounds it.
+  defp authority_expiry(metadata) do
+    case Map.get(metadata, :effect_authority_expires_at) do
+      nil -> {:ok, nil}
+      expires_at -> authority_instant(SigilGuard.Clock.parse(expires_at))
+    end
+  end
+
+  defp authority_instant({:ok, datetime}), do: {:ok, DateTime.to_unix(datetime, :millisecond)}
+  defp authority_instant(:error), do: :error
 
   defp protocol_opts(%{protocol_version: version}) when is_binary(version),
     do: [protocol_version: version]
@@ -308,6 +325,9 @@ defmodule SigilGuard.EffectAuthority do
       window(record, facts.now)
     end
   end
+
+  defp unexpired(expires_at, now) when is_nil(expires_at) or now <= expires_at, do: :ok
+  defp unexpired(_, _), do: {:error, :authority_expired}
 
   defp artifact_digests(%{"artifacts" => artifacts}),
     do: Map.new(artifacts, &{&1["name"], &1["sha256"]})

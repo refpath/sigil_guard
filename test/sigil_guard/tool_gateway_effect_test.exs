@@ -208,6 +208,37 @@ defmodule SigilGuard.ToolGatewayEffectTest do
       assert decision.verdict == :allowed
       assert decision.action == :allow
       assert Enum.all?(@digest_keys, &is_binary(decision.audit_metadata[&1]))
+      refute Map.has_key?(decision.audit_metadata, :effect_authority_expires_at)
+    end
+
+    test "an allowed decision records when the accepted token expires" do
+      pending = guard(Fixture.request())
+      {:ok, token} = issue_token(pending, ttl_ms: 60_000)
+      allowed = guard(Attestation.attach_confirmation(Fixture.request(), token))
+
+      assert allowed.verdict == :allowed
+      assert allowed.audit_metadata.confirmation_expires_at == "2026-11-19T12:02:00.000Z"
+      assert allowed.audit_metadata.effect_authority_expires_at == "2026-11-19T12:02:00.000Z"
+      refute Map.has_key?(pending.audit_metadata, :effect_authority_expires_at)
+    end
+
+    test "the recorded expiry drops sub-millisecond digits" do
+      pending = guard(Fixture.request())
+
+      {:ok, token} =
+        ToolGateway.issue_confirmation(
+          Fixture.request(),
+          Fixture.context(),
+          pending,
+          Fixture.confirmation_key(),
+          now: ~U[2026-11-19 12:01:00.000999Z],
+          manifest: pending.audit_metadata.manifest_digest
+        )
+
+      allowed = guard(Attestation.attach_confirmation(Fixture.request(), token))
+
+      assert allowed.audit_metadata.confirmation_expires_at == "2026-11-19T12:06:00.000999Z"
+      assert allowed.audit_metadata.effect_authority_expires_at == "2026-11-19T12:06:00.000Z"
     end
 
     test "an accepted token allows the request once" do
@@ -302,8 +333,40 @@ defmodule SigilGuard.ToolGatewayEffectTest do
 
       for _ <- 1..2 do
         {:ok, token} = issue_token(first)
+        allowed = guard(Attestation.attach_confirmation(attested, token), opts)
 
-        assert guard(Attestation.attach_confirmation(attested, token), opts).verdict == :allowed
+        assert allowed.verdict == :allowed
+        refute Map.has_key?(allowed.audit_metadata, :effect_authority_expires_at)
+      end
+    end
+
+    test "the recorded expiry is the earlier of the token and the attestation", %{opts: opts} do
+      {:ok, capability} = CapabilityManifest.new(Fixture.manifests()["cell.move"])
+      pending = guard(Fixture.request())
+
+      {:ok, envelope} =
+        ToolGateway.attest_request(pending, gateway_context(),
+          payload: Fixture.request(),
+          signer: TestSigner,
+          keyid: "trusted",
+          now: Fixture.now(),
+          ttl_ms: 30_000,
+          nonce: "short-attestation-nonce",
+          manifest: capability
+        )
+
+      attested = Map.put(Fixture.request(), "_agent_trust", envelope)
+
+      for {token_ttl_ms, expected} <- [
+            {300_000, "2026-11-19T12:01:30.000Z"},
+            {10_000, "2026-11-19T12:01:10.000Z"}
+          ] do
+        ReplayStore.clear()
+        {:ok, token} = issue_token(guard(attested, opts), ttl_ms: token_ttl_ms)
+        allowed = guard(Attestation.attach_confirmation(attested, token), opts)
+
+        assert allowed.verdict == :allowed
+        assert allowed.audit_metadata.effect_authority_expires_at == expected
       end
     end
 
@@ -369,14 +432,13 @@ defmodule SigilGuard.ToolGatewayEffectTest do
     {response, decision}
   end
 
-  defp issue_token(decision) do
+  defp issue_token(decision, opts \\ []) do
     ToolGateway.issue_confirmation(
       Fixture.request(),
       Fixture.context(),
       decision,
       Fixture.confirmation_key(),
-      now: Fixture.now(),
-      manifest: decision.audit_metadata.manifest_digest
+      Keyword.merge([now: Fixture.now(), manifest: decision.audit_metadata.manifest_digest], opts)
     )
   end
 end

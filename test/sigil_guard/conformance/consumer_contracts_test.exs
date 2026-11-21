@@ -906,6 +906,16 @@ defmodule SigilGuard.Conformance.ConsumerContractsTest do
         ToolGateway.guard_request(request, EffectFixture.context(), EffectFixture.gateway_opts())
 
       assert dispatch.(pending, request, EffectFixture.facts()) == {:refused, :not_authorized}
+
+      short =
+        put_in(request, ["params", "_meta", "dev.sigilguard/effect", "operation_id"], "op-0003")
+
+      expiring = EffectFixture.approve(short, ttl_ms: 60_000)
+      late = ~U[2026-11-19 12:02:00.001Z]
+
+      assert dispatch.(expiring, short, %{EffectFixture.facts() | now: late, observed_at: late}) ==
+               {:refused, :authority_expired}
+
       assert TestEffectLedger.commands(GuideLedger) == [key]
     end
 

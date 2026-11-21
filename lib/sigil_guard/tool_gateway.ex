@@ -124,7 +124,9 @@ defmodule SigilGuard.ToolGateway do
       `SigilGuard.EffectAuthority` binding record, `consume_confirmation: false`
       is refused, an inbound attestation nonce is consumed once on the pass
       that allows execution, and every decision records `action_digest`,
-      `payload_digest`, and `context_digest` for the host ledger.
+      `payload_digest`, and `context_digest` for the host ledger. An allowed
+      decision records the earliest `expires_at` of the accepted confirmation
+      token and the consumed attestation as `effect_authority_expires_at`.
 
   ## Examples
 
@@ -161,7 +163,7 @@ defmodule SigilGuard.ToolGateway do
         |> put_manifest_metadata(capability)
         |> maybe_force_suspicious_confirmation(payload, request_context, capability, opts)
         |> maybe_apply_confirmation(payload, request_context, request, opts)
-        |> consume_effect_attestation(
+        |> record_effect_authority(
           effect,
           request,
           {payload, request_context, capability},
@@ -1123,31 +1125,42 @@ defmodule SigilGuard.ToolGateway do
 
   # The nonce is consumed only when the decision allows execution, so a pass
   # that ends in confirm leaves the envelope usable for the confirmed retry.
-  defp consume_effect_attestation(
+  # The allowing pass also records when the accepted authority expires, which
+  # admission checks again at dispatch.
+  defp record_effect_authority(
          %Decision{verdict: :allowed} = decision,
          %Effect{mode: :required},
          request,
          {payload, context, capability},
          opts
        ) do
-    with true <- Keyword.get(opts, :attestation, :off) in [:optional, :required],
-         {:ok, envelope} <- Attestation.fetch(request),
-         verify_opts = inbound_verify_opts(payload, context, capability, opts),
-         {:error, reason} <-
-           Attestation.verify(
-             envelope,
-             Keyword.get(opts, :trust_material, %{}),
-             Keyword.put(verify_opts, :replay, true)
-           ) do
-      {:invalid_attestation, %{attestation_error: reason}}
-      |> deny(payload, context)
-      |> put_protocol_metadata(request, opts)
-    else
-      _ -> decision
+    case consume_attestation(request, payload, context, capability, opts) do
+      {:ok, statement} ->
+        Effect.put_authority_expiry(decision, statement)
+
+      {:error, reason} ->
+        {:invalid_attestation, %{attestation_error: reason}}
+        |> deny(payload, context)
+        |> put_protocol_metadata(request, opts)
     end
   end
 
-  defp consume_effect_attestation(%Decision{} = decision, _, _, _, _), do: decision
+  defp record_effect_authority(%Decision{} = decision, _, _, _, _), do: decision
+
+  defp consume_attestation(request, payload, context, capability, opts) do
+    with true <- Keyword.get(opts, :attestation, :off) in [:optional, :required],
+         {:ok, envelope} <- Attestation.fetch(request) do
+      verify_opts = inbound_verify_opts(payload, context, capability, opts)
+
+      Attestation.verify(
+        envelope,
+        Keyword.get(opts, :trust_material, %{}),
+        Keyword.put(verify_opts, :replay, true)
+      )
+    else
+      _ -> {:ok, nil}
+    end
+  end
 
   defp put_effect_metadata(%Decision{} = decision, %Effect{} = effect) do
     %{decision | audit_metadata: Map.merge(decision.audit_metadata, Effect.metadata(effect))}

@@ -669,6 +669,69 @@ defmodule SigilGuard.EffectAuthorityTest do
       end
     end
 
+    test "the authority lifetime is inclusive to the millisecond" do
+      expires_at = ~U[2026-11-19 12:02:00.000Z]
+
+      decision =
+        Fixture.decision(Fixture.request(), %{
+          effect_authority_expires_at: "2026-11-19T12:02:00.000Z"
+        })
+
+      assert admit(decision, Fixture.request(), at(expires_at)) == :ok
+
+      assert admit(decision, Fixture.request(), at(DateTime.add(expires_at, 1, :millisecond))) ==
+               {:error, :authority_expired}
+
+      assert admit(
+               Fixture.decision(Fixture.request()),
+               Fixture.request(),
+               at(~U[2026-11-19 12:05:00.000Z])
+             ) == :ok
+    end
+
+    test "an approval that expires before the deadline refuses the rest of the window" do
+      decision = Fixture.approve(Fixture.request(), ttl_ms: 60_000)
+
+      assert decision.audit_metadata.effect_authority_expires_at == "2026-11-19T12:02:00.000Z"
+      assert admit(decision, Fixture.request(), at(~U[2026-11-19 12:02:00.000Z])) == :ok
+
+      assert admit(decision, Fixture.request(), at(~U[2026-11-19 12:02:00.001Z])) ==
+               {:error, :authority_expired}
+    end
+
+    test "the authority lifetime is checked after the dispatch window" do
+      decision =
+        Fixture.decision(Fixture.request(), %{
+          effect_authority_expires_at: "2026-11-19T12:00:30.000Z"
+        })
+
+      assert admit(decision, Fixture.request(), at(~U[2026-11-19 11:59:59.999Z])) ==
+               {:error, :effect_not_yet_valid}
+
+      assert admit(decision, Fixture.request(), at(~U[2026-11-19 12:05:00.001Z])) ==
+               {:error, :effect_deadline_passed}
+
+      assert admit(decision, Fixture.request(), at(~U[2026-11-19 12:01:00.000Z])) ==
+               {:error, :authority_expired}
+
+      epoch = %{at(~U[2026-11-19 12:01:00.000Z]) | policy_epoch: "example-bundle:43"}
+      assert admit(decision, Fixture.request(), epoch) == {:error, :policy_epoch_mismatch}
+    end
+
+    test "a malformed authority expiry is not an authorization" do
+      for value <- ["2026-11-19T12:02:00Z", "2026-11-19T12:02:00.000+00:00", "soon", 1, :never] do
+        decision = Fixture.decision(Fixture.request(), %{effect_authority_expires_at: value})
+
+        assert admit(decision, Fixture.request()) == {:error, :not_authorized},
+               "accepted #{inspect(value)}"
+      end
+
+      assert admit(
+               Fixture.decision(Fixture.request(), %{effect_authority_expires_at: nil}),
+               Fixture.request()
+             ) == :ok
+    end
+
     test "a record without not_before admits any time up to the deadline" do
       open = update_record(&Map.delete(&1, "not_before"))
 
@@ -1395,7 +1458,7 @@ defmodule SigilGuard.EffectAuthorityTest do
         invalid_options effect_binding_required invalid_effect_binding not_authorized
         invalid_current_facts stale_current_facts principal_mismatch target_mismatch
         target_environment_mismatch artifact_mismatch frame_revision_mismatch
-        policy_epoch_mismatch effect_not_yet_valid effect_deadline_passed
+        policy_epoch_mismatch effect_not_yet_valid effect_deadline_passed authority_expired
         unknown_effect_envelope invalid_effect_envelope effect_envelope_mismatch
         effect_envelope_expired target_out_of_envelope operation_out_of_envelope
         parameter_out_of_envelope

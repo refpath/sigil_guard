@@ -4,6 +4,7 @@ defmodule SigilGuard.ToolGateway.Effect do
   alias SigilGuard.Attestation.Digest
   alias SigilGuard.Confirmation
   alias SigilGuard.Context
+  alias SigilGuard.Decision
   alias SigilGuard.EffectAuthority
 
   @type digests :: %{
@@ -69,6 +70,46 @@ defmodule SigilGuard.ToolGateway.Effect do
   end
 
   def metadata(%__MODULE__{}), do: %{}
+
+  @doc false
+  @spec put_authority_expiry(Decision.t(), map() | nil) :: Decision.t()
+  def put_authority_expiry(%Decision{audit_metadata: metadata} = decision, statement) do
+    expiries =
+      Enum.flat_map(
+        [metadata[:confirmation_expires_at], statement_expiry(statement)],
+        &instant/1
+      )
+
+    case expiries do
+      [] ->
+        decision
+
+      _ ->
+        expires_at = timestamp(Enum.min(expiries, DateTime))
+        %{decision | audit_metadata: Map.put(metadata, :effect_authority_expires_at, expires_at)}
+    end
+  end
+
+  defp statement_expiry(%{"predicate" => %{"expires_at" => expires_at}}), do: expires_at
+  defp statement_expiry(_), do: nil
+
+  defp instant(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, datetime, _} -> [datetime]
+      {:error, _} -> []
+    end
+  end
+
+  defp instant(_), do: []
+
+  # The SP.01 timestamp form. Dropping sub-millisecond digits can only move
+  # the expiry earlier.
+  defp timestamp(datetime) do
+    datetime
+    |> DateTime.to_unix(:millisecond)
+    |> DateTime.from_unix!(:millisecond)
+    |> DateTime.to_iso8601()
+  end
 
   defp required(request, payload, context, opts) do
     record = EffectAuthority.fetch_binding(request)

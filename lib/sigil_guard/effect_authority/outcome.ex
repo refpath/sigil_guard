@@ -37,6 +37,7 @@ defmodule SigilGuard.EffectAuthority.Outcome do
     :policy_epoch_mismatch,
     :effect_not_yet_valid,
     :effect_deadline_passed,
+    :authority_expired,
     :unknown_effect_envelope,
     :invalid_effect_envelope,
     :effect_envelope_mismatch,

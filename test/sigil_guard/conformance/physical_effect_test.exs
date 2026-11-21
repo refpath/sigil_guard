@@ -580,6 +580,20 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
       assert decision.verdict == :allowed
       assert admit(decision, Fixture.request()) == :ok
     end
+
+    test "step 11: an approval that expires before dispatch sends no command", %{ledger: ledger} do
+      expiring = update_record(&Map.put(&1, "operation_id", "op-0011"))
+      on_time = update_record(&Map.put(&1, "operation_id", "op-0012"))
+      expired = Fixture.approve(expiring, ttl_ms: 60_000)
+      last = Fixture.approve(on_time, ttl_ms: 60_000)
+
+      assert dispatch(ledger, expired, expiring, at(~U[2026-11-19 12:02:00.001Z])) ==
+               {:refused, :authority_expired}
+
+      assert Ledger.state(ledger, expired.audit_metadata.effect_operation_key) == :refused
+      assert dispatch(ledger, last, on_time, at(~U[2026-11-19 12:02:00.000Z])) == :dispatched
+      assert Ledger.commands(ledger) == [last.audit_metadata.effect_operation_key]
+    end
   end
 
   describe "SG-F5 evidence honesty" do
