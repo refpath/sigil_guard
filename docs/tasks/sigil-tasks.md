@@ -3511,3 +3511,10 @@ traced every line no test executed.
   result covers the changes between that pair only, so the comparison is
   evidence for single-revision changes; release-wide performance claims wait
   for M15.10 (`SP.15`).
+- `EffectAuthority.admit/5` admits only a decision the gateway made with
+  `effect_binding: :required` for the request's own record, and refuses with
+  `:authority_expired` once the token or attestation the gateway accepted has
+  expired. Required mode checks the input budget before it computes any
+  request digest. `EffectAuthorityTest`, `ToolGatewayEffectTest`, SG-F4 steps
+  9 and 11, SG-F6 step 11, and the guide's receiving boundary in the consumer
+  suite cover the refusals (`SP.19`).
