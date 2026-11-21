@@ -395,11 +395,14 @@ defmodule SigilGuard.ToolGatewayEffectTest do
 
       attested = Map.put(Fixture.request(), "_agent_trust", envelope)
 
-      for {token_ttl_ms, expected} <- [
-            {300_000, "2026-11-19T12:01:30.000Z"},
-            {10_000, "2026-11-19T12:01:10.000Z"}
+      # The attestation expires at 12:01:30 and is accepted for the skew after.
+      for {token_ttl_ms, skew_opts, expected} <- [
+            {300_000, [], "2026-11-19T12:02:30.000Z"},
+            {300_000, [max_skew_ms: 5_000], "2026-11-19T12:01:35.000Z"},
+            {10_000, [max_skew_ms: 5_000], "2026-11-19T12:01:10.000Z"}
           ] do
         ReplayStore.clear()
+        opts = opts ++ skew_opts
         {:ok, token} = issue_token(guard(attested, opts), ttl_ms: token_ttl_ms)
         allowed = guard(Attestation.attach_confirmation(attested, token), opts)
 

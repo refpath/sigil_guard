@@ -2,8 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+`mix release` writes each version heading and its commit sections below the
+marker; notes written below the marker before a release become part of it.
 
-## Unreleased
+<!-- changelog -->
+
+### Release Notes
 
 - The runtime gate blocks invalid scanner hits and non-binary
   `:default_replacement` values. A failed scan of empty text blocks with
@@ -390,7 +394,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   the host reads immediately before dispatch and refuses with a named reason.
   It admits only a decision the gateway made with `effect_binding: :required`
   for the record the request carries, and refuses with `:authority_expired`
-  once the token or attestation the gateway accepted has expired.
+  once the gateway would no longer accept the token or attestation it
+  verified.
+- Add `SigilGuard.Attestation.accepted_until/2`, the last instant at which
+  `verify/3` accepts a statement as fresh under the same options.
   Effect envelopes bound a set of operations, targets and integer arguments.
   `classify_outcome/1` keeps a signed report apart from observed acceptance.
   The option defaults to `:off` and changes no existing decision, digest,
@@ -471,8 +478,6 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
   machine.
 - `mix sigil_guard.docs_lint` reports a test module that a spec table cites and
   `test/` does not define.
-
-<!-- changelog -->
 
 ## [v1.0.5](https://github.com/refpath/sigil_guard/compare/v1.0.4...v1.0.5) (2026-10-10)
 

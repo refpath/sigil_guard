@@ -47,8 +47,12 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 Releases are managed by maintainers using git_ops:
 
 1. Ensure the complete gate passes: `./bin/check`
-2. Run `mix release` (alias for `mix git_ops.release`). It updates the
-   changelog, bumps the version, commits, and tags.
+2. Run `mix release` (alias for `mix git_ops.release`). It writes the version
+   heading and the sections built from commit subjects directly below the
+   `<!-- changelog -->` marker in `CHANGELOG.md`, bumps the version, commits,
+   and tags. Notes that need more than a commit subject go below the marker,
+   under `### Release Notes`, before the release; they then belong to it.
+   Anything above the marker is never moved.
 3. Push with tags: `git push --follow-tags`
 4. CI verifies the exact version tag and commit, then validates, attests, and
    publishes through isolated jobs

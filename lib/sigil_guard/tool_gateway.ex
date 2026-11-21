@@ -125,8 +125,9 @@ defmodule SigilGuard.ToolGateway do
       is refused, an inbound attestation nonce is consumed once on the pass
       that allows execution, and every decision records `action_digest`,
       `payload_digest`, and `context_digest` for the host ledger. An allowed
-      decision records the earliest `expires_at` of the accepted confirmation
-      token and the consumed attestation as `effect_authority_expires_at`.
+      decision records as `effect_authority_expires_at` the earlier of the
+      accepted token's `expires_at` and the last instant the consumed
+      attestation is accepted, its `expires_at` plus the verification skew.
 
   ## Examples
 
@@ -1135,8 +1136,8 @@ defmodule SigilGuard.ToolGateway do
          opts
        ) do
     case consume_attestation(request, payload, context, capability, opts) do
-      {:ok, statement} ->
-        Effect.put_authority_expiry(decision, statement)
+      {:ok, accepted_until} ->
+        Effect.put_authority_expiry(decision, accepted_until)
 
       {:error, reason} ->
         {:invalid_attestation, %{attestation_error: reason}}
@@ -1151,12 +1152,12 @@ defmodule SigilGuard.ToolGateway do
     with true <- Keyword.get(opts, :attestation, :off) in [:optional, :required],
          {:ok, envelope} <- Attestation.fetch(request) do
       verify_opts = inbound_verify_opts(payload, context, capability, opts)
+      consume_opts = Keyword.put(verify_opts, :replay, true)
 
-      Attestation.verify(
-        envelope,
-        Keyword.get(opts, :trust_material, %{}),
-        Keyword.put(verify_opts, :replay, true)
-      )
+      with {:ok, statement} <-
+             Attestation.verify(envelope, Keyword.get(opts, :trust_material, %{}), consume_opts) do
+        Attestation.accepted_until(statement, verify_opts)
+      end
     else
       _ -> {:ok, nil}
     end

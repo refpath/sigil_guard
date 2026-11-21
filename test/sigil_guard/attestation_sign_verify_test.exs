@@ -189,6 +189,50 @@ defmodule SigilGuard.AttestationSignVerifyTest do
              ) == {:error, :expired_attestation}
     end
 
+    test "accepted_until/2 is the last instant verify/3 accepts" do
+      assert {:ok, statement} =
+               valid_statement(%{
+                 "issued_at" => "2026-07-03T11:00:00.000Z",
+                 "expires_at" => "2026-07-03T11:59:00.000Z"
+               })
+
+      assert {:ok, envelope} = Attestation.sign(statement, TrustedSigner, keyid: "trusted")
+      keys = %{"trusted" => TrustedSigner.public_key()}
+
+      for opts <- [[max_skew_ms: 0], [max_skew_ms: 90_000], []] do
+        assert {:ok, until} = Attestation.accepted_until(statement, opts)
+
+        assert Attestation.verify(envelope, keys, Keyword.put(opts, :now, until)) ==
+                 {:ok, statement}
+
+        assert Attestation.verify(
+                 envelope,
+                 keys,
+                 Keyword.put(opts, :now, DateTime.add(until, 1, :millisecond))
+               ) == {:error, :expired_attestation}
+      end
+
+      assert Attestation.accepted_until(statement, []) ==
+               {:ok, ~U[2026-07-03 12:00:00.000Z]}
+    end
+
+    test "accepted_until/2 refuses a malformed statement or skew" do
+      {:ok, statement} = valid_statement(%{"expires_at" => "2026-07-03T11:59:00.000Z"})
+
+      for {input, opts} <- [
+            {statement, [max_skew_ms: -1]},
+            {statement, [max_skew_ms: 1.5]},
+            {statement, :not_a_keyword},
+            {put_in(statement, ["predicate", "expires_at"], "tomorrow"), []},
+            {put_in(statement, ["predicate", "expires_at"], 1), []},
+            {%{"predicate" => "x"}, []},
+            {nil, []}
+          ] do
+        assert Attestation.accepted_until(input, opts) == {:error, :invalid_payload},
+               "accepted #{inspect({input, opts})}"
+      end
+    end
+
     test "rejects future-issued and inverted lifetime attestations" do
       assert {:ok, future_statement} =
                valid_statement(%{

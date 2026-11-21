@@ -203,6 +203,32 @@ defmodule SigilGuard.Attestation do
   def verify(_, _, _), do: {:error, :missing_trust_bundle}
 
   @doc """
+  Return the last instant at which `verify/3` accepts a statement as fresh.
+
+  That instant is the statement's `expires_at` plus the clock skew
+  `verify/3` allows under the same options: `:max_skew_ms`, else the
+  application environment, else 60 seconds. A caller that acts on a verified
+  statement later can check that it would still be accepted.
+
+      iex> statement = %{"predicate" => %{"expires_at" => "2026-11-19T12:06:00.000Z"}}
+      ...> SigilGuard.Attestation.accepted_until(statement, max_skew_ms: 1_000)
+      {:ok, ~U[2026-11-19 12:06:01.000Z]}
+      iex> SigilGuard.Attestation.accepted_until(%{"predicate" => %{}}, [])
+      {:error, :invalid_payload}
+  """
+  @doc since: "1.1.0"
+  @spec accepted_until(term(), keyword()) :: {:ok, DateTime.t()} | {:error, :invalid_payload}
+  def accepted_until(%{"predicate" => predicate}, opts)
+      when is_map(predicate) and is_list(opts) do
+    with {:ok, expires_at} <- parse_required_datetime(Map.get(predicate, "expires_at")),
+         {:ok, max_skew_ms} <- max_skew_ms(opts) do
+      {:ok, DateTime.add(expires_at, max_skew_ms, :millisecond)}
+    end
+  end
+
+  def accepted_until(_, _), do: {:error, :invalid_payload}
+
+  @doc """
   Attach an attestation envelope under the reserved `_agent_trust` key.
 
   Raises `ArgumentError` when `payload` is not a map.

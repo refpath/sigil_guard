@@ -67,8 +67,10 @@ checked before any digest. Every other decision records
 `action_digest`, `payload_digest`, `context_digest`, `effect_binding_digest`,
 and `effect_operation_key` in `decision.audit_metadata`. An inbound
 attestation nonce is consumed once, on the pass that allows execution. An
-allowed decision also records `effect_authority_expires_at`, the earliest
-`expires_at` of the accepted token and the consumed attestation.
+allowed decision also records `effect_authority_expires_at`, the last instant
+at which the gateway would still accept the token and the attestation it
+verified: the token's `expires_at`, and the attestation's `expires_at` plus the
+verification skew.
 
 The option only refuses. A valid record never replaces a confirmation the
 policy requires.

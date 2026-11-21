@@ -74,11 +74,11 @@ defmodule SigilGuard.ToolGateway.Effect do
   def metadata(%__MODULE__{}), do: %{}
 
   @doc false
-  @spec put_authority_expiry(Decision.t(), map() | nil) :: Decision.t()
-  def put_authority_expiry(%Decision{audit_metadata: metadata} = decision, statement) do
+  @spec put_authority_expiry(Decision.t(), DateTime.t() | nil) :: Decision.t()
+  def put_authority_expiry(%Decision{audit_metadata: metadata} = decision, attestation_until) do
     expiries =
       Enum.flat_map(
-        [metadata[:confirmation_expires_at], statement_expiry(statement)],
+        [metadata[:confirmation_expires_at], attestation_until],
         &instant/1
       )
 
@@ -92,10 +92,9 @@ defmodule SigilGuard.ToolGateway.Effect do
     end
   end
 
-  defp statement_expiry(%{"predicate" => %{"expires_at" => expires_at}}), do: expires_at
-  defp statement_expiry(_), do: nil
+  defp instant(%DateTime{} = datetime), do: [datetime]
 
-  # Both values parsed when the token and the attestation verified.
+  # The token's expiry parsed when the token verified.
   defp instant(value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
       {:ok, datetime, _} -> [datetime]

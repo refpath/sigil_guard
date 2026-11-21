@@ -159,8 +159,8 @@ defmodule SigilGuard.EffectAuthority do
       names one.
 
   `:authority_expired` refuses a `:now` later than the decision's
-  `effect_authority_expires_at`, the earliest stated expiry of the token and
-  the attestation the gateway accepted. The checks run in the SP.19 admission
+  `effect_authority_expires_at`: the last instant at which the gateway would
+  still accept the token and the attestation it verified. The checks run in the SP.19 admission
   order, and the first failure is returned as `{:error, reason}`. The result
   is not a credential: it applies to the dispatch that follows immediately,
   and a refusal never upgrades a verdict.

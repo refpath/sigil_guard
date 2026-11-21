@@ -7,6 +7,8 @@ defmodule SigilGuard.AttestationTest do
   alias SigilGuard.Attestation
   alias SigilGuard.Canonical.JCS
 
+  doctest Attestation
+
   @envelope %{"payload" => "abc", "signatures" => []}
   @token "confirm.token"
 

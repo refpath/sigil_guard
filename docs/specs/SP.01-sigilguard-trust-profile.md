@@ -704,6 +704,11 @@ defmodule SigilGuard.Attestation do
   # :max_skew_ms, :replay (default false; :consume is an alias),
   # :replay_ttl_ms, :expected_payload_sha256, :now.
 
+  @spec accepted_until(statement :: term(), opts :: keyword()) ::
+          {:ok, DateTime.t()} | {:error, :invalid_payload}
+  # The statement's expires_at plus the skew verify/3 resolves from the same
+  # opts: the last instant at which verify/3 accepts it as fresh.
+
   @spec from_decision(
           SigilGuard.Decision.t(),
           SigilGuard.Context.t() | map() | keyword(),
