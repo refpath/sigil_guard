@@ -273,6 +273,7 @@ defmodule SigilGuard.EffectAuthority do
     with ^binding_digest <- jcs_digest(record),
          ^operation_key <- operation_digest(record),
          {:ok, expires_at} <- authority_expiry(metadata),
+         :ok <- SigilGuard.Limits.check(payload),
          {:ok, ^action_digest} <- Confirmation.fetch_action_digest(payload, bound_context) do
       {:ok, %{expires_at: expires_at, manifest_digest: metadata[:manifest_digest]}}
     else

@@ -28,6 +28,8 @@ defmodule SigilGuard.ToolGateway.Effect do
           | :effect_replay_protection_required
           | :invalid_payload
 
+  @budget_keys [:max_input_bytes, :max_input_nodes, :max_input_depth]
+
   defstruct mode: :off,
             replay_protected?: true,
             digests: :error,
@@ -117,16 +119,20 @@ defmodule SigilGuard.ToolGateway.Effect do
     %__MODULE__{
       mode: :required,
       replay_protected?: SigilGuard.Options.flag(opts, :consume_confirmation, true, false),
-      digests: digests(payload, context),
+      digests: digests(payload, context, opts),
       record: record,
       binding_digest: record_digest(record, &EffectAuthority.binding_digest/1),
       operation_key: record_digest(record, &EffectAuthority.operation_key/1)
     }
   end
 
-  defp digests(payload, context) do
-    with {:ok, action_digest} <- Confirmation.fetch_action_digest(payload, context),
+  # The digests are computed before the runtime gate, so the gate's input
+  # budget is checked first. The payload digest applies the default budget and
+  # runs before the action digest, whose legacy encoder applies none.
+  defp digests(payload, context, opts) do
+    with :ok <- SigilGuard.Limits.check(payload, Keyword.take(opts, @budget_keys)),
          {:ok, payload_digest} <- Digest.payload_digest(payload),
+         {:ok, action_digest} <- Confirmation.fetch_action_digest(payload, context),
          {:ok, context_digest} <- Digest.context_digest(context.phase, context) do
       {:ok,
        %{

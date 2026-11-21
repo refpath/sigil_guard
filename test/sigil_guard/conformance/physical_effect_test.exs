@@ -828,6 +828,25 @@ defmodule SigilGuard.Conformance.PhysicalEffectTest do
 
       assert present_raw(request).audit_metadata.deny_reason == :invalid_payload
     end
+
+    test "step 11: a request over the input budget is blocked before any digest" do
+      oversized =
+        put_in(
+          Fixture.request(),
+          ["params", "arguments", "note"],
+          String.duplicate("a", 1_048_577)
+        )
+
+      {decision, digest_calls} =
+        SigilGuard.CallTrace.count({SigilGuard.Confirmation, :fetch_action_digest, 2}, fn ->
+          present_raw(oversized)
+        end)
+
+      assert decision.audit_metadata.deny_reason == :invalid_payload
+      refute Map.has_key?(decision.audit_metadata, :action_digest)
+      refute Map.has_key?(decision.audit_metadata, :payload_digest)
+      assert digest_calls == 0
+    end
   end
 
   # The receiving boundary of the SP.19 data flow: claim, admit, then record

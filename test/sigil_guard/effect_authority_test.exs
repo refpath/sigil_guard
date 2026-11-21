@@ -484,6 +484,26 @@ defmodule SigilGuard.EffectAuthorityTest do
       assert admit(approved, Fixture.request()) == :ok
     end
 
+    test "checks the input budget before recomputing the action digest" do
+      action_digest = {SigilGuard.Confirmation, :fetch_action_digest, 2}
+      approved = Fixture.approve(Fixture.request())
+
+      oversized =
+        put_in(
+          Fixture.request(),
+          ["params", "arguments", "note"],
+          String.duplicate("a", 1_048_577)
+        )
+
+      assert SigilGuard.CallTrace.count(action_digest, fn ->
+               admit(approved, Fixture.request())
+             end) ==
+               {:ok, 1}
+
+      assert SigilGuard.CallTrace.count(action_digest, fn -> admit(approved, oversized) end) ==
+               {{:error, :not_authorized}, 0}
+    end
+
     test "the context is part of the binding" do
       decision = Fixture.approve(Fixture.request())
 

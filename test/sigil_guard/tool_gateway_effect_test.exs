@@ -16,6 +16,7 @@ defmodule SigilGuard.ToolGatewayEffectTest do
   alias SigilGuard.TestSigner
   alias SigilGuard.ToolGateway
 
+  @action_digest {Confirmation, :fetch_action_digest, 2}
   @effect_keys [:effect_binding, :effect_binding_digest, :effect_operation_key]
   @digest_keys [:action_digest, :payload_digest, :context_digest]
 
@@ -169,6 +170,43 @@ defmodule SigilGuard.ToolGatewayEffectTest do
       assert response["error"]["code"] == -31_990
 
       assert guard(Fixture.drop_record(request)).audit_metadata.deny_reason == :invalid_payload
+    end
+
+    test "the input budget is checked before any digest is computed" do
+      oversized =
+        put_in(
+          Fixture.request(),
+          ["params", "arguments", "note"],
+          String.duplicate("a", 1_048_577)
+        )
+
+      {pending, pending_calls} =
+        SigilGuard.CallTrace.count(@action_digest, fn -> guard(Fixture.request()) end)
+
+      {refused, refused_calls} =
+        SigilGuard.CallTrace.count(@action_digest, fn -> guard(oversized) end)
+
+      assert {:confirm, _} = pending.verdict
+      assert pending_calls >= 1
+      assert refused.audit_metadata.deny_reason == :invalid_payload
+      assert Map.take(refused.audit_metadata, @digest_keys) == %{}
+      assert refused_calls == 0
+    end
+
+    test "a budget option tighter than the default applies before the digests" do
+      {refused, calls} =
+        SigilGuard.CallTrace.count(@action_digest, fn ->
+          guard(Fixture.request(), max_input_nodes: 8)
+        end)
+
+      assert refused.audit_metadata.deny_reason == :invalid_payload
+      assert Map.take(refused.audit_metadata, @digest_keys) == %{}
+      assert calls == 0
+
+      assert guard(Fixture.request(), max_input_nodes: 8, effect_binding: :off).verdict ==
+               :blocked
+
+      assert {:confirm, _} = guard(Fixture.request(), max_input_nodes: 1_000).verdict
     end
 
     test "existing denials keep their precedence over the record check" do

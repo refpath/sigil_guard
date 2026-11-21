@@ -62,7 +62,8 @@ With `:required` the gateway blocks a request without a valid record
 (`:effect_binding_required`, `:invalid_effect_binding`), blocks
 `consume_confirmation: false` (`:effect_replay_protection_required`), and
 blocks a request whose digests cannot be computed (`:invalid_payload`), for
-example one with a `null` argument. Every other decision records
+example one with a `null` argument or one over the input budget, which is
+checked before any digest. Every other decision records
 `action_digest`, `payload_digest`, `context_digest`, `effect_binding_digest`,
 and `effect_operation_key` in `decision.audit_metadata`. An inbound
 attestation nonce is consumed once, on the pass that allows execution. An
