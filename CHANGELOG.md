@@ -7,6 +7,163 @@ marker; notes written below the marker before a release become part of it.
 
 <!-- changelog -->
 
+## [v1.1.0](https://github.com/refpath/sigil_guard/compare/v1.0.5...v1.1.0) (2026-11-22)
+
+
+
+
+### Features:
+
+* bench: check the baseline band and write the candidate by futhr
+
+* bench: time fast scenarios in batches and report per call by futhr
+
+* bench: one suite per area, each with a report in the documentation by futhr
+
+* gateway: name the digests and fields of a manifest drift denial by futhr
+
+* agent-trust: bind responses to their requester and document scope by futhr
+
+* telemetry: carry denial facts and a host correlation id by futhr
+
+* gateway: bind result token manifests and check attested actors by futhr
+
+* attestation: bind the request action and complete the predicate by futhr
+
+* attestation: verify against a trust bundle's attestation role by futhr
+
+* gate: enforce output contracts and bind what a stream released by futhr
+
+* gate: carry hook and adaptive signals on the gate decision by futhr
+
+* gate: apply repo policy sections and pass facts to the kernel by futhr
+
+* identity: add SPIFFE and did:key helpers and vault errors by futhr
+
+* gateway: feed pinned manifest classes to the sandbox matrix by futhr
+
+* effect: classify outcomes, record audit fields and check states by futhr
+
+* effect: check current facts and envelope membership at admission by futhr
+
+* gateway: add effect_binding for physical-effect requests by futhr
+
+* effect: add effect binding validation and digests by futhr
+
+### Bug Fixes:
+
+* ci: keep the band findings in the candidate artifact by futhr
+
+* bench: name the Linux CPU model from /proc/cpuinfo by futhr
+
+* effect: include attestation skew in the authority expiry by futhr
+
+* effect: check the input budget before digesting by futhr
+
+* effect: refuse admission after the approval expires by futhr
+
+* effect: admit only decisions guarded with the effect binding by futhr
+
+* tooling: write mutation JSON apart from diagnostic logs by futhr
+
+* ci: measure both revisions and key caches by BEAM version by futhr
+
+* runtime: validate scan hits and cut manifest and stream copies by futhr
+
+* scanner: return invalid_patterns for unreadable pattern lists by futhr
+
+* distinguish malformed verifier inputs from mismatches by futhr
+
+* sbom: return file errors for unreadable dependency metadata by futhr
+
+* audit: reject duplicate receipt keys and share store helpers by futhr
+
+* preserve custom pattern order and share result collection by futhr
+
+* audit: report a missing checkpoint signature algorithm by futhr
+
+* repo_policy: refuse an improper rule list instead of raising by futhr
+
+* bench: time confirmation with an accepted token by futhr
+
+* reject malformed input across five public paths by futhr
+
+* security: tighten receipt hosts, policy options and repo patterns by futhr
+
+* treat an improper hooks list as malformed options by futhr
+
+* scanner: return a reason, not a raise, for improper pattern lists by futhr
+
+* gateway: release a redacted result in its original shape by futhr
+
+* read every switch option one way, strictly for non-booleans by futhr
+
+* gateway: treat a struct passed as manifests as no manifest map by futhr
+
+* distinguish unreadable policy files and reject invalid defaults by futhr
+
+* return decisions or errors for malformed input by futhr
+
+* require runtime, validate options strictly and tighten Credo by futhr
+
+* gateway: take a result's manifest from the host context only by futhr
+
+* gateway: refuse an output schema digest that is not the manifest's by futhr
+
+* attestation: read a gate payload whose tool or action is null by futhr
+
+* attestation: read the action from the projected message by futhr
+
+* bench: measure the named paths and add the spec's fixtures by futhr
+
+* trust-bundle: check rollback in verify and enforce rotation floors by futhr
+
+* repo-policy: validate loader option values before filesystem access by futhr
+
+* backend: use Elixir and reject the removed :backend key by futhr
+
+* gate: combine the gate's own signals by strength, not first match by futhr
+
+* gateway: keep the result type of a redacted tool result by futhr
+
+* attestation: keep built-in indicator IDs in quarantine by futhr
+
+* quarantine: give indicators the category policy rules match on by futhr
+
+* gateway: apply the token-passthrough check without a manifest by futhr
+
+* gateway: admit only the App origin to an App-only tool by futhr
+
+* repo-policy: let the default decide unmatched paths by rank by futhr
+
+* gateway: preserve redaction after result confirmation by futhr
+
+* reject invalid repo contexts and agent trust options by futhr
+
+* audit: refuse malformed witness threshold arguments without raising by futhr
+
+* telemetry: export identities as keyed digests in OTel attributes by futhr
+
+* handle malformed input across public entry points by futhr
+
+* deps: update the advisory-marked test HTTP stack by futhr
+
+* gateway: handle malformed inputs and reject digest newlines by futhr
+
+* gate: evaluate policy even when payload digesting fails by futhr
+
+* deps: update advisory-marked Plug.Crypto by Tobias Bohwalli
+
+### Performance Improvements:
+
+* runtime: copy only the configuration keys a helper reads by futhr
+
+* quarantine: search the prefilter words with one cached pattern by futhr
+
+* quarantine: find prefilter words without a regex alternation by futhr
+
+* drop repeated work and dead code on the decision path by futhr
+
 ### Release Notes
 
 - The runtime gate blocks invalid scanner hits and non-binary
