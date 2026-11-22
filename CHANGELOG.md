@@ -502,6 +502,8 @@ marker; notes written below the marker before a release become part of it.
 
 ## [v1.0.4](https://github.com/refpath/sigil_guard/compare/v1.0.3...v1.0.4) (2026-09-16)
 
+The first published release with the changes of 1.0.2 and 1.0.3. Its `lib/`
+code is the same as theirs.
 
 
 
@@ -511,6 +513,7 @@ marker; notes written below the marker before a release become part of it.
 
 ## [v1.0.3](https://github.com/refpath/sigil_guard/compare/v1.0.2...v1.0.3) (2026-09-16)
 
+Tagged, not published to Hex: the release workflow did not complete.
 
 
 
@@ -520,6 +523,7 @@ marker; notes written below the marker before a release become part of it.
 
 ## [v1.0.2](https://github.com/refpath/sigil_guard/compare/v1.0.1...v1.0.2) (2026-09-16)
 
+Tagged, not published to Hex: the release workflow failed its quality gate.
 
 
 
