@@ -1,115 +1,423 @@
 {
+  "derived": {
+    "BM.04 stream median per chunk": {
+      "median_ns": 115886
+    },
+    "BM.04 stream overhead versus single pass": {
+      "median_ns": 10572833,
+      "percent": 248.2
+    },
+    "BM.08 gateway overhead versus no-op": {
+      "median_ns": 65112
+    }
+  },
   "environment": {
     "benchee": "warmup 2 s, time 5 s, memory_time 2 s",
-    "cores": 16,
-    "date": "2026-07-07",
-    "elixir": "1.20.2",
-    "hardware": "Apple M4 Max",
-    "os": "unix/darwin",
+    "cores": 4,
+    "date": "2026-11-22",
+    "elixir": "1.20.5",
+    "hardware": "AMD EPYC 9V45 96-Core Processor",
+    "memory": "16 GB RAM",
+    "os": "unix/linux",
     "otp": "29",
-    "sigil_guard": "1.0.0 (298d787)"
+    "sigil_guard": "1.0.5 (db3d0cf)"
   },
-  "recorded_at": "2026-07-07",
+  "recorded_at": "2026-11-22",
   "scenarios": {
     "BM.01 scan clean 1k": {
-      "median_ns": 13083,
-      "memory_bytes": 4448,
-      "p99_ns": 23750
+      "median_ns": 12639,
+      "memory_bytes": 3816,
+      "p99_ns": 18187
     },
     "BM.01 scan clean 1m": {
-      "median_ns": 12421875,
-      "memory_bytes": 4592,
-      "p99_ns": 12814930
+      "median_ns": 11666137,
+      "memory_bytes": 3872,
+      "p99_ns": 12014018
     },
     "BM.01 scan clean 64k": {
-      "median_ns": 777292,
-      "memory_bytes": 4472,
-      "p99_ns": 889357
+      "median_ns": 734538,
+      "memory_bytes": 3840,
+      "p99_ns": 773917
     },
     "BM.02 scan hits 1k": {
-      "median_ns": 13500,
-      "memory_bytes": 4448,
-      "p99_ns": 24875
+      "median_ns": 16635,
+      "memory_bytes": 11600,
+      "p99_ns": 22614
     },
     "BM.02 scan hits 1m": {
-      "median_ns": 13400917,
-      "memory_bytes": 1507832,
-      "p99_ns": 14751770
+      "median_ns": 12975353,
+      "memory_bytes": 2030344,
+      "p99_ns": 13671566
     },
     "BM.02 scan hits 64k": {
-      "median_ns": 802042,
-      "memory_bytes": 97720,
-      "p99_ns": 901206
+      "median_ns": 780949,
+      "memory_bytes": 130360,
+      "p99_ns": 823280
     },
     "BM.03 runtime gate allow": {
-      "median_ns": 122334,
-      "memory_bytes": 51328,
-      "p99_ns": 150625
+      "median_ns": 46400,
+      "memory_bytes": 46752,
+      "p99_ns": 60152
     },
     "BM.03 runtime gate block": {
-      "median_ns": 23166,
-      "memory_bytes": 58448,
-      "p99_ns": 57917
+      "median_ns": 32029,
+      "memory_bytes": 55600,
+      "p99_ns": 47782
     },
     "BM.03 runtime gate quarantine": {
-      "median_ns": 46250,
-      "memory_bytes": 68000,
-      "p99_ns": 66584
+      "median_ns": 76776,
+      "memory_bytes": 64720,
+      "p99_ns": 96666
     },
     "BM.03 runtime gate redact": {
-      "median_ns": 27875,
-      "memory_bytes": 63336,
-      "p99_ns": 47283
+      "median_ns": 37607,
+      "memory_bytes": 56472,
+      "p99_ns": 60581
+    },
+    "BM.04 runtime stream 64k clean": {
+      "median_ns": 14971326,
+      "memory_bytes": 6252896,
+      "p99_ns": 17884911
     },
     "BM.04 runtime stream 64k split secret": {
-      "median_ns": 84997,
-      "memory_bytes": 78992,
-      "p99_ns": 239243
+      "median_ns": 14833458,
+      "memory_bytes": 6295280,
+      "p99_ns": 15614918
+    },
+    "BM.04 single pass gate 64k": {
+      "median_ns": 4260625,
+      "memory_bytes": 1895264,
+      "p99_ns": 4918899
     },
     "BM.05 attestation sign": {
-      "median_ns": 85747,
-      "memory_bytes": 72616,
-      "p99_ns": 108913
+      "median_ns": 111869,
+      "memory_bytes": 50368,
+      "p99_ns": 127762
     },
     "BM.05 attestation verify": {
-      "median_ns": 63081,
-      "memory_bytes": 59336,
-      "p99_ns": 80956
+      "median_ns": 107572,
+      "memory_bytes": 81080,
+      "p99_ns": 141725
     },
     "BM.06 trust bundle cache warm": {
-      "median_ns": 333,
-      "memory_bytes": 48,
-      "p99_ns": 2666
+      "median_ns": 1544,
+      "memory_bytes": 4949,
+      "p99_ns": 2387
     },
     "BM.06 trust bundle verify cold": {
-      "median_ns": 62081,
-      "memory_bytes": 27752,
-      "p99_ns": 81169
+      "median_ns": 139311,
+      "memory_bytes": 101504,
+      "p99_ns": 191389
     },
     "BM.07 audit append onto 10k chain": {
-      "median_ns": 1625,
-      "memory_bytes": 1712,
-      "p99_ns": 2459
+      "median_ns": 2361,
+      "memory_bytes": 1746,
+      "p99_ns": 4021
     },
     "BM.07 audit checkpoint create 10k": {
-      "median_ns": 5960520,
-      "memory_bytes": 4161314,
-      "p99_ns": 7416339
+      "median_ns": 7809395,
+      "memory_bytes": 3932354,
+      "p99_ns": 10444676
     },
     "BM.07 audit inclusion verify 10k": {
-      "median_ns": 6500,
-      "memory_bytes": 5808,
-      "p99_ns": 47498
+      "median_ns": 11999,
+      "memory_bytes": 5744,
+      "p99_ns": 47485
     },
     "BM.08 no-op baseline": {
-      "median_ns": 2,
+      "median_ns": 6,
       "memory_bytes": 0,
-      "p99_ns": 3
+      "p99_ns": 9
     },
     "BM.08 tool gateway guard_request": {
-      "median_ns": 24457,
-      "memory_bytes": 58856,
-      "p99_ns": 45831
+      "median_ns": 65118,
+      "memory_bytes": 90168,
+      "p99_ns": 80348
+    },
+    "BM.09 scan and redact hits 1k": {
+      "median_ns": 16925,
+      "memory_bytes": 11760,
+      "p99_ns": 24047
+    },
+    "BM.09 scan and redact hits 64k": {
+      "median_ns": 778815,
+      "memory_bytes": 132640,
+      "p99_ns": 957772
+    },
+    "BM.10 quarantine inspect clean 1k": {
+      "median_ns": 7566,
+      "memory_bytes": 3092,
+      "p99_ns": 12184
+    },
+    "BM.10 quarantine inspect injection": {
+      "median_ns": 26370,
+      "memory_bytes": 10808,
+      "p99_ns": 32709
+    },
+    "BM.11 pattern sets resolve 10 entries": {
+      "median_ns": 10927,
+      "memory_bytes": 7792,
+      "p99_ns": 23035
+    },
+    "BM.12 policy verdict allowed": {
+      "median_ns": 774,
+      "memory_bytes": 816,
+      "p99_ns": 1197
+    },
+    "BM.12 policy verdict blocked": {
+      "median_ns": 556,
+      "memory_bytes": 854,
+      "p99_ns": 899
+    },
+    "BM.13 boundary policy kernel": {
+      "median_ns": 4060,
+      "memory_bytes": 4053,
+      "p99_ns": 11604
+    },
+    "BM.14 policy file parse": {
+      "median_ns": 82014,
+      "memory_bytes": 54048,
+      "p99_ns": 106294
+    },
+    "BM.14 runtime gate with output contract": {
+      "median_ns": 1628588,
+      "memory_bytes": 458408,
+      "p99_ns": 1783474
+    },
+    "BM.15 repo policy compile": {
+      "median_ns": 15023,
+      "memory_bytes": 11280,
+      "p99_ns": 32309
+    },
+    "BM.15 repo policy evaluate": {
+      "median_ns": 9570,
+      "memory_bytes": 10212,
+      "p99_ns": 17557
+    },
+    "BM.15 runtime gate repo change": {
+      "median_ns": 55664,
+      "memory_bytes": 95816,
+      "p99_ns": 68016
+    },
+    "BM.16 guard_request pinned compiled manifest": {
+      "median_ns": 76436,
+      "memory_bytes": 107408,
+      "p99_ns": 93637
+    },
+    "BM.16 guard_request pinned manifest": {
+      "median_ns": 132950,
+      "memory_bytes": 192264,
+      "p99_ns": 163069
+    },
+    "BM.16 guard_request required attestation": {
+      "median_ns": 277038,
+      "memory_bytes": 288952,
+      "p99_ns": 337938
+    },
+    "BM.17 guard_result": {
+      "median_ns": 47632,
+      "memory_bytes": 81928,
+      "p99_ns": 59610
+    },
+    "BM.17 guard_result pinned manifest": {
+      "median_ns": 113672,
+      "memory_bytes": 180216,
+      "p99_ns": 138920
+    },
+    "BM.18 capability manifest drifted fields": {
+      "median_ns": 56625,
+      "memory_bytes": 87040,
+      "p99_ns": 68701
+    },
+    "BM.18 capability manifest new": {
+      "median_ns": 50776,
+      "memory_bytes": 82008,
+      "p99_ns": 64517
+    },
+    "BM.18 capability manifest verify": {
+      "median_ns": 51427,
+      "memory_bytes": 82344,
+      "p99_ns": 64337
+    },
+    "BM.19 effect authority admit": {
+      "median_ns": 52239,
+      "memory_bytes": 85424,
+      "p99_ns": 68764
+    },
+    "BM.19 guard_request effect binding": {
+      "median_ns": 322457,
+      "memory_bytes": 492384,
+      "p99_ns": 433127
+    },
+    "BM.20 confirmation action digest": {
+      "median_ns": 11327,
+      "memory_bytes": 21712,
+      "p99_ns": 17386
+    },
+    "BM.20 confirmation issue": {
+      "median_ns": 34783,
+      "memory_bytes": 63272,
+      "p99_ns": 57791
+    },
+    "BM.20 confirmation verify": {
+      "median_ns": 41232,
+      "memory_bytes": 68568,
+      "p99_ns": 59680
+    },
+    "BM.20 guard_request accepted token": {
+      "median_ns": 216516,
+      "memory_bytes": 311216,
+      "p99_ns": 279326
+    },
+    "BM.21 attestation digests": {
+      "median_ns": 21242,
+      "memory_bytes": 51632,
+      "p99_ns": 39740
+    },
+    "BM.21 attestation from_decision": {
+      "median_ns": 32959,
+      "memory_bytes": 66672,
+      "p99_ns": 58218
+    },
+    "BM.21 trust profile validate": {
+      "median_ns": 3561,
+      "memory_bytes": 3328,
+      "p99_ns": 8017
+    },
+    "BM.22 attestation verify signature only": {
+      "median_ns": 80351,
+      "memory_bytes": 28408,
+      "p99_ns": 93167
+    },
+    "BM.22 attestation verify with trust bundle": {
+      "median_ns": 111428,
+      "memory_bytes": 86352,
+      "p99_ns": 133871
+    },
+    "BM.23 trust bundle load": {
+      "median_ns": 147784,
+      "memory_bytes": 103575,
+      "p99_ns": 198888
+    },
+    "BM.23 trust bundle pattern sets": {
+      "median_ns": 11297,
+      "memory_bytes": 7816,
+      "p99_ns": 31628
+    },
+    "BM.24 agent card digest": {
+      "median_ns": 20041,
+      "memory_bytes": 37544,
+      "p99_ns": 38458
+    },
+    "BM.24 agent card sign": {
+      "median_ns": 107111,
+      "memory_bytes": 40952,
+      "p99_ns": 120777
+    },
+    "BM.24 agent card verify": {
+      "median_ns": 89205,
+      "memory_bytes": 49472,
+      "p99_ns": 101223
+    },
+    "BM.25 attest agent request": {
+      "median_ns": 291555,
+      "memory_bytes": 228144,
+      "p99_ns": 338533
+    },
+    "BM.25 attest agent response": {
+      "median_ns": 293709,
+      "memory_bytes": 211040,
+      "p99_ns": 332592
+    },
+    "BM.25 verify agent response": {
+      "median_ns": 230458,
+      "memory_bytes": 162392,
+      "p99_ns": 265148
+    },
+    "BM.25 verify delegation chain": {
+      "median_ns": 5228,
+      "memory_bytes": 9304,
+      "p99_ns": 16220
+    },
+    "BM.26 audit consistency proof 10k": {
+      "median_ns": 7883464,
+      "memory_bytes": 4183952,
+      "p99_ns": 9476024
+    },
+    "BM.26 audit consistency verify 10k": {
+      "median_ns": 17987,
+      "memory_bytes": 8384,
+      "p99_ns": 84006
+    },
+    "BM.26 audit export create 1k": {
+      "median_ns": 4926704,
+      "memory_bytes": 2708619,
+      "p99_ns": 5492732
+    },
+    "BM.26 audit inclusion proof 10k": {
+      "median_ns": 8021642,
+      "memory_bytes": 4082672,
+      "p99_ns": 9870224
+    },
+    "BM.26 audit verify chain 1k": {
+      "median_ns": 2479551,
+      "memory_bytes": 1536072,
+      "p99_ns": 3201972
+    },
+    "BM.27 canonical json decode statement": {
+      "median_ns": 5333,
+      "memory_bytes": 10904,
+      "p99_ns": 11127
+    },
+    "BM.27 jcs encode statement": {
+      "median_ns": 18478,
+      "memory_bytes": 43664,
+      "p99_ns": 36211
+    },
+    "BM.28 secure compare 64 bytes": {
+      "median_ns": 107,
+      "memory_bytes": 1,
+      "p99_ns": 162
+    },
+    "BM.28 sha256 hex 1k": {
+      "median_ns": 737,
+      "memory_bytes": 156,
+      "p99_ns": 2798
+    },
+    "BM.29 identity did:key public key": {
+      "median_ns": 1317,
+      "memory_bytes": 2189,
+      "p99_ns": 3092
+    },
+    "BM.29 identity spiffe id check": {
+      "median_ns": 2596,
+      "memory_bytes": 760,
+      "p99_ns": 5526
+    },
+    "BM.30 replay store detect replay": {
+      "median_ns": 668,
+      "memory_bytes": 369,
+      "p99_ns": 1037
+    },
+    "BM.30 vault decrypt": {
+      "median_ns": 1696,
+      "memory_bytes": 336,
+      "p99_ns": 2551
+    },
+    "BM.30 vault exists": {
+      "median_ns": 1060,
+      "memory_bytes": 282,
+      "p99_ns": 1581
+    },
+    "BM.31 telemetry otel attributes": {
+      "median_ns": 2802,
+      "memory_bytes": 5746,
+      "p99_ns": 4965
+    },
+    "BM.31 telemetry otel attributes high cardinality": {
+      "median_ns": 3252,
+      "memory_bytes": 4704,
+      "p99_ns": 6800
     }
   },
   "schema": "sigil_guard_bench_baseline/v1"
