@@ -26,8 +26,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 
 ## Progress Summary
 
-**Overall: 326 / 327 tasks done (99.7%).** Milestones: 17 complete.
-**Current milestone: M15.**
+**Overall: 327 / 327 tasks done (100%).** Milestones: 18 complete.
+**Current milestone: none open.**
 
 | # | Milestone | Done | Total | % | Status |
 |----|-----------|-----:|------:|-----:|-------------|
@@ -48,8 +48,8 @@ surface. The complete application gate is `./bin/check`, defined in `.check.exs`
 | M12 | Production boundary hardening | 9 | 9 | 100% | Complete |
 | M13 | Physical effect authority | 8 | 8 | 100% | Complete |
 | M14 | Spec conformance backlog | 17 | 17 | 100% | Complete |
-| M15 | Benchmarks and library conformance | 14 | 15 | 93% | In progress |
-| — | **Total** | **326** | **327** | **99.7%** | 17 done |
+| M15 | Benchmarks and library conformance | 15 | 15 | 100% | Complete |
+| — | **Total** | **327** | **327** | **100%** | 18 done |
 
 ### Release Handoff
 
@@ -83,8 +83,8 @@ M14 records the requirements that a spec-to-code review on 2026-11-20 found
 unmet, and how each was closed.
 
 M15 adds per-area benchmarks and brings the library in line with the Elixir
-library guidelines and anti-pattern guides. The baseline refresh needs a
-quiet benchmark runner.
+library guidelines and anti-pattern guides. The benchmark baseline comes
+from three runs on one GitHub-hosted runner.
 
 The table counts milestone tasks F through M15, including M7A. Recurring gates
 and deferred work have separate lists below.
@@ -3359,7 +3359,7 @@ and the sandbox class of a tool result (M14.05).
 
 > References: `SP.15`, the Elixir library guidelines and anti-pattern guides
 > Effort: L
-> Status: in progress
+> Status: complete
 > Dependencies: none
 
 A review on 2026-11-20 measured the library, checked it against the Elixir
@@ -3411,28 +3411,18 @@ traced every line no test executed.
     with one compiled pattern kept in `:persistent_term`, instead of a regex
     alternation; `Quarantine.inspect/3` on 1 KiB went from about 98 to 6.5
     microseconds.
-- [ ] M15.10 Benchmark baseline refresh (`SP.15`).
+- [x] M15.10 Benchmark baseline refresh (`SP.15`).
   - AC: three full runs on one quiet runner with every scenario median
     within +/-5%; `bench/baseline.json` replaced in its own commit.
-  - Open: on the workstation, four sets of three runs on 2026-11-20 kept
-    38, 56, 41 and 42 of 79 medians within +/-5%, the last two with sub-10
-    us scenarios timed in batches; the widest spreads were 58%, 22.5%,
-    28.2% and 130%. Load averages stayed between 10 and 20 from other
-    processes during the last set. A fifth set on 2026-11-21, at load
-    averages between 1.4 and 3.1, kept 68 of 79 within +/-5% of their
-    three-run mean, with a widest deviation of 10.2%. Nine of the eleven
-    outside are in the gateway, confirmation and attestation suites, whose
-    scenario groups moved together by up to about 5% within a run, so low
-    load alone did not steady the workstation. The rule needs a dedicated
-    runner.
-  - Next: `bench/compare.exs --band` checks a set and writes the candidate,
-    and the manual `Benchmark baseline candidate` workflow measures three
-    runs on one GitHub-hosted runner, where the 2026-11-21 pair of full
-    runs stayed within 4.5% of their mean. Dispatch it once the workflow is
-    on the default branch, and commit its candidate as
-    `bench/baseline.json` in its own commit.
-  - Not closed by the scheduled revision comparison, which bounds the changes
-    between two named revisions and leaves the committed baseline as it is.
+  - Resolved: three consecutive runs of `db3d0cf` on one GitHub-hosted
+    runner on 2026-11-22 kept every median within 2.72% of their mean;
+    `mix run bench/compare.exs --band` checked the set and wrote the last
+    run as `bench/baseline.json`. The manual `Benchmark baseline candidate`
+    workflow makes the runs. Six earlier sets fell outside the band: five
+    on the workstation, whose speed drifts by up to about 15% for
+    allocation-heavy work even at low load, and one on a hosted runner
+    whose gateway suite ran about 6% slower in one run. The harness now
+    names the Linux CPU model, so the runner class tells hosted CPUs apart.
 - [x] M15.11 Intermittent failure of the untrusted-input gateway property.
   - AC: the property "a mutated context or option value is answered, not
     raised" passes in every full run, or the input that raises is fixed.
@@ -3521,8 +3511,8 @@ traced every line no test executed.
 - Name the revision pair the scheduled benchmark comparison measures. A
   manual run takes `head` and `base`, and the job records both hashes. A
   result covers the changes between that pair only, so the comparison is
-  evidence for single-revision changes; release-wide performance claims wait
-  for M15.10 (`SP.15`).
+  evidence for single-revision changes; release-wide performance claims
+  compare with the baseline M15.10 committed (`SP.15`).
 - `EffectAuthority.admit/5` admits only a decision the gateway made with
   `effect_binding: :required` for the request's own record, and refuses with
   `:authority_expired` once the token or attestation the gateway accepted has

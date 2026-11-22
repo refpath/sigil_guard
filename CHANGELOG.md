@@ -478,6 +478,12 @@ marker; notes written below the marker before a release become part of it.
   machine.
 - `mix sigil_guard.docs_lint` reports a test module that a spec table cites and
   `test/` does not define.
+- `bench/baseline.json` is three consecutive full runs on one GitHub-hosted
+  runner, within +/-5% of each other for every scenario, and covers BM.01
+  to BM.31. `mix run bench/compare.exs --band` checks such a set and writes
+  the candidate; the manual `Benchmark baseline candidate` workflow makes
+  the runs. On Linux the environment block names the CPU model from
+  `/proc/cpuinfo` instead of the scheduler topology.
 
 ## [v1.0.5](https://github.com/refpath/sigil_guard/compare/v1.0.4...v1.0.5) (2026-10-10)
 

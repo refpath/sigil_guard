@@ -179,26 +179,24 @@ but advances in steps of about 41.7 ns on Apple silicon, and Benchee repeats
 fast functions only when the reported resolution is coarser than a
 nanosecond. A smoke run times single calls.
 
-The committed `bench/baseline.json` comes from a run before these
-corrections. Its rows for BM.02 at 1 KiB, the BM.03 quarantine path, BM.04,
-BM.05 verify, BM.06, and BM.07 describe the earlier fixtures until a
-baseline refresh replaces them, and it has no row for BM.09 to BM.31. A
-refresh needs three runs within +/-5% on a quiet runner. On a workstation
-on 2026-11-20, four sets of three runs kept 38, 56, 41 and 42 of the 79
-scenario medians within that band. A fifth set on 2026-11-21, at load
-averages between 1.4 and 3.1, kept 68 within +/-5% of their three-run
-mean; the widest deviation was 10.2%. Nine of the eleven outside are in
-the gateway, confirmation and attestation suites, where the scenario
-groups of a suite moved in the same direction within a run, by up to
-about 5%. That points to the machine's speed changing over minutes rather
-than to a fixture: on the same workstation, allocation-heavy work alone
+The committed `bench/baseline.json` is the last of three consecutive full
+runs of `db3d0cf` on one GitHub-hosted runner (AMD EPYC 9V45, 4 cores,
+Linux, Elixir 1.20.5, OTP 29) on 2026-11-22. Every scenario median of the
+three lay within 2.72% of their mean. It covers BM.01 to BM.31 with the
+corrected fixtures and replaces the 1.0.0 baseline of 2026-07-07, which
+described the earlier fixtures and had no row for BM.09 to BM.31. A
+comparison against it is binding on that runner class only.
+
+Six earlier sets fell outside the band. On a workstation, four sets on
+2026-11-20 kept 38, 56, 41 and 42 of the 79 medians within +/-5%, and a
+fifth on 2026-11-21, at load averages between 1.4 and 3.1, kept 68, with a
+widest deviation of 10.2%. On that workstation, allocation-heavy work alone
 drifted by up to about 15% between four-second windows while arithmetic
-held within 1%. On a GitHub-hosted Linux runner, the scheduled comparison
-of 2026-11-21 measured `becb2d6` and its parent one after the other, and
-every scenario median of the two lay within 4.5% of their mean. The
-baseline was not replaced. The published reports
-under `bench/output/` are from the last run of the fifth set and state
-their environment.
+held within 1%, which points to the machine's speed rather than a fixture.
+The first set on a hosted runner, on 2026-11-22, kept 68: the whole gateway
+suite ran about 6% slower in its second run, and the widest deviation was
+10.05%. The published reports under `bench/output/` are from the last
+workstation run and state their environment.
 
 ## Environment Disclosure Format
 
