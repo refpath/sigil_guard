@@ -43,16 +43,20 @@ jobs:
           done
       # The candidate baseline is the last run, written only when every
       # scenario median of the three lies within +/-5% of their mean.
+      # The findings go to stderr; keep them in the artifact and the summary
+      # whether the check passes or fails.
       - name: Check the band and write the candidate baseline
         shell: bash
         run: |
+          status=0
           mix run bench/compare.exs \
             --band bench/output/candidate/run-1.json \
             --band bench/output/candidate/run-2.json \
             --band bench/output/candidate/run-3.json \
             --write-baseline bench/output/candidate/baseline.json \
-            | tee bench/output/candidate/band.txt
-          cat bench/output/candidate/band.txt >> "$GITHUB_STEP_SUMMARY"
+            > bench/output/candidate/band.txt 2>&1 || status=$?
+          tee -a "$GITHUB_STEP_SUMMARY" < bench/output/candidate/band.txt
+          exit "$status"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
